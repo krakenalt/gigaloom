@@ -1,6 +1,10 @@
+from gpt2giga_harness import bootstrap as legacy_bootstrap
 from gpt2giga_harness import project as legacy_project
 from gpt2giga_harness import project_memory as legacy_memory
+from gpt2giga_harness import state_backup as legacy_backup
 from gpt2giga_harness.projects import api
+from gpt2giga_harness.projects import backup
+from gpt2giga_harness.projects import bootstrap
 from gpt2giga_harness.projects import memory
 
 
@@ -12,6 +16,13 @@ def test_legacy_project_imports_alias_the_bounded_context() -> None:
         legacy_memory.FilesystemProjectMemoryStore
         is memory.FilesystemProjectMemoryStore
     )
+
+
+def test_legacy_project_state_services_alias_the_bounded_context() -> None:
+    assert legacy_bootstrap.BootstrapService is bootstrap.BootstrapService
+    assert legacy_backup.create_state_backup is backup.create_state_backup
+    assert api.BootstrapService is bootstrap.BootstrapService
+    assert api.create_state_backup is backup.create_state_backup
 
 
 def test_projects_api_exposes_config_state_and_memory(tmp_path) -> None:
