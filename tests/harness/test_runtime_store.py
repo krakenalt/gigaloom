@@ -1,7 +1,9 @@
 import concurrent.futures
 from contextlib import closing
 import hashlib
+import importlib
 import json
+from pathlib import Path
 import sqlite3
 import threading
 import time
@@ -13,7 +15,24 @@ from gpt2giga_harness.sessions import filesystem as filesystem_sessions
 from gpt2giga_harness.harnesses.codex_cli import CodexCliHarness
 from gpt2giga_harness.harnesses.echo import EchoHarness
 from gpt2giga_harness.runtime.capabilities import negotiate_execution_capabilities
+from gpt2giga_harness.runtime.approvals import (
+    ApprovalDecisionsRepository,
+    ApprovalsRepository,
+)
 from gpt2giga_harness.runtime.db import DbProvider, transaction
+from gpt2giga_harness.runtime.jobs import (
+    AttemptsRepository,
+    JobClaimsRepository,
+    JobsRepository,
+)
+from gpt2giga_harness.runtime.native import NativeProcessRepository
+from gpt2giga_harness.runtime.outbox import OutboxRepository
+from gpt2giga_harness.runtime.repositories.diagnostics import (
+    RuntimeDiagnosticsRepository,
+)
+from gpt2giga_harness.runtime.revisions import RevisionsRepository
+from gpt2giga_harness.runtime.side_effects import SideEffectsRepository
+from gpt2giga_harness.runtime.workers import WorkersRepository
 from gpt2giga_harness.runtime.models import (
     JobAttemptStatus,
     JobStatus,
@@ -24,12 +43,17 @@ from gpt2giga_harness.runtime.reconcile import RuntimeReconciler
 from gpt2giga_harness.runtime.side_effects import HarnessSideEffectExecutor
 from gpt2giga_harness.runtime.store import (
     RUNTIME_SCHEMA_VERSION,
+    AttemptNotFoundError,
     ConcurrentUpdateError,
     IdempotencyConflictError,
     InvalidStateTransitionError,
+    JobNotFoundError,
+    NativeProcessRecordNotFoundError,
     RuntimeCoordinationStore,
+    RuntimeStoreError,
     SideEffectBlockedError,
     SideEffectConflictError,
+    SideEffectNotFoundError,
     _MIGRATIONS,
 )
 from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
@@ -41,6 +65,47 @@ from gpt2giga_harness.sessions.models import (
     run_to_dict,
 )
 from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability
+
+
+def test_runtime_store_facade_composes_bounded_domain_repositories():
+    method_owners = {
+        "submit_job": JobsRepository,
+        "finish_attempt": AttemptsRepository,
+        "claim_next_job": JobClaimsRepository,
+        "heartbeat_worker": WorkersRepository,
+        "create_approval_request": ApprovalsRepository,
+        "decide_approval_request": ApprovalDecisionsRepository,
+        "reserve_side_effect": SideEffectsRepository,
+        "create_native_process": NativeProcessRepository,
+        "pending_outbox": OutboxRepository,
+        "runs_center_revision": RevisionsRepository,
+        "inspect": RuntimeDiagnosticsRepository,
+    }
+
+    for method_name, owner in method_owners.items():
+        assert getattr(RuntimeCoordinationStore, method_name) is getattr(
+            owner, method_name
+        )
+    module_file = importlib.import_module(RuntimeCoordinationStore.__module__).__file__
+    assert module_file is not None
+    source_path = Path(module_file)
+    assert len(source_path.read_text(encoding="utf-8").splitlines()) <= 350
+    assert (
+        HarnessSideEffectExecutor.__module__ == "gpt2giga_harness.runtime.side_effects"
+    )
+    for error_type in (
+        RuntimeStoreError,
+        JobNotFoundError,
+        AttemptNotFoundError,
+        NativeProcessRecordNotFoundError,
+        IdempotencyConflictError,
+        SideEffectConflictError,
+        SideEffectBlockedError,
+        SideEffectNotFoundError,
+        ConcurrentUpdateError,
+        InvalidStateTransitionError,
+    ):
+        assert error_type.__module__ == "gpt2giga_harness.runtime.store"
 
 
 def test_db_provider_preserves_sqlite_contract_and_closes_resources(tmp_path):

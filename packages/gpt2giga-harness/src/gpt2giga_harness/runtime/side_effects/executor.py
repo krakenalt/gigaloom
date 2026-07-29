@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
 
 from gpt2giga_harness.runtime.models import SideEffectReservation
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
+
+if TYPE_CHECKING:
+    from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
 
 
 class HarnessSideEffectExecutor:
