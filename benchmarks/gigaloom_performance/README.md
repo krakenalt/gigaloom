@@ -60,3 +60,17 @@ percentiles, process RSS, observable block I/O, stage timings, and the full
 workload contract. Metrics that are not portable or not yet observable are
 `null` instead of inferred. Optimization targets remain unset until the owning
 performance slice reviews a measured baseline.
+
+## Workload registry
+
+Workload declarations live in
+`gpt2giga_harness.performance_workloads` and are discovered recursively in
+deterministic family/ID order. Add a cohesive leaf module under the owning
+domain package and expose a tuple named `WORKLOADS`; no central Python
+inventory needs editing.
+
+Each declaration is content-free metadata: stable ID and family, applicable
+profiles, fixture variants, required metrics and algorithmic counters, and the
+gate that consumes the evidence. Discovery rejects duplicate IDs, incomplete
+required-family coverage, unsupported profiles, and non-typed declarations
+before a benchmark starts.

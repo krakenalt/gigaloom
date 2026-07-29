@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json
 from pathlib import Path
 import stat
@@ -20,6 +21,12 @@ from gpt2giga_harness.performance_baseline import (
     SCHEMA_VERSION,
     run_performance_baseline,
     write_performance_report,
+)
+from gpt2giga_harness.performance_workloads import (
+    REQUIRED_WORKLOAD_FAMILIES,
+    WorkloadSpec,
+    discover_workloads,
+    workload_contracts,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -118,6 +125,7 @@ def test_performance_baseline_is_bounded_content_free_and_machine_readable():
     assert report["measurement_contract"]["required_workloads"] == list(
         REQUIRED_WORKLOADS
     )
+    assert report["measurement_contract"]["workload_registry"] == workload_contracts()
     assert {result["id"] for result in report["results"]} == set(CI_SMOKE_BUDGETS_MS)
     for result in report["results"]:
         assert set(result["percentiles_ms"]) == {"p50", "p95", "p99"}
@@ -132,6 +140,66 @@ def test_performance_baseline_is_bounded_content_free_and_machine_readable():
         ]
         is False
     )
+
+
+def test_workload_registry_is_deterministic_and_covers_required_families():
+    first = discover_workloads()
+    second = discover_workloads()
+
+    assert first == second
+    assert tuple(workload.family for workload in first) == REQUIRED_WORKLOAD_FAMILIES
+    assert len({workload.id for workload in first}) == len(first)
+    assert all(isinstance(workload, WorkloadSpec) for workload in first)
+    assert workload_contracts() == [workload.as_contract() for workload in first]
+
+
+def test_workload_discovery_accepts_new_module_without_central_inventory(
+    tmp_path,
+    monkeypatch,
+):
+    package_name = "performance_extension_fixture"
+    package = tmp_path / package_name
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    declarations = (
+        ("zeta.py", "extension.zeta", "extension/zeta"),
+        ("alpha.py", "extension.alpha", "extension/alpha"),
+    )
+    for filename, workload_id, family in declarations:
+        (package / filename).write_text(
+            "\n".join(
+                (
+                    "from gpt2giga_harness.performance_workloads import WorkloadSpec",
+                    "",
+                    "WORKLOADS = (",
+                    "    WorkloadSpec(",
+                    f"        id={workload_id!r},",
+                    f"        family={family!r},",
+                    "        profiles=('local-detail',),",
+                    "        variants=('fixture',),",
+                    "        required_metrics=('wall_ms',),",
+                    "        required_counters=('calls',),",
+                    "        future_gate='fixture',",
+                    "    ),",
+                    ")",
+                    "",
+                )
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+
+    discovered = discover_workloads(
+        package_name=package_name,
+        required_families=(),
+    )
+
+    assert [workload.id for workload in discovered] == [
+        "extension.alpha",
+        "extension.zeta",
+    ]
 
 
 def test_local_detail_profile_keeps_bounded_content_free_samples():

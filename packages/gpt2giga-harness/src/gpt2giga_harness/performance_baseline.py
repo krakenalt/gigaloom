@@ -24,6 +24,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised on Windows
     resource = None
 
 from gpt2giga_harness.config import HarnessConfig
+from gpt2giga_harness.performance_workloads import workload_contracts
 from gpt2giga_harness.registry import create_default_registry
 from gpt2giga_harness.ui.app import create_app
 
@@ -351,6 +352,9 @@ def _summarize_probe(
 
 def _finalize_report(report: dict[str, Any]) -> dict[str, Any]:
     profile = str(report["profile"])
+    measurement_contract = dict(report.get("measurement_contract") or {})
+    measurement_contract["workload_registry"] = workload_contracts()
+    report["measurement_contract"] = measurement_contract
     environment = dict(report.get("environment") or {})
     environment.setdefault("sqlite", sqlite3.sqlite_version)
     fingerprint_fields = {
