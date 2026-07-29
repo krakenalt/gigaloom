@@ -3,8 +3,10 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-const workbench = readFileSync(
-  fileURLToPath(new URL("./surfaces/workbench.tsx", import.meta.url)),
+const environmentActions = readFileSync(
+  fileURLToPath(
+    new URL("./features/workbench/environment-actions.tsx", import.meta.url),
+  ),
   "utf8",
 );
 const inbox = readFileSync(
@@ -23,10 +25,10 @@ const styles = readFileSync(fileURLToPath(new URL("./styles.css", import.meta.ur
 
 describe("governed Environment push flow", () => {
   it("keeps preview, approval, and apply on backend-owned routes", () => {
-    expect(workbench).toContain('"/api/environment/push/preview"');
-    expect(workbench).toContain('"/api/environment/push/apply"');
-    expect(workbench).toContain("environmentPushPreview");
-    expect(workbench).toContain("openInbox(\"approvals\")");
+    expect(environmentActions).toContain('"/api/environment/push/preview"');
+    expect(environmentActions).toContain('"/api/environment/push/apply"');
+    expect(environmentActions).toContain("setPushPreview");
+    expect(environmentActions).toContain("openInbox()");
   });
 
   it("shows exact remote state and permissions before approval", () => {
@@ -38,8 +40,8 @@ describe("governed Environment push flow", () => {
   });
 
   it("links the exact remote commit and run evidence after completion", () => {
-    expect(workbench).toContain("remote_commit_url");
-    expect(workbench).toContain("run_evidence_url");
+    expect(environmentActions).toContain("remote_commit_url");
+    expect(environmentActions).toContain("run_evidence_url");
     expect(styles).toContain(".environment-push-links");
   });
 });

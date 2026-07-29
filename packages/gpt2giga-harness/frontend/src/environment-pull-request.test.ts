@@ -3,8 +3,10 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-const workbench = readFileSync(
-  fileURLToPath(new URL("./surfaces/workbench.tsx", import.meta.url)),
+const environmentActions = readFileSync(
+  fileURLToPath(
+    new URL("./features/workbench/environment-actions.tsx", import.meta.url),
+  ),
   "utf8",
 );
 const inbox = readFileSync(
@@ -23,10 +25,14 @@ const styles = readFileSync(fileURLToPath(new URL("./styles.css", import.meta.ur
 
 describe("governed Environment pull-request flow", () => {
   it("keeps preview, approval, and apply on backend-owned routes", () => {
-    expect(workbench).toContain('"/api/environment/pull-request/preview"');
-    expect(workbench).toContain('"/api/environment/pull-request/apply"');
-    expect(workbench).toContain("environmentPullRequestPreview");
-    expect(workbench).toContain('openInbox("approvals")');
+    expect(environmentActions).toContain(
+      '"/api/environment/pull-request/preview"',
+    );
+    expect(environmentActions).toContain(
+      '"/api/environment/pull-request/apply"',
+    );
+    expect(environmentActions).toContain("setPullRequestPreview");
+    expect(environmentActions).toContain("openInbox()");
   });
 
   it("shows exact repository, refs, content, and permissions before approval", () => {
@@ -39,10 +45,10 @@ describe("governed Environment pull-request flow", () => {
   });
 
   it("links the exact PR, commit, checks, and run evidence", () => {
-    expect(workbench).toContain("pull_request_url");
-    expect(workbench).toContain("commit_url");
-    expect(workbench).toContain("checks_url");
-    expect(workbench).toContain("run_evidence_url");
+    expect(environmentActions).toContain("pull_request_url");
+    expect(environmentActions).toContain("commit_url");
+    expect(environmentActions).toContain("checks_url");
+    expect(environmentActions).toContain("run_evidence_url");
     expect(styles).toContain(".environment-pull-request-action");
   });
 });

@@ -1,54 +1,76 @@
 import {
-  type UseMutationResult,
   useMutation,
-  useQueries,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { Fragment, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 
 import {
-  type AttachmentSummary,
-  type AttachmentUploadResponse,
   deleteCockpit,
-  type EnvironmentCommitApplyResponse,
-  type EnvironmentCommitPreview,
-  type EnvironmentCommitPreviewResponse,
-  type EnvironmentPushApplyResponse,
-  type EnvironmentPushPreview,
-  type EnvironmentPushPreviewResponse,
-  type EnvironmentPullRequestApplyResponse,
-  type EnvironmentPullRequestPreview,
-  type EnvironmentPullRequestPreviewResponse,
-  type EventProjection,
-  type EventPayloadResponse,
   fetchCockpit,
-  type FullMessageResponse,
   mutateCockpit,
   patchCockpit,
   type RunPreflightResponse,
   type RunStartResponse,
   type SessionSummary,
-  type TokenUsageProjection,
   withQuery,
 } from "../api";
-import { composerAttachments, isPreviewableImage } from "../attachment-model";
+import { composerAttachments } from "../attachment-model";
+import {
+  AttachmentGallery,
+  formatBytes,
+  useAttachmentActions,
+} from "../features/workbench/attachment-actions";
+import { useComposerController } from "../features/workbench/composer-controller";
+import {
+  CompletionNotices,
+  isActiveRunStatus,
+  useCompletionNotifications,
+} from "../features/workbench/completion-notifications";
+import {
+  EnvironmentCard,
+  useEnvironmentActions,
+} from "../features/workbench/environment-actions";
+import {
+  GeneratedFilePreview,
+  GeneratedFileCard,
+  hasRetainedResponse,
+  PlanCard,
+  Progression,
+  ReasoningDisclosure,
+  RetainedToolActivities,
+  TokenUsage,
+  ToolActivityCard,
+} from "../features/workbench/inspectors";
 import { MessageMarkdown } from "../message-markdown";
-import { generatedFileProjection } from "../generated-image";
-import { projectEnvironment, type EnvironmentView } from "../environment-model";
+import { projectEnvironment } from "../environment-model";
 import {
   latestEditableUserMessageId,
   projectActiveMessageTimeline,
-  resolveMessageAction,
   timelineWhileEditing,
-  type MessageActionKind,
-  type ResolvedMessageAction,
 } from "../message-actions";
+import {
+  MessageActions,
+  useMessageActions,
+} from "../features/workbench/message-actions";
+import {
+  isReasoningModel,
+  persistRunConfiguration,
+  preferredModel,
+  type ReasoningEffort,
+  type RunConfig,
+  useRunConfiguration,
+} from "../features/workbench/run-configuration";
+import {
+  ArchiveSessionIcon,
+  DeleteSessionIcon,
+  SessionConfirmationDialog,
+  type SessionAction,
+  useSessionNavigator,
+} from "../features/workbench/session-navigation";
 import { message, type MessageKey } from "../messages";
 import { usePreferences } from "../preferences-context";
-import type { LocalePreference } from "../preferences";
 import { integrationFlowOptions } from "../remaining-request-graph";
 import {
   environmentOptions,
@@ -91,15 +113,10 @@ import {
   runStage,
   sessionGroups,
   shortId,
-  type RunStage,
 } from "../surface-model";
 import { useRunEventStream } from "../stream-store";
 import {
-  nestWorkbenchToolActivities,
-  projectToolPayload,
   projectWorkbenchStream,
-  type WorkbenchPlanItem,
-  type WorkbenchToolActivity,
   workbenchRunActive,
 } from "../workbench-model";
 import {
@@ -117,39 +134,6 @@ import {
 import { permissionSimulationRows } from "../approval-ux";
 
 const layoutKey = "gpt2giga.cockpit-v2.workbench-layout.v1";
-const runPreferencesKey = "gpt2giga.cockpit-v2.run-preferences.v1";
-const reasoningModel = "GigaChat-2-Reasoning";
-type SessionAction = "archive" | "delete";
-type MessageAction = {
-  kind: MessageActionKind;
-  messageId: string;
-  role: "assistant" | "user";
-};
-type RunConfig = { apiMode: string; harnessId: string; mode: string; model: string };
-type ReasoningEffort = "high" | "low" | "medium";
-type AdvancedRunConfig = {
-  dryRun: boolean;
-  permissionProfile: string;
-  workspacePolicy: string;
-};
-
-function ArchiveSessionIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24">
-      <path d="M4 7h16M6 7v12h12V7M9 11h6" />
-      <path d="M5 4h14v3H5z" />
-    </svg>
-  );
-}
-
-function DeleteSessionIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24">
-      <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" />
-    </svg>
-  );
-}
-
 type StartResult =
   | { kind: "preview"; report: RunPreflightResponse["preflight"] }
   | { kind: "run"; run: RunStartResponse["run"] };
@@ -169,15 +153,6 @@ const toolCategoryMessageKeys: Record<ComposerToolCategory, MessageKey> = {
   skill: "toolCategorySkill",
 };
 const emptyStringList: readonly string[] = [];
-const activeRunStatusGroups = new Set(["approval-needed", "blocked", "queued", "running"]);
-const terminalRunStatusGroups = new Set(["canceled", "completed", "failed"]);
-
-type CompletionNotice = {
-  id: string;
-  sessionId: string;
-  status: string;
-  title: string;
-};
 
 type ProviderHandoffPreview = {
   handoff: {
@@ -186,258 +161,6 @@ type ProviderHandoffPreview = {
     status: string;
   };
 };
-
-type EnvironmentCommitDraft = {
-  authorEmail: string;
-  authorName: string;
-  message: string;
-};
-
-type EnvironmentCommitAction = {
-  draft: EnvironmentCommitDraft;
-  error: boolean;
-  notice: string | null;
-  pending: boolean;
-  preview: EnvironmentCommitPreview | undefined;
-  setField: (field: keyof EnvironmentCommitDraft, value: string) => void;
-  submit: () => void;
-};
-
-type EnvironmentPushAction = {
-  error: boolean;
-  notice: string | null;
-  pending: boolean;
-  preview: EnvironmentPushPreview | undefined;
-  result: EnvironmentPushApplyResponse["result"] | undefined;
-  submit: () => void;
-};
-
-type EnvironmentPullRequestDraft = {
-  baseBranch: string;
-  body: string;
-  title: string;
-};
-
-type EnvironmentPullRequestAction = {
-  draft: EnvironmentPullRequestDraft;
-  error: boolean;
-  notice: string | null;
-  pending: boolean;
-  preview: EnvironmentPullRequestPreview | undefined;
-  result: EnvironmentPullRequestApplyResponse["result"] | undefined;
-  setField: (field: keyof EnvironmentPullRequestDraft, value: string) => void;
-  submit: () => void;
-};
-
-function EnvironmentCard({
-  className = "",
-  environment,
-  error,
-  commitAction,
-  pushAction,
-  pullRequestAction,
-  locale,
-  pending,
-}: {
-  className?: string;
-  environment: EnvironmentView | undefined;
-  error: boolean;
-  commitAction: EnvironmentCommitAction;
-  pushAction: EnvironmentPushAction;
-  pullRequestAction: EnvironmentPullRequestAction;
-  locale: LocalePreference;
-  pending: boolean;
-}) {
-  return (
-    <section
-      className={`inspector-section environment-card ${className}`.trim()}
-      data-state={environment?.status ?? "unavailable"}
-    >
-      <div className="environment-heading">
-        <h3>{message(locale, "environment")}</h3>
-        <span>{environment?.status ?? "unavailable"}</span>
-      </div>
-      {environment === undefined ? (
-        <span className={error ? "mutation-error" : "muted-copy"}>
-          {pending ? "…" : message(locale, "environmentUnavailable")}
-        </span>
-      ) : (
-        <dl className="plan-fields">
-          <div><dt>{message(locale, "changes")}</dt><dd>{environment.changes}</dd></div>
-          <div><dt>{message(locale, "worktree")}</dt><dd title={environment.worktree}>{environment.worktree}</dd></div>
-          <div><dt>{message(locale, "environmentBranch")}</dt><dd>{environment.branch} · {environment.head}</dd></div>
-          <div><dt>{message(locale, "environmentCommit")}</dt><dd>{environment.commit}</dd></div>
-          <div><dt>{message(locale, "environmentPush")}</dt><dd>{environment.push}</dd></div>
-          <div><dt>{message(locale, "environmentIssuePr")}</dt><dd>{environment.issuePr}</dd></div>
-          <div><dt>{message(locale, "environmentGitHub")}</dt><dd>{environment.githubRepository} · {environment.githubStatus}</dd></div>
-          <div><dt>{message(locale, "environmentGitHubChecks")}</dt><dd>{environment.githubChecks}</dd></div>
-          <div><dt>{message(locale, "environmentGitHubActions")}</dt><dd>{environment.githubActions}</dd></div>
-          <div><dt>{message(locale, "environmentCaptured")}</dt><dd>{formatTimestamp(environment.capturedAt, locale)}</dd></div>
-        </dl>
-      )}
-      <form
-        className="environment-commit-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          commitAction.submit();
-        }}
-      >
-        <label>
-          <span>{locale === "ru" ? "Сообщение коммита" : "Commit message"}</span>
-          <input
-            disabled={environment?.commit !== "ready" || commitAction.pending}
-            maxLength={4096}
-            onChange={(event) => commitAction.setField("message", event.target.value)}
-            required
-            value={commitAction.draft.message}
-          />
-        </label>
-        <div>
-          <label>
-            <span>{locale === "ru" ? "Имя автора" : "Author name"}</span>
-            <input
-              disabled={environment?.commit !== "ready" || commitAction.pending}
-              maxLength={200}
-              onChange={(event) => commitAction.setField("authorName", event.target.value)}
-              required
-              value={commitAction.draft.authorName}
-            />
-          </label>
-          <label>
-            <span>{locale === "ru" ? "Email автора" : "Author email"}</span>
-            <input
-              disabled={environment?.commit !== "ready" || commitAction.pending}
-              maxLength={200}
-              onChange={(event) => commitAction.setField("authorEmail", event.target.value)}
-              required
-              type="email"
-              value={commitAction.draft.authorEmail}
-            />
-          </label>
-        </div>
-        <button
-          className="primary-button"
-          disabled={environment?.commit !== "ready" || commitAction.pending}
-          type="submit"
-        >
-          {message(
-            locale,
-            commitAction.preview === undefined
-              ? "environmentCommit"
-              : "apply",
-          )}
-        </button>
-        {commitAction.notice === null ? null : (
-          <p className={commitAction.error ? "mutation-error" : "mutation-success"}>
-            {commitAction.notice}
-          </p>
-        )}
-      </form>
-      <section className="environment-push-action">
-        {pushAction.preview === undefined ? null : (
-          <dl className="plan-fields">
-            <div><dt>Remote</dt><dd>{pushAction.preview.remote}</dd></div>
-            <div><dt>Upstream</dt><dd>{pushAction.preview.upstream ?? "new"}</dd></div>
-            <div><dt>{locale === "ru" ? "Целевая ветка" : "Target branch"}</dt><dd>{pushAction.preview.target_branch}</dd></div>
-            <div><dt>HEAD</dt><dd><code>{pushAction.preview.head.slice(0, 12)}</code></dd></div>
-            <div><dt>Remote HEAD</dt><dd><code>{pushAction.preview.remote_head?.slice(0, 12) ?? "new"}</code></dd></div>
-          </dl>
-        )}
-        <button
-          className="primary-button"
-          disabled={environment?.push !== "ready" || pushAction.pending}
-          onClick={pushAction.submit}
-          type="button"
-        >
-          {message(locale, pushAction.preview === undefined ? "environmentPush" : "apply")}
-        </button>
-        {pushAction.notice === null ? null : (
-          <p className={pushAction.error ? "mutation-error" : "mutation-success"}>
-            {pushAction.notice}
-          </p>
-        )}
-        {pushAction.result === undefined ? null : (
-          <div className="environment-push-links">
-            <a href={pushAction.result.remote_commit_url} rel="noreferrer" target="_blank">
-              {locale === "ru" ? "Удалённый коммит" : "Remote commit"}
-            </a>
-            <a href={pushAction.result.run_evidence_url} rel="noreferrer" target="_blank">
-              {locale === "ru" ? "Проверки и запуски" : "Checks and runs"}
-            </a>
-          </div>
-        )}
-      </section>
-      <form
-        className="environment-pull-request-action"
-        onSubmit={(event) => {
-          event.preventDefault();
-          pullRequestAction.submit();
-        }}
-      >
-        <label>
-          <span>{locale === "ru" ? "Заголовок pull request" : "Pull-request title"}</span>
-          <input
-            disabled={environment?.push !== "ready" || pullRequestAction.pending}
-            maxLength={256}
-            onChange={(event) => pullRequestAction.setField("title", event.target.value)}
-            required
-            value={pullRequestAction.draft.title}
-          />
-        </label>
-        <label>
-          <span>{locale === "ru" ? "Описание" : "Body"}</span>
-          <textarea
-            disabled={environment?.push !== "ready" || pullRequestAction.pending}
-            maxLength={16384}
-            onChange={(event) => pullRequestAction.setField("body", event.target.value)}
-            value={pullRequestAction.draft.body}
-          />
-        </label>
-        <label>
-          <span>{locale === "ru" ? "Базовая ветка" : "Base branch"}</span>
-          <input
-            disabled={environment?.push !== "ready" || pullRequestAction.pending}
-            maxLength={512}
-            onChange={(event) => pullRequestAction.setField("baseBranch", event.target.value)}
-            placeholder={locale === "ru" ? "по умолчанию" : "repository default"}
-            value={pullRequestAction.draft.baseBranch}
-          />
-        </label>
-        {pullRequestAction.preview === undefined ? null : (
-          <dl className="plan-fields">
-            <div><dt>{locale === "ru" ? "Репозиторий" : "Repository"}</dt><dd>{pullRequestAction.preview.repository.name_with_owner}</dd></div>
-            <div><dt>{locale === "ru" ? "Исходная ветка" : "Source branch"}</dt><dd>{pullRequestAction.preview.source_branch}</dd></div>
-            <div><dt>{locale === "ru" ? "Базовая ветка" : "Base branch"}</dt><dd>{pullRequestAction.preview.base_branch}</dd></div>
-            <div><dt>HEAD</dt><dd><code>{pullRequestAction.preview.source_head.slice(0, 12)}</code></dd></div>
-            <div><dt>Base HEAD</dt><dd><code>{pullRequestAction.preview.base_head.slice(0, 12)}</code></dd></div>
-          </dl>
-        )}
-        <button
-          className="primary-button"
-          disabled={environment?.push !== "ready" || pullRequestAction.pending}
-          type="submit"
-        >
-          {pullRequestAction.preview === undefined
-            ? (locale === "ru" ? "Создать pull request" : "Create pull request")
-            : message(locale, "apply")}
-        </button>
-        {pullRequestAction.notice === null ? null : (
-          <p className={pullRequestAction.error ? "mutation-error" : "mutation-success"}>
-            {pullRequestAction.notice}
-          </p>
-        )}
-        {pullRequestAction.result === undefined ? null : (
-          <div className="environment-push-links">
-            <a href={pullRequestAction.result.pull_request_url} rel="noreferrer" target="_blank">PR #{pullRequestAction.result.number}</a>
-            <a href={pullRequestAction.result.commit_url} rel="noreferrer" target="_blank">Commit</a>
-            <a href={pullRequestAction.result.checks_url} rel="noreferrer" target="_blank">Checks</a>
-            <a href={pullRequestAction.result.run_evidence_url} rel="noreferrer" target="_blank">Actions</a>
-          </div>
-        )}
-      </form>
-    </section>
-  );
-}
 
 export function WorkbenchSurface() {
   const params = useParams({ strict: false });
@@ -448,71 +171,69 @@ export function WorkbenchSurface() {
       : undefined;
   const { preferences } = usePreferences();
   const locale = preferences.locale;
+  const environmentActions = useEnvironmentActions(sessionId, locale);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
+  const {
+    atSelection,
+    builtinTools,
+    composerCaret,
+    composerRef,
+    draggingFiles,
+    fileInputRef,
+    modelMenuOpen,
+    plusMenuOpen,
+    prompt,
+    selectedSkills,
+    setAtSelection,
+    setBuiltinTools,
+    setComposerCaret,
+    setDraggingFiles,
+    setModelMenuOpen,
+    setPlusMenuOpen,
+    setPrompt,
+    setSelectedSkills,
+    setToolPickerOpen,
+    setToolSearch,
+    toolPickerOpen,
+    toolSearch,
+  } = useComposerController();
+  const {
+    advancedConfig,
+    advancedOpen,
+    legacyModeWarning,
+    productSelection,
+    reasoningEffort,
+    runConfig,
+    setAdvancedConfig,
+    setAdvancedOpen,
+    setLegacyModeWarning,
+    setProductSelection,
+    setReasoningEffort,
+    setRunConfig,
+  } = useRunConfiguration();
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [leftWidth, setLeftWidth] = useState(() => loadWidth("left", 264));
   const [rightWidth, setRightWidth] = useState(() => loadWidth("right", 320));
-  const [prompt, setPrompt] = useState("");
-  const [selectedSkills, setSelectedSkills] = useState<SkillMention[]>([]);
-  const [environmentCommitDraft, setEnvironmentCommitDraft] = useState<EnvironmentCommitDraft>({
-    authorEmail: "",
-    authorName: "",
-    message: "",
-  });
-  const [environmentCommitPreview, setEnvironmentCommitPreview] = useState<EnvironmentCommitPreview>();
-  const [environmentCommitNotice, setEnvironmentCommitNotice] = useState<string | null>(null);
-  const [environmentPushPreview, setEnvironmentPushPreview] = useState<EnvironmentPushPreview>();
-  const [environmentPushResult, setEnvironmentPushResult] = useState<EnvironmentPushApplyResponse["result"]>();
-  const [environmentPushNotice, setEnvironmentPushNotice] = useState<string | null>(null);
-  const [environmentPullRequestDraft, setEnvironmentPullRequestDraft] = useState<EnvironmentPullRequestDraft>({
-    baseBranch: "",
-    body: "",
-    title: "",
-  });
-  const [environmentPullRequestPreview, setEnvironmentPullRequestPreview] = useState<EnvironmentPullRequestPreview>();
-  const [environmentPullRequestResult, setEnvironmentPullRequestResult] = useState<EnvironmentPullRequestApplyResponse["result"]>();
-  const [environmentPullRequestNotice, setEnvironmentPullRequestNotice] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string>();
-  const rememberedRunPreferences = useMemo(loadRunPreferences, []);
-  const rememberedProductSelection = useMemo(
-    () => resolveLegacyProductSelection(
-      rememberedRunPreferences.config.mode,
-      rememberedRunPreferences.config.harnessId === "direct-chat"
-        ? "direct_chat"
-        : "coding_agent",
-    ),
-    [rememberedRunPreferences],
-  );
-  const [runConfig, setRunConfig] = useState<RunConfig>(rememberedRunPreferences.config);
-  const [productSelection, setProductSelection] = useState<ProductExecutionSelection>(
-    rememberedProductSelection.selection,
-  );
-  const [legacyModeWarning, setLegacyModeWarning] = useState<string | null>(
-    rememberedProductSelection.warning,
-  );
-  const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>(
-    rememberedRunPreferences.reasoningEffort,
-  );
-  const [advancedConfig, setAdvancedConfig] = useState<AdvancedRunConfig>({
-    dryRun: false,
-    permissionProfile: "interactive",
-    workspacePolicy: "auto",
+  const attachmentActions = useAttachmentActions({
+    composerRef,
+    prompt,
+    sessionId,
+    setAtSelection,
+    setComposerCaret,
+    setPrompt,
   });
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [builtinTools, setBuiltinTools] = useState<string[]>([]);
-  const [modelMenuOpen, setModelMenuOpen] = useState(false);
-  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
-  const [toolPickerOpen, setToolPickerOpen] = useState(false);
-  const [toolSearch, setToolSearch] = useState("");
-  const [draggingFiles, setDraggingFiles] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const composerRef = useRef<HTMLTextAreaElement>(null);
-  const [composerCaret, setComposerCaret] = useState(0);
-  const [atSelection, setAtSelection] = useState(0);
   const [previewReport, setPreviewReport] = useState<RunPreflightResponse["preflight"] | null>(null);
+  const messageAction = useMessageActions({
+    clearPreview: () => setPreviewReport(null),
+    composerRef,
+    sessionId,
+    setComposerCaret,
+    setEditingMessageId,
+    setPrompt,
+  });
   const permissionHighlights = permissionSimulationHighlights(
     previewReport?.permission_simulation,
   );
@@ -520,9 +241,6 @@ export function WorkbenchSurface() {
     previewReport?.permission_simulation,
   );
   const [startedRuns, setStartedRuns] = useState<Record<string, string>>({});
-  const [unreadSessionIds, setUnreadSessionIds] = useState<Set<string>>(() => new Set());
-  const [completionNotices, setCompletionNotices] = useState<CompletionNotice[]>([]);
-  const previousRunStatuses = useRef(new Map<string, string>());
   const settingsDefaultsApplied = useRef(false);
   const automaticSessionRequested = useRef(false);
   const [sessionConfirmation, setSessionConfirmation] = useState<{
@@ -532,7 +250,16 @@ export function WorkbenchSurface() {
   } | null>(null);
 
   const index = useQuery(sessionIndexOptions());
+  const { filteredSessions, search, setSearch } = useSessionNavigator(
+    index.data?.sessions,
+    locale,
+  );
   const runsCenter = useQuery(runsCenterOptions());
+  const completionNotifications = useCompletionNotifications({
+    locale,
+    runs: runsCenter.data?.runs,
+    sessionId,
+  });
   const harnesses = useQuery(harnessesOptions());
   const models = useQuery(modelsOptions(runConfig.apiMode));
   const settings = useQuery(settingsOptions());
@@ -646,10 +373,7 @@ export function WorkbenchSurface() {
   }, [leftWidth, rightWidth]);
 
   useEffect(() => {
-    localStorage.setItem(
-      runPreferencesKey,
-      JSON.stringify({ ...runConfig, reasoningEffort }),
-    );
+    persistRunConfiguration(runConfig, reasoningEffort);
   }, [reasoningEffort, runConfig]);
 
   useEffect(() => {
@@ -729,115 +453,6 @@ export function WorkbenchSurface() {
       void queryClient.invalidateQueries({ queryKey: requestKeys.sessionIndex() });
     },
   });
-  const environmentCommit = useMutation({
-    mutationFn: async () => {
-      if (sessionId === undefined) throw new Error("Session is not selected");
-      const preview = environmentCommitPreview ?? (
-        await mutateCockpit<EnvironmentCommitPreviewResponse>(
-          "/api/environment/commit/preview",
-          {
-            session_id: sessionId,
-            message: environmentCommitDraft.message,
-            author_name: environmentCommitDraft.authorName,
-            author_email: environmentCommitDraft.authorEmail,
-          },
-        )
-      ).preview;
-      return mutateCockpit<EnvironmentCommitApplyResponse>(
-        "/api/environment/commit/apply",
-        { preview_id: preview.id, session_id: sessionId },
-      );
-    },
-    onSuccess: async (response) => {
-      if (response.result === undefined) {
-        setEnvironmentCommitPreview(response.preview);
-        setEnvironmentCommitNotice(
-          locale === "ru"
-            ? "Подтвердите точный коммит во Inbox и примените снова."
-            : "Approve the exact commit in Inbox, then apply again.",
-        );
-        openInbox("approvals");
-        return;
-      }
-      setEnvironmentCommitPreview(undefined);
-      setEnvironmentCommitDraft((current) => ({ ...current, message: "" }));
-      setEnvironmentCommitNotice(
-        `${message(locale, "environmentCommit")}: ${response.result.commit_head.slice(0, 8)}`,
-      );
-      await queryClient.invalidateQueries({ queryKey: requestKeys.environment(sessionId ?? "pending") });
-    },
-  });
-  const environmentPush = useMutation({
-    mutationFn: async () => {
-      if (sessionId === undefined) throw new Error("Session is not selected");
-      const preview = environmentPushPreview ?? (
-        await mutateCockpit<EnvironmentPushPreviewResponse>(
-          "/api/environment/push/preview",
-          { session_id: sessionId },
-        )
-      ).preview;
-      return mutateCockpit<EnvironmentPushApplyResponse>(
-        "/api/environment/push/apply",
-        { preview_id: preview.id, session_id: sessionId },
-      );
-    },
-    onSuccess: async (response) => {
-      if (response.result === undefined) {
-        setEnvironmentPushPreview(response.preview);
-        setEnvironmentPushResult(undefined);
-        setEnvironmentPushNotice(
-          locale === "ru"
-            ? "Подтвердите точный push во Inbox и примените снова."
-            : "Approve the exact push in Inbox, then apply again.",
-        );
-        openInbox("approvals");
-        return;
-      }
-      setEnvironmentPushPreview(undefined);
-      setEnvironmentPushResult(response.result);
-      setEnvironmentPushNotice(
-        `${message(locale, "environmentPush")}: ${response.result.commit_head.slice(0, 8)}`,
-      );
-      await queryClient.invalidateQueries({ queryKey: requestKeys.environment(sessionId ?? "pending") });
-    },
-  });
-  const environmentPullRequest = useMutation({
-    mutationFn: async () => {
-      if (sessionId === undefined) throw new Error("Session is not selected");
-      const preview = environmentPullRequestPreview ?? (
-        await mutateCockpit<EnvironmentPullRequestPreviewResponse>(
-          "/api/environment/pull-request/preview",
-          {
-            session_id: sessionId,
-            title: environmentPullRequestDraft.title,
-            body: environmentPullRequestDraft.body,
-            base_branch: environmentPullRequestDraft.baseBranch || undefined,
-          },
-        )
-      ).preview;
-      return mutateCockpit<EnvironmentPullRequestApplyResponse>(
-        "/api/environment/pull-request/apply",
-        { preview_id: preview.id, session_id: sessionId },
-      );
-    },
-    onSuccess: async (response) => {
-      if (response.result === undefined) {
-        setEnvironmentPullRequestPreview(response.preview);
-        setEnvironmentPullRequestResult(undefined);
-        setEnvironmentPullRequestNotice(
-          locale === "ru"
-            ? "Подтвердите точный pull request во Inbox и примените снова."
-            : "Approve the exact pull request in Inbox, then apply again.",
-        );
-        openInbox("approvals");
-        return;
-      }
-      setEnvironmentPullRequestPreview(undefined);
-      setEnvironmentPullRequestResult(response.result);
-      setEnvironmentPullRequestNotice(`PR #${response.result.number}`);
-      await queryClient.invalidateQueries({ queryKey: requestKeys.environment(sessionId ?? "pending") });
-    },
-  });
   const createSessionMutate = createSession.mutate;
 
   useEffect(() => {
@@ -911,44 +526,11 @@ export function WorkbenchSurface() {
       const { run } = result;
       setPreviewReport(null);
       setStartedRuns((current) => ({ ...current, [run.session_id]: run.id }));
-      previousRunStatuses.current.set(run.id, run.status);
+      completionNotifications.recordStartedRun(run.id, run.status);
       await refreshSessionAfterRunStart(queryClient, run.session_id);
       setEditingMessageId(undefined);
       setPrompt("");
       setSelectedSkills([]);
-    },
-  });
-  const messageAction = useMutation({
-    mutationFn: async ({ kind, messageId }: MessageAction) => {
-      if (sessionId === undefined) throw new Error("Session is not selected");
-      return resolveMessageAction(
-        kind,
-        async () => {
-          const response = await fetchCockpit<FullMessageResponse>(
-            `/api/cockpit/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/content`,
-          );
-          return response.content;
-        },
-        async (content) => {
-          if (typeof navigator.clipboard?.writeText !== "function") {
-            throw new Error("Clipboard API is unavailable");
-          }
-          await navigator.clipboard.writeText(content);
-        },
-      );
-    },
-    onSuccess: ({ content, kind }, variables) => {
-      if (kind !== "edit") return;
-      setEditingMessageId(variables.messageId);
-      setPrompt(content);
-      setComposerCaret(content.length);
-      setPreviewReport(null);
-      requestAnimationFrame(() => {
-        const composer = composerRef.current;
-        composer?.focus();
-        composer?.setSelectionRange(content.length, content.length);
-        composer?.scrollIntoView({ block: "nearest" });
-      });
     },
   });
   const openInProvider = useMutation({
@@ -972,56 +554,6 @@ export function WorkbenchSurface() {
         (current: typeof overview.data) => current === undefined ? current : { ...current, session },
       );
       void queryClient.invalidateQueries({ queryKey: requestKeys.sessionIndex() });
-    },
-  });
-
-  const uploadFiles = useMutation({
-    mutationFn: async ({ files, source }: { files: File[]; source: string }) => {
-      if (sessionId === undefined) throw new Error("Session is not selected");
-      return Promise.all(files.map(async (file) => mutateCockpit<AttachmentUploadResponse>(
-        `/api/sessions/${encodeURIComponent(sessionId)}/attachments`,
-        {
-          data_base64: await fileToBase64(file),
-          filename: file.name || `pasted-${Date.now()}.png`,
-          mime_type: file.type || "application/octet-stream",
-          source,
-        },
-      )));
-    },
-    onSuccess: async () => {
-      if (sessionId !== undefined) {
-        await queryClient.invalidateQueries({ queryKey: requestKeys.sessionAttachments(sessionId) });
-      }
-    },
-  });
-
-  const attachWorkspaceFile = useMutation({
-    mutationFn: ({ path }: { path: string; token: { start: number; end: number } }) => {
-      if (sessionId === undefined) throw new Error("Session is not selected");
-      return mutateCockpit<AttachmentUploadResponse>(
-        `/api/sessions/${encodeURIComponent(sessionId)}/attachments/workspace`,
-        { path },
-      );
-    },
-    onSuccess: async (_, { token }) => {
-      const nextPrompt = consumeAtQuery(prompt, token);
-      setPrompt(nextPrompt);
-      setComposerCaret(nextPrompt.length);
-      setAtSelection(0);
-      if (sessionId !== undefined) {
-        await queryClient.invalidateQueries({ queryKey: requestKeys.sessionAttachments(sessionId) });
-      }
-      requestAnimationFrame(() => composerRef.current?.focus());
-    },
-  });
-
-  const removeAttachment = useMutation({
-    mutationFn: (attachmentId: string) =>
-      deleteCockpit(`/api/attachments/${encodeURIComponent(attachmentId)}`),
-    onSuccess: async () => {
-      if (sessionId !== undefined) {
-        await queryClient.invalidateQueries({ queryKey: requestKeys.sessionAttachments(sessionId) });
-      }
     },
   });
 
@@ -1065,14 +597,6 @@ export function WorkbenchSurface() {
     },
   });
 
-  const filteredSessions = useMemo(() => {
-    const needle = search.trim().toLocaleLowerCase(locale);
-    const items = index.data?.sessions ?? [];
-    return needle
-      ? items.filter((session) => session.title.toLocaleLowerCase(locale).includes(needle))
-      : items;
-  }, [index.data?.sessions, locale, search]);
-
   const latestRunStateBySession = useMemo(() => {
     const states = new Map<string, { runId: string; status: string }>();
     for (const item of runsCenter.data?.runs ?? []) {
@@ -1090,51 +614,6 @@ export function WorkbenchSurface() {
   const environmentView = environment.data === undefined
     ? undefined
     : projectEnvironment(environment.data, { failedRefresh: environment.isError });
-  const environmentCommitAction: EnvironmentCommitAction = {
-    draft: environmentCommitDraft,
-    error: environmentCommit.isError,
-    notice: environmentCommit.isError
-      ? (environmentCommit.error instanceof Error ? environmentCommit.error.message : "Commit failed")
-      : environmentCommitNotice,
-    pending: environmentCommit.isPending,
-    preview: environmentCommitPreview,
-    setField: (field, value) => {
-      setEnvironmentCommitDraft((current) => ({ ...current, [field]: value }));
-      setEnvironmentCommitPreview(undefined);
-      setEnvironmentCommitNotice(null);
-      environmentCommit.reset();
-    },
-    submit: () => environmentCommit.mutate(),
-  };
-  const environmentPushAction: EnvironmentPushAction = {
-    error: environmentPush.isError,
-    notice: environmentPush.isError
-      ? (environmentPush.error instanceof Error ? environmentPush.error.message : "Push failed")
-      : environmentPushNotice,
-    pending: environmentPush.isPending,
-    preview: environmentPushPreview,
-    result: environmentPushResult,
-    submit: () => environmentPush.mutate(),
-  };
-  const environmentPullRequestAction: EnvironmentPullRequestAction = {
-    draft: environmentPullRequestDraft,
-    error: environmentPullRequest.isError,
-    notice: environmentPullRequest.isError
-      ? (environmentPullRequest.error instanceof Error
-        ? environmentPullRequest.error.message
-        : "Pull-request creation failed")
-      : environmentPullRequestNotice,
-    pending: environmentPullRequest.isPending,
-    preview: environmentPullRequestPreview,
-    result: environmentPullRequestResult,
-    setField: (field, value) => {
-      setEnvironmentPullRequestDraft((current) => ({ ...current, [field]: value }));
-      setEnvironmentPullRequestPreview(undefined);
-      setEnvironmentPullRequestNotice(null);
-      environmentPullRequest.reset();
-    },
-    submit: () => environmentPullRequest.mutate(),
-  };
   const selectedHarness = harnesses.data?.harnesses.find(
     (harness) => harness.spec.id === runConfig.harnessId,
   );
@@ -1313,55 +792,6 @@ export function WorkbenchSurface() {
     }
   }, [queryClient, sessionId, streamPresentation.terminalEvent?.id]);
 
-  useEffect(() => {
-    if (sessionId === undefined) return;
-    setUnreadSessionIds((current) => {
-      if (!current.has(sessionId)) return current;
-      const next = new Set(current);
-      next.delete(sessionId);
-      return next;
-    });
-  }, [sessionId]);
-
-  useEffect(() => {
-    const items = runsCenter.data?.runs;
-    if (items === undefined) return;
-    const previous = previousRunStatuses.current;
-    const completed: CompletionNotice[] = [];
-    for (const item of items) {
-      const prior = previous.get(item.run_id);
-      previous.set(item.run_id, item.status_group);
-      if (
-        prior !== undefined &&
-        activeRunStatusGroups.has(prior) &&
-        terminalRunStatusGroups.has(item.status_group) &&
-        item.session_id !== sessionId
-      ) {
-        completed.push({
-          id: item.run_id,
-          sessionId: item.session_id,
-          status: item.status_group,
-          title: item.session_title,
-        });
-      }
-    }
-    if (completed.length === 0) return;
-    setUnreadSessionIds((current) => {
-      const next = new Set(current);
-      for (const item of completed) next.add(item.sessionId);
-      return next;
-    });
-    setCompletionNotices((current) => [...current, ...completed].slice(-3));
-    for (const item of completed) {
-      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-        new Notification(item.title, {
-          body: message(locale, item.status === "completed" ? "backgroundRunCompleted" : "backgroundRunFailed"),
-          tag: item.id,
-        });
-      }
-    }
-    void queryClient.invalidateQueries({ queryKey: requestKeys.sessionIndex() });
-  }, [locale, queryClient, runsCenter.data?.runs, sessionId]);
   const setConfig = <Key extends keyof RunConfig>(
     key: Key,
     value: RunConfig[Key],
@@ -1417,8 +847,8 @@ export function WorkbenchSurface() {
     ...workspaceFileCandidates.map((file) => ({ kind: "file" as const, file })),
   ];
   const chooseWorkspaceFile = (path: string) => {
-    if (atQuery === null || attachWorkspaceFile.isPending) return;
-    attachWorkspaceFile.mutate({ path, token: atQuery });
+    if (atQuery === null || attachmentActions.attachWorkspaceFile.isPending) return;
+    attachmentActions.attachWorkspaceFile.mutate({ path, token: atQuery });
   };
   const chooseSkill = (skill: SkillMention) => {
     if (atQuery === null) return;
@@ -1508,8 +938,8 @@ export function WorkbenchSurface() {
                 <h2>{group.projectId === "unbound" ? message(locale, "localSessions") : group.projectId}</h2>
                 {group.sessions.map((session) => {
                   const runState = latestRunStateBySession.get(session.id);
-                  const running = runState !== undefined && activeRunStatusGroups.has(runState.status);
-                  const unread = unreadSessionIds.has(session.id);
+                  const running = isActiveRunStatus(runState?.status);
+                  const unread = completionNotifications.unreadSessionIds.has(session.id);
                   return (
                     <div
                       className={[
@@ -1523,12 +953,7 @@ export function WorkbenchSurface() {
                       <Link
                         className="session-row-link"
                         onClick={() => {
-                          setUnreadSessionIds((current) => {
-                            if (!current.has(session.id)) return current;
-                            const next = new Set(current);
-                            next.delete(session.id);
-                            return next;
-                          });
+                          completionNotifications.markSessionRead(session.id);
                         }}
                         params={{ sessionId: session.id }}
                         to="/cockpit-v2/work/$sessionId"
@@ -1676,9 +1101,9 @@ export function WorkbenchSurface() {
             </header>
             <EnvironmentCard
               className="mobile-environment"
-              commitAction={environmentCommitAction}
-              pushAction={environmentPushAction}
-              pullRequestAction={environmentPullRequestAction}
+              commitAction={environmentActions.commitAction}
+              pushAction={environmentActions.pushAction}
+              pullRequestAction={environmentActions.pullRequestAction}
               environment={environmentView}
               error={environment.isError}
               locale={locale}
@@ -1810,7 +1235,7 @@ export function WorkbenchSurface() {
                 event.preventDefault();
                 setDraggingFiles(false);
                 const files = Array.from(event.dataTransfer.files);
-                if (files.length > 0) uploadFiles.mutate({ files, source: "drop" });
+                if (files.length > 0) attachmentActions.uploadFiles.mutate({ files, source: "drop" });
               }}
               onSubmit={(event) => {
                 event.preventDefault();
@@ -1893,8 +1318,8 @@ export function WorkbenchSurface() {
                 <AttachmentGallery
                   attachments={draftAttachments}
                   locale={locale}
-                  onRemove={(attachmentId) => removeAttachment.mutate(attachmentId)}
-                  removePending={removeAttachment.isPending}
+                  onRemove={(attachmentId) => attachmentActions.removeAttachment.mutate(attachmentId)}
+                  removePending={attachmentActions.removeAttachment.isPending}
                 />
               ) : null}
               {toolPickerOpen ? (
@@ -2004,7 +1429,7 @@ export function WorkbenchSurface() {
                 }}
                 onPaste={(event) => {
                   const files = Array.from(event.clipboardData.files);
-                  if (files.length > 0) uploadFiles.mutate({ files, source: "paste" });
+                  if (files.length > 0) attachmentActions.uploadFiles.mutate({ files, source: "paste" });
                 }}
                 placeholder={message(locale, "composerPlaceholder")}
                 ref={composerRef}
@@ -2155,7 +1580,7 @@ export function WorkbenchSurface() {
                       multiple
                       onChange={(event) => {
                         const files = Array.from(event.target.files ?? []);
-                        if (files.length > 0) uploadFiles.mutate({ files, source: "upload" });
+                        if (files.length > 0) attachmentActions.uploadFiles.mutate({ files, source: "upload" });
                         event.target.value = "";
                       }}
                       ref={fileInputRef}
@@ -2166,7 +1591,7 @@ export function WorkbenchSurface() {
                         aria-expanded={plusMenuOpen}
                         aria-label={message(locale, "moreComposerActions")}
                         className="attach-button"
-                        disabled={uploadFiles.isPending}
+                        disabled={attachmentActions.uploadFiles.isPending}
                         onClick={() => setPlusMenuOpen((open) => !open)}
                         title={message(locale, "moreComposerActions")}
                         type="button"
@@ -2297,7 +1722,7 @@ export function WorkbenchSurface() {
                     </button>
                   </div>
                   <span className={`stream-indicator ${stream.status}`}>
-                    {uploadFiles.isPending ? message(locale, "uploadingFiles") : stream.status.replaceAll("_", " ")}
+                    {attachmentActions.uploadFiles.isPending ? message(locale, "uploadingFiles") : stream.status.replaceAll("_", " ")}
                   </span>
                 </div>
                 {selectedRunActive && selectedRunId !== undefined ? (
@@ -2318,9 +1743,9 @@ export function WorkbenchSurface() {
                   </button>
                 )}
               </div>
-              {startRun.isError || uploadFiles.isError || attachWorkspaceFile.isError || removeAttachment.isError || saveRunConfig.isError ? (
+              {startRun.isError || attachmentActions.uploadFiles.isError || attachmentActions.attachWorkspaceFile.isError || attachmentActions.removeAttachment.isError || saveRunConfig.isError ? (
                 <div className="error-state" role="alert">
-                  {String(startRun.error ?? uploadFiles.error ?? attachWorkspaceFile.error ?? removeAttachment.error ?? saveRunConfig.error)}
+                  {String(startRun.error ?? attachmentActions.uploadFiles.error ?? attachmentActions.attachWorkspaceFile.error ?? attachmentActions.removeAttachment.error ?? saveRunConfig.error)}
                 </div>
               ) : null}
             </form>
@@ -2351,9 +1776,9 @@ export function WorkbenchSurface() {
               ) : null}
             </div>
             <EnvironmentCard
-              commitAction={environmentCommitAction}
-              pushAction={environmentPushAction}
-              pullRequestAction={environmentPullRequestAction}
+              commitAction={environmentActions.commitAction}
+              pushAction={environmentActions.pushAction}
+              pullRequestAction={environmentActions.pullRequestAction}
               environment={environmentView}
               error={environment.isError}
               locale={locale}
@@ -2427,616 +1852,18 @@ export function WorkbenchSurface() {
           title={sessionConfirmation.title}
         />
       )}
-      <div aria-live="polite" className="completion-notices">
-        {completionNotices.map((notice) => (
-          <button
-            className={notice.status === "completed" ? "completion-notice" : "completion-notice failed"}
-            key={notice.id}
-            onClick={() => {
-              setCompletionNotices((current) => current.filter((item) => item.id !== notice.id));
-              void navigate({ params: { sessionId: notice.sessionId }, to: "/cockpit-v2/work/$sessionId" });
-            }}
-            type="button"
-          >
-            <span aria-hidden="true">{notice.status === "completed" ? "✓" : "!"}</span>
-            <span><strong>{notice.title}</strong><small>{message(locale, notice.status === "completed" ? "backgroundRunCompleted" : "backgroundRunFailed")}</small></span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RetainedToolActivities({
-  events,
-  locale,
-}: {
-  events: readonly EventProjection[];
-  locale: "en" | "ru";
-}) {
-  const payloads = useQueries({
-    queries: events.map((event) => ({
-      queryKey: [...requestKeys.root, "event-payload", event.id],
-      queryFn: ({ signal }: { signal: AbortSignal }) =>
-        fetchCockpit<EventPayloadResponse>(event.payload_url, signal),
-      staleTime: Number.POSITIVE_INFINITY,
-    })),
-  });
-  const activities = new Map<string, WorkbenchToolActivity>();
-  let plan: readonly WorkbenchPlanItem[] = [];
-  payloads.forEach((payload, index) => {
-    if (!payload.isSuccess || payload.data.hidden) return;
-    const projection = projectToolPayload(payload.data.payload, events[index]?.id ?? `event-${index}`);
-    if (projection.plan.length > 0) {
-      plan = projection.plan;
-    } else if (projection.activity !== null) {
-      activities.set(projection.activity.id, projection.activity);
-    }
-  });
-  const nestedActivities = nestWorkbenchToolActivities([...activities.values()]);
-  return (
-    <>
-      {plan.length > 0 ? <PlanCard items={plan} locale={locale} /> : null}
-      {nestedActivities.map((activity) => (
-        <ToolActivityCard activity={activity} key={activity.id} locale={locale} />
-      ))}
-    </>
-  );
-}
-
-function ToolActivityCard({
-  activity,
-  locale,
-}: {
-  activity: WorkbenchToolActivity;
-  locale: "en" | "ru";
-}) {
-  const complete = ["completed", "succeeded", "success"].includes(activity.status.toLowerCase());
-  const failed = ["error", "failed"].includes(activity.status.toLowerCase());
-  const result = formatToolResult(
-    activity.result ?? (failed ? message(locale, "toolFailedNoDetails") : undefined),
-  );
-  return (
-    <article
-      className={[
-        "tool-activity-card",
-        failed ? "failed" : "",
-        activity.children?.length ? "has-children" : "",
-      ].filter(Boolean).join(" ")}
-    >
-      <div className="tool-activity-heading">
-        <span aria-hidden="true">{complete ? "✓" : failed ? "!" : "◇"}</span>
-        <div>
-          <strong>{activity.label}</strong>
-          {activity.detail ? <span className="tool-activity-detail">{activity.detail}</span> : null}
-          <small>{message(locale, "toolActivity")} · {activity.status}</small>
-        </div>
-      </div>
-      {result === null ? null : (
-        <details>
-          <summary>{message(locale, "toolResult")}</summary>
-          <pre>{result}</pre>
-        </details>
-      )}
-      {activity.children?.length ? (
-        <div className="nested-tool-activities" aria-label={message(locale, "toolActivity")}>
-          {activity.children.map((child) => (
-            <ToolActivityCard activity={child} key={child.id} locale={locale} />
-          ))}
-        </div>
-      ) : null}
-    </article>
-  );
-}
-
-function MessageActions({
-  canEdit,
-  locale,
-  messageId,
-  mutation,
-  role,
-}: {
-  canEdit: boolean;
-  locale: "en" | "ru";
-  messageId: string;
-  mutation: UseMutationResult<ResolvedMessageAction, Error, MessageAction>;
-  role: "assistant" | "user";
-}) {
-  return (
-    <span className="message-actions">
-      <MessageActionButton
-        action="copy"
+      <CompletionNotices
         locale={locale}
-        messageId={messageId}
-        mutation={mutation}
-        role={role}
+        notices={completionNotifications.notices}
+        onOpen={(notice) => {
+          completionNotifications.dismiss(notice.id);
+          void navigate({
+            params: { sessionId: notice.sessionId },
+            to: "/cockpit-v2/work/$sessionId",
+          });
+        }}
       />
-      {canEdit ? (
-        <MessageActionButton
-          action="edit"
-          locale={locale}
-          messageId={messageId}
-          mutation={mutation}
-          role={role}
-        />
-      ) : null}
-    </span>
-  );
-}
-
-function MessageActionButton({
-  action,
-  locale,
-  messageId,
-  mutation,
-  role,
-}: {
-  action: MessageActionKind;
-  locale: "en" | "ru";
-  messageId: string;
-  mutation: UseMutationResult<ResolvedMessageAction, Error, MessageAction>;
-  role: "assistant" | "user";
-}) {
-  const active = mutation.isPending
-    && mutation.variables?.messageId === messageId
-    && mutation.variables.kind === action;
-  const succeeded = mutation.isSuccess
-    && mutation.variables?.messageId === messageId
-    && mutation.data.kind === action;
-  const label = message(
-    locale,
-    action === "copy"
-      ? role === "user" ? "copyUserMessage" : "copyAssistantMessage"
-      : "editUserMessage",
-  );
-  return (
-    <button
-      aria-label={label}
-      className={`message-action${succeeded ? " success" : ""}`}
-      disabled={mutation.isPending}
-      onClick={() => mutation.mutate({ kind: action, messageId, role })}
-      title={label}
-      type="button"
-    >
-      {active ? <span aria-hidden="true">…</span> : succeeded ? (
-        <span aria-hidden="true">✓</span>
-      ) : action === "copy" ? <CopyIcon /> : <EditIcon />}
-    </button>
-  );
-}
-
-function CopyIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24">
-      <rect x="8" y="8" width="11" height="11" rx="2" />
-      <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
-    </svg>
-  );
-}
-
-function EditIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24">
-      <path d="m4 20 4.2-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z" />
-      <path d="m13.8 7.4 2.8 2.8" />
-    </svg>
-  );
-}
-
-function ReasoningDisclosure({
-  locale,
-  text,
-}: {
-  locale: "en" | "ru";
-  text: string;
-}) {
-  return (
-    <details className="reasoning-disclosure">
-      <summary>{message(locale, "reasoningTrace")}</summary>
-      <p>{text}</p>
-    </details>
-  );
-}
-
-function AttachmentGallery({
-  attachments,
-  locale,
-  onRemove,
-  removePending = false,
-}: {
-  attachments: readonly AttachmentSummary[];
-  locale: "en" | "ru";
-  onRemove?: (attachmentId: string) => void;
-  removePending?: boolean;
-}) {
-  const [activeAttachment, setActiveAttachment] = useState<AttachmentSummary | null>(null);
-
-  useEffect(() => {
-    if (activeAttachment === null) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setActiveAttachment(null);
-    };
-    globalThis.addEventListener("keydown", closeOnEscape);
-    return () => globalThis.removeEventListener("keydown", closeOnEscape);
-  }, [activeAttachment]);
-
-  return (
-    <>
-      <div className="attachment-gallery" aria-label={message(locale, "attachedFiles")}>
-        {attachments.map((attachment) => (
-          <div
-            className={isPreviewableImage(attachment) ? "attachment-preview-card" : "attachment-file-card"}
-            key={attachment.id}
-          >
-            {isPreviewableImage(attachment) ? (
-              <button
-                aria-label={`${message(locale, "openAttachment")} ${attachment.filename}`}
-                className="attachment-preview-button"
-                onClick={() => setActiveAttachment(attachment)}
-                type="button"
-              >
-                <img alt="" src={attachment.url} />
-                <span>
-                  <strong>{attachment.filename}</strong>
-                  <small>{formatBytes(attachment.size_bytes)}</small>
-                </span>
-              </button>
-            ) : (
-              <span className="attachment-file-copy">
-                <span aria-hidden="true">◇</span>
-                <span title={attachment.workspace_path ?? attachment.filename}>
-                  <strong>
-                    {attachment.workspace_path ? `@${attachment.workspace_path}` : attachment.filename}
-                  </strong>
-                  <small>{formatBytes(attachment.size_bytes)}</small>
-                </span>
-              </span>
-            )}
-            {onRemove === undefined ? null : (
-              <button
-                aria-label={`${message(locale, "removeAttachment")} ${attachment.filename}`}
-                className="attachment-remove"
-                disabled={removePending}
-                onClick={() => onRemove(attachment.id)}
-                type="button"
-              >
-                ×
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      {activeAttachment !== null && isPreviewableImage(activeAttachment)
-        ? createPortal(
-            <div
-              aria-label={`${message(locale, "attachmentPreview")}: ${activeAttachment.filename}`}
-              aria-modal="true"
-              className="attachment-lightbox"
-              onClick={() => setActiveAttachment(null)}
-              role="dialog"
-            >
-              <div className="attachment-lightbox-content" onClick={(event) => event.stopPropagation()}>
-                <header>
-                  <span>
-                    <strong>{activeAttachment.filename}</strong>
-                    <small>{formatBytes(activeAttachment.size_bytes)}</small>
-                  </span>
-                  <button
-                    aria-label={message(locale, "closeAttachmentPreview")}
-                    onClick={() => setActiveAttachment(null)}
-                    type="button"
-                  >
-                    ×
-                  </button>
-                </header>
-                <img alt={activeAttachment.filename} src={activeAttachment.url} />
-                <a href={activeAttachment.url} rel="noreferrer" target="_blank">
-                  {message(locale, "openOriginal")} ↗
-                </a>
-              </div>
-            </div>,
-            globalThis.document.body,
-          )
-        : null}
-    </>
-  );
-}
-
-function TokenUsage({
-  usage,
-}: {
-  usage: TokenUsageProjection | undefined;
-}) {
-  if (usage?.input_tokens === undefined && usage?.output_tokens === undefined) return null;
-  return (
-    <span className="token-usage">
-      {usage.input_tokens === undefined ? null : `input ${usage.input_tokens}`}
-      {usage.input_tokens !== undefined && usage.output_tokens !== undefined ? " · " : null}
-      {usage.output_tokens === undefined ? null : `output ${usage.output_tokens}`}
-    </span>
-  );
-}
-
-function formatToolResult(value: unknown): string | null {
-  if (value === undefined || value === null || value === "") return null;
-  const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-  if (!text) return null;
-  return text.length > 16_384 ? `${text.slice(0, 16_384)}\n…` : text;
-}
-
-function hasRetainedResponse(
-  messages: readonly { role: string; run_id?: string | null }[],
-  runId: string | undefined,
-): boolean {
-  return runId !== undefined && messages.some(
-    (item) => item.run_id === runId && (item.role === "assistant" || item.role === "error"),
-  );
-}
-
-function PlanCard({ items, locale }: { items: readonly WorkbenchPlanItem[]; locale: "en" | "ru" }) {
-  return (
-    <section className="live-plan-card">
-      <div>
-        <strong>{message(locale, "planProgress")}</strong>
-        <small>{items.filter((item) => item.status === "completed").length}/{items.length}</small>
-      </div>
-      <ol>
-        {items.map((item, index) => (
-          <li className={item.status} key={`${index}-${item.step}`}>
-            <span aria-hidden="true">
-              {item.status === "completed" ? "✓" : item.status === "in_progress" ? "●" : "○"}
-            </span>
-            <span>{item.step}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-function GeneratedFilePreview({
-  eventId,
-  locale,
-  payloadUrl,
-}: {
-  eventId: string;
-  locale: "en" | "ru";
-  payloadUrl: string;
-}) {
-  const payload = useQuery({
-    queryKey: [...requestKeys.root, "event-payload", eventId],
-    queryFn: ({ signal }) => fetchCockpit<EventPayloadResponse>(payloadUrl, signal),
-    staleTime: Number.POSITIVE_INFINITY,
-  });
-  if (payload.isPending) return <div className="generated-image-skeleton skeleton-row" />;
-  if (payload.isError || payload.data.hidden) return null;
-  return <GeneratedFileCard locale={locale} payload={payload.data.payload} />;
-}
-
-function loadRunPreferences(): { config: RunConfig; reasoningEffort: ReasoningEffort } {
-  const fallback = {
-    config: { apiMode: "v2", harnessId: "codex-cli", mode: "plan", model: "" },
-    reasoningEffort: "medium" as const,
-  };
-  try {
-    const stored = JSON.parse(localStorage.getItem(runPreferencesKey) ?? "null") as unknown;
-    if (typeof stored !== "object" || stored === null || Array.isArray(stored)) return fallback;
-    const value = stored as Record<string, unknown>;
-    const effort = value.reasoningEffort;
-    return {
-      config: {
-        apiMode: typeof value.apiMode === "string" ? value.apiMode : fallback.config.apiMode,
-        harnessId: typeof value.harnessId === "string" ? value.harnessId : fallback.config.harnessId,
-        mode: typeof value.mode === "string" ? value.mode : fallback.config.mode,
-        model: typeof value.model === "string" ? value.model : fallback.config.model,
-      },
-      reasoningEffort:
-        effort === "low" || effort === "high" || effort === "medium"
-          ? effort
-          : fallback.reasoningEffort,
-    };
-  } catch {
-    return fallback;
-  }
-}
-
-function preferredModel(models: readonly string[]): string {
-  return models.find((model) => model !== "GigaChat") ?? models[0] ?? "";
-}
-
-function isReasoningModel(model: string): boolean {
-  return model === reasoningModel || model.startsWith(`${reasoningModel}:`);
-}
-
-function GeneratedFileCard({
-  locale,
-  payload,
-}: {
-  locale: "en" | "ru";
-  payload?: Readonly<Record<string, unknown>>;
-}) {
-  const [htmlPreviewOpen, setHtmlPreviewOpen] = useState(false);
-  const file = generatedFileProjection(payload);
-  if (file === null) return null;
-  const size = file.sizeBytes === null ? null : formatBytes(file.sizeBytes);
-  const downloadLabel = `${message(locale, "downloadFile")} ${file.filename}`;
-  const htmlPreviewLabel = message(
-    locale,
-    htmlPreviewOpen ? "closeHtmlPreview" : "openHtmlPreview",
-  );
-  return (
-    <article className={`message-entry assistant generated-file-message${file.isImage ? " image" : ""}`}>
-      <header className="message-entry-header">
-        <span className="message-role">
-          assistant · {message(locale, file.isImage ? "generatedImage" : "generatedFile")}
-        </span>
-      </header>
-      {file.isImage && file.previewUrl !== null ? (
-        <figure>
-          <a className="generated-file-preview" href={file.previewUrl} rel="noreferrer" target="_blank">
-            <img alt={file.filename} loading="lazy" src={file.previewUrl} />
-          </a>
-          <figcaption>
-            <span>{file.filename}{size === null ? "" : ` · ${size}`}</span>
-            <DownloadFileLink
-              downloadUrl={file.downloadUrl}
-              filename={file.filename}
-              label={downloadLabel}
-            />
-          </figcaption>
-        </figure>
-      ) : (
-        <div className={`generated-document${file.htmlPreviewUrl === null ? "" : " html"}`}>
-          <div className="generated-document-row">
-            <span aria-hidden="true" className="generated-document-icon">◇</span>
-            <span>
-              <strong>{file.filename}</strong>
-              <small>{file.mimeType}{size === null ? "" : ` · ${size}`}</small>
-            </span>
-            {file.htmlPreviewUrl === null ? null : (
-              <button
-                aria-expanded={htmlPreviewOpen}
-                aria-label={htmlPreviewLabel}
-                className="generated-file-preview-toggle"
-                onClick={() => setHtmlPreviewOpen((open) => !open)}
-                title={htmlPreviewLabel}
-                type="button"
-              >
-                <svg aria-hidden="true" viewBox="0 0 24 24">
-                  <path d="M2.8 12s3.3-6 9.2-6 9.2 6 9.2 6-3.3 6-9.2 6-9.2-6-9.2-6Z" />
-                  <circle cx="12" cy="12" r="2.6" />
-                </svg>
-              </button>
-            )}
-            <DownloadFileLink
-              downloadUrl={file.downloadUrl}
-              filename={file.filename}
-              label={downloadLabel}
-            />
-          </div>
-          {file.htmlPreviewUrl !== null && htmlPreviewOpen ? (
-            <iframe
-              className="generated-html-preview"
-              referrerPolicy="no-referrer"
-              sandbox="allow-same-origin allow-scripts"
-              src={file.htmlPreviewUrl}
-              title={`${message(locale, "generatedFile")}: ${file.filename}`}
-            />
-          ) : null}
-        </div>
-      )}
-    </article>
-  );
-}
-
-function DownloadFileLink({
-  downloadUrl,
-  filename,
-  label,
-}: {
-  downloadUrl: string;
-  filename: string;
-  label: string;
-}) {
-  return (
-    <a
-      aria-label={label}
-      className="generated-file-download"
-      download={filename}
-      href={downloadUrl}
-      title={label}
-    >
-      <svg aria-hidden="true" viewBox="0 0 24 24">
-        <path d="M12 3v12" />
-        <path d="m7 10 5 5 5-5" />
-        <path d="M5 20h14" />
-      </svg>
-    </a>
-  );
-}
-
-function SessionConfirmationDialog({
-  action,
-  error,
-  locale,
-  onCancel,
-  onConfirm,
-  pending,
-  title,
-}: {
-  action: SessionAction;
-  error: boolean;
-  locale: "en" | "ru";
-  onCancel: () => void;
-  onConfirm: () => void;
-  pending: boolean;
-  title: string;
-}) {
-  const destructive = action === "delete";
-  const headingId = "session-confirmation-heading";
-  const descriptionId = "session-confirmation-description";
-  return (
-    <div className="dialog-backdrop" onClick={onCancel} role="presentation">
-      <section
-        aria-describedby={descriptionId}
-        aria-labelledby={headingId}
-        aria-modal="true"
-        className="confirmation-dialog"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <span className="section-kicker">{message(locale, "sessionActions")}</span>
-        <h2 id={headingId}>
-          {message(locale, destructive ? "deleteSessionTitle" : "archiveSessionTitle")}
-        </h2>
-        <p id={descriptionId}>
-          <strong>{title}</strong>
-          <span>
-            {message(
-              locale,
-              destructive ? "deleteSessionDescription" : "archiveSessionDescription",
-            )}
-          </span>
-        </p>
-        {error ? (
-          <div className="mutation-error" role="alert">
-            {message(locale, "sessionMutationFailed")}
-          </div>
-        ) : null}
-        <div className="confirmation-actions">
-          <button autoFocus disabled={pending} onClick={onCancel} type="button">
-            {message(locale, "cancel")}
-          </button>
-          <button
-            className={destructive ? "primary-danger-button" : "primary-button"}
-            disabled={pending}
-            onClick={onConfirm}
-            type="button"
-          >
-            {message(locale, destructive ? "deleteSession" : "archiveSession")}
-          </button>
-        </div>
-      </section>
     </div>
-  );
-}
-
-function Progression({ current, locale }: { current: RunStage; locale: "en" | "ru" }) {
-  const stages: Array<[RunStage, "stageRun" | "stageEvidence" | "stageReview" | "stageReuse"]> = [
-    ["run", "stageRun"],
-    ["evidence", "stageEvidence"],
-    ["review", "stageReview"],
-    ["reuse", "stageReuse"],
-  ];
-  const currentIndex = stages.findIndex(([stage]) => stage === current);
-  return (
-    <ol className="progression" aria-label="Work to reuse progression">
-      {stages.map(([stage, key], index) => (
-        <li className={index <= currentIndex ? "complete" : ""} key={stage}>
-          <span>{index + 1}</span><strong>{message(locale, key)}</strong>
-        </li>
-      ))}
-    </ol>
   );
 }
 
@@ -3102,22 +1929,4 @@ function clamp(value: number, minimum: number, maximum: number): number {
 
 function openInbox(kind: "approvals" | "attention") {
   globalThis.dispatchEvent(new CustomEvent("cockpit:open-inbox", { detail: kind }));
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error("Could not read attachment"));
-    reader.onload = () => {
-      const result = String(reader.result ?? "");
-      resolve(result.includes(",") ? result.slice(result.indexOf(",") + 1) : result);
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-function formatBytes(value: number): string {
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
-  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
