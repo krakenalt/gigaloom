@@ -60,6 +60,13 @@
         "paths": [
           "evidence"
         ]
+      },
+      {
+        "owner": "T01/T20",
+        "removal_gate": "T20-C3",
+        "paths": [
+          "performance_workloads"
+        ]
       }
     ],
     "temporary_module_groups": [
@@ -428,7 +435,7 @@
       },
       {
         "path": "performance_baseline.py",
-        "max_lines": 607
+        "max_lines": 619
       },
       {
         "path": "permission_simulator.py",
@@ -484,7 +491,7 @@
       },
       {
         "path": "runtime_performance_profile.py",
-        "max_lines": 1120
+        "max_lines": 1126
       },
       {
         "path": "schedules.py",
