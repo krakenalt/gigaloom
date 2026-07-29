@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   RunEventStreamStore,
   coalescePresentationDeltas,
+  selectRunStreamConnection,
+  selectRunStreamControlEvents,
+  selectRunStreamPresentation,
+  selectRunStreamResnapshot,
   type RunStreamEvent,
 } from "./stream-store";
 
@@ -16,6 +20,51 @@ function event(id: string, type = "message_delta", delta = id): RunStreamEvent {
 }
 
 describe("run event stream store", () => {
+  it("exposes independently subscribable stream projections", () => {
+    const frames: Array<() => void> = [];
+    const store = new RunEventStreamStore({
+      scheduleFrame: (callback) => {
+        frames.push(callback);
+        return vi.fn();
+      },
+    });
+    const connectionListener = vi.fn();
+    const controlListener = vi.fn();
+    const presentationListener = vi.fn();
+    const resnapshotListener = vi.fn();
+    store.select(selectRunStreamConnection).subscribe(connectionListener);
+    store.select(selectRunStreamControlEvents).subscribe(controlListener);
+    store.select(selectRunStreamPresentation).subscribe(presentationListener);
+    store.select(selectRunStreamResnapshot).subscribe(resnapshotListener);
+
+    store.ingest(event("delta"));
+    frames.shift()?.();
+
+    expect(presentationListener).toHaveBeenCalledOnce();
+    expect(connectionListener).not.toHaveBeenCalled();
+    expect(controlListener).not.toHaveBeenCalled();
+    expect(resnapshotListener).not.toHaveBeenCalled();
+
+    store.ingest(event("approval", "approval_requested"));
+
+    expect(controlListener).toHaveBeenCalledOnce();
+    expect(presentationListener).toHaveBeenCalledOnce();
+    expect(connectionListener).not.toHaveBeenCalled();
+  });
+
+  it("retains projection identities while unrelated state changes", () => {
+    const store = new RunEventStreamStore();
+    const before = store.getSnapshot();
+
+    store.ingest(event("approval", "approval_requested"));
+
+    const after = store.getSnapshot();
+    expect(after.connection).toBe(before.connection);
+    expect(after.presentation).toBe(before.presentation);
+    expect(after.resnapshot).toBe(before.resnapshot);
+    expect(after.control).not.toBe(before.control);
+  });
+
   it("batches normal deltas per frame and prioritizes terminal control", () => {
     const frames: Array<() => void> = [];
     const store = new RunEventStreamStore({

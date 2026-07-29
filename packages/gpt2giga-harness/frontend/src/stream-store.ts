@@ -1,4 +1,4 @@
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
 export type RunStreamStatus =
   | "idle"
@@ -24,7 +24,36 @@ export interface RunStreamSnapshot {
   events: readonly RunStreamEvent[];
   windowTruncated: boolean;
   resnapshotUrl: string | null;
+  connection: RunStreamConnectionState;
+  control: RunStreamEventState;
+  presentation: RunStreamEventState;
+  resnapshot: RunStreamResnapshotState;
 }
+
+export interface RunStreamConnectionState {
+  runId: string | null;
+  status: RunStreamStatus;
+}
+
+export interface RunStreamEventState {
+  events: readonly RunStreamEvent[];
+  windowTruncated: boolean;
+}
+
+export interface RunStreamResnapshotState {
+  required: boolean;
+  url: string | null;
+}
+
+export type RunStreamSelector<Selection> = (
+  snapshot: RunStreamSnapshot,
+) => Selection;
+
+type RunStreamSnapshotInput = Omit<
+  RunStreamSnapshot,
+  "connection" | "control" | "presentation" | "resnapshot"
+>;
+type Equality<Selection> = (left: Selection, right: Selection) => boolean;
 
 interface MessageEventLike {
   data: string;
@@ -77,13 +106,30 @@ const defaultFrameScheduler: FrameScheduler = (callback) => {
 const defaultEventSourceFactory: EventSourceFactory = (url) =>
   new EventSource(url) as unknown as EventSourceLike;
 
-const idleSnapshot: RunStreamSnapshot = {
+const idleSnapshot = createRunStreamSnapshot({
   runId: null,
   status: "idle",
   events: [],
   windowTruncated: false,
   resnapshotUrl: null,
-};
+});
+
+export const selectRunStreamSnapshot: RunStreamSelector<RunStreamSnapshot> = (
+  snapshot,
+) => snapshot;
+export const selectRunStreamConnection: RunStreamSelector<RunStreamConnectionState> =
+  (snapshot) => snapshot.connection;
+export const selectRunStreamControlEvents: RunStreamSelector<RunStreamEventState> =
+  (snapshot) => snapshot.control;
+export const selectRunStreamPresentation: RunStreamSelector<RunStreamEventState> =
+  (snapshot) => snapshot.presentation;
+export const selectRunStreamResnapshot: RunStreamSelector<RunStreamResnapshotState> =
+  (snapshot) => snapshot.resnapshot;
+
+export interface RunStreamSelection<Selection> {
+  readonly getSnapshot: () => Selection;
+  readonly subscribe: (listener: () => void) => () => void;
+}
 
 export class RunEventStreamStore {
   private readonly maxEvents: number;
@@ -118,6 +164,30 @@ export class RunEventStreamStore {
   };
 
   readonly getSnapshot = (): RunStreamSnapshot => this.snapshot;
+
+  select<Selection>(
+    selector: RunStreamSelector<Selection>,
+    isEqual: Equality<Selection> = Object.is,
+  ): RunStreamSelection<Selection> {
+    let selection = selector(this.snapshot);
+    const getSnapshot = (): Selection => {
+      const nextSelection = selector(this.snapshot);
+      if (!isEqual(selection, nextSelection)) selection = nextSelection;
+      return selection;
+    };
+    return {
+      getSnapshot,
+      subscribe: (listener) => {
+        let subscribedSelection = getSnapshot();
+        return this.subscribe(() => {
+          const nextSelection = getSnapshot();
+          if (isEqual(subscribedSelection, nextSelection)) return;
+          subscribedSelection = nextSelection;
+          listener();
+        });
+      },
+    };
+  }
 
   connect(runId: string, tailOnly = true): () => void {
     this.disconnect();
@@ -222,21 +292,21 @@ export class RunEventStreamStore {
     });
   }
 
-  private patchSnapshot(patch: Partial<RunStreamSnapshot>): void {
+  private patchSnapshot(patch: Partial<RunStreamSnapshotInput>): void {
     this.setSnapshot({ ...this.snapshot, ...patch });
   }
 
-  private setSnapshot(snapshot: RunStreamSnapshot): void {
-    this.snapshot = snapshot;
+  private setSnapshot(snapshot: RunStreamSnapshotInput): void {
+    this.snapshot = createRunStreamSnapshot(snapshot, this.snapshot);
     for (const listener of this.listeners) listener();
   }
 }
 
-export function useRunEventStream(
+export function useRunEventStreamStore(
   runId: string | undefined,
   resetToken = 0,
   tailOnly = true,
-): RunStreamSnapshot {
+): RunEventStreamStore {
   const storeRef = useRef<RunEventStreamStore | null>(null);
   if (storeRef.current === null) storeRef.current = new RunEventStreamStore();
   const store = storeRef.current;
@@ -247,11 +317,32 @@ export function useRunEventStream(
     }
     return store.connect(runId, tailOnly);
   }, [resetToken, runId, store, tailOnly]);
-  return useSyncExternalStore(
-    store.subscribe,
-    store.getSnapshot,
-    () => idleSnapshot,
+  return store;
+}
+
+export function useRunEventStreamSelector<Selection>(
+  store: RunEventStreamStore,
+  selector: RunStreamSelector<Selection>,
+  isEqual: Equality<Selection> = Object.is,
+): Selection {
+  const selection = useMemo(
+    () => store.select(selector, isEqual),
+    [isEqual, selector, store],
   );
+  return useSyncExternalStore(
+    selection.subscribe,
+    selection.getSnapshot,
+    () => selector(idleSnapshot),
+  );
+}
+
+export function useRunEventStream(
+  runId: string | undefined,
+  resetToken = 0,
+  tailOnly = true,
+): RunStreamSnapshot {
+  const store = useRunEventStreamStore(runId, resetToken, tailOnly);
+  return useRunEventStreamSelector(store, selectRunStreamSnapshot);
 }
 
 export function coalescePresentationDeltas(
@@ -287,6 +378,71 @@ export function coalescePresentationDeltas(
 
 function isControlEvent(type: string): boolean {
   return CONTROL_EVENT_TYPES.has(type) || type.startsWith("policy_");
+}
+
+function createRunStreamSnapshot(
+  snapshot: RunStreamSnapshotInput,
+  previous?: RunStreamSnapshot,
+): RunStreamSnapshot {
+  const connection =
+    previous?.connection.runId === snapshot.runId &&
+    previous.connection.status === snapshot.status
+      ? previous.connection
+      : { runId: snapshot.runId, status: snapshot.status };
+  const controlEvents = snapshot.events.filter((event) =>
+    isControlEvent(event.type),
+  );
+  const presentationEvents = snapshot.events.filter(
+    (event) => !isControlEvent(event.type),
+  );
+  const control = retainEventState(
+    previous?.control,
+    controlEvents,
+    snapshot.windowTruncated,
+  );
+  const presentation = retainEventState(
+    previous?.presentation,
+    presentationEvents,
+    snapshot.windowTruncated,
+  );
+  const resnapshotRequired = snapshot.status === "resnapshot_required";
+  const resnapshot =
+    previous?.resnapshot.required === resnapshotRequired &&
+    previous.resnapshot.url === snapshot.resnapshotUrl
+      ? previous.resnapshot
+      : { required: resnapshotRequired, url: snapshot.resnapshotUrl };
+  return {
+    ...snapshot,
+    connection,
+    control,
+    presentation,
+    resnapshot,
+  };
+}
+
+function retainEventState(
+  previous: RunStreamEventState | undefined,
+  events: readonly RunStreamEvent[],
+  windowTruncated: boolean,
+): RunStreamEventState {
+  if (
+    previous !== undefined &&
+    previous.windowTruncated === windowTruncated &&
+    sameEvents(previous.events, events)
+  ) {
+    return previous;
+  }
+  return { events, windowTruncated };
+}
+
+function sameEvents(
+  left: readonly RunStreamEvent[],
+  right: readonly RunStreamEvent[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((event, index) => event === right[index])
+  );
 }
 
 function parseRunStreamEvent(value: string): RunStreamEvent | null {
