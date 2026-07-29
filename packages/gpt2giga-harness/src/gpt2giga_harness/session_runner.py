@@ -27,6 +27,7 @@ from gpt2giga_harness.execution.invocation import (
     InvocationAccumulator,
     cancel_requested,
 )
+from gpt2giga_harness.execution.milestones import PersistenceMilestone
 from gpt2giga_harness.execution.options import RunOptions
 from gpt2giga_harness.execution.persistence import RunPersistenceService
 from gpt2giga_harness.execution.preparation import RunPreparationService
@@ -600,9 +601,8 @@ class HarnessSessionRunner:
             data_dir=self.config.data_dir,
         )
         run_metadata["workspace_execution"] = workspace_execution.to_metadata()
-        run = self.store.update_run(run.id, metadata=run_metadata)
-        if user_message_id is None:
-            self.store.append_message(
+        user_messages = (
+            (
                 HarnessMessage(
                     id=logical_user_message_id,
                     session_id=session.id,
@@ -617,9 +617,12 @@ class HarnessSessionRunner:
                         **_message_attachment_metadata(attachment_payloads),
                         **edited_message_metadata(edit_message_id),
                     },
-                )
+                ),
             )
-        self._append_event(
+            if user_message_id is None
+            else ()
+        )
+        run_started_event = self.persistence_service.event(
             session.id,
             run.id,
             HarnessEventType.RUN_STARTED.value,
@@ -636,6 +639,15 @@ class HarnessSessionRunner:
                 "builtin_tools": [tool.value for tool in options["builtin_tools"]],
             },
         )
+        started = self.persistence_service.persist_milestone(
+            PersistenceMilestone.RUN_STARTED,
+            session_id=session.id,
+            run_id=run.id,
+            run_patch={"metadata": run_metadata},
+            messages=user_messages,
+            events=(run_started_event,),
+        )
+        run = started.runs[-1]
         if existing_run_id is None:
             self._schedule_session_title(session, run.id, options)
         if workspace_execution.fallback_reason:
@@ -840,27 +852,26 @@ class HarnessSessionRunner:
         role = terminal.role
         content = terminal.content
         error = terminal.error
-        self.store.append_message(
-            HarnessMessage(
-                id=new_id("msg"),
-                session_id=session.id,
-                run_id=run.id,
-                role=role,
-                content=content,
-                created_at=utc_now(),
-                harness_id=options["harness_id"],
-                model=options["model"],
-                api_mode=options["api_mode"],
-                metadata=terminal.message_metadata,
-            )
+        terminal_message = HarnessMessage(
+            id=new_id("msg"),
+            session_id=session.id,
+            run_id=run.id,
+            role=role,
+            content=content,
+            created_at=utc_now(),
+            harness_id=options["harness_id"],
+            model=options["model"],
+            api_mode=options["api_mode"],
+            metadata=terminal.message_metadata,
         )
-        self._append_event(
+        terminal_event = self.persistence_service.event(
             session.id,
             run.id,
             terminal.event_type,
             terminal.event_message,
             {"role": role},
         )
+        terminal_events = [terminal_event]
         metadata = dict(run_metadata)
         app_server_thread = _mapping(result.raw).get("app_server_thread")
         structured_session_link = _mapping(result.raw).get("structured_session_link")
@@ -881,16 +892,18 @@ class HarnessSessionRunner:
                 metadata["diff"] = workspace_diff.patch
                 metadata["diff_captured"] = workspace_diff.captured
                 if workspace_diff.captured:
-                    self._append_event(
-                        session.id,
-                        run.id,
-                        HarnessEventType.FILE_CHANGED.value,
-                        "Captured workspace diff.",
-                        {
-                            "changed_files": list(workspace_diff.changed_files),
-                            "untracked_files": list(workspace_diff.untracked_files),
-                            "workspace_policy": workspace_execution.policy.value,
-                        },
+                    terminal_events.append(
+                        self.persistence_service.event(
+                            session.id,
+                            run.id,
+                            HarnessEventType.FILE_CHANGED.value,
+                            "Captured workspace diff.",
+                            {
+                                "changed_files": list(workspace_diff.changed_files),
+                                "untracked_files": list(workspace_diff.untracked_files),
+                                "workspace_policy": workspace_execution.policy.value,
+                            },
+                        )
                     )
         pr_artifact_run = HarnessRun(
             id=run.id,
@@ -920,14 +933,21 @@ class HarnessSessionRunner:
                 result_raw=result.raw,
             )
         )
-        updated_run = self.store.update_run(
-            run.id,
-            status=status,
-            finished_at=utc_now(),
-            error=error,
-            command=result.command,
-            metadata=metadata,
+        terminal_result = self.persistence_service.persist_milestone(
+            PersistenceMilestone.RUN_TERMINAL,
+            session_id=session.id,
+            run_id=run.id,
+            run_patch={
+                "status": status,
+                "finished_at": utc_now(),
+                "error": error,
+                "command": result.command,
+                "metadata": metadata,
+            },
+            messages=(terminal_message,),
+            events=tuple(terminal_events),
         )
+        updated_run = terminal_result.runs[-1]
         session_patch: dict[str, Any] = {
             "default_harness_id": options["harness_id"],
             "default_model": options["model"],
@@ -963,7 +983,7 @@ class HarnessSessionRunner:
             if native_updated is not None:
                 self._append_title_event(native_updated, run.id)
                 updated_session = native_updated
-        self._append_event(
+        run_finished_event = self.persistence_service.event(
             session.id,
             run.id,
             HarnessEventType.RUN_FINISHED.value,
@@ -976,14 +996,24 @@ class HarnessSessionRunner:
             spec=harness.spec(),
             raw_requests=(raw_request_record,),
             raw_responses=(raw_response_record,),
-            events=self.persistence_service.provenance_events(run.id),
+            events=(
+                *self.persistence_service.provenance_events(run.id),
+                run_finished_event,
+            ),
             data_dir=self.config.data_dir,
         )
         metadata = {
             **dict(updated_run.metadata),
             "provenance": run_provenance_to_dict(provenance),
         }
-        updated_run = self.store.update_run(run.id, metadata=metadata)
+        provenance_result = self.persistence_service.persist_milestone(
+            PersistenceMilestone.PROVENANCE_STORED,
+            session_id=session.id,
+            run_id=run.id,
+            run_patch={"metadata": metadata},
+            events=(run_finished_event,),
+        )
+        updated_run = provenance_result.runs[-1]
         return HarnessSessionRunResult(
             session=updated_session,
             run=updated_run,
