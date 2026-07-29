@@ -11,6 +11,7 @@ from uuid import uuid4
 from gpt2giga_harness.native.models import parse_invocation_mode
 from gpt2giga_harness.runtime.models import RunStatus, parse_run_status
 from gpt2giga_harness.sessions.api import SessionQueryStore
+import gpt2giga_harness.sessions.write_batch as _write_batch
 from gpt2giga_harness.sessions.models import (
     HarnessMessage,
     HarnessNativeLink,
@@ -147,14 +148,15 @@ class HarnessSessionStore(SessionQueryStore, Protocol):
     ) -> HarnessRun:
         """Create one run."""
 
-    def update_run(self, run_id: str, **patch: Any) -> HarnessRun:
-        """Patch one run."""
+    def update_run(self, run_id: str, **patch: Any) -> HarnessRun: ...
 
-    def get_run(self, run_id: str) -> HarnessRun:
-        """Return one run by id."""
+    def get_run(self, run_id: str) -> HarnessRun: ...
 
-    def list_runs(self, session_id: str) -> tuple[HarnessRun, ...]:
-        """List runs for one session."""
+    def list_runs(self, session_id: str) -> tuple[HarnessRun, ...]: ...
+
+    def apply_write_batch(
+        self, batch: _write_batch.SessionWriteBatch
+    ) -> _write_batch.SessionWriteBatchResult: ...
 
     def runs_center_generation(self) -> tuple[int, int]:
         """Return cheap session/run generations for global live invalidation."""
@@ -241,6 +243,8 @@ class HarnessSessionStore(SessionQueryStore, Protocol):
 
 class InMemoryHarnessSessionStore(InMemorySessionQueryMixin):
     """In-memory session store for hermetic tests."""
+
+    apply_write_batch = _write_batch.InMemorySessionWriteBatchMixin.apply_write_batch
 
     def __init__(self) -> None:
         self._sessions: dict[str, HarnessSession] = {}

@@ -40,6 +40,9 @@ from gpt2giga_harness.sessions.storage.filesystem.runs import (
     FilesystemRunRepository,
     RunRepository,
 )
+from gpt2giga_harness.sessions.storage.filesystem.write_batches import (
+    FilesystemSessionWriteBatchMixin as _WriteBatchMixin,
+)
 from gpt2giga_harness.sessions.locking import exclusive_file_lock
 from gpt2giga_harness.sessions.event_stream import (
     EventCursorPosition,
@@ -96,7 +99,7 @@ class FilesystemRecordPage:
     byte_count: int
 
 
-class FilesystemHarnessSessionStore(FilesystemSessionQueryMixin):
+class FilesystemHarnessSessionStore(_WriteBatchMixin, FilesystemSessionQueryMixin):
     """Persist normalized harness history as transparent JSON and JSONL files."""
 
     def __init__(self, data_dir: str | Path) -> None:
@@ -121,6 +124,7 @@ class FilesystemHarnessSessionStore(FilesystemSessionQueryMixin):
             rebuild_read_index=self._rebuild_read_index,
             publish_runs_center=self.event_broker.publish_runs_center,
         )
+        self._recover_write_batches()
 
     def create_session(
         self,
@@ -520,7 +524,6 @@ class FilesystemHarnessSessionStore(FilesystemSessionQueryMixin):
         return self._run_repository.list(session_id)
 
     def runs_center_generation(self) -> tuple[int, int]:
-        """Return cheap session/run generations for global live invalidation."""
         self._ensure_read_index()
         return self._session_read_index().runs_center_generation()
 

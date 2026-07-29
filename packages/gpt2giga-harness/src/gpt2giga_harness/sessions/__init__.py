@@ -34,6 +34,12 @@ from gpt2giga_harness.sessions.store import (
     RunNotFoundError,
     SessionNotFoundError,
 )
+from gpt2giga_harness.sessions.write_batch import (
+    RunCreate,
+    RunPatch,
+    SessionWriteBatch,
+    SessionWriteBatchResult,
+)
 
 __all__ = [
     "FilesystemHarnessSessionStore",
@@ -51,12 +57,16 @@ __all__ = [
     "RunPage",
     "RunPageCursor",
     "RunNotFoundError",
+    "RunCreate",
+    "RunPatch",
     "SessionCatalog",
     "SessionCatalogEntry",
     "SessionCatalogState",
     "SessionLocator",
     "SessionNotFoundError",
     "SessionQueryStore",
+    "SessionWriteBatch",
+    "SessionWriteBatchResult",
     "StaleReadSnapshotError",
     "active_conversation_messages",
     "history_before_edited_message",

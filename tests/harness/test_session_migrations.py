@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 import hashlib
 import json
 from pathlib import Path
@@ -10,10 +11,21 @@ import pytest
 
 from gpt2giga_harness.native import HarnessInvocationMode
 from gpt2giga_harness.runtime.models import RunStatus
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.sessions.models import HarnessRun, run_to_dict
+from gpt2giga_harness.sessions import (
+    FilesystemHarnessSessionStore,
+    InMemoryHarnessSessionStore,
+    RunCreate,
+    SessionWriteBatch,
+)
+from gpt2giga_harness.sessions.models import (
+    HarnessMessage,
+    HarnessRun,
+    HarnessStoredEvent,
+    run_to_dict,
+)
 import gpt2giga_harness.sessions.storage.filesystem.runs as run_storage
-from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability
+import gpt2giga_harness.sessions.storage.filesystem.write_batches as batch_storage
+from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability, REDACTED
 
 
 def test_legacy_runs_migrate_idempotently_and_preserve_order(tmp_path):
@@ -143,6 +155,168 @@ def test_run_update_io_is_independent_of_history_size(tmp_path, monkeypatch):
     assert max(observations) <= min(observations) * 1.2
 
 
+def test_same_file_write_batch_uses_one_durability_barrier(tmp_path, monkeypatch):
+    store = FilesystemHarnessSessionStore(tmp_path)
+    session = store.create_session(title="batched messages")
+    messages = tuple(
+        _message(session.id, f"msg_{index}", f"message {index}") for index in range(3)
+    )
+    fsync_calls = 0
+    original_fsync = batch_storage.os.fsync
+
+    def counted_fsync(descriptor):
+        nonlocal fsync_calls
+        fsync_calls += 1
+        return original_fsync(descriptor)
+
+    monkeypatch.setattr(batch_storage.os, "fsync", counted_fsync)
+    result = store.apply_write_batch(
+        SessionWriteBatch(
+            batch_id="batch-messages",
+            session_id=session.id,
+            messages=messages,
+        )
+    )
+
+    assert result.messages == messages
+    assert store.list_messages(session.id) == messages
+    assert fsync_calls == 1
+
+
+def test_multifile_write_batch_recovers_without_duplicate_records(
+    tmp_path,
+    monkeypatch,
+):
+    secret = "batch-secret-value"
+    store = FilesystemHarnessSessionStore(tmp_path)
+    session = store.create_session(title="recoverable batch")
+    run_id = "run_recoverable_batch"
+    message = _message(
+        session.id,
+        "msg_recoverable_batch",
+        "content-free",
+        run_id=run_id,
+        metadata={"api_key": secret},
+    )
+    event = _event(
+        session.id,
+        run_id,
+        "evt_recoverable_batch",
+        payload={"token": secret},
+    )
+    batch = SessionWriteBatch(
+        batch_id="batch-recoverable",
+        session_id=session.id,
+        run_creates=(
+            RunCreate(
+                run_id=run_id,
+                harness_id="echo",
+                prompt="content-free",
+                model=None,
+                api_mode=GigaChatApiMode.V2,
+                capability=HarnessCapability.CHAT_COMPLETIONS,
+                mode="read",
+                workspace=None,
+                metadata={"api_key": secret},
+            ),
+        ),
+        messages=(message,),
+        events=(event,),
+    )
+    original_append = batch_storage._append_jsonl_batch
+
+    def interrupted_append(path, payloads):
+        if path.name == "messages.jsonl":
+            raise OSError("simulated batch interruption")
+        return original_append(path, payloads)
+
+    monkeypatch.setattr(
+        batch_storage,
+        "_append_jsonl_batch",
+        interrupted_append,
+    )
+    with pytest.raises(OSError, match="simulated batch interruption"):
+        store.apply_write_batch(batch)
+    marker_paths = tuple((tmp_path / "sessions" / ".write_batches").glob("*.json"))
+    assert len(marker_paths) == 1
+    assert secret not in marker_paths[0].read_text(encoding="utf-8")
+
+    monkeypatch.setattr(batch_storage, "_append_jsonl_batch", original_append)
+    reopened = FilesystemHarnessSessionStore(tmp_path)
+    assert [run.id for run in reopened.list_runs(session.id)] == [run_id]
+    assert reopened.list_messages(session.id) == (
+        replace(message, metadata={"api_key": REDACTED}),
+    )
+    assert reopened.list_events(session.id) == (
+        replace(event, payload={"token": REDACTED}),
+    )
+    assert not tuple((tmp_path / "sessions" / ".write_batches").glob("*.json"))
+
+
+def test_write_batch_bounds_are_checked_before_persistence(tmp_path):
+    store = FilesystemHarnessSessionStore(tmp_path)
+    session = store.create_session(title="bounded batch")
+    too_many = tuple(
+        _message(session.id, f"msg_{index}", "bounded") for index in range(65)
+    )
+
+    with pytest.raises(ValueError, match="1..64"):
+        store.apply_write_batch(
+            SessionWriteBatch(
+                batch_id="batch-too-many",
+                session_id=session.id,
+                messages=too_many,
+            )
+        )
+    with pytest.raises(ValueError, match="marker exceeds"):
+        store.apply_write_batch(
+            SessionWriteBatch(
+                batch_id="batch-too-large",
+                session_id=session.id,
+                messages=(_message(session.id, "msg_large", "x" * (1024 * 1024)),),
+            )
+        )
+    assert store.list_messages(session.id) == ()
+
+
+def test_in_memory_store_supports_frozen_write_batch_contract():
+    store = InMemoryHarnessSessionStore()
+    session = store.create_session(title="in-memory batch")
+    run_id = "run_in_memory_batch"
+    message = _message(
+        session.id,
+        "msg_in_memory_batch",
+        "content-free",
+        run_id=run_id,
+    )
+    event = _event(session.id, run_id, "evt_in_memory_batch")
+
+    result = store.apply_write_batch(
+        SessionWriteBatch(
+            batch_id="batch-in-memory",
+            session_id=session.id,
+            run_creates=(
+                RunCreate(
+                    run_id=run_id,
+                    harness_id="echo",
+                    prompt="content-free",
+                    model=None,
+                    api_mode=GigaChatApiMode.V2,
+                    capability=HarnessCapability.CHAT_COMPLETIONS,
+                    mode="read",
+                    workspace=None,
+                ),
+            ),
+            messages=(message,),
+            events=(event,),
+        )
+    )
+
+    assert [run.id for run in result.runs] == [run_id]
+    assert result.messages == (message,)
+    assert result.events == (event,)
+
+
 def _legacy_store(
     root: Path,
     *,
@@ -172,6 +346,43 @@ def _create_run(
         capability=HarnessCapability.CHAT_COMPLETIONS,
         mode="read",
         workspace=None,
+    )
+
+
+def _message(
+    session_id: str,
+    message_id: str,
+    content: str,
+    *,
+    run_id: str | None = None,
+    metadata: dict[str, str] | None = None,
+) -> HarnessMessage:
+    return HarnessMessage(
+        id=message_id,
+        session_id=session_id,
+        run_id=run_id,
+        role="user",
+        content=content,
+        created_at="2026-01-01T00:00:00Z",
+        metadata=metadata or {},
+    )
+
+
+def _event(
+    session_id: str,
+    run_id: str,
+    event_id: str,
+    *,
+    payload: dict[str, str] | None = None,
+) -> HarnessStoredEvent:
+    return HarnessStoredEvent(
+        id=event_id,
+        session_id=session_id,
+        run_id=run_id,
+        type="run_started",
+        message="content-free",
+        payload=payload or {},
+        created_at="2026-01-01T00:00:00Z",
     )
 
 
