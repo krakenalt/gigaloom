@@ -76,6 +76,51 @@ def test_session_runner_uses_typed_execution_context_objects():
     }
 
 
+def test_session_runner_materializes_full_bundle_only_for_explicit_legacy_access():
+    store = _BundleCountingStore()
+    runner = _runner(_CaptureHarness(), store=store)
+
+    result = runner.create_and_run({"harness_id": "capture", "prompt": "lightweight"})
+
+    assert result.has_materialized_bundle is False
+    assert store.bundle_exports == 0
+    assert set(result.to_lightweight_dict()) == {"session", "run", "result"}
+    assert store.bundle_exports == 0
+
+    assert result.bundle.messages[-1].content == "answer: lightweight"
+    assert result.has_materialized_bundle is True
+    assert store.bundle_exports == 1
+    assert result.to_dict()["messages"][-1]["content"] == "answer: lightweight"
+    assert store.bundle_exports == 1
+
+
+def test_durable_run_path_keeps_full_bundle_unmaterialized(monkeypatch):
+    store = _BundleCountingStore()
+    runner = _runner(_CaptureHarness(), store=store)
+    session = runner.create_session(default_harness_id="capture")
+    monkeypatch.setattr(
+        runner,
+        "_execution_readiness",
+        lambda _options, *, durable: {
+            "ok": True,
+            "blocked": False,
+            "summary": {"ready": 1, "degraded": 0, "blocked": 0},
+            "plan": {"delivery": "durable" if durable else "synchronous"},
+            "findings": [],
+        },
+    )
+
+    result = runner.run_in_session(
+        session.id,
+        {"harness_id": "capture", "prompt": "worker path"},
+        durable=True,
+    )
+
+    assert result.run.status.value == "succeeded"
+    assert result.has_materialized_bundle is False
+    assert store.bundle_exports == 0
+
+
 def test_session_runner_create_and_run_persists_success():
     harness = _CaptureHarness()
     runner = _runner(harness)
@@ -1363,6 +1408,16 @@ class _TerminalOrderingStore(InMemoryHarnessSessionStore):
                 event.session_id
             ).default_harness_id
         return super().append_event(event)
+
+
+class _BundleCountingStore(InMemoryHarnessSessionStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.bundle_exports = 0
+
+    def export_session_bundle(self, session_id):
+        self.bundle_exports += 1
+        return super().export_session_bundle(session_id)
 
 
 class _WorkspaceEditHarness(BaseHarness):

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 import threading
 import time
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from gpt2giga_harness import proxy
 from gpt2giga_harness.attachments import (
@@ -79,6 +79,7 @@ from gpt2giga_harness.sessions.models import (
     HarnessStoredEvent,
     bundle_to_dict,
     run_to_dict,
+    session_to_dict,
 )
 from gpt2giga_harness.sessions.store import (
     HarnessSessionStore,
@@ -119,15 +120,48 @@ MAX_HISTORY_MESSAGES = 20
 
 @dataclass(frozen=True)
 class HarnessSessionRunResult:
-    """Result of running one harness inside one session."""
+    """Lightweight run result with an explicit legacy bundle adapter."""
 
     session: HarnessSession
     run: HarnessRun
     result: HarnessResult
-    bundle: HarnessSessionBundle
+    _bundle_loader: Callable[[], HarnessSessionBundle] = field(
+        repr=False,
+        compare=False,
+    )
+    _bundle: HarnessSessionBundle | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
+
+    @property
+    def bundle(self) -> HarnessSessionBundle:
+        """Materialize the complete bundle for explicit legacy/export callers."""
+        if self._bundle is None:
+            object.__setattr__(self, "_bundle", self._bundle_loader())
+        bundle = self._bundle
+        if bundle is None:  # pragma: no cover - frozen assignment is deterministic
+            raise RuntimeError("session bundle materialization failed")
+        return bundle
+
+    @property
+    def has_materialized_bundle(self) -> bool:
+        """Return whether a caller explicitly requested the complete bundle."""
+        return self._bundle is not None
+
+    def to_lightweight_dict(self) -> dict[str, Any]:
+        """Serialize session summary, run, and harness result without history."""
+        payload = {
+            "session": session_to_dict(self.session),
+            "run": run_to_dict(self.run),
+            "result": result_to_dict(self.result),
+        }
+        self._add_attachment_metadata(payload)
+        return payload
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the run result for API responses."""
+        """Serialize the legacy synchronous response with an explicit full export."""
         payload = bundle_to_dict(self.bundle)
         payload.update(
             {
@@ -136,13 +170,16 @@ class HarnessSessionRunResult:
                 "result": result_to_dict(self.result),
             }
         )
+        self._add_attachment_metadata(payload)
+        return payload
+
+    def _add_attachment_metadata(self, payload: dict[str, Any]) -> None:
         attachments = self.run.metadata.get("attachments")
         if attachments:
             payload["attachments"] = attachments
         attachment_render_plan = self.run.metadata.get("attachment_render_plan")
         if attachment_render_plan:
             payload["attachment_render_plan"] = attachment_render_plan
-        return payload
 
 
 @dataclass(frozen=True)
@@ -945,12 +982,11 @@ class HarnessSessionRunner:
             "provenance": run_provenance_to_dict(provenance),
         }
         updated_run = self.store.update_run(run.id, metadata=metadata)
-        bundle = self.store.get_session_bundle(session.id)
         return HarnessSessionRunResult(
             session=updated_session,
             run=updated_run,
             result=result,
-            bundle=bundle,
+            _bundle_loader=lambda: self._export_session_bundle(session.id),
         )
 
     def _run_options(
@@ -1431,6 +1467,12 @@ class HarnessSessionRunner:
             message,
             payload,
         )
+
+    def _export_session_bundle(self, session_id: str) -> HarnessSessionBundle:
+        exporter = getattr(self.store, "export_session_bundle", None)
+        if callable(exporter):
+            return exporter(session_id)
+        return self.store.get_session_bundle(session_id)
 
 
 def _native_resume_metadata(harness_id: str) -> dict[str, Any]:
