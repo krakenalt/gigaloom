@@ -854,10 +854,28 @@
         "removal_gate": "T05-C3"
       },
       {
-        "source": "runtime/store.py",
+        "source": "runtime/native/repository.py",
         "target": "gpt2giga_harness.sessions.redaction",
-        "owner": "T03",
-        "removal_gate": "G-RF"
+        "owner": "T03/T20",
+        "removal_gate": "T20-C2"
+      },
+      {
+        "source": "runtime/repositories/diagnostics.py",
+        "target": "gpt2giga_harness.sessions.redaction",
+        "owner": "T03/T20",
+        "removal_gate": "T20-C2"
+      },
+      {
+        "source": "runtime/repositories/records.py",
+        "target": "gpt2giga_harness.sessions.redaction",
+        "owner": "T03/T20",
+        "removal_gate": "T20-C2"
+      },
+      {
+        "source": "runtime/side_effects/repository.py",
+        "target": "gpt2giga_harness.sessions.redaction",
+        "owner": "T03/T20",
+        "removal_gate": "T20-C2"
       },
       {
         "source": "runtime/worker.py",
