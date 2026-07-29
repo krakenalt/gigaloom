@@ -1,39 +1,25 @@
-"""Read compatibility revisions for runtime consumers."""
+"""Read monotonic compatibility revisions for runtime consumers."""
 
 from __future__ import annotations
-
-import hashlib
-import json
 
 from gpt2giga_harness.runtime.repositories.base import RuntimeRepository
 
 
 class RevisionsRepository(RuntimeRepository):
-    """Read compatibility revisions for runtime consumers."""
+    """Read durable monotonic revisions for runtime consumers."""
 
     def runs_center_revision(self) -> str:
-        """Return a content-free revision excluding lease heartbeat churn."""
+        """Return the O(1) content-free Runs Center revision."""
         with self._connect() as connection:
-            jobs = connection.execute(
-                "SELECT COUNT(*), COALESCE(SUM(version), 0) FROM jobs"
+            row = connection.execute(
+                """
+                SELECT revision FROM runtime_revisions
+                WHERE topic = 'runs_center'
+                """
             ).fetchone()
-            approvals = connection.execute(
-                """
-                SELECT status, COUNT(*), COALESCE(MAX(COALESCE(decided_at, created_at)), '')
-                FROM approval_requests GROUP BY status ORDER BY status
-                """
-            ).fetchall()
-            workers = connection.execute(
-                """
-                SELECT status, COUNT(*), COALESCE(MAX(COALESCE(stopped_at, started_at)), '')
-                FROM workers GROUP BY status ORDER BY status
-                """
-            ).fetchall()
-        payload = {
-            "approvals": [tuple(row) for row in approvals],
-            "jobs": tuple(jobs),
-            "workers": [tuple(row) for row in workers],
-        }
-        return hashlib.sha256(
-            json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
-        ).hexdigest()
+        if row is None:
+            raise RuntimeError("runs_center runtime revision is unavailable")
+        revision = int(row["revision"])
+        if revision < 0:
+            raise RuntimeError("runs_center runtime revision is invalid")
+        return f"{revision:064x}"

@@ -1,7 +1,7 @@
 """Versioned SQLite schema for durable runtime coordination."""
 
 RUNTIME_DB_NAME = "runtime.sqlite3"
-RUNTIME_SCHEMA_VERSION = 12
+RUNTIME_SCHEMA_VERSION = 13
 
 MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
     (
@@ -424,6 +424,159 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
                 status, required_os, required_harness_id,
                 priority DESC, created_at, id
             )
+            """,
+        ),
+    ),
+    (
+        13,
+        "monotonic runtime projection revisions",
+        (
+            """
+            CREATE TABLE runtime_revisions (
+                topic TEXT PRIMARY KEY,
+                revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0)
+            )
+            """,
+            """
+            INSERT INTO runtime_revisions(topic, revision)
+            VALUES ('runs_center', 0)
+            """,
+            """
+            CREATE TRIGGER runs_center_revision_jobs_insert
+            AFTER INSERT ON jobs
+            BEGIN
+                INSERT INTO runtime_revisions(topic, revision)
+                VALUES ('runs_center', 1)
+                ON CONFLICT(topic) DO UPDATE SET revision = revision + 1;
+            END
+            """,
+            """
+            CREATE TRIGGER runs_center_revision_jobs_update
+            AFTER UPDATE ON jobs
+            BEGIN
+                INSERT INTO runtime_revisions(topic, revision)
+                VALUES ('runs_center', 1)
+                ON CONFLICT(topic) DO UPDATE SET revision = revision + 1;
+            END
+            """,
+            """
+            CREATE TRIGGER runs_center_revision_jobs_delete
+            AFTER DELETE ON jobs
+            BEGIN
+                INSERT INTO runtime_revisions(topic, revision)
+                VALUES ('runs_center', 1)
+                ON CONFLICT(topic) DO UPDATE SET revision = revision + 1;
+            END
+            """,
+            """
+            CREATE TRIGGER runs_center_revision_attempts_insert
+            AFTER INSERT ON job_attempts
+            BEGIN
+                INSERT INTO runtime_revisions(topic, revision)
+                VALUES ('runs_center', 1)
+                ON CONFLICT(topic) DO UPDATE SET revision = revision + 1;
+            END
+            """,
+            """
+            CREATE TRIGGER runs_center_revision_attempts_update
+            AFTER UPDATE OF
+                status, run_id, lease_owner, started_at, finished_at,
+                process_id, process_group_id, retry_reason,
+                idempotency_class, error_summary,
+                capability_fingerprint_json
+            ON job_attempts
+            WHEN
+                OLD.status IS NOT NEW.status
+                OR OLD.run_id IS NOT NEW.run_id
+                OR OLD.lease_owner IS NOT NEW.lease_owner
+                OR OLD.started_at IS NOT NEW.started_at
+                OR OLD.finished_at IS NOT NEW.finished_at
+                OR OLD.process_id IS NOT NEW.process_id
+                OR OLD.process_group_id IS NOT NEW.process_group_id
+                OR OLD.retry_reason IS NOT NEW.retry_reason
+                OR OLD.idempotency_class IS NOT NEW.idempotency_class
+                OR OLD.error_summary IS NOT NEW.error_summary
+                OR OLD.capability_fingerprint_json
+                    IS NOT NEW.capability_fingerprint_json
+            BEGIN
+                INSERT INTO runtime_revisions(topic, revision)
+                VALUES ('runs_center', 1)
+                ON CONFLICT(topic) DO UPDATE SET revision = revision + 1;
+            END
+            """,
+            """
+            CREATE TRIGGER runs_center_revision_attempts_delete
+            AFTER DELETE ON job_attempts
+            BEGIN
+                INSERT INTO runtime_revisions(topic, revision)
+                VALUES ('runs_center', 1)
+                ON CONFLICT(topic) DO UPDATE SET revision = revision + 1;
+            END
+            """,
+            """
+            CREATE TRIGGER runs_center_revision_approvals_insert
+            AFTER INSERT ON approval_requests
+            BEGIN
+                INSERT INTO runtime_revisions(topic, revision)
+                VALUES ('runs_center', 1)
+                ON CONFLICT(topic) DO UPDATE SET revision = revision + 1;
+            END
+            """,
+            """
+            CREATE TRIGGER runs_center_revision_approvals_update
+            AFTER UPDATE ON approval_requests
+            BEGIN
+                INSERT INTO runtime_revisions(topic, revision)
+                VALUES ('runs_center', 1)
+                ON CONFLICT(topic) DO UPDATE SET revision = revision + 1;
+            END
+            """,
+            """
+            CREATE TRIGGER runs_center_revision_approvals_delete
+            AFTER DELETE ON approval_requests
+            BEGIN
+                INSERT INTO runtime_revisions(topic, revision)
+                VALUES ('runs_center', 1)
+                ON CONFLICT(topic) DO UPDATE SET revision = revision + 1;
+            END
+            """,
+            """
+            CREATE TRIGGER runs_center_revision_workers_insert
+            AFTER INSERT ON workers
+            BEGIN
+                INSERT INTO runtime_revisions(topic, revision)
+                VALUES ('runs_center', 1)
+                ON CONFLICT(topic) DO UPDATE SET revision = revision + 1;
+            END
+            """,
+            """
+            CREATE TRIGGER runs_center_revision_workers_update
+            AFTER UPDATE OF
+                process_id, hostname, started_at, stopped_at,
+                capability_fingerprint_json
+            ON workers
+            WHEN
+                OLD.process_id IS NOT NEW.process_id
+                OR OLD.hostname IS NOT NEW.hostname
+                OR OLD.status IS NOT NEW.status
+                OR OLD.started_at IS NOT NEW.started_at
+                OR OLD.stopped_at IS NOT NEW.stopped_at
+                OR OLD.capability_fingerprint_json
+                    IS NOT NEW.capability_fingerprint_json
+            BEGIN
+                INSERT INTO runtime_revisions(topic, revision)
+                VALUES ('runs_center', 1)
+                ON CONFLICT(topic) DO UPDATE SET revision = revision + 1;
+            END
+            """,
+            """
+            CREATE TRIGGER runs_center_revision_workers_delete
+            AFTER DELETE ON workers
+            BEGIN
+                INSERT INTO runtime_revisions(topic, revision)
+                VALUES ('runs_center', 1)
+                ON CONFLICT(topic) DO UPDATE SET revision = revision + 1;
+            END
             """,
         ),
     ),

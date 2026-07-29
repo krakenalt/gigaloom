@@ -1,5 +1,5 @@
 import concurrent.futures
-from contextlib import closing
+from contextlib import closing, contextmanager
 import hashlib
 import importlib
 import json
@@ -38,6 +38,14 @@ from gpt2giga_harness.runtime.models import (
     JobStatus,
     RunStatus,
     SideEffectStatus,
+)
+from gpt2giga_harness.runtime.policy import (
+    ApprovalDecision,
+    EnforcementLevel,
+    PermissionAction,
+    PolicyContext,
+    PolicyDecision,
+    PolicyResolution,
 )
 from gpt2giga_harness.runtime.reconcile import RuntimeReconciler
 from gpt2giga_harness.runtime.side_effects import HarnessSideEffectExecutor
@@ -952,16 +960,26 @@ def test_runtime_cli_inspect_and_export_json(tmp_path, monkeypatch, capsys):
     assert "Exported runtime coordination state" in capsys.readouterr().out
 
 
-def test_runs_center_revision_tracks_state_but_ignores_worker_heartbeats(tmp_path):
+def test_runs_center_revision_tracks_domain_mutations_but_ignores_heartbeats(tmp_path):
     store = RuntimeCoordinationStore(tmp_path)
     initial = store.runs_center_revision()
-    job = store.submit_job(
+    submission = store.submit_job(
         session_id="sess_revision",
         user_message_id="msg_revision",
         initial_run_id="run_revision",
         idempotency_key="revision",
-    ).job
+    )
+    job = submission.job
     queued = store.runs_center_revision()
+    duplicate = store.submit_job(
+        session_id="sess_revision",
+        user_message_id="msg_revision",
+        initial_run_id="run_revision",
+        idempotency_key="revision",
+    )
+    assert duplicate.created is False
+    assert store.runs_center_revision() == queued
+
     store.register_worker(
         worker_id="worker_revision",
         process_id=123,
@@ -969,14 +987,147 @@ def test_runs_center_revision_tracks_state_but_ignores_worker_heartbeats(tmp_pat
         capability_fingerprint={},
     )
     online = store.runs_center_revision()
+    store.register_worker(
+        worker_id="worker_revision",
+        process_id=123,
+        hostname="localhost",
+        capability_fingerprint={},
+    )
+    assert store.runs_center_revision() == online
     store.heartbeat_worker("worker_revision")
-
-    assert queued != initial
-    assert online != queued
     assert store.runs_center_revision() == online
 
-    store.transition_job(job.id, JobStatus.RUNNING)
-    assert store.runs_center_revision() != online
+    claim = store.claim_next_job(
+        worker_id="worker_revision",
+        capability_fingerprint={},
+        lease_seconds=30,
+    )
+    assert claim is not None
+    claimed = store.runs_center_revision()
+    assert claimed != online
+    store.heartbeat_worker_attempt(
+        claim.attempt.id,
+        worker_id="worker_revision",
+        lease_seconds=30,
+    )
+    assert store.runs_center_revision() == claimed
+
+    store.transition_attempt(claim.attempt.id, JobAttemptStatus.RUNNING)
+    running = store.runs_center_revision()
+    assert running != claimed
+    resolution = PolicyResolution(
+        action=PermissionAction.PROCESS_SPAWN,
+        decision=PolicyDecision.ASK,
+        enforcement=EnforcementLevel.ENFORCED_BY_HARNESS,
+        policy_source="test:revision",
+    )
+    context = PolicyContext(
+        session_id=job.session_id,
+        run_id=job.initial_run_id,
+        job_id=job.id,
+        reason="Verify approval invalidation.",
+    )
+    approval = store.create_approval_request(resolution, context)
+    approval_revision = store.runs_center_revision()
+    assert approval_revision != running
+    assert store.create_approval_request(resolution, context).id == approval.id
+    assert store.runs_center_revision() == approval_revision
+    store.decide_approval_request(approval.id, ApprovalDecision.DENY)
+    decided = store.runs_center_revision()
+    assert decided != approval_revision
+
+    revisions = [
+        initial,
+        queued,
+        online,
+        claimed,
+        running,
+        approval_revision,
+        decided,
+    ]
+    assert all(len(revision) == 64 for revision in revisions)
+    assert [int(revision, 16) for revision in revisions] == sorted(
+        int(revision, 16) for revision in revisions
+    )
+
+
+def test_runs_center_revision_bump_rolls_back_with_domain_mutation(tmp_path):
+    store = RuntimeCoordinationStore(tmp_path)
+    initial = store.runs_center_revision()
+    with closing(sqlite3.connect(store.path)) as connection:
+        connection.execute(
+            """
+            CREATE TRIGGER reject_runtime_revision_bump
+            BEFORE UPDATE ON runtime_revisions
+            BEGIN
+                SELECT RAISE(ABORT, 'revision bump rejected');
+            END
+            """
+        )
+        connection.commit()
+
+    with pytest.raises(sqlite3.IntegrityError, match="revision bump rejected"):
+        store.submit_job(
+            session_id="sess_atomic_revision",
+            user_message_id="msg_atomic_revision",
+            idempotency_key="atomic-revision",
+        )
+
+    assert store.list_jobs() == ()
+    assert store.runs_center_revision() == initial
+
+
+def test_runs_center_revision_read_is_one_indexed_row_at_scale(tmp_path, monkeypatch):
+    store = RuntimeCoordinationStore(tmp_path)
+    with closing(sqlite3.connect(store.path)) as connection:
+        now = "2026-07-29T00:00:00+00:00"
+        connection.executemany(
+            """
+            INSERT INTO jobs (
+                id, origin, idempotency_key_hash, status, session_id,
+                user_message_id, initial_run_id, max_attempts, version,
+                required_fingerprint_json, created_at, updated_at
+            ) VALUES (?, 'manual', ?, 'queued', ?, ?, ?, 1, 0, '{}', ?, ?)
+            """,
+            (
+                (
+                    f"job_revision_{index}",
+                    f"key_revision_{index}",
+                    f"sess_revision_{index}",
+                    f"msg_revision_{index}",
+                    f"run_revision_{index}",
+                    now,
+                    now,
+                )
+                for index in range(10_000)
+            ),
+        )
+        connection.commit()
+
+    statements: list[str] = []
+    provider_connect = store._db.connect
+
+    @contextmanager
+    def traced_connect():
+        with provider_connect() as connection:
+            connection.set_trace_callback(statements.append)
+            try:
+                yield connection
+            finally:
+                connection.set_trace_callback(None)
+
+    monkeypatch.setattr(store._db, "connect", traced_connect)
+    revision = store.runs_center_revision()
+
+    selects = [
+        statement
+        for statement in statements
+        if statement.lstrip().upper().startswith("SELECT")
+    ]
+    assert len(revision) == 64
+    assert len(selects) == 1
+    assert "runtime_revisions" in selects[0]
+    assert "jobs" not in selects[0]
 
 
 def _create_run(
