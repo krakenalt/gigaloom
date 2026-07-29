@@ -218,7 +218,7 @@ def test_session_storage_case_resets_mutable_fixture_between_samples(tmp_path):
     assert result["samples"] == 2
     assert result["details"]["appended_events"]["p95"] == 100
     assert result["counters"]["fsync_calls"]["p95"] == 100
-    assert result["counters"]["index_reads"]["p95"] == 200
+    assert result["counters"]["index_reads"]["p95"] == 0
 
 
 @pytest.mark.parametrize("samples", (0, 101))
@@ -436,7 +436,7 @@ def test_local_detail_profile_keeps_bounded_content_free_samples():
         by_storage_metric["sessions.catalog.create_1000"]["counters"]["index_reads"][
             "p95"
         ]
-        == 1
+        == 0
     )
     assert (
         by_storage_metric["sessions.catalog.first_page_cold_1000"]["counters"][
@@ -448,7 +448,7 @@ def test_local_detail_profile_keeps_bounded_content_free_samples():
         by_storage_metric["sessions.catalog.first_page_cold_1000"]["counters"][
             "index_reads"
         ]["p95"]
-        == 1_001
+        == 0
     )
     assert (
         by_storage_metric["sessions.catalog.first_page_warm_1000"]["counters"][
@@ -462,17 +462,12 @@ def test_local_detail_profile_keeps_bounded_content_free_samples():
         ]["p95"]
         == 5_000
     )
-    assert (
-        by_storage_metric["sessions.catalog.create_10"]["counters"]["bytes_written"][
-            "p95"
-        ]
-        < by_storage_metric["sessions.catalog.create_100"]["counters"]["bytes_written"][
-            "p95"
-        ]
-        < by_storage_metric["sessions.catalog.create_1000"]["counters"][
+    assert {
+        by_storage_metric[f"sessions.catalog.create_{scale}"]["counters"][
             "bytes_written"
         ]["p95"]
-    )
+        for scale in (10, 100, 1_000)
+    } == {609}
     for scale in (10, 100, 1_000):
         update = by_storage_metric[f"sessions.runs.update_1_of_{scale}"]
         assert update["counters"]["rows_parsed"]["p95"] == scale
@@ -494,7 +489,7 @@ def test_local_detail_profile_keeps_bounded_content_free_samples():
         by_storage_metric["sessions.events.append_steady_100"]["counters"][
             "index_reads"
         ]["p95"]
-        == 200
+        == 0
     )
     assert (
         by_storage_metric["sessions.events.append_burst_500"]["counters"][
@@ -506,7 +501,7 @@ def test_local_detail_profile_keeps_bounded_content_free_samples():
         by_storage_metric["sessions.events.append_burst_500"]["counters"][
             "index_reads"
         ]["p95"]
-        == 1_000
+        == 0
     )
 
 
