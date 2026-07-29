@@ -14,7 +14,7 @@ import threading
 from time import monotonic
 from typing import Any, Mapping
 
-from fastapi import Body, FastAPI, Header, HTTPException, Query, Request
+from fastapi import Body, FastAPI, Header, HTTPException, Query
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from gpt2giga_harness.arena import (
@@ -42,7 +42,6 @@ from gpt2giga_harness.attachments import (
 from gpt2giga_harness.attachments.limits import normalize_workspace_file
 from gpt2giga_harness.config import (
     HarnessConfig,
-    pass_model_env_note,
 )
 from gpt2giga_harness.ui.container import build_app_services
 from gpt2giga_harness.ui.dependencies import install_app_services
@@ -51,7 +50,6 @@ from gpt2giga_harness.ui.services.arena import (
     arena_response as _arena_response,
     arena_summary_response as _arena_summary_response,
     bounded_arena_workspace_paths as _bounded_arena_workspace_paths,
-    eval_run_response as _eval_run_response,
     first_text as _first_text,
 )
 from gpt2giga_harness.ui.services.attachments import (
@@ -61,25 +59,18 @@ from gpt2giga_harness.ui.services.attachments import (
     content_disposition as _content_disposition,
     decode_attachment_payload as _decode_attachment_payload,
     metadata_mapping as _metadata_mapping,
-    route_recommendation_attachments as _route_recommendation_attachments,
     session_project_id as _session_project_id,
-    text_tuple as _text_tuple,
     workspace_api_root as _workspace_api_root,
     workspace_limits as _workspace_limits,
 )
-from gpt2giga_harness.ui.services.defaults import fallback_models as _fallback_models
 from gpt2giga_harness.ui.services.lifecycle import create_app_lifespan
 from gpt2giga_harness.ui.services.navigation import (
-    cache_navigation_response as _cache_navigation_response,
-    fork_session_from_session as _fork_session_from_session,
-    navigation_cached as _navigation_cached,
-    navigation_export_text as _navigation_export_text,
-    navigation_message_preview as _navigation_message_preview,
-    session_patch as _session_patch,
     session_summary as _session_summary,
-    validate_navigation_binding as _validate_navigation_binding,
 )
-from gpt2giga_harness.ui.services.projects import project_response as _project_response
+from gpt2giga_harness.ui.services.request_values import (
+    optional_text as _optional_text,
+    required_text as _required_text,
+)
 from gpt2giga_harness.ui.streaming.events import (
     arena_events as _arena_events,
     arena_sse_event as _arena_sse_event,
@@ -101,6 +92,19 @@ from gpt2giga_harness.ui.async_execution import (
     run_stream_offload,
 )
 from gpt2giga_harness.ui.execution_contracts import install_execution_contracts
+from gpt2giga_harness.ui.routers.catalog import create_router as create_catalog_router
+from gpt2giga_harness.ui.routers.editor import create_router as create_editor_router
+from gpt2giga_harness.ui.routers.evals import create_router as create_evals_router
+from gpt2giga_harness.ui.routers.project_memory import (
+    create_router as create_project_memory_router,
+)
+from gpt2giga_harness.ui.routers.project_tools import (
+    create_router as create_project_tools_router,
+)
+from gpt2giga_harness.ui.routers.projects import create_router as create_projects_router
+from gpt2giga_harness.ui.routers.session_catalog import (
+    create_router as create_session_catalog_router,
+)
 from gpt2giga_harness.ui.routers.workbench_state import (
     router as workbench_state_router,
 )
@@ -119,26 +123,6 @@ from gpt2giga_harness.environment_pull_requests import (
     EnvironmentPullRequestService,
 )
 from gpt2giga_harness.harnesses.attachment_plan import attachment_capability_error
-from gpt2giga_harness.evals import (
-    EvalRunNotFoundError,
-    EvalSpecNotFoundError,
-    discover_eval_specs,
-    eval_run_to_dict,
-    eval_spec_load_error_to_dict,
-    eval_spec_to_dict,
-    load_eval_spec,
-    queue_eval,
-    run_eval,
-)
-from gpt2giga_harness.editor import (
-    build_open_diff_plan,
-    build_open_file_plan,
-    build_open_terminal_plan,
-    build_open_workspace_plan,
-    editor_open_plan_to_dict,
-    execute_editor_plan,
-    workspace_for_run,
-)
 from gpt2giga_harness.execution import ExecutionTransport
 from gpt2giga_harness.integration_flows import IntegrationFlowService
 from gpt2giga_harness.integration_groups import GroupedIntegrationService
@@ -180,21 +164,7 @@ from gpt2giga_harness.native.store import (
     native_session_ref_to_dict,
 )
 from gpt2giga_harness.project import (
-    init_project_config,
-    load_project_state,
-    load_project_config,
-    project_config_to_dict,
-    project_preset_to_dict,
-    project_state_to_dict,
-    project_to_dict,
-    render_project_preset,
-    rendered_project_preset_to_dict,
     resolve_project,
-    update_project_state,
-)
-from gpt2giga_harness.project_memory import (
-    ProjectMemoryNotFoundError,
-    memory_entry_to_dict,
 )
 from gpt2giga_harness.preflight import (
     PreflightBlockedError,
@@ -214,10 +184,6 @@ from gpt2giga_harness.pr_artifacts import (
     create_pr_branch,
     pr_artifact_to_dict,
 )
-from gpt2giga_harness.plugins import (
-    harness_validation_report_to_dict,
-    validate_harness_spec,
-)
 from gpt2giga_harness.provenance import (
     build_replay_request,
     build_run_provenance,
@@ -225,10 +191,6 @@ from gpt2giga_harness.provenance import (
 )
 from gpt2giga_harness.reviewed_evidence import reviewed_evidence_manifest
 from gpt2giga_harness.registry import HarnessRegistry
-from gpt2giga_harness.routing import (
-    recommend_harness_route,
-    route_recommendation_to_dict,
-)
 from gpt2giga_harness.runtime.models import RunStatus, job_to_dict
 from gpt2giga_harness.runtime.policy import (
     EnforcementLevel,
@@ -244,7 +206,6 @@ from gpt2giga_harness.runtime.policy import (
     permission_profile,
 )
 from gpt2giga_harness.runtime.store import JobNotFoundError, RuntimeCoordinationStore
-from gpt2giga_harness.session_exports import write_session_export
 from gpt2giga_harness.sessions import (
     HarnessSessionStore,
     RunNotFoundError,
@@ -276,30 +237,17 @@ from gpt2giga_harness.session_titles import (
 )
 from gpt2giga_harness.cli_capabilities import (
     CliCapabilitySnapshot,
-    cli_capability_snapshot_to_dict,
-)
-from gpt2giga_harness.claude_handoff import (
-    ClaudeHandoffError,
-    claude_execution_surfaces_to_dict,
-    claude_handoff_capability_to_dict,
 )
 from gpt2giga_harness.types import (
     GigaChatApiMode,
     HarnessCapability,
     HarnessEventType,
     HarnessRequest,
-    availability_to_dict,
     parse_api_mode,
     parse_builtin_tools,
     parse_capability,
     result_to_dict,
-    spec_to_dict,
 )
-from gpt2giga_harness.tool_profiles import (
-    build_tool_profile_statuses,
-    tool_profile_status_to_dict,
-)
-from gpt2giga_harness.ui.performance import ui_performance_budgets
 from gpt2giga_harness.ui.mutation_contracts import install_mutation_contracts
 from gpt2giga_harness.ui.routers.runs import router as runs_router
 from gpt2giga_harness.ui.routers.schedules import router as schedules_router
@@ -351,10 +299,6 @@ from gpt2giga_harness.workspace import (
     resolve_workspace,
     workspace_file_metadata,
     workspace_tree,
-)
-from gpt2giga_harness.workbench_execution import (
-    workbench_admission_projection,
-    workbench_transport_projection,
 )
 
 
@@ -422,15 +366,11 @@ def create_app(
     native_process_manager = services.native_process_manager
     attachment_store = services.attachment_store
     arena_store = services.arena_store
-    eval_store = services.eval_store
-    memory_store = services.project_memory_store
-    settings_store = services.settings_store
     runner = services.session_runner
     durable_dispatcher = services.job_dispatcher
     session_service = services.session_service
     policy_engine = services.policy_engine
     active_headless_runs = services.active_headless_runs
-    session_navigation_mutations = services.session_navigation_mutations
     async_diagnostics = services.async_diagnostics
     run_event_broker = services.run_event_broker
 
@@ -530,723 +470,6 @@ def create_app(
                 "approval": approval_request_to_dict(approval),
             },
         )
-
-    @app.get("/api/harnesses")
-    def harnesses() -> dict[str, Any]:
-        harness_items = []
-        for harness in registry.list():
-            spec = harness.spec()
-            validation = registry.validation_report(spec.id) or validate_harness_spec(
-                spec
-            )
-            capability_probe = getattr(harness, "capability_probe", None)
-            provider_handoff_probe = getattr(
-                harness, "provider_handoff_capability", None
-            )
-            provider_handoff = None
-            execution_surfaces: list[dict[str, Any]] = []
-            if callable(provider_handoff_probe):
-                try:
-                    handoff_capability = provider_handoff_probe()
-                except ClaudeHandoffError:
-                    handoff_capability = None
-                if handoff_capability is not None:
-                    provider_handoff = claude_handoff_capability_to_dict(
-                        handoff_capability
-                    )
-                    execution_surfaces = claude_execution_surfaces_to_dict(
-                        handoff_capability
-                    )
-            harness_items.append(
-                {
-                    "spec": spec_to_dict(spec),
-                    "availability": availability_to_dict(harness.availability()),
-                    "compatibility": (
-                        cli_capability_snapshot_to_dict(capability_probe())
-                        if callable(capability_probe)
-                        else None
-                    ),
-                    "provider_handoff": provider_handoff,
-                    "execution_surfaces": execution_surfaces,
-                    "workbench_admission": workbench_admission_projection(harness),
-                    "workbench_transport": workbench_transport_projection(harness),
-                    "validation": harness_validation_report_to_dict(validation),
-                }
-            )
-        return {
-            "harnesses": harness_items,
-            "discovery_errors": list(registry.discovery_errors),
-        }
-
-    @app.get("/api/defaults")
-    def defaults() -> dict[str, Any]:
-        harness_defaults = settings_store.load().defaults
-        return {
-            "proxy_url": config.proxy_url,
-            "default_harness_id": harness_defaults.default_harness_id,
-            "default_model": harness_defaults.default_model,
-            "default_api_mode": harness_defaults.default_api_mode,
-            "default_mode": harness_defaults.mode,
-            "task_intent": harness_defaults.task_intent,
-            "authority": harness_defaults.authority,
-            "execution_transport": harness_defaults.execution_transport,
-            "invocation_mode": harness_defaults.invocation_mode,
-            "workspace_policy": harness_defaults.workspace_policy,
-            "permission_profile": harness_defaults.permission_profile,
-            "stream": harness_defaults.stream,
-            "auto_start_proxy": config.auto_start_proxy,
-            "proxy_start_timeout_seconds": config.proxy_start_timeout_seconds,
-            "note": pass_model_env_note(),
-            "performance_budgets": ui_performance_budgets(),
-        }
-
-    @app.get("/api/project")
-    def project(workspace: str | None = Query(default=None)) -> dict[str, Any]:
-        try:
-            return _project_response(
-                workspace=_optional_text(workspace),
-                data_dir=config.data_dir,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    @app.get("/api/project/config")
-    def project_config(
-        workspace: str | None = Query(default=None),
-    ) -> dict[str, Any]:
-        try:
-            project_context = resolve_project(
-                _optional_text(workspace),
-                data_dir=config.data_dir,
-            )
-            loaded = load_project_config(project_context.root)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"config": project_config_to_dict(loaded)}
-
-    @app.get("/api/project/presets")
-    def project_presets(
-        workspace: str | None = Query(default=None),
-    ) -> dict[str, Any]:
-        try:
-            project_context = resolve_project(
-                _optional_text(workspace),
-                data_dir=config.data_dir,
-            )
-            loaded = load_project_config(project_context.root)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "project": project_to_dict(project_context),
-            "presets": [
-                project_preset_to_dict(name, preset)
-                for name, preset in loaded.presets.items()
-            ],
-        }
-
-    @app.post("/api/project/presets/{preset_name}/render")
-    def render_preset(
-        preset_name: str,
-        payload: dict[str, Any] = Body(default_factory=dict),
-    ) -> dict[str, Any]:
-        try:
-            project_context = resolve_project(
-                _optional_text(payload.get("workspace")),
-                data_dir=config.data_dir,
-            )
-            loaded = load_project_config(project_context.root)
-            rendered = render_project_preset(
-                project_context,
-                loaded,
-                preset_name,
-                user_prompt=_optional_text(payload.get("user_prompt")),
-                selected_files=_text_tuple(payload.get("selected_files")),
-                last_run_diff=_optional_text(payload.get("last_run_diff")),
-            )
-        except KeyError as exc:
-            raise HTTPException(status_code=404, detail="Preset not found") from exc
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "project": project_to_dict(project_context),
-            "preset": rendered_project_preset_to_dict(rendered),
-        }
-
-    @app.get("/api/project/state")
-    def project_state(
-        workspace: str | None = Query(default=None),
-    ) -> dict[str, Any]:
-        try:
-            project_context = resolve_project(
-                _optional_text(workspace),
-                data_dir=config.data_dir,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "project": project_to_dict(project_context),
-            "state": project_state_to_dict(load_project_state(project_context)),
-        }
-
-    @app.patch("/api/project/state")
-    def update_state(
-        payload: dict[str, Any] = Body(default_factory=dict),
-    ) -> dict[str, Any]:
-        try:
-            project_context = resolve_project(
-                _optional_text(payload.get("workspace")),
-                data_dir=config.data_dir,
-                load_config_name=False,
-            )
-            state = update_project_state(project_context, payload)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "project": project_to_dict(project_context),
-            "state": project_state_to_dict(state),
-        }
-
-    @app.post("/api/editor/open-workspace")
-    def editor_open_workspace(
-        request: Request,
-        payload: dict[str, Any] = Body(default_factory=dict),
-    ) -> dict[str, Any]:
-        dry_run = _editor_dry_run(request, payload)
-        try:
-            project_context = resolve_project(
-                _optional_text(payload.get("workspace")),
-                data_dir=config.data_dir,
-                load_config_name=False,
-            )
-            loaded = load_project_config(project_context.root)
-            command = _optional_text(payload.get("command")) or loaded.editor.command
-            plan = build_open_workspace_plan(project_context.root, command=command)
-            result = execute_editor_plan(
-                plan,
-                dry_run=dry_run,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "project": project_to_dict(project_context),
-            "editor": editor_open_plan_to_dict(result),
-        }
-
-    @app.post("/api/editor/open-file")
-    def editor_open_file(
-        request: Request,
-        payload: dict[str, Any] = Body(default_factory=dict),
-    ) -> dict[str, Any]:
-        dry_run = _editor_dry_run(request, payload)
-        try:
-            project_context = resolve_project(
-                _optional_text(payload.get("workspace")),
-                data_dir=config.data_dir,
-                load_config_name=False,
-            )
-            loaded = load_project_config(project_context.root)
-            command = _optional_text(payload.get("command")) or loaded.editor.command
-            plan = build_open_file_plan(
-                project_context.root,
-                _required_text(payload.get("path"), "path is required"),
-                command=command,
-                line=_optional_int(payload.get("line")),
-                column=_optional_int(payload.get("column")),
-            )
-            result = execute_editor_plan(
-                plan,
-                dry_run=dry_run,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "project": project_to_dict(project_context),
-            "editor": editor_open_plan_to_dict(result),
-        }
-
-    @app.post("/api/editor/open-diff")
-    def editor_open_diff(
-        request: Request,
-        payload: dict[str, Any] = Body(default_factory=dict),
-    ) -> dict[str, Any]:
-        dry_run = _editor_dry_run(request, payload)
-        try:
-            run_id = _required_text(payload.get("run_id"), "run_id is required")
-            run = store.get_run(run_id)
-            project_context = resolve_project(
-                workspace_for_run(run),
-                data_dir=config.data_dir,
-                load_config_name=False,
-            )
-            loaded = load_project_config(project_context.root)
-            command = _optional_text(payload.get("command")) or loaded.editor.command
-            plan = build_open_diff_plan(
-                run,
-                data_dir=config.data_dir,
-                command=command,
-            )
-            result = execute_editor_plan(
-                plan,
-                dry_run=dry_run,
-            )
-        except RunNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Run not found") from exc
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "run": run_to_dict(run),
-            "project": project_to_dict(project_context),
-            "editor": editor_open_plan_to_dict(result),
-        }
-
-    @app.post("/api/editor/open-terminal")
-    def editor_open_terminal(
-        request: Request,
-        payload: dict[str, Any] = Body(default_factory=dict),
-    ) -> dict[str, Any]:
-        dry_run = _editor_dry_run(request, payload)
-        try:
-            run_id = _required_text(payload.get("run_id"), "run_id is required")
-            run = store.get_run(run_id)
-            workspace = workspace_for_run(run)
-            if workspace is None:
-                raise ValueError("Run does not have a workspace to open in a terminal.")
-            project_context = resolve_project(
-                workspace,
-                data_dir=config.data_dir,
-                load_config_name=False,
-            )
-            loaded = load_project_config(project_context.root)
-            command = (
-                _optional_text(payload.get("command")) or loaded.editor.terminal_command
-            )
-            plan = build_open_terminal_plan(workspace, command=command)
-            result = execute_editor_plan(
-                plan,
-                dry_run=dry_run,
-            )
-        except RunNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Run not found") from exc
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "run": run_to_dict(run),
-            "project": project_to_dict(project_context),
-            "editor": editor_open_plan_to_dict(result),
-        }
-
-    @app.get("/api/project/memory")
-    def project_memory(
-        workspace: str | None = Query(default=None),
-        include_disabled: bool = Query(default=True),
-    ) -> dict[str, Any]:
-        try:
-            project_context = resolve_project(
-                _optional_text(workspace),
-                data_dir=config.data_dir,
-                load_config_name=False,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        memories = memory_store.list(
-            project_context,
-            include_disabled=include_disabled,
-        )
-        return {
-            "project": project_to_dict(project_context),
-            "memories": [memory_entry_to_dict(entry) for entry in memories],
-        }
-
-    @app.post("/api/project/memory")
-    def add_project_memory(
-        payload: dict[str, Any] = Body(default_factory=dict),
-    ) -> dict[str, Any]:
-        try:
-            project_context = resolve_project(
-                _optional_text(payload.get("workspace")),
-                data_dir=config.data_dir,
-                load_config_name=False,
-            )
-            memory = memory_store.add(
-                project_context,
-                text=_required_text(payload.get("text"), "memory text is required"),
-                tags=_text_tuple(payload.get("tags")),
-                source_session_id=_optional_text(payload.get("source_session_id")),
-                source_run_id=_optional_text(payload.get("source_run_id")),
-                enabled=bool(payload.get("enabled", True)),
-                manual=bool(payload.get("manual", True)),
-                confidence=_optional_float(payload.get("confidence")),
-                metadata=_metadata_mapping(payload.get("metadata")),
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "project": project_to_dict(project_context),
-            "memory": memory_entry_to_dict(memory),
-        }
-
-    @app.patch("/api/project/memory/{memory_id}")
-    def update_project_memory(
-        memory_id: str,
-        payload: dict[str, Any] = Body(default_factory=dict),
-    ) -> dict[str, Any]:
-        try:
-            project_context = resolve_project(
-                _optional_text(payload.get("workspace")),
-                data_dir=config.data_dir,
-                load_config_name=False,
-            )
-            update_kwargs: dict[str, Any] = {
-                "text": _optional_text(payload.get("text")),
-                "tags": _text_tuple(payload.get("tags")) if "tags" in payload else None,
-                "enabled": bool(payload["enabled"]) if "enabled" in payload else None,
-                "manual": bool(payload["manual"]) if "manual" in payload else None,
-            }
-            if "confidence" in payload:
-                update_kwargs["confidence"] = _optional_float(payload.get("confidence"))
-            if "metadata" in payload:
-                update_kwargs["metadata"] = _metadata_mapping(payload.get("metadata"))
-            memory = memory_store.update(
-                project_context,
-                memory_id,
-                **update_kwargs,
-            )
-        except ProjectMemoryNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Memory not found") from exc
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "project": project_to_dict(project_context),
-            "memory": memory_entry_to_dict(memory),
-        }
-
-    @app.delete("/api/project/memory/{memory_id}")
-    def delete_project_memory(
-        memory_id: str,
-        workspace: str | None = Query(default=None),
-    ) -> dict[str, Any]:
-        try:
-            project_context = resolve_project(
-                _optional_text(workspace),
-                data_dir=config.data_dir,
-                load_config_name=False,
-            )
-            memory_store.delete(project_context, memory_id)
-        except ProjectMemoryNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Memory not found") from exc
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "deleted": True,
-            "project": project_to_dict(project_context),
-        }
-
-    @app.get("/api/tools")
-    def tools(workspace: str | None = Query(default=None)) -> dict[str, Any]:
-        try:
-            project_context = resolve_project(
-                _optional_text(workspace),
-                data_dir=config.data_dir,
-            )
-            loaded = load_project_config(project_context.root)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        statuses = build_tool_profile_statuses(
-            loaded.tool_profiles,
-            registry,
-            include_previews=False,
-        )
-        return {
-            "project": project_to_dict(project_context),
-            "profiles": [tool_profile_status_to_dict(status) for status in statuses],
-        }
-
-    @app.post("/api/tools/sync")
-    def tools_sync(
-        payload: dict[str, Any] = Body(default_factory=dict),
-    ) -> dict[str, Any]:
-        try:
-            project_context = resolve_project(
-                _optional_text(payload.get("workspace")),
-                data_dir=config.data_dir,
-            )
-            loaded = load_project_config(project_context.root)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        statuses = build_tool_profile_statuses(
-            loaded.tool_profiles,
-            registry,
-            include_previews=True,
-        )
-        return {
-            "dry_run": True,
-            "project": project_to_dict(project_context),
-            "profiles": [tool_profile_status_to_dict(status) for status in statuses],
-        }
-
-    @app.get("/api/evals")
-    def evals(workspace: str | None = Query(default=None)) -> dict[str, Any]:
-        try:
-            project_context = resolve_project(
-                _optional_text(workspace),
-                data_dir=config.data_dir,
-                load_config_name=False,
-            )
-            specs, errors = discover_eval_specs(project_context.root)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "project": project_to_dict(project_context),
-            "specs": [eval_spec_to_dict(spec) for spec in specs],
-            "errors": [eval_spec_load_error_to_dict(error) for error in errors],
-            "runs": [
-                eval_run_to_dict(eval_run)
-                for eval_run in eval_store.list_runs(project_context)
-            ],
-        }
-
-    @app.get("/api/evals/runs/{eval_run_id}")
-    def get_eval_run(eval_run_id: str) -> dict[str, Any]:
-        try:
-            eval_run = eval_store.get_any(eval_run_id)
-        except EvalRunNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Eval run not found") from exc
-        return _eval_run_response(eval_run, store)
-
-    @app.post("/api/evals/{eval_name}/runs")
-    async def create_eval_run(
-        eval_name: str,
-        payload: dict[str, Any] = Body(default_factory=dict),
-    ) -> dict[str, Any]:
-        try:
-
-            def prepare_eval():
-                project_context = resolve_project(
-                    _optional_text(payload.get("workspace")),
-                    data_dir=config.data_dir,
-                    load_config_name=False,
-                )
-                return project_context, load_eval_spec(project_context.root, eval_name)
-
-            project_context, spec = await run_in_threadpool(prepare_eval)
-            eval_runner = queue_eval if durable_dispatcher is not None else run_eval
-            eval_run = await run_in_threadpool(
-                eval_runner,
-                runner=runner,
-                eval_store=eval_store,
-                project=project_context,
-                spec=spec,
-                harness_ids=_text_tuple(payload.get("harness_ids")),
-                model=_optional_text(payload.get("model")),
-                api_mode=payload.get("api_mode"),
-                mode=_optional_text(payload.get("mode")),
-                workspace_policy=_optional_text(payload.get("workspace_policy")),
-                execution_transport=_optional_text(payload.get("execution_transport")),
-                dry_run=bool(payload.get("dry_run")),
-                repetitions=int(payload.get("repetitions") or 1),
-                **(
-                    {"dispatcher": durable_dispatcher}
-                    if durable_dispatcher is not None
-                    else {}
-                ),
-            )
-        except EvalSpecNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Eval spec not found") from exc
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return await run_in_threadpool(_eval_run_response, eval_run, store)
-
-    @app.post("/api/project/init")
-    def project_init(
-        payload: dict[str, Any] = Body(default_factory=dict),
-    ) -> dict[str, Any]:
-        try:
-            project_context = resolve_project(
-                _optional_text(payload.get("workspace")),
-                data_dir=config.data_dir,
-                load_config_name=False,
-            )
-            init_project_config(
-                project_context.root,
-                project_name=_optional_text(payload.get("name")),
-                overwrite=bool(payload.get("overwrite")),
-            )
-            return _project_response(
-                workspace=project_context.root,
-                data_dir=config.data_dir,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    @app.get("/api/models")
-    def models(api_mode: str = Query(default="v2")) -> dict[str, Any]:
-        checked_at = datetime.now(timezone.utc).isoformat()
-        try:
-            mode = parse_api_mode(api_mode)
-        except ValueError:
-            return {
-                "schema_version": 1,
-                "ok": False,
-                "api_mode": None,
-                "route_path": None,
-                "health": "unknown",
-                "last_checked_at": checked_at,
-                "models": _fallback_models(config),
-                "source": "fallback",
-                "error": "invalid api_mode; expected v1 or v2",
-                "note": pass_model_env_note(),
-            }
-        try:
-            discovery = proxy.discover_models(
-                config,
-                mode,
-                include_compat_paths=False,
-                include_fallback=False,
-            )
-        except Exception:
-            return {
-                "schema_version": 1,
-                "ok": False,
-                "api_mode": mode.value,
-                "route_path": f"/{mode.value}/models",
-                "health": "unknown",
-                "last_checked_at": checked_at,
-                "models": [],
-                "source": f"/{mode.value}/models",
-                "error": "model discovery failed",
-                "note": pass_model_env_note(),
-            }
-        return {
-            "schema_version": 1,
-            "ok": discovery.ok,
-            "api_mode": mode.value,
-            "route_path": f"/{mode.value}/models",
-            "health": "ready" if discovery.ok else "blocked",
-            "last_checked_at": checked_at,
-            "models": list(discovery.models[:100]),
-            "source": discovery.source,
-            "error": None if discovery.ok else "model discovery failed",
-            "note": pass_model_env_note(),
-        }
-
-    @app.get("/api/health")
-    def health() -> dict[str, Any]:
-        status = proxy.health_check(config)
-        return {
-            "ok": status.ok,
-            "proxy_url": status.url,
-            "path": status.path,
-            "status_code": status.status_code,
-            "error": status.error,
-            "async_data_plane": async_diagnostics.snapshot(),
-            "event_streams": run_event_broker.snapshot(),
-        }
-
-    @app.post("/api/preflight/run")
-    def preflight_run(
-        payload: dict[str, Any] = Body(default_factory=dict),
-    ) -> dict[str, Any]:
-        durable = bool(
-            durable_dispatcher is not None
-            and str(payload.get("invocation_mode") or "headless") != "native"
-        )
-        if payload.get("durable") is False:
-            durable = False
-        try:
-            prepared = session_service.prepare_turn_payload(
-                payload,
-                session_id=_optional_text(payload.get("session_id")),
-            )
-            report = runner.preflight(
-                prepared,
-                session_id=_optional_text(payload.get("session_id")),
-                durable=durable,
-            )
-        except SessionNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Session not found") from exc
-        except KeyError as exc:
-            raise HTTPException(status_code=404, detail="Unknown harness") from exc
-        except ProviderAccountSessionError as exc:
-            raise HTTPException(status_code=409, detail=exc.to_detail()) from exc
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"preflight": preflight_report_to_dict(report)}
-
-    @app.post("/api/route/recommendation")
-    def route_recommendation(
-        payload: dict[str, Any] = Body(default_factory=dict),
-    ) -> dict[str, Any]:
-        try:
-            attachments = _route_recommendation_attachments(
-                payload,
-                attachment_store=attachment_store,
-            )
-            recommendation = recommend_harness_route(
-                registry,
-                prompt=str(payload.get("prompt") or ""),
-                mode=_optional_text(payload.get("mode")),
-                workspace=_optional_text(payload.get("workspace")),
-                attachments=attachments,
-                selected_files=_text_tuple(payload.get("selected_files")),
-            )
-        except AttachmentNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Attachment not found") from exc
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"recommendation": route_recommendation_to_dict(recommendation)}
-
-    @app.get("/api/sessions")
-    def sessions(
-        project_id: str | None = Query(default=None),
-        workspace: str | None = Query(default=None),
-        harness_id: str | None = Query(default=None),
-        q: str | None = Query(default=None),
-        include_archived: bool = Query(default=False),
-        include_arena: bool = Query(default=False),
-        limit: int = Query(default=50, ge=1, le=200),
-    ) -> dict[str, Any]:
-        resolved_workspace = resolve_workspace(_optional_text(workspace))
-        items = store.list_sessions(
-            project_id=_optional_text(project_id),
-            workspace=resolved_workspace,
-            harness_id=_optional_text(harness_id),
-            q=_optional_text(q),
-            include_archived=include_archived,
-            limit=limit if include_arena else None,
-        )
-        arenas = arena_store.list(workspace=resolved_workspace)
-        arena_child_session_ids = {
-            child.session_id
-            for arena in arenas
-            for child in arena.child_runs
-            if child.session_id is not None
-        }
-        items = tuple(
-            session for session in items if session.id not in arena_child_session_ids
-        )
-        if not include_arena:
-            arena_session_ids = {arena.session_id for arena in arenas}
-            items = tuple(
-                session for session in items if session.id not in arena_session_ids
-            )[:limit]
-        else:
-            items = items[:limit]
-        return {"sessions": [_session_summary(store, session.id) for session in items]}
-
-    @app.post("/api/sessions")
-    def create_session(payload: dict[str, Any] = Body(default_factory=dict)):
-        try:
-            session = session_service.create_session(payload)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"session": _session_summary(store, session.id)}
-
-    @app.get("/api/sessions/{session_id}")
-    def get_session(session_id: str) -> dict[str, Any]:
-        try:
-            return bundle_to_dict(store.get_session_bundle(session_id))
-        except SessionNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Session not found") from exc
 
     @app.get("/api/native/sessions")
     def native_sessions(
@@ -1997,150 +1220,6 @@ def create_app(
             "process": native_process_ref_to_dict(process_ref),
             "run": run_to_dict(run) if run is not None else None,
         }
-
-    @app.patch("/api/sessions/{session_id}")
-    def update_session(
-        session_id: str,
-        payload: dict[str, Any] = Body(...),
-    ) -> dict[str, Any]:
-        try:
-            current = store.get_session(session_id)
-            patch = _session_patch(payload, session=current)
-            session = store.update_session(session_id, **patch)
-        except SessionNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Session not found") from exc
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"session": _session_summary(store, session.id)}
-
-    @app.get("/api/sessions/{session_id}/navigation-preview")
-    def session_navigation_preview(
-        session_id: str,
-        q: str | None = Query(default=None),
-    ) -> dict[str, Any]:
-        try:
-            session = store.get_session(session_id)
-            messages = store.list_messages(session_id)
-        except SessionNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Session not found") from exc
-        needle = (_optional_text(q) or "").casefold()
-        matches = [
-            item for item in messages if not needle or needle in item.content.casefold()
-        ]
-        selected = matches[-100:]
-        return {
-            "session": _session_summary(store, session.id),
-            "transcript": [_navigation_message_preview(item) for item in selected],
-            "match_count": len(matches),
-            "truncated": len(matches) > len(selected),
-        }
-
-    @app.post("/api/sessions/{session_id}/navigation-update")
-    def session_navigation_update(
-        session_id: str,
-        payload: dict[str, Any] = Body(...),
-    ) -> dict[str, Any]:
-        cached = _navigation_cached(session_navigation_mutations, payload, "update")
-        if cached is not None:
-            return cached
-        _validate_navigation_binding(store, session_id, payload)
-        try:
-            current = store.get_session(session_id)
-            patch = _session_patch(payload, session=current)
-            updated = store.update_session_if_revision(
-                session_id,
-                _required_text(payload.get("session_revision"), "session_revision"),
-                **patch,
-            )
-        except SessionNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Session not found") from exc
-        if updated is None:
-            raise HTTPException(
-                status_code=409,
-                detail="Session changed; authoritative resnapshot required",
-            )
-        response = {"session": _session_summary(store, updated.id)}
-        _cache_navigation_response(
-            session_navigation_mutations, payload, response, "update"
-        )
-        return response
-
-    @app.post("/api/sessions/{session_id}/navigation-delete")
-    def session_navigation_delete(
-        session_id: str,
-        payload: dict[str, Any] = Body(...),
-    ) -> dict[str, Any]:
-        cached = _navigation_cached(session_navigation_mutations, payload, "delete")
-        if cached is not None:
-            return cached
-        summary = _validate_navigation_binding(store, session_id, payload)
-        if summary.get("session_lease") is not None:
-            raise HTTPException(
-                status_code=409, detail="Active session lease blocks destructive action"
-            )
-        if not store.delete_session_if_revision(
-            session_id,
-            _required_text(payload.get("session_revision"), "session_revision"),
-        ):
-            raise HTTPException(
-                status_code=409,
-                detail="Session changed; authoritative resnapshot required",
-            )
-        response = {"deleted": True}
-        _cache_navigation_response(
-            session_navigation_mutations, payload, response, "delete"
-        )
-        return response
-
-    @app.post("/api/sessions/{session_id}/navigation-fork")
-    def session_navigation_fork(
-        session_id: str,
-        payload: dict[str, Any] = Body(...),
-    ) -> dict[str, Any]:
-        cached = _navigation_cached(session_navigation_mutations, payload, "fork")
-        if cached is not None:
-            return cached
-        _validate_navigation_binding(store, session_id, payload)
-        fork = _fork_session_from_session(store, session_id)
-        response = {"session": _session_summary(store, fork.id)}
-        _cache_navigation_response(
-            session_navigation_mutations, payload, response, "fork"
-        )
-        return response
-
-    @app.post("/api/sessions/{session_id}/navigation-export")
-    def session_navigation_export(
-        session_id: str,
-        payload: dict[str, Any] = Body(...),
-    ) -> dict[str, Any]:
-        cached = _navigation_cached(session_navigation_mutations, payload, "export")
-        if cached is not None:
-            return cached
-        _validate_navigation_binding(store, session_id, payload)
-        session = store.get_session(session_id)
-        messages = store.list_messages(session_id)
-        path = write_session_export(
-            Path(config.data_dir) / "exports",
-            _navigation_export_text(session, messages),
-        )
-        response = {
-            "export": {
-                "path": str(path),
-                "message_count": len(messages),
-            }
-        }
-        _cache_navigation_response(
-            session_navigation_mutations, payload, response, "export"
-        )
-        return response
-
-    @app.delete("/api/sessions/{session_id}")
-    def delete_session(session_id: str) -> dict[str, Any]:
-        try:
-            store.delete_session(session_id)
-        except SessionNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Session not found") from exc
-        return {"deleted": True}
 
     @app.post("/api/sessions/{session_id}/attachments")
     def create_attachment(
@@ -3487,6 +2566,13 @@ def create_app(
             ) from exc
         return result_to_dict(result)
 
+    app.include_router(create_catalog_router(services))
+    app.include_router(create_projects_router(services))
+    app.include_router(create_editor_router(services))
+    app.include_router(create_project_memory_router(services))
+    app.include_router(create_project_tools_router(services))
+    app.include_router(create_evals_router(services))
+    app.include_router(create_session_catalog_router(services))
     app.include_router(agents_router)
     app.include_router(automation_router)
     app.include_router(approvals_router)
@@ -5248,40 +4334,3 @@ def _redacted_mapping(value: Any) -> dict[str, Any]:
         value = dict(value) if isinstance(value, Mapping) else {}
     redacted = redact_for_storage(value)
     return dict(redacted) if isinstance(redacted, Mapping) else {}
-
-
-def _optional_text(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
-def _required_text(value: Any, message: str) -> str:
-    text = _optional_text(value)
-    if text is None:
-        raise ValueError(message)
-    return text
-
-
-def _optional_float(value: Any) -> float | None:
-    if value is None:
-        return None
-    return float(value)
-
-
-def _optional_int(value: Any) -> int | None:
-    if value is None or str(value).strip() == "":
-        return None
-    return int(value)
-
-
-def _editor_dry_run(request: Request, payload: Mapping[str, Any]) -> bool:
-    """Keep remote UI identities from crossing the local process boundary."""
-    dry_run = bool(payload.get("dry_run", False))
-    if getattr(request.state, "ui_actor", None) is not None and not dry_run:
-        raise HTTPException(
-            status_code=403,
-            detail="Remote editor execution is disabled",
-        )
-    return dry_run
