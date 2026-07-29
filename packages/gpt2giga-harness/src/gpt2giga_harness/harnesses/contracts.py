@@ -1,5 +1,9 @@
-"""Stable cross-context external harness process primitives."""
+"""Compatibility alias for the regrouped harness implementation."""
 
-from gpt2giga_harness.harnesses.agent_cli import build_safe_env
+from __future__ import annotations
 
-__all__ = ["build_safe_env"]
+import sys
+
+from gpt2giga_harness.harnesses.sdk import contracts as _implementation
+
+sys.modules[__name__] = _implementation

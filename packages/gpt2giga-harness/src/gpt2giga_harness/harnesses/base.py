@@ -1,34 +1,9 @@
-"""Abstract base class for Unified Harness implementations."""
+"""Compatibility alias for the regrouped harness implementation."""
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+import sys
 
-from gpt2giga_harness.types import (
-    Availability,
-    HarnessContext,
-    HarnessRequest,
-    HarnessResult,
-    HarnessSpec,
-)
+from gpt2giga_harness.harnesses.sdk import base as _implementation
 
-
-class BaseHarness(ABC):
-    """Base class for all Unified Harness implementations."""
-
-    @classmethod
-    @abstractmethod
-    def spec(cls) -> HarnessSpec:
-        """Return static harness metadata."""
-
-    @abstractmethod
-    def availability(self) -> Availability:
-        """Return availability in the current environment."""
-
-    @abstractmethod
-    def run(
-        self,
-        request: HarnessRequest,
-        context: HarnessContext,
-    ) -> HarnessResult:
-        """Run a normalized harness request."""
+sys.modules[__name__] = _implementation
