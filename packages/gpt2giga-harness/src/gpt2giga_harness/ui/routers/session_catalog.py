@@ -1,6 +1,7 @@
 """Routes extracted from the FastAPI composition root: session catalog."""
 
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
 from fastapi import Body, HTTPException, Query
@@ -24,7 +25,7 @@ from gpt2giga_harness.ui.services.session_queries import (
     list_session_window as _list_session_window,
     recent_messages as _recent_messages,
 )
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.session_exports import write_session_export
 from gpt2giga_harness.sessions import SessionNotFoundError
 from gpt2giga_harness.sessions.models import bundle_to_dict
@@ -34,9 +35,9 @@ from gpt2giga_harness.ui.container import AppServices
 
 
 def create_router(services: AppServices) -> APIRouter:
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.get("/api/sessions")
+    @router.fs_read.get("/api/sessions")
     def sessions(
         project_id: str | None = Query(default=None),
         workspace: str | None = Query(default=None),
@@ -73,7 +74,7 @@ def create_router(services: AppServices) -> APIRouter:
             ]
         }
 
-    @router.post("/api/sessions")
+    @router.fs_atomic.post("/api/sessions")
     def create_session(payload: dict[str, Any] = Body(default_factory=dict)):
         try:
             session = services.session_service.create_session(payload)
@@ -81,7 +82,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"session": _session_summary(services.session_store, session.id)}
 
-    @router.get("/api/sessions/{session_id}")
+    @router.fs_read.get("/api/sessions/{session_id}")
     def get_session(session_id: str) -> dict[str, Any]:
         try:
             bundle = services.legacy_bundle_compatibility.export_session_bundle(
@@ -91,7 +92,7 @@ def create_router(services: AppServices) -> APIRouter:
         except SessionNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Session not found") from exc
 
-    @router.patch("/api/sessions/{session_id}")
+    @router.fs_atomic.patch("/api/sessions/{session_id}")
     def update_session(
         session_id: str, payload: dict[str, Any] = Body(...)
     ) -> dict[str, Any]:
@@ -105,7 +106,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"session": _session_summary(services.session_store, session.id)}
 
-    @router.get("/api/sessions/{session_id}/navigation-preview")
+    @router.fs_read.get("/api/sessions/{session_id}/navigation-preview")
     def session_navigation_preview(
         session_id: str, q: str | None = Query(default=None)
     ) -> dict[str, Any]:
@@ -131,7 +132,7 @@ def create_router(services: AppServices) -> APIRouter:
             or _has_older_messages(services.session_store, session_id, messages),
         }
 
-    @router.post("/api/sessions/{session_id}/navigation-update")
+    @router.fs_atomic.post("/api/sessions/{session_id}/navigation-update")
     def session_navigation_update(
         session_id: str, payload: dict[str, Any] = Body(...)
     ) -> dict[str, Any]:
@@ -162,7 +163,7 @@ def create_router(services: AppServices) -> APIRouter:
         )
         return response
 
-    @router.post("/api/sessions/{session_id}/navigation-delete")
+    @router.fs_atomic.post("/api/sessions/{session_id}/navigation-delete")
     def session_navigation_delete(
         session_id: str, payload: dict[str, Any] = Body(...)
     ) -> dict[str, Any]:
@@ -192,7 +193,7 @@ def create_router(services: AppServices) -> APIRouter:
         )
         return response
 
-    @router.post("/api/sessions/{session_id}/navigation-fork")
+    @router.fs_atomic.post("/api/sessions/{session_id}/navigation-fork")
     def session_navigation_fork(
         session_id: str, payload: dict[str, Any] = Body(...)
     ) -> dict[str, Any]:
@@ -209,7 +210,7 @@ def create_router(services: AppServices) -> APIRouter:
         )
         return response
 
-    @router.post("/api/sessions/{session_id}/navigation-export")
+    @router.fs_atomic.post("/api/sessions/{session_id}/navigation-export")
     def session_navigation_export(
         session_id: str, payload: dict[str, Any] = Body(...)
     ) -> dict[str, Any]:
@@ -231,7 +232,7 @@ def create_router(services: AppServices) -> APIRouter:
         )
         return response
 
-    @router.delete("/api/sessions/{session_id}")
+    @router.fs_atomic.delete("/api/sessions/{session_id}")
     def delete_session(session_id: str) -> dict[str, Any]:
         try:
             services.session_store.delete_session(session_id)

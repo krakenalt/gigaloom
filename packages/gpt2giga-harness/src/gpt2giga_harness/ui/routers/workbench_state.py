@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import Query
 
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.ui.dependencies import AppServicesDependency
 from gpt2giga_harness.workbench_protocol import workbench_state_page_to_dict
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.get("/api/workbench/state")
+@router.loop_read.get("/api/workbench/state")
 async def workbench_state(
     services: AppServicesDependency,
     cursor: str | None = Query(default=None, max_length=128),

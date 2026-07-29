@@ -22,10 +22,7 @@ from gpt2giga_harness.sessions.store import new_id, utc_now
 from gpt2giga_harness.types import (
     HarnessEventType,
 )
-from gpt2giga_harness.ui.async_execution import (
-    ConformantAPIRoute,
-    run_stream_offload,
-)
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter, run_stream_offload
 from gpt2giga_harness.ui.container import AppServices
 from gpt2giga_harness.ui.routers.tui_actions import validate_run_action_binding
 from gpt2giga_harness.ui.services.request_values import optional_text as _optional_text
@@ -49,9 +46,9 @@ RUN_EVENT_STREAM_POLL_SECONDS = 0.1
 
 def create_router(services: AppServices) -> APIRouter:
     """Create the run streams router."""
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.get("/api/runs/{run_id}/events/stream")
+    @router.stream.get("/api/runs/{run_id}/events/stream")
     async def run_events_stream(
         run_id: str,
         after_id: str | None = Query(default=None),
@@ -156,7 +153,7 @@ def create_router(services: AppServices) -> APIRouter:
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
-    @router.post("/api/runs/{run_id}/cancel")
+    @router.db_atomic.post("/api/runs/{run_id}/cancel")
     def cancel_run(
         run_id: str, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any]:

@@ -11,15 +11,15 @@ from gpt2giga_harness.claude_handoff import (
     claude_handoff_plan_to_dict,
 )
 from gpt2giga_harness.registry import HarnessRegistry, UnknownHarnessError
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.workspace import resolve_workspace
 
 
 def create_provider_handoff_router(registry: HarnessRegistry) -> APIRouter:
     """Create provider-handoff routes over the authoritative harness registry."""
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.get("/api/provider-handoffs/{harness_id}/preview")
+    @router.fs_read.get("/api/provider-handoffs/{harness_id}/preview")
     def provider_handoff_preview(
         harness_id: str,
         action: ClaudeHandoffAction,

@@ -1,12 +1,13 @@
 """Routes extracted from the FastAPI composition root: projects."""
 
 from __future__ import annotations
+
 from typing import Any
 from fastapi import Body, HTTPException, Query
 from gpt2giga_harness.ui.services.attachments import text_tuple as _text_tuple
 from gpt2giga_harness.ui.services.projects import project_response as _project_response
 from gpt2giga_harness.ui.services.request_values import optional_text as _optional_text
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.project import (
     init_project_config,
     load_project_state,
@@ -25,9 +26,9 @@ from gpt2giga_harness.ui.container import AppServices
 
 
 def create_router(services: AppServices) -> APIRouter:
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.get("/api/project")
+    @router.fs_read.get("/api/project")
     def project(workspace: str | None = Query(default=None)) -> dict[str, Any]:
         try:
             return _project_response(
@@ -36,7 +37,7 @@ def create_router(services: AppServices) -> APIRouter:
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    @router.get("/api/project/config")
+    @router.fs_read.get("/api/project/config")
     def project_config(workspace: str | None = Query(default=None)) -> dict[str, Any]:
         try:
             project_context = resolve_project(
@@ -47,7 +48,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"config": project_config_to_dict(loaded)}
 
-    @router.get("/api/project/presets")
+    @router.fs_read.get("/api/project/presets")
     def project_presets(workspace: str | None = Query(default=None)) -> dict[str, Any]:
         try:
             project_context = resolve_project(
@@ -64,7 +65,7 @@ def create_router(services: AppServices) -> APIRouter:
             ],
         }
 
-    @router.post("/api/project/presets/{preset_name}/render")
+    @router.fs_read.post("/api/project/presets/{preset_name}/render")
     def render_preset(
         preset_name: str, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any]:
@@ -91,7 +92,7 @@ def create_router(services: AppServices) -> APIRouter:
             "preset": rendered_project_preset_to_dict(rendered),
         }
 
-    @router.get("/api/project/state")
+    @router.fs_read.get("/api/project/state")
     def project_state(workspace: str | None = Query(default=None)) -> dict[str, Any]:
         try:
             project_context = resolve_project(
@@ -104,7 +105,7 @@ def create_router(services: AppServices) -> APIRouter:
             "state": project_state_to_dict(load_project_state(project_context)),
         }
 
-    @router.patch("/api/project/state")
+    @router.fs_atomic.patch("/api/project/state")
     def update_state(
         payload: dict[str, Any] = Body(default_factory=dict),
     ) -> dict[str, Any]:
@@ -122,7 +123,7 @@ def create_router(services: AppServices) -> APIRouter:
             "state": project_state_to_dict(state),
         }
 
-    @router.post("/api/project/init")
+    @router.proc.post("/api/project/init")
     def project_init(
         payload: dict[str, Any] = Body(default_factory=dict),
     ) -> dict[str, Any]:

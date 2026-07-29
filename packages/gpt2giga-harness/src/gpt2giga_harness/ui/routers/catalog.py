@@ -1,6 +1,7 @@
 """Routes extracted from the FastAPI composition root: catalog."""
 
 from __future__ import annotations
+
 from datetime import datetime, timezone
 from typing import Any
 from fastapi import Body, HTTPException, Query
@@ -13,7 +14,7 @@ from gpt2giga_harness.ui.services.attachments import (
 )
 from gpt2giga_harness.ui.services.defaults import fallback_models as _fallback_models
 from gpt2giga_harness.ui.services.request_values import optional_text as _optional_text
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.preflight import preflight_report_to_dict
 from gpt2giga_harness.provider_account_sessions import ProviderAccountSessionError
 from gpt2giga_harness.plugins import (
@@ -42,9 +43,9 @@ from gpt2giga_harness.ui.container import AppServices
 
 
 def create_router(services: AppServices) -> APIRouter:
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.get("/api/harnesses")
+    @router.fs_read.get("/api/harnesses")
     def harnesses() -> dict[str, Any]:
         harness_items = []
         for harness in services.registry.list():
@@ -89,7 +90,7 @@ def create_router(services: AppServices) -> APIRouter:
             "discovery_errors": list(services.registry.discovery_errors),
         }
 
-    @router.get("/api/defaults")
+    @router.fs_read.get("/api/defaults")
     def defaults() -> dict[str, Any]:
         harness_defaults = services.settings_store.load().defaults
         return {
@@ -111,7 +112,7 @@ def create_router(services: AppServices) -> APIRouter:
             "performance_budgets": ui_performance_budgets(),
         }
 
-    @router.get("/api/models")
+    @router.net_read.get("/api/models")
     def models(api_mode: str = Query(default="v2")) -> dict[str, Any]:
         checked_at = datetime.now(timezone.utc).isoformat()
         try:
@@ -162,7 +163,7 @@ def create_router(services: AppServices) -> APIRouter:
             "note": pass_model_env_note(),
         }
 
-    @router.get("/api/health")
+    @router.net_read.get("/api/health")
     def health() -> dict[str, Any]:
         status = proxy.health_check(services.config)
         return {
@@ -175,7 +176,7 @@ def create_router(services: AppServices) -> APIRouter:
             "event_streams": services.run_event_broker.snapshot(),
         }
 
-    @router.post("/api/preflight/run")
+    @router.fs_read.post("/api/preflight/run")
     def preflight_run(
         payload: dict[str, Any] = Body(default_factory=dict),
     ) -> dict[str, Any]:
@@ -204,7 +205,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"preflight": preflight_report_to_dict(report)}
 
-    @router.post("/api/route/recommendation")
+    @router.fs_read.post("/api/route/recommendation")
     def route_recommendation(
         payload: dict[str, Any] = Body(default_factory=dict),
     ) -> dict[str, Any]:

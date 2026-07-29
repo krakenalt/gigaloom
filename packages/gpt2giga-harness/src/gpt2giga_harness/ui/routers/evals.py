@@ -1,12 +1,13 @@
 """Routes extracted from the FastAPI composition root: evals."""
 
 from __future__ import annotations
+
 from typing import Any
 from fastapi import Body, HTTPException, Query
 from gpt2giga_harness.ui.services.arena import eval_run_response as _eval_run_response
 from gpt2giga_harness.ui.services.attachments import text_tuple as _text_tuple
 from gpt2giga_harness.ui.services.request_values import optional_text as _optional_text
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute, run_in_threadpool
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter, run_in_threadpool
 from gpt2giga_harness.evals import (
     EvalRunNotFoundError,
     EvalSpecNotFoundError,
@@ -24,9 +25,9 @@ from gpt2giga_harness.ui.container import AppServices
 
 
 def create_router(services: AppServices) -> APIRouter:
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.get("/api/evals")
+    @router.fs_read.get("/api/evals")
     def evals(workspace: str | None = Query(default=None)) -> dict[str, Any]:
         try:
             project_context = resolve_project(
@@ -47,7 +48,7 @@ def create_router(services: AppServices) -> APIRouter:
             ],
         }
 
-    @router.get("/api/evals/runs/{eval_run_id}")
+    @router.fs_read.get("/api/evals/runs/{eval_run_id}")
     def get_eval_run(eval_run_id: str) -> dict[str, Any]:
         try:
             eval_run = services.eval_store.get_any(eval_run_id)
@@ -55,7 +56,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=404, detail="Eval run not found") from exc
         return _eval_run_response(eval_run, services.session_store)
 
-    @router.post("/api/evals/{eval_name}/runs")
+    @router.worker_job.post("/api/evals/{eval_name}/runs")
     async def create_eval_run(
         eval_name: str, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any]:

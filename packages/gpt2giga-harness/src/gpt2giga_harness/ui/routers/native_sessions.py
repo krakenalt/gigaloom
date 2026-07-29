@@ -21,7 +21,7 @@ from gpt2giga_harness.sessions.models import (
 from gpt2giga_harness.sessions.redaction import redact_for_storage
 from gpt2giga_harness.sessions.store import new_id, utc_now
 from gpt2giga_harness.types import parse_api_mode
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.ui.container import AppServices
 from gpt2giga_harness.ui.services.native_process_metadata import (
     _native_snapshot_link_metadata,
@@ -50,9 +50,9 @@ from gpt2giga_harness.workspace import resolve_workspace
 
 def create_router(services: AppServices) -> APIRouter:
     """Create the native domain router with typed application services."""
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.get("/api/native/sessions")
+    @router.fs_read.get("/api/native/sessions")
     def native_sessions(
         harness_id: str | None = Query(default=None),
         workspace: str | None = Query(default=None),
@@ -75,7 +75,7 @@ def create_router(services: AppServices) -> APIRouter:
         refs = _filter_external_native_refs(refs, include_external=include_external)
         return {"sessions": [native_session_ref_to_dict(ref) for ref in refs]}
 
-    @router.post("/api/native/sessions/sync")
+    @router.fs_atomic.post("/api/native/sessions/sync")
     def native_sessions_sync(
         payload: dict[str, Any] = Body(default_factory=dict),
     ) -> dict[str, Any]:
@@ -111,7 +111,7 @@ def create_router(services: AppServices) -> APIRouter:
             "scanned_count": result.scanned_count,
         }
 
-    @router.get("/api/native/sessions/{native_ref_id}/preview")
+    @router.fs_read.get("/api/native/sessions/{native_ref_id}/preview")
     def native_session_preview(
         native_ref_id: str, max_messages: int = Query(default=20, ge=1, le=100)
     ) -> dict[str, Any]:
@@ -125,7 +125,7 @@ def create_router(services: AppServices) -> APIRouter:
             ],
         }
 
-    @router.post("/api/native/sessions/{native_ref_id}/import")
+    @router.fs_atomic.post("/api/native/sessions/{native_ref_id}/import")
     def native_session_import(native_ref_id: str) -> dict[str, Any]:
         ref = _native_ref_or_404(services.native_index_store, native_ref_id)
         if not ref.can_import:
@@ -233,7 +233,7 @@ def create_router(services: AppServices) -> APIRouter:
             "native_link": native_link_to_dict(link),
         }
 
-    @router.post("/api/sessions/{session_id}/native/link")
+    @router.fs_atomic.post("/api/sessions/{session_id}/native/link")
     def native_session_link(
         session_id: str, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any]:

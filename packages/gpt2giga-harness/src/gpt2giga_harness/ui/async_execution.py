@@ -14,6 +14,7 @@ from time import perf_counter
 from typing import Any
 
 import anyio
+from fastapi import APIRouter
 from fastapi.routing import APIRoute
 
 from gpt2giga_harness.instrumentation import (
@@ -26,7 +27,8 @@ from gpt2giga_harness.ui.execution_contracts import (
     ExecutionAdapter,
     RouteExecutionContract,
     WorkloadClass,
-    route_execution_contract,
+    build_route_execution_contract,
+    routes,
 )
 
 
@@ -260,7 +262,7 @@ class ConformantAPIRoute(APIRoute):
     def __init__(self, path: str, endpoint: Callable[..., Any], **kwargs: Any) -> None:
         methods = tuple(kwargs.get("methods") or ("GET",))
         method = str(methods[0]).upper()
-        contract = route_execution_contract(method, path)
+        contract = build_route_execution_contract(method, path, endpoint)
         original_is_async = inspect.iscoroutinefunction(endpoint)
 
         if contract is not None:
@@ -318,10 +320,41 @@ class ConformantAPIRoute(APIRoute):
         return measured_handler
 
 
-def async_handler_contract_errors(routes: list[object]) -> tuple[str, ...]:
+class _ExecutionRouteMethods:
+    """Bind one route-local execution preset to normal APIRouter methods."""
+
+    def __init__(self, router: APIRouter, preset: Callable[..., Any]) -> None:
+        self._router = router
+        self._preset = preset
+
+    def __getattr__(self, method: str) -> Callable[..., Any]:
+        registrar = getattr(self._router, method)
+
+        def declare(*args: Any, **kwargs: Any) -> Callable[..., Any]:
+            return self._preset(registrar, *args, **kwargs)
+
+        return declare
+
+
+class ContractAPIRouter(APIRouter):
+    """APIRouter whose decorator names colocate execution metadata."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        kwargs.setdefault("route_class", ConformantAPIRoute)
+        super().__init__(*args, **kwargs)
+
+    def __getattr__(self, name: str) -> _ExecutionRouteMethods:
+        try:
+            preset = getattr(routes, name)
+        except AttributeError:
+            raise AttributeError(name) from None
+        return _ExecutionRouteMethods(self, preset)
+
+
+def async_handler_contract_errors(installed_routes: list[object]) -> tuple[str, ...]:
     """Reject route adapters whose original handler can block the event loop."""
     errors: list[str] = []
-    for route in routes:
+    for route in installed_routes:
         included = getattr(route, "original_router", None)
         if included is not None:
             errors.extend(async_handler_contract_errors(included.routes))

@@ -7,7 +7,7 @@ from pathlib import Path
 import threading
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Query, Request
+from fastapi import Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from gpt2giga_harness.environment_actions import (
@@ -22,13 +22,13 @@ from gpt2giga_harness.environments import (
 from gpt2giga_harness.runtime.policy import PermissionAction, approval_binding_digest
 from gpt2giga_harness.runtime.policy import approval_request_to_dict
 from gpt2giga_harness.sessions import SessionNotFoundError
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute, run_in_threadpool
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter, run_in_threadpool
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.post("/api/environment/commit/preview")
+@router.proc_async_atomic.post("/api/environment/commit/preview")
 async def preview_environment_commit(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),
@@ -59,7 +59,7 @@ async def preview_environment_commit(
     }
 
 
-@router.post("/api/environment/commit/apply", response_model=None)
+@router.proc_async_atomic.post("/api/environment/commit/apply", response_model=None)
 async def apply_environment_commit(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),
@@ -114,7 +114,7 @@ async def apply_environment_commit(
     }
 
 
-@router.post("/api/environment/push/preview")
+@router.proc_async_atomic.post("/api/environment/push/preview")
 async def preview_environment_push(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),
@@ -139,7 +139,7 @@ async def preview_environment_push(
     }
 
 
-@router.post("/api/environment/pull-request/preview")
+@router.proc_async_atomic.post("/api/environment/pull-request/preview")
 async def preview_environment_pull_request(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),
@@ -170,7 +170,9 @@ async def preview_environment_pull_request(
     }
 
 
-@router.post("/api/environment/pull-request/apply", response_model=None)
+@router.proc_async_atomic.post(
+    "/api/environment/pull-request/apply", response_model=None
+)
 async def apply_environment_pull_request(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),
@@ -227,7 +229,7 @@ async def apply_environment_pull_request(
     }
 
 
-@router.post("/api/environment/push/apply", response_model=None)
+@router.proc_async_atomic.post("/api/environment/push/apply", response_model=None)
 async def apply_environment_push(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),
@@ -282,7 +284,7 @@ async def apply_environment_push(
     }
 
 
-@router.get("/api/environment")
+@router.proc_async_read.get("/api/environment")
 async def local_environment(
     request: Request,
     session_id: str | None = Query(default=None, min_length=1, max_length=512),

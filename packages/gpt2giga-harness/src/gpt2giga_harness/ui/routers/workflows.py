@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Query, Request
+from fastapi import Body, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.responses import JSONResponse, Response
 
 from gpt2giga_harness.project import project_to_dict, resolve_project
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.reviewed_evidence import reviewed_evidence_manifest
 from gpt2giga_harness.promotions import (
     apply_run_promotion,
@@ -60,7 +60,7 @@ from gpt2giga_harness.workflows import (
 )
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
 class WorkflowValidateRequest(BaseModel):
@@ -165,7 +165,7 @@ class RunPromotionApplyRequest(RunPromotionPreviewRequest):
     review_token: str
 
 
-@router.post("/api/runs/{run_id}/promotions/preview")
+@router.db_read.post("/api/runs/{run_id}/promotions/preview")
 def run_promotion_preview(
     run_id: str,
     request: Request,
@@ -196,7 +196,7 @@ def run_promotion_preview(
     return {"review_required": True, "promotion": promotion_to_dict(draft)}
 
 
-@router.post("/api/runs/{run_id}/promotions/apply")
+@router.db_atomic.post("/api/runs/{run_id}/promotions/apply")
 def run_promotion_apply(
     run_id: str,
     request: Request,
@@ -228,7 +228,7 @@ def run_promotion_apply(
     }
 
 
-@router.get("/api/workflows")
+@router.fs_read.get("/api/workflows")
 def workflow_list(
     request: Request, workspace: str | None = Query(default=None)
 ) -> dict[str, Any]:
@@ -248,7 +248,7 @@ def workflow_list(
     }
 
 
-@router.post("/api/workflows/import", status_code=201)
+@router.fs_atomic.post("/api/workflows/import", status_code=201)
 def workflow_import(
     request: Request, payload: WorkflowImportRequest = Body(...)
 ) -> dict[str, Any]:
@@ -270,7 +270,7 @@ def workflow_import(
     return workflow_catalog_detail(project.root, definition.id)
 
 
-@router.post("/api/workflows/validate")
+@router.fs_read.post("/api/workflows/validate")
 def workflow_validate(
     payload: WorkflowValidateRequest = Body(...),
 ) -> dict[str, Any]:
@@ -286,7 +286,7 @@ def workflow_validate(
     }
 
 
-@router.get("/api/workflows/{workflow_id}")
+@router.fs_read.get("/api/workflows/{workflow_id}")
 def workflow_detail(
     workflow_id: str,
     request: Request,
@@ -309,7 +309,7 @@ def workflow_detail(
     }
 
 
-@router.put("/api/workflows/{workflow_id}")
+@router.fs_atomic.put("/api/workflows/{workflow_id}")
 def workflow_save(
     workflow_id: str,
     request: Request,
@@ -333,7 +333,7 @@ def workflow_save(
     return workflow_catalog_detail(project.root, definition.id)
 
 
-@router.post("/api/workflows/{workflow_id}/draft")
+@router.fs_read.post("/api/workflows/{workflow_id}/draft")
 def workflow_draft(
     workflow_id: str,
     request: Request,
@@ -366,7 +366,7 @@ def workflow_draft(
     }
 
 
-@router.post("/api/workflows/{workflow_id}/apply")
+@router.fs_atomic.post("/api/workflows/{workflow_id}/apply")
 def workflow_apply(
     workflow_id: str,
     request: Request,
@@ -387,7 +387,7 @@ def workflow_apply(
     return {"applied": True, **workflow_catalog_detail(project.root, definition.id)}
 
 
-@router.post("/api/workflows/{workflow_id}/delete-preview")
+@router.fs_read.post("/api/workflows/{workflow_id}/delete-preview")
 def workflow_delete_preview(
     workflow_id: str,
     request: Request,
@@ -433,7 +433,7 @@ def workflow_delete_preview(
     }
 
 
-@router.post("/api/workflows/{workflow_id}/delete")
+@router.fs_atomic.post("/api/workflows/{workflow_id}/delete")
 def workflow_delete(
     workflow_id: str,
     request: Request,
@@ -479,7 +479,7 @@ def workflow_delete(
     }
 
 
-@router.post("/api/workflows/{workflow_id}/duplicate", status_code=201)
+@router.fs_atomic.post("/api/workflows/{workflow_id}/duplicate", status_code=201)
 def workflow_duplicate(
     workflow_id: str,
     request: Request,
@@ -496,7 +496,7 @@ def workflow_duplicate(
     return workflow_catalog_detail(project.root, definition.id)
 
 
-@router.get("/api/workflows/{workflow_id}/export")
+@router.fs_read.get("/api/workflows/{workflow_id}/export")
 def workflow_export(
     workflow_id: str,
     request: Request,
@@ -518,7 +518,7 @@ def workflow_export(
     )
 
 
-@router.post("/api/workflows/{workflow_id}/run")
+@router.worker_job.post("/api/workflows/{workflow_id}/run")
 def workflow_run(
     workflow_id: str,
     request: Request,
@@ -555,7 +555,7 @@ def _worker_online(request: Request) -> bool:
     return bool(schedule_service.worker_health()["online"])
 
 
-@router.get("/api/workflow-runs/{run_id}")
+@router.db_read.get("/api/workflow-runs/{run_id}")
 def workflow_run_status(run_id: str, request: Request) -> dict[str, Any]:
     """Advance and return one durable workflow run."""
     repository = WorkflowRepository(_runtime_store(request))
@@ -572,7 +572,7 @@ def workflow_run_status(run_id: str, request: Request) -> dict[str, Any]:
     return {"run": workflow_run_to_dict(run, coordinator.repository.list_steps(run_id))}
 
 
-@router.post("/api/workflow-runs/{run_id}/cancel")
+@router.db_atomic.post("/api/workflow-runs/{run_id}/cancel")
 def workflow_run_cancel(run_id: str, request: Request) -> dict[str, Any]:
     """Cancel a workflow and propagate cancellation to active children."""
     repository = WorkflowRepository(_runtime_store(request))
@@ -589,7 +589,7 @@ def workflow_run_cancel(run_id: str, request: Request) -> dict[str, Any]:
     return {"run": workflow_run_to_dict(run, coordinator.repository.list_steps(run_id))}
 
 
-@router.get("/api/workflow-runs/{run_id}/handoffs")
+@router.db_read.get("/api/workflow-runs/{run_id}/handoffs")
 def workflow_handoff_status(run_id: str, request: Request) -> dict[str, Any]:
     """Return typed edit candidates, selections, and overlap conflicts."""
     try:
@@ -598,7 +598,7 @@ def workflow_handoff_status(run_id: str, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="Workflow run not found") from exc
 
 
-@router.post("/api/workflow-runs/{run_id}/handoffs/{step_id}/choose")
+@router.db_atomic.post("/api/workflow-runs/{run_id}/handoffs/{step_id}/choose")
 def workflow_handoff_choose(
     run_id: str,
     step_id: str,
@@ -620,7 +620,7 @@ def workflow_handoff_choose(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/api/workflow-runs/{run_id}/handoffs/{step_id}/discard")
+@router.db_atomic.post("/api/workflow-runs/{run_id}/handoffs/{step_id}/discard")
 def workflow_handoff_discard(
     run_id: str, step_id: str, request: Request
 ) -> dict[str, Any]:
@@ -633,7 +633,7 @@ def workflow_handoff_discard(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/api/workflow-runs/{run_id}/merge-queue")
+@router.db_atomic.post("/api/workflow-runs/{run_id}/merge-queue")
 def workflow_merge_prepare(run_id: str, request: Request) -> dict[str, Any]:
     """Prepare a non-overlapping combined patch in another isolated worktree."""
     try:
@@ -646,7 +646,7 @@ def workflow_merge_prepare(run_id: str, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/api/workflow-runs/{run_id}/merge-queue/apply", response_model=None)
+@router.proc.post("/api/workflow-runs/{run_id}/merge-queue/apply", response_model=None)
 def workflow_merge_apply(
     run_id: str,
     request: Request,

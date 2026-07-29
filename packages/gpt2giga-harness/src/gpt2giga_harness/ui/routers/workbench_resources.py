@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import Body, HTTPException, Query
 
 from gpt2giga_harness.runtime.store import (
     JobNotFoundError,
     NativeProcessRecordNotFoundError,
 )
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.ui.dependencies import AppServicesDependency
 from gpt2giga_harness.workbench_resources import (
     WorkbenchResourceError,
@@ -21,10 +21,10 @@ from gpt2giga_harness.workbench_resources import (
 )
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.get("/api/workbench/resources")
+@router.fs_read.get("/api/workbench/resources")
 def workbench_resources(
     services: AppServicesDependency,
     session_id: str | None = Query(default=None, max_length=256),
@@ -37,7 +37,7 @@ def workbench_resources(
     return resource_snapshot_to_dict(snapshot)
 
 
-@router.post("/api/workbench/tasks/{task_id}/cancel")
+@router.fs_atomic.post("/api/workbench/tasks/{task_id}/cancel")
 def cancel_workbench_task(
     task_id: str,
     services: AppServicesDependency,
@@ -54,7 +54,7 @@ def cancel_workbench_task(
     return {"task": task.__dict__, "binding": task_binding(task)}
 
 
-@router.post("/api/workbench/processes/{process_id}/stop")
+@router.fs_atomic.post("/api/workbench/processes/{process_id}/stop")
 def stop_workbench_process(
     process_id: str,
     services: AppServicesDependency,
@@ -75,7 +75,7 @@ def stop_workbench_process(
     return {"process": stopped.__dict__, "binding": process_binding(stopped)}
 
 
-@router.put("/api/workbench/preferences")
+@router.fs_atomic.put("/api/workbench/preferences")
 def save_workbench_preferences(
     services: AppServicesDependency,
     payload: dict[str, Any] = Body(...),

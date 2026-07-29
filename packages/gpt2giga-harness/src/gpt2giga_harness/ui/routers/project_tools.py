@@ -1,10 +1,11 @@
 """Routes extracted from the FastAPI composition root: project tools."""
 
 from __future__ import annotations
+
 from typing import Any
 from fastapi import Body, HTTPException, Query
 from gpt2giga_harness.ui.services.request_values import optional_text as _optional_text
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.project import (
     load_project_config,
     project_to_dict,
@@ -19,9 +20,9 @@ from gpt2giga_harness.ui.container import AppServices
 
 
 def create_router(services: AppServices) -> APIRouter:
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.get("/api/tools")
+    @router.fs_read.get("/api/tools")
     def tools(workspace: str | None = Query(default=None)) -> dict[str, Any]:
         try:
             project_context = resolve_project(
@@ -38,7 +39,7 @@ def create_router(services: AppServices) -> APIRouter:
             "profiles": [tool_profile_status_to_dict(status) for status in statuses],
         }
 
-    @router.post("/api/tools/sync")
+    @router.proc_read.post("/api/tools/sync")
     def tools_sync(
         payload: dict[str, Any] = Body(default_factory=dict),
     ) -> dict[str, Any]:

@@ -1,6 +1,7 @@
 """Routes extracted from the FastAPI composition root: editor."""
 
 from __future__ import annotations
+
 from typing import Any
 from fastapi import Body, HTTPException, Request
 from gpt2giga_harness.ui.services.editor import editor_dry_run as _editor_dry_run
@@ -9,7 +10,7 @@ from gpt2giga_harness.ui.services.request_values import (
     optional_text as _optional_text,
     required_text as _required_text,
 )
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.editor import (
     build_open_diff_plan,
     build_open_file_plan,
@@ -31,9 +32,9 @@ from gpt2giga_harness.ui.container import AppServices
 
 
 def create_router(services: AppServices) -> APIRouter:
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.post("/api/editor/open-workspace")
+    @router.proc.post("/api/editor/open-workspace")
     def editor_open_workspace(
         request: Request, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any]:
@@ -55,7 +56,7 @@ def create_router(services: AppServices) -> APIRouter:
             "editor": editor_open_plan_to_dict(result),
         }
 
-    @router.post("/api/editor/open-file")
+    @router.proc.post("/api/editor/open-file")
     def editor_open_file(
         request: Request, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any]:
@@ -83,7 +84,7 @@ def create_router(services: AppServices) -> APIRouter:
             "editor": editor_open_plan_to_dict(result),
         }
 
-    @router.post("/api/editor/open-diff")
+    @router.proc.post("/api/editor/open-diff")
     def editor_open_diff(
         request: Request, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any]:
@@ -112,7 +113,7 @@ def create_router(services: AppServices) -> APIRouter:
             "editor": editor_open_plan_to_dict(result),
         }
 
-    @router.post("/api/editor/open-terminal")
+    @router.proc.post("/api/editor/open-terminal")
     def editor_open_terminal(
         request: Request, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any]:

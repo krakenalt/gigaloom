@@ -1,6 +1,7 @@
 """Routes extracted from the FastAPI composition root: project memory."""
 
 from __future__ import annotations
+
 from typing import Any
 from fastapi import Body, HTTPException, Query
 from gpt2giga_harness.ui.services.attachments import (
@@ -12,7 +13,7 @@ from gpt2giga_harness.ui.services.request_values import (
     optional_text as _optional_text,
     required_text as _required_text,
 )
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.project import project_to_dict, resolve_project
 from gpt2giga_harness.project_memory import (
     ProjectMemoryNotFoundError,
@@ -23,9 +24,9 @@ from gpt2giga_harness.ui.container import AppServices
 
 
 def create_router(services: AppServices) -> APIRouter:
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.get("/api/project/memory")
+    @router.fs_read.get("/api/project/memory")
     def project_memory(
         workspace: str | None = Query(default=None),
         include_disabled: bool = Query(default=True),
@@ -46,7 +47,7 @@ def create_router(services: AppServices) -> APIRouter:
             "memories": [memory_entry_to_dict(entry) for entry in memories],
         }
 
-    @router.post("/api/project/memory")
+    @router.fs_atomic.post("/api/project/memory")
     def add_project_memory(
         payload: dict[str, Any] = Body(default_factory=dict),
     ) -> dict[str, Any]:
@@ -74,7 +75,7 @@ def create_router(services: AppServices) -> APIRouter:
             "memory": memory_entry_to_dict(memory),
         }
 
-    @router.patch("/api/project/memory/{memory_id}")
+    @router.fs_atomic.patch("/api/project/memory/{memory_id}")
     def update_project_memory(
         memory_id: str, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any]:
@@ -106,7 +107,7 @@ def create_router(services: AppServices) -> APIRouter:
             "memory": memory_entry_to_dict(memory),
         }
 
-    @router.delete("/api/project/memory/{memory_id}")
+    @router.fs_atomic.delete("/api/project/memory/{memory_id}")
     def delete_project_memory(
         memory_id: str, workspace: str | None = Query(default=None)
     ) -> dict[str, Any]:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Query, Request
+from fastapi import Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from gpt2giga_harness.mcp import (
@@ -15,7 +15,7 @@ from gpt2giga_harness.mcp import (
     mcp_probe_to_dict,
     probe_mcp_server,
 )
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.managed_mcp import (
     ManagedConfigConflictError,
     ManagedConfigOwnershipError,
@@ -41,10 +41,10 @@ from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
 from gpt2giga_harness.tools import CompositeSecretResolver, EnvironmentSecretResolver
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.get("/api/tool-servers")
+@router.fs_read.get("/api/tool-servers")
 def tool_inventory(
     request: Request,
     workspace: str | None = Query(default=None),
@@ -88,7 +88,7 @@ def tool_inventory(
     }
 
 
-@router.get("/api/tool-servers/{server_id}")
+@router.proc_read.get("/api/tool-servers/{server_id}")
 def tool_server_detail(
     server_id: str,
     request: Request,
@@ -106,7 +106,7 @@ def tool_server_detail(
     }
 
 
-@router.post("/api/tool-servers/{server_id}/probe", response_model=None)
+@router.proc.post("/api/tool-servers/{server_id}/probe", response_model=None)
 def probe_tool_server(
     server_id: str,
     request: Request,
@@ -170,7 +170,7 @@ def probe_tool_server(
     return {"probe": mcp_probe_to_dict(result)}
 
 
-@router.post("/api/tool-config/preview")
+@router.fs_read.post("/api/tool-config/preview")
 def preview_tool_config(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),
@@ -194,7 +194,7 @@ def preview_tool_config(
     }
 
 
-@router.post("/api/tool-config/apply")
+@router.fs_atomic.post("/api/tool-config/apply")
 def apply_tool_config(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),
@@ -234,7 +234,7 @@ def apply_tool_config(
     }
 
 
-@router.post("/api/tool-config/rollback")
+@router.fs_atomic.post("/api/tool-config/rollback")
 def rollback_tool_config(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),

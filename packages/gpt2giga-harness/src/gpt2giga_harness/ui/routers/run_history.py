@@ -25,9 +25,7 @@ from gpt2giga_harness.sessions.models import (
     session_to_dict,
 )
 from gpt2giga_harness.sessions.store import title_from_prompt
-from gpt2giga_harness.ui.async_execution import (
-    ConformantAPIRoute,
-)
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.ui.container import AppServices
 from gpt2giga_harness.ui.routers.tui_actions import validate_run_action_binding
 from gpt2giga_harness.ui.services.navigation import session_summary as _session_summary
@@ -44,7 +42,7 @@ from gpt2giga_harness.worktrees import (
 
 def create_router(services: AppServices) -> APIRouter:
     """Create the run history router."""
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
     def _run_provenance_response(run: HarnessRun) -> dict[str, Any]:
         provenance = _build_current_run_provenance(
@@ -59,7 +57,7 @@ def create_router(services: AppServices) -> APIRouter:
             "provenance": run_provenance_to_dict(provenance),
         }
 
-    @router.get("/api/runs/{run_id}/diff")
+    @router.db_read.get("/api/runs/{run_id}/diff")
     def run_diff(run_id: str) -> dict[str, Any]:
         try:
             run = services.session_store.get_run(run_id)
@@ -67,7 +65,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=404, detail="Run not found") from exc
         return {"run": run_to_dict(run), "diff": run_diff_response(run.metadata)}
 
-    @router.get("/api/runs/{run_id}/pr")
+    @router.db_read.get("/api/runs/{run_id}/pr")
     def run_pr_artifact(run_id: str) -> dict[str, Any]:
         try:
             run = services.session_store.get_run(run_id)
@@ -76,7 +74,7 @@ def create_router(services: AppServices) -> APIRouter:
         artifact = build_pr_artifact(run)
         return {"run": run_to_dict(run), "pr_artifact": pr_artifact_to_dict(artifact)}
 
-    @router.get("/api/runs/{run_id}/provenance")
+    @router.db_read.get("/api/runs/{run_id}/provenance")
     def run_provenance(run_id: str) -> dict[str, Any]:
         try:
             run = services.session_store.get_run(run_id)
@@ -84,7 +82,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=404, detail="Run not found") from exc
         return _run_provenance_response(run)
 
-    @router.post("/api/runs/{run_id}/replay")
+    @router.bounded_job.post("/api/runs/{run_id}/replay")
     def replay_run(
         run_id: str, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any]:
@@ -171,7 +169,7 @@ def create_router(services: AppServices) -> APIRouter:
         response["replay_request"] = replay_payload
         return response
 
-    @router.post("/api/runs/{run_id}/fork")
+    @router.bounded_job.post("/api/runs/{run_id}/fork")
     def fork_run(
         run_id: str, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any]:
@@ -192,7 +190,7 @@ def create_router(services: AppServices) -> APIRouter:
             "bundle": bundle_to_dict(bundle),
         }
 
-    @router.get("/api/runs/{run_id}/patch")
+    @router.db_read.get("/api/runs/{run_id}/patch")
     def run_patch(run_id: str) -> Response:
         try:
             run = services.session_store.get_run(run_id)

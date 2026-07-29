@@ -23,7 +23,7 @@ from gpt2giga_harness.sessions.models import (
 from gpt2giga_harness.sessions.redaction import redact_for_storage
 from gpt2giga_harness.sessions.store import new_id, utc_now
 from gpt2giga_harness.ui.async_execution import (
-    ConformantAPIRoute,
+    ContractAPIRouter,
     run_in_threadpool,
     run_stream_offload,
 )
@@ -47,9 +47,9 @@ NATIVE_OUTPUT_STREAM_HEARTBEAT_SECONDS = 15.0
 
 def create_router(services: AppServices) -> APIRouter:
     """Create the native domain router with typed application services."""
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.post("/api/native/processes/{process_id}/input")
+    @router.proc_async_atomic.post("/api/native/processes/{process_id}/input")
     async def native_process_input(
         process_id: str, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any]:
@@ -100,7 +100,7 @@ def create_router(services: AppServices) -> APIRouter:
             "message": message_to_dict(message) if message is not None else None,
         }
 
-    @router.get("/api/native/processes/{process_id}/output")
+    @router.proc_read.get("/api/native/processes/{process_id}/output")
     def native_process_output(
         process_id: str, cursor: int = Query(default=0, ge=0)
     ) -> dict[str, Any]:
@@ -137,7 +137,7 @@ def create_router(services: AppServices) -> APIRouter:
         )
         return payload
 
-    @router.get("/api/native/processes/{process_id}/output/stream")
+    @router.stream.get("/api/native/processes/{process_id}/output/stream")
     async def native_process_output_stream(
         process_id: str,
         cursor: int = Query(default=0, ge=0),
@@ -216,7 +216,7 @@ def create_router(services: AppServices) -> APIRouter:
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
-    @router.post("/api/native/processes/{process_id}/resize")
+    @router.proc.post("/api/native/processes/{process_id}/resize")
     def native_process_resize(
         process_id: str, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any]:
@@ -236,7 +236,7 @@ def create_router(services: AppServices) -> APIRouter:
             "columns": payload["columns"],
         }
 
-    @router.get("/api/native/processes/{process_id}")
+    @router.proc_read.get("/api/native/processes/{process_id}")
     def native_process_status(process_id: str) -> dict[str, Any]:
         try:
             process_ref = services.native_process_manager.status(process_id)
@@ -255,7 +255,7 @@ def create_router(services: AppServices) -> APIRouter:
             "run": run_to_dict(run) if run is not None else None,
         }
 
-    @router.delete("/api/native/processes/{process_id}")
+    @router.proc.delete("/api/native/processes/{process_id}")
     def native_process_stop(process_id: str) -> dict[str, Any]:
         try:
             process_ref = services.native_process_manager.stop(process_id)

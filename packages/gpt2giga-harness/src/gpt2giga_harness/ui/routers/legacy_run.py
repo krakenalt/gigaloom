@@ -19,9 +19,7 @@ from gpt2giga_harness.types import (
     parse_capability,
     result_to_dict,
 )
-from gpt2giga_harness.ui.async_execution import (
-    ConformantAPIRoute,
-)
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.ui.container import AppServices
 from gpt2giga_harness.ui.services.request_values import optional_text as _optional_text
 from gpt2giga_harness.workspace import resolve_workspace
@@ -29,9 +27,9 @@ from gpt2giga_harness.workspace import resolve_workspace
 
 def create_router(services: AppServices) -> APIRouter:
     """Create the legacy run router."""
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.post("/api/run")
+    @router.proc.post("/api/run")
     def run(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
         harness_id = str(payload.get("harness_id") or "echo")
         try:

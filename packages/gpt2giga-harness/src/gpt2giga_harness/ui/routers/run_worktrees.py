@@ -25,9 +25,7 @@ from gpt2giga_harness.sessions.models import (
     run_to_dict,
 )
 from gpt2giga_harness.sessions.store import new_id, utc_now
-from gpt2giga_harness.ui.async_execution import (
-    ConformantAPIRoute,
-)
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.ui.container import AppServices
 from gpt2giga_harness.ui.services.request_values import optional_text as _optional_text
 from gpt2giga_harness.worktrees import (
@@ -43,9 +41,9 @@ from gpt2giga_harness.worktrees import (
 
 def create_router(services: AppServices) -> APIRouter:
     """Create the run worktrees router."""
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.post("/api/runs/{run_id}/apply", response_model=None)
+    @router.proc.post("/api/runs/{run_id}/apply", response_model=None)
     def apply_run_patch(
         run_id: str, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any] | JSONResponse:
@@ -99,7 +97,7 @@ def create_router(services: AppServices) -> APIRouter:
             "diff": run_diff_response(run.metadata),
         }
 
-    @router.post("/api/runs/{run_id}/branch", response_model=None)
+    @router.proc.post("/api/runs/{run_id}/branch", response_model=None)
     def create_run_branch(
         run_id: str, payload: dict[str, Any] = Body(default_factory=dict)
     ) -> dict[str, Any] | JSONResponse:
@@ -161,7 +159,7 @@ def create_router(services: AppServices) -> APIRouter:
             "pr_artifact": pr_artifact_to_dict(build_pr_artifact(run)),
         }
 
-    @router.post("/api/runs/{run_id}/discard")
+    @router.proc.post("/api/runs/{run_id}/discard")
     def discard_run_worktree_endpoint(run_id: str) -> dict[str, Any]:
         try:
             run = services.session_store.get_run(run_id)
@@ -192,7 +190,7 @@ def create_router(services: AppServices) -> APIRouter:
             "diff": run_diff_response(run.metadata),
         }
 
-    @router.post("/api/runs/{run_id}/open-worktree")
+    @router.proc.post("/api/runs/{run_id}/open-worktree")
     def open_run_worktree(run_id: str) -> dict[str, Any]:
         try:
             run = services.session_store.get_run(run_id)

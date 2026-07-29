@@ -10,7 +10,7 @@ import anyio
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.ui.routers.schemas import (
     BrowserAccessStatusResponse,
     BrowserSessionResponse,
@@ -160,13 +160,13 @@ def _utc_timestamp(value: float | None) -> str | None:
 
 def create_shell_router(security: HarnessUISecurity) -> APIRouter:
     """Create the shell router; include it after every API router."""
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.get("/healthz", response_model=UIHealthResponse)
+    @router.loop_read.get("/healthz", response_model=UIHealthResponse)
     async def health() -> UIHealthResponse:
         return UIHealthResponse()
 
-    @router.get("/auth/status", response_model=BrowserAccessStatusResponse)
+    @router.loop_read.get("/auth/status", response_model=BrowserAccessStatusResponse)
     async def browser_access_status(request: Request) -> BrowserAccessStatusResponse:
         if not security.local_mode:
             session = security.remote_session(request)
@@ -204,7 +204,7 @@ def create_shell_router(security: HarnessUISecurity) -> APIRouter:
             recovery=status.recovery,
         )
 
-    @router.post("/auth/logout", response_model=BrowserSessionResponse)
+    @router.loop_atomic.post("/auth/logout", response_model=BrowserSessionResponse)
     async def browser_logout(
         request: Request,
         response: Response,
@@ -216,7 +216,7 @@ def create_shell_router(security: HarnessUISecurity) -> APIRouter:
         security.clear_session_cookie(response)
         return BrowserSessionResponse(authenticated=False)
 
-    @router.get("/auth/oidc/login", include_in_schema=False)
+    @router.net_async_read.get("/auth/oidc/login", include_in_schema=False)
     async def begin_remote_login(request: Request, next: str = "/cockpit-v2/work"):
         if security.local_mode:
             raise HTTPException(status_code=404, detail="Page not found")
@@ -234,7 +234,7 @@ def create_shell_router(security: HarnessUISecurity) -> APIRouter:
         security.set_transaction_cookie(response, transaction)
         return response
 
-    @router.get("/auth/oidc/callback", include_in_schema=False)
+    @router.net_async_read.get("/auth/oidc/callback", include_in_schema=False)
     async def complete_remote_login(
         request: Request,
         code: str = "",
@@ -262,7 +262,9 @@ def create_shell_router(security: HarnessUISecurity) -> APIRouter:
         security.set_remote_session_cookie(response, session)
         return response
 
-    @router.post("/auth/oidc/backchannel-logout", include_in_schema=False)
+    @router.net_async_atomic.post(
+        "/auth/oidc/backchannel-logout", include_in_schema=False
+    )
     async def backchannel_logout(request: Request) -> Response:
         if security.local_mode:
             raise HTTPException(status_code=404, detail="Page not found")
@@ -285,7 +287,7 @@ def create_shell_router(security: HarnessUISecurity) -> APIRouter:
             ) from exc
         return Response(status_code=204)
 
-    @router.post("/auth/remote/revoke-actor", include_in_schema=False)
+    @router.fs_async_atomic.post("/auth/remote/revoke-actor", include_in_schema=False)
     async def revoke_remote_actor(request: Request) -> dict[str, int]:
         if security.local_mode or security.remote_store is None:
             raise HTTPException(status_code=404, detail="Page not found")
@@ -301,14 +303,16 @@ def create_shell_router(security: HarnessUISecurity) -> APIRouter:
         )
         return {"revoked": revoked}
 
-    @router.post("/auth/remote/revoke-all", include_in_schema=False)
+    @router.fs_async_atomic.post("/auth/remote/revoke-all", include_in_schema=False)
     async def revoke_all_remote_sessions() -> dict[str, int]:
         if security.local_mode or security.remote_store is None:
             raise HTTPException(status_code=404, detail="Page not found")
         revoked = await anyio.to_thread.run_sync(security.remote_store.revoke_all)
         return {"revoked": revoked}
 
-    @router.post("/auth/local/rotate", response_model=BrowserSessionResponse)
+    @router.loop_atomic.post(
+        "/auth/local/rotate", response_model=BrowserSessionResponse
+    )
     async def rotate_local_browser_session(
         request: Request,
         response: Response,
@@ -324,7 +328,7 @@ def create_shell_router(security: HarnessUISecurity) -> APIRouter:
         security.set_session_cookie(response, session)
         return BrowserSessionResponse()
 
-    @router.post("/auth/local/recover", include_in_schema=False)
+    @router.loop_atomic.post("/auth/local/recover", include_in_schema=False)
     async def recover_local_browser_session(request: Request) -> Response:
         session = security.recover_local(request)
         if session is None:
@@ -336,7 +340,7 @@ def create_shell_router(security: HarnessUISecurity) -> APIRouter:
         security.set_session_cookie(response, session)
         return response
 
-    @router.get("/local-access", include_in_schema=False)
+    @router.loop_read.get("/local-access", include_in_schema=False)
     async def local_access_page(request: Request) -> Response:
         if not security.local_mode:
             raise HTTPException(status_code=404, detail="Page not found")
@@ -355,7 +359,7 @@ def create_shell_router(security: HarnessUISecurity) -> APIRouter:
             },
         )
 
-    @router.get("/cockpit-v2/assets/{asset_name:path}", include_in_schema=False)
+    @router.fs_read.get("/cockpit-v2/assets/{asset_name:path}", include_in_schema=False)
     def cockpit_v2_asset(asset_name: str, request: Request) -> Response:
         encoding = _accepted_encoding(request.headers.get("accept-encoding"))
         try:
@@ -382,12 +386,10 @@ def create_shell_router(security: HarnessUISecurity) -> APIRouter:
             headers=headers,
         )
 
-    @router.get(
-        "/cockpit-v2",
-        response_class=HTMLResponse,
-        include_in_schema=False,
+    @router.fs_read.get(
+        "/cockpit-v2", response_class=HTMLResponse, include_in_schema=False
     )
-    @router.get(
+    @router.fs_read.get(
         "/cockpit-v2/{spa_path:path}",
         response_class=HTMLResponse,
         include_in_schema=False,
@@ -402,7 +404,7 @@ def create_shell_router(security: HarnessUISecurity) -> APIRouter:
             raise _cockpit_unavailable(exc) from exc
         return HTMLResponse(content, headers=_COCKPIT_V2_SHELL_HEADERS)
 
-    @router.get(
+    @router.fs_read.get(
         "/{spa_path:path}", response_class=RedirectResponse, include_in_schema=False
     )
     def spa_shell(spa_path: str) -> RedirectResponse:

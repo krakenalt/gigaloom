@@ -31,7 +31,7 @@ from gpt2giga_harness.sessions import (
 )
 from gpt2giga_harness.sessions.store import title_from_prompt
 from gpt2giga_harness.ui.async_execution import (
-    ConformantAPIRoute,
+    ContractAPIRouter,
     run_in_threadpool,
     run_stream_offload,
 )
@@ -70,9 +70,9 @@ from gpt2giga_harness.workspace import (
 
 def create_router(services: AppServices) -> APIRouter:
     """Create the arena router."""
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.get("/api/arena/runs")
+    @router.fs_read.get("/api/arena/runs")
     def list_arena_runs(
         workspace: str | None = Query(default=None),
         limit: int = Query(default=20, ge=1, le=100),
@@ -81,7 +81,7 @@ def create_router(services: AppServices) -> APIRouter:
         arenas = services.arena_store.list(workspace=resolved_workspace, limit=limit)
         return {"arenas": [_arena_summary_response(arena) for arena in arenas]}
 
-    @router.post("/api/arena/runs")
+    @router.worker_job.post("/api/arena/runs")
     async def create_arena_run(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
         try:
             payload = dict(payload)
@@ -144,7 +144,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return await run_in_threadpool(_arena_response, arena, services.session_store)
 
-    @router.get("/api/arena/runs/{arena_id}")
+    @router.fs_read.get("/api/arena/runs/{arena_id}")
     def get_arena_run(arena_id: str) -> dict[str, Any]:
         try:
             arena = services.arena_store.get(arena_id)
@@ -152,7 +152,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=404, detail="Arena run not found") from exc
         return _arena_response(arena, services.session_store)
 
-    @router.post("/api/arena/runs/{arena_id}/turns")
+    @router.worker_job.post("/api/arena/runs/{arena_id}/turns")
     async def create_arena_follow_up(
         arena_id: str, payload: dict[str, Any] = Body(...)
     ) -> dict[str, Any]:
@@ -218,7 +218,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return await run_in_threadpool(_arena_response, arena, services.session_store)
 
-    @router.post("/api/arena/runs/{arena_id}/verdict")
+    @router.fs_atomic.post("/api/arena/runs/{arena_id}/verdict")
     def create_arena_verdict(
         arena_id: str, payload: dict[str, Any] = Body(...)
     ) -> dict[str, Any]:
@@ -238,7 +238,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return _arena_response(arena, services.session_store)
 
-    @router.post("/api/arena/runs/{arena_id}/children/{child_index}/retry")
+    @router.worker_job.post("/api/arena/runs/{arena_id}/children/{child_index}/retry")
     async def retry_arena_child(arena_id: str, child_index: int) -> dict[str, Any]:
         try:
             arena = await run_in_threadpool(services.arena_store.get, arena_id)
@@ -350,7 +350,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return await run_in_threadpool(_arena_response, arena, services.session_store)
 
-    @router.get("/api/arena/runs/{arena_id}/events/stream")
+    @router.stream.get("/api/arena/runs/{arena_id}/events/stream")
     async def arena_events_stream(
         arena_id: str, after_id: str | None = Query(default=None)
     ) -> StreamingResponse:

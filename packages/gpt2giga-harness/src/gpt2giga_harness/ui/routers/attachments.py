@@ -18,9 +18,7 @@ from gpt2giga_harness.project import resolve_project
 from gpt2giga_harness.sessions import (
     SessionNotFoundError,
 )
-from gpt2giga_harness.ui.async_execution import (
-    ConformantAPIRoute,
-)
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.ui.container import AppServices
 from gpt2giga_harness.ui.services.attachments import (
     attachment_limits as _attachment_limits,
@@ -62,9 +60,9 @@ TUI_FILE_PREVIEW_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]
 
 def create_router(services: AppServices) -> APIRouter:
     """Create the attachments router."""
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.post("/api/sessions/{session_id}/attachments")
+    @router.fs_atomic.post("/api/sessions/{session_id}/attachments")
     def create_attachment(
         session_id: str, payload: dict[str, Any] = Body(...)
     ) -> dict[str, Any]:
@@ -86,7 +84,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"attachment": _attachment_response(services.registry, attachment)}
 
-    @router.post("/api/sessions/{session_id}/attachments/workspace")
+    @router.fs_atomic.post("/api/sessions/{session_id}/attachments/workspace")
     def create_workspace_attachment(
         session_id: str, payload: dict[str, Any] = Body(...)
     ) -> dict[str, Any]:
@@ -111,7 +109,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"attachment": _attachment_response(services.registry, attachment)}
 
-    @router.get("/api/sessions/{session_id}/attachments/workspace/search")
+    @router.fs_read.get("/api/sessions/{session_id}/attachments/workspace/search")
     def search_session_workspace_attachments(
         session_id: str,
         q: str | None = Query(default=None),
@@ -133,7 +131,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"q": _optional_text(q) or "", "files": files, "bounded": True}
 
-    @router.get("/api/sessions/{session_id}/attachments/workspace/preview")
+    @router.fs_read.get("/api/sessions/{session_id}/attachments/workspace/preview")
     def preview_session_workspace_attachment(
         session_id: str, path: str = Query(min_length=1)
     ) -> dict[str, Any]:
@@ -168,7 +166,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"file": metadata, "preview": preview, "bounded": True}
 
-    @router.get("/api/sessions/{session_id}/attachments")
+    @router.fs_read.get("/api/sessions/{session_id}/attachments")
     def session_attachments(session_id: str) -> dict[str, Any]:
         try:
             services.session_store.get_session(session_id)
@@ -182,7 +180,7 @@ def create_router(services: AppServices) -> APIRouter:
             ]
         }
 
-    @router.get("/api/attachments/{attachment_id}/metadata")
+    @router.fs_read.get("/api/attachments/{attachment_id}/metadata")
     def attachment_metadata(attachment_id: str) -> dict[str, Any]:
         try:
             attachment = services.attachment_store.get_attachment(attachment_id)
@@ -190,7 +188,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=404, detail="Attachment not found") from exc
         return {"attachment": _attachment_response(services.registry, attachment)}
 
-    @router.get("/api/attachments/{attachment_id}")
+    @router.fs_read.get("/api/attachments/{attachment_id}")
     def attachment_blob(attachment_id: str) -> Response:
         try:
             attachment = services.attachment_store.get_attachment(attachment_id)
@@ -228,7 +226,7 @@ def create_router(services: AppServices) -> APIRouter:
             },
         )
 
-    @router.delete("/api/attachments/{attachment_id}")
+    @router.fs_atomic.delete("/api/attachments/{attachment_id}")
     def delete_attachment(attachment_id: str) -> dict[str, Any]:
         try:
             services.attachment_store.delete_attachment(attachment_id)
@@ -236,7 +234,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=404, detail="Attachment not found") from exc
         return {"deleted": True}
 
-    @router.get("/api/workspace/tree")
+    @router.fs_read.get("/api/workspace/tree")
     def workspace_tree_endpoint(
         workspace: str | None = Query(default=None),
         q: str | None = Query(default=None),
@@ -258,7 +256,7 @@ def create_router(services: AppServices) -> APIRouter:
             "files": files,
         }
 
-    @router.get("/api/workspace/file/metadata")
+    @router.fs_read.get("/api/workspace/file/metadata")
     def workspace_file_metadata_endpoint(
         workspace: str | None = Query(default=None), path: str = Query(...)
     ) -> dict[str, Any]:

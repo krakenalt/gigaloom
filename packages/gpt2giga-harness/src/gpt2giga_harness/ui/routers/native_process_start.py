@@ -31,7 +31,7 @@ from gpt2giga_harness.sessions.models import (
     run_to_dict,
 )
 from gpt2giga_harness.sessions.store import new_id, utc_now
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.ui.container import AppServices
 from gpt2giga_harness.ui.services.attachments import (
     metadata_mapping as _metadata_mapping,
@@ -70,9 +70,9 @@ def create_router(
     services: AppServices, *, native_login_broker: NativeLoginBroker | None
 ) -> APIRouter:
     """Create the native domain router with typed application services."""
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.post("/api/native/processes/start", response_model=None)
+    @router.proc.post("/api/native/processes/start", response_model=None)
     def native_process_start(
         payload: dict[str, Any] = Body(default_factory=dict),
     ) -> dict[str, Any] | JSONResponse:

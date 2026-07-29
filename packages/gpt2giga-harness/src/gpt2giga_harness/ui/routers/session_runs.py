@@ -18,10 +18,7 @@ from gpt2giga_harness.sessions.models import (
     run_to_dict,
 )
 from gpt2giga_harness.sessions.store import new_id
-from gpt2giga_harness.ui.async_execution import (
-    ConformantAPIRoute,
-    run_in_threadpool,
-)
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter, run_in_threadpool
 from gpt2giga_harness.ui.container import AppServices
 from gpt2giga_harness.ui.services import ActiveHeadlessRun
 from gpt2giga_harness.ui.services.navigation import session_summary as _session_summary
@@ -35,7 +32,7 @@ from gpt2giga_harness.ui.streaming.events import event_response as _event_respon
 
 def create_router(services: AppServices) -> APIRouter:
     """Create the session runs router."""
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
     async def _start_headless_run(
         session_id: str, payload: Mapping[str, Any]
@@ -96,7 +93,7 @@ def create_router(services: AppServices) -> APIRouter:
             payload["job"] = job_to_dict(job)
         return payload
 
-    @router.post("/api/sessions/run/start")
+    @router.worker_client_key.post("/api/sessions/run/start")
     async def create_session_and_start_run(
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
@@ -118,7 +115,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         return await run_in_threadpool(_run_start_response, run)
 
-    @router.post("/api/sessions/{session_id}/run/start")
+    @router.worker_client_key.post("/api/sessions/{session_id}/run/start")
     async def start_run_in_session(
         session_id: str, payload: dict[str, Any] = Body(...)
     ) -> dict[str, Any]:
@@ -137,7 +134,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         return await run_in_threadpool(_run_start_response, run)
 
-    @router.post("/api/sessions/run")
+    @router.bounded_job.post("/api/sessions/run")
     def create_session_and_run(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
         try:
             result = services.session_service.create_and_run(payload)
@@ -149,7 +146,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return result.to_dict()
 
-    @router.post("/api/sessions/{session_id}/run")
+    @router.bounded_job.post("/api/sessions/{session_id}/run")
     def run_in_session(
         session_id: str, payload: dict[str, Any] = Body(...)
     ) -> dict[str, Any]:
@@ -165,7 +162,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return result.to_dict()
 
-    @router.get("/api/sessions/{session_id}/events")
+    @router.fs_read.get("/api/sessions/{session_id}/events")
     def session_events(
         session_id: str,
         run_id: str | None = Query(default=None),

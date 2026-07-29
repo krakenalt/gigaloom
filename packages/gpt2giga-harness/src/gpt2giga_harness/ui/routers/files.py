@@ -20,7 +20,7 @@ from gpt2giga_harness.safe_paths import (
     resolve_operator_path,
     resolve_path_within,
 )
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 
 _MAX_PREVIEW_BYTES = 25 * 1024 * 1024
 # The iframe starts same-origin so browser-session auth is sent. This response
@@ -77,9 +77,11 @@ _SAFE_TEXT_SUFFIXES = frozenset(
 
 def create_file_preview_router(data_dir: str | None = None) -> APIRouter:
     """Create the bounded local-file preview router."""
-    router = APIRouter(route_class=ConformantAPIRoute)
+    router = ContractAPIRouter()
 
-    @router.get("/api/files/generated/{run_key}/{filename}", response_class=Response)
+    @router.fs_read.get(
+        "/api/files/generated/{run_key}/{filename}", response_class=Response
+    )
     def generated_file(
         run_key: str,
         filename: str,
@@ -142,7 +144,7 @@ def create_file_preview_router(data_dir: str | None = None) -> APIRouter:
             headers=headers,
         )
 
-    @router.get("/api/files/preview", response_class=FileResponse)
+    @router.fs_read.get("/api/files/preview", response_class=FileResponse)
     def preview_file(
         request: Request,
         path: str = Query(min_length=1),

@@ -6,7 +6,7 @@ from dataclasses import asdict
 from typing import Any, Mapping
 from urllib.parse import urlsplit, urlunsplit
 
-from fastapi import APIRouter, Body, HTTPException, Query, Request
+from fastapi import Body, HTTPException, Query, Request
 
 from gpt2giga_harness.config import DEFAULT_MODEL_HINTS
 from gpt2giga_harness.doctor import build_doctor_report
@@ -39,17 +39,17 @@ from gpt2giga_harness.settings import (
     SettingsConflictError,
 )
 from gpt2giga_harness.types import parse_api_mode
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.workbench_execution import (
     workbench_admission_projection,
     workbench_transport_projection,
 )
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.get("/api/doctor")
+@router.fs_read.get("/api/doctor")
 def doctor_read_model(request: Request) -> dict[str, Any]:
     """Return one guided content-free doctor snapshot without online probes."""
     security = request.app.state.harness_ui_security
@@ -77,7 +77,7 @@ def doctor_read_model(request: Request) -> dict[str, Any]:
     )
 
 
-@router.get("/api/settings")
+@router.fs_read.get("/api/settings")
 def settings_read_model(
     request: Request,
     workspace: str | None = Query(default=None),
@@ -211,43 +211,43 @@ def settings_read_model(
     }
 
 
-@router.get("/api/providers")
+@router.fs_read.get("/api/providers")
 def list_provider_settings(request: Request) -> dict[str, Any]:
     """Return the reference-only provider registry and template catalog."""
     return request.app.state.harness_provider_settings_service.list()
 
 
-@router.get("/api/provider-accounts")
+@router.proc_read.get("/api/provider-accounts")
 def list_provider_accounts(request: Request) -> dict[str, Any]:
     """Return typed provider-owned account cards from isolated homes."""
     return request.app.state.harness_native_login_broker.list_accounts()
 
 
-@router.post("/api/provider-accounts/{provider_id}/refresh")
+@router.proc_read.post("/api/provider-accounts/{provider_id}/refresh")
 def refresh_provider_account(request: Request, provider_id: str) -> dict[str, Any]:
     """Explicitly refresh one provider-owned status projection."""
     return _provider_account_action(request, provider_id, "refresh")
 
 
-@router.post("/api/provider-accounts/{provider_id}/login")
+@router.proc.post("/api/provider-accounts/{provider_id}/login")
 def start_provider_login(request: Request, provider_id: str) -> dict[str, Any]:
     """Start one bounded provider-owned login attempt."""
     return _provider_account_action(request, provider_id, "start")
 
 
-@router.post("/api/provider-accounts/{provider_id}/cancel")
+@router.proc.post("/api/provider-accounts/{provider_id}/cancel")
 def cancel_provider_login(request: Request, provider_id: str) -> dict[str, Any]:
     """Cancel the exact pending provider-owned login attempt."""
     return _provider_account_action(request, provider_id, "cancel")
 
 
-@router.post("/api/provider-accounts/{provider_id}/logout")
+@router.proc.post("/api/provider-accounts/{provider_id}/logout")
 def logout_provider_account(request: Request, provider_id: str) -> dict[str, Any]:
     """Run the reviewed provider-owned logout operation."""
     return _provider_account_action(request, provider_id, "logout")
 
 
-@router.get("/api/providers/{provider_id}")
+@router.fs_read.get("/api/providers/{provider_id}")
 def get_provider_settings(request: Request, provider_id: str) -> dict[str, Any]:
     """Return one backend-owned provider projection."""
     try:
@@ -258,7 +258,7 @@ def get_provider_settings(request: Request, provider_id: str) -> dict[str, Any]:
         raise _provider_field_error(exc) from exc
 
 
-@router.post("/api/providers")
+@router.fs_atomic.post("/api/providers")
 def create_provider_settings(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),
@@ -281,7 +281,7 @@ def create_provider_settings(
     return {"saved": True, "provider": result.provider, "effects": result.effects}
 
 
-@router.patch("/api/providers/{provider_id}")
+@router.fs_atomic.patch("/api/providers/{provider_id}")
 def update_provider_settings(
     request: Request,
     provider_id: str,
@@ -310,19 +310,19 @@ def update_provider_settings(
     return {"saved": True, "provider": result.provider, "effects": result.effects}
 
 
-@router.post("/api/providers/{provider_id}/test")
+@router.net_atomic.post("/api/providers/{provider_id}/test")
 def test_provider_settings(request: Request, provider_id: str) -> dict[str, Any]:
     """Run one explicit bounded provider connection check."""
     return _run_provider_check(request, provider_id, discover_models=False)
 
 
-@router.post("/api/providers/{provider_id}/discover")
+@router.net_atomic.post("/api/providers/{provider_id}/discover")
 def discover_provider_models(request: Request, provider_id: str) -> dict[str, Any]:
     """Run one explicit bounded provider model-discovery check."""
     return _run_provider_check(request, provider_id, discover_models=True)
 
 
-@router.patch("/api/settings/defaults")
+@router.fs_atomic.patch("/api/settings/defaults")
 def update_settings_defaults(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),

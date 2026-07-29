@@ -21,6 +21,7 @@ from gpt2giga_harness.ui.execution_contracts import (
     IdempotencyContract,
     WorkloadClass,
     execution_contract_errors,
+    route_execution_metadata,
     route_identities,
 )
 
@@ -73,6 +74,42 @@ def test_execution_contract_rejects_new_unclassified_read_route(tmp_path):
         "unclassified routes" in error and "('GET', '/api/new-read')" in error
         for error in errors
     )
+
+
+def test_application_handlers_own_their_execution_metadata(tmp_path):
+    app = _app(tmp_path)
+
+    def concrete_routes(routes):
+        for route in routes:
+            included = getattr(route, "original_router", None)
+            if included is not None:
+                yield from concrete_routes(included.routes)
+            else:
+                yield route
+
+    framework_routes = {("GET", "/openapi.json"), ("HEAD", "/openapi.json")}
+    for route in concrete_routes(app.routes):
+        path = getattr(route, "path", None)
+        methods = getattr(route, "methods", None) or ()
+        endpoint = getattr(route, "endpoint", None)
+        for method in methods:
+            if (method, path) in framework_routes:
+                continue
+            metadata = route_execution_metadata(endpoint)
+            contract = getattr(route, "execution_contract", None)
+            assert metadata is not None, (method, path)
+            assert contract is not None, (method, path)
+            assert (
+                metadata.workload,
+                metadata.adapter,
+                metadata.cancellation,
+                metadata.idempotency,
+            ) == (
+                contract.workload,
+                contract.adapter,
+                contract.cancellation,
+                contract.idempotency,
+            )
 
 
 def test_blocking_session_read_does_not_stall_event_loop(tmp_path, monkeypatch):
