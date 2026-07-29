@@ -5,6 +5,7 @@ import importlib
 from dataclasses import replace
 import os
 from pathlib import Path
+import pickle
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -43,6 +44,28 @@ from gpt2giga_harness.workbench_resources import (
     preference_snapshot_to_dict,
     resource_snapshot_to_dict,
 )
+
+
+def test_client_facade_reexports_split_contracts_and_transports():
+    from gpt2giga_harness.tui.clients.http import (
+        AttachedWorkbenchClient as AttachedTransport,
+    )
+    from gpt2giga_harness.tui.clients.in_process import (
+        InProcessWorkbenchClient as InProcessTransport,
+    )
+    from gpt2giga_harness.tui.clients.protocol import WorkbenchClient
+    from gpt2giga_harness.tui.contracts import ProjectSummary
+
+    from gpt2giga_harness.tui import client as facade
+
+    assert facade.AttachedWorkbenchClient is AttachedTransport
+    assert facade.InProcessWorkbenchClient is InProcessTransport
+    assert facade.WorkbenchClient is WorkbenchClient
+    assert facade.ProjectSummary is ProjectSummary
+
+    project = ProjectSummary("project", "Project", "/workspace", None, 0)
+    assert pickle.loads(pickle.dumps(project)) == project
+    assert project.__class__.__module__ == "gpt2giga_harness.tui.client"
 
 
 def _git(cwd: Path, *args: str) -> None:
