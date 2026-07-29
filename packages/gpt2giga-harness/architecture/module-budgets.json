@@ -1,0 +1,911 @@
+{
+  "schema_version": 1,
+  "package": "gpt2giga_harness",
+  "baseline": {
+    "gate": "G0",
+    "git_sha": "7d7d0d88b4242dd4ce5fbf1a3323c122d921fcb3"
+  },
+  "root_namespace": {
+    "permanent_modules": [
+      "__init__.py",
+      "entrypoint.py",
+      "py.typed"
+    ],
+    "target_contexts": [
+      "attachments",
+      "automation",
+      "cli",
+      "contracts",
+      "core",
+      "diagnostics",
+      "execution",
+      "harnesses",
+      "integrations",
+      "native",
+      "projects",
+      "providers",
+      "review",
+      "runtime",
+      "sessions",
+      "skills",
+      "tools",
+      "tui",
+      "ui"
+    ],
+    "temporary_context_groups": [
+      {
+        "owner": "T06",
+        "removal_gate": "G-FINAL",
+        "paths": [
+          "application"
+        ]
+      },
+      {
+        "owner": "T16",
+        "removal_gate": "T16-C1",
+        "paths": [
+          "integration_sdk_preview"
+        ]
+      },
+      {
+        "owner": "T17",
+        "removal_gate": "T17-C1",
+        "paths": [
+          "protocols"
+        ]
+      },
+      {
+        "owner": "T18",
+        "removal_gate": "T18-C2",
+        "paths": [
+          "evidence"
+        ]
+      }
+    ],
+    "temporary_module_groups": [
+      {
+        "owner": "T01/T20",
+        "removal_gate": "T20-C3",
+        "paths": [
+          "compatibility_guardian.py",
+          "doctor.py",
+          "performance_baseline.py",
+          "product_capabilities.py",
+          "product_inventory.py",
+          "runtime_performance_profile.py",
+          "tui_performance_profile.py"
+        ]
+      },
+      {
+        "owner": "T02",
+        "removal_gate": "G-SQ",
+        "paths": [
+          "session_exports.py",
+          "session_titles.py"
+        ]
+      },
+      {
+        "owner": "T06",
+        "removal_gate": "G-SE",
+        "paths": [
+          "preflight.py",
+          "readiness.py",
+          "routing.py",
+          "session_runner.py",
+          "structured_processes.py",
+          "structured_sessions.py",
+          "workbench_execution.py"
+        ]
+      },
+      {
+        "owner": "T07",
+        "removal_gate": "G-UA",
+        "paths": [
+          "workbench_protocol.py",
+          "workbench_resources.py"
+        ]
+      },
+      {
+        "owner": "T08",
+        "removal_gate": "G-CL",
+        "paths": [
+          "cli.py",
+          "cli_capabilities.py",
+          "completion.py",
+          "terminal_dispatch.py",
+          "terminal_intent.py"
+        ]
+      },
+      {
+        "owner": "T15/T00",
+        "removal_gate": "T15-PHASE-B",
+        "paths": [
+          "config.py",
+          "execution.py",
+          "instrumentation.py",
+          "safe_paths.py",
+          "settings.py",
+          "types.py"
+        ]
+      },
+      {
+        "owner": "T16",
+        "removal_gate": "T16-C3",
+        "paths": [
+          "adapter_scaffold.py",
+          "adapter_sdk.py",
+          "base_install.py",
+          "builtin_skills.py",
+          "external_mcp.py",
+          "external_skills.py",
+          "federated_catalog.py",
+          "federated_catalog_sync.py",
+          "integration_catalog.py",
+          "integration_flows.py",
+          "integration_groups.py",
+          "integration_installer.py",
+          "integration_lifecycle.py",
+          "integration_packages.py",
+          "integration_runtime.py",
+          "integration_scaffold.py",
+          "integration_sdk.py",
+          "managed_mcp.py",
+          "managed_mcp_inventory.py",
+          "mcp.py",
+          "mcp_authoring.py",
+          "portable_skills.py",
+          "skill_library.py",
+          "skills_catalog_proxy.py",
+          "skills_catalog_proxy_client.py",
+          "tool_profiles.py"
+        ]
+      },
+      {
+        "owner": "T17",
+        "removal_gate": "T17-C4",
+        "paths": [
+          "anthropic_compatible.py",
+          "capability_matrix.py",
+          "claude_agent_sdk.py",
+          "claude_handoff.py",
+          "claude_mcp_target.py",
+          "claude_plugin_target.py",
+          "codex_app_server.py",
+          "codex_mcp_target.py",
+          "codex_plugin_target.py",
+          "executables.py",
+          "gemini_acp.py",
+          "gemini_compatible.py",
+          "gemini_extension_target.py",
+          "gemini_mcp_target.py",
+          "gigachat_compatibility.py",
+          "gpt2giga_preset.py",
+          "harness_model.py",
+          "native_cli_capture.py",
+          "native_cli_contracts.py",
+          "native_cli_facade.py",
+          "native_cli_process.py",
+          "openai_compatible.py",
+          "openai_upstream.py",
+          "plugins.py",
+          "provider_account_sessions.py",
+          "provider_authentication.py",
+          "provider_authentication_broker.py",
+          "provider_migration.py",
+          "provider_profiles.py",
+          "provider_registry.py",
+          "provider_settings.py",
+          "proxy.py",
+          "registries.py"
+        ]
+      },
+      {
+        "owner": "T18",
+        "removal_gate": "T18-C2",
+        "paths": [
+          "agents.py",
+          "arena.py",
+          "attention.py",
+          "authoring.py",
+          "evals.py",
+          "generated_files.py",
+          "handoff_capsules.py",
+          "pr_artifacts.py",
+          "promotions.py",
+          "provenance.py",
+          "reviewed_evidence.py",
+          "schedules.py",
+          "support_bundle.py",
+          "trace_replay.py",
+          "workflow_catalog.py",
+          "workflows.py"
+        ]
+      },
+      {
+        "owner": "T19",
+        "removal_gate": "T19-C3",
+        "paths": [
+          "bootstrap.py",
+          "editor.py",
+          "environment_actions.py",
+          "environment_pull_requests.py",
+          "environment_push.py",
+          "environments.py",
+          "github_environments.py",
+          "project.py",
+          "project_memory.py",
+          "state_backup.py",
+          "workspace.py",
+          "worktrees.py"
+        ]
+      },
+      {
+        "owner": "T00",
+        "removal_gate": "G-FINAL",
+        "paths": [
+          "permission_simulator.py",
+          "registry.py",
+          "secrets.py"
+        ]
+      }
+    ]
+  },
+  "module_budgets": {
+    "python_module_hard_limit": 600,
+    "ratchet_reduction_percent": 15,
+    "legacy_modules": [
+      {
+        "path": "agents.py",
+        "max_lines": 1021
+      },
+      {
+        "path": "anthropic_compatible.py",
+        "max_lines": 748
+      },
+      {
+        "path": "arena.py",
+        "max_lines": 1045
+      },
+      {
+        "path": "claude_mcp_target.py",
+        "max_lines": 1004
+      },
+      {
+        "path": "claude_plugin_target.py",
+        "max_lines": 1515
+      },
+      {
+        "path": "cli.py",
+        "max_lines": 3802
+      },
+      {
+        "path": "codex_app_server.py",
+        "max_lines": 2466
+      },
+      {
+        "path": "codex_mcp_target.py",
+        "max_lines": 1210
+      },
+      {
+        "path": "codex_plugin_target.py",
+        "max_lines": 1370
+      },
+      {
+        "path": "doctor.py",
+        "max_lines": 1529
+      },
+      {
+        "path": "environment_actions.py",
+        "max_lines": 735
+      },
+      {
+        "path": "environment_pull_requests.py",
+        "max_lines": 1081
+      },
+      {
+        "path": "environment_push.py",
+        "max_lines": 832
+      },
+      {
+        "path": "environments.py",
+        "max_lines": 1110
+      },
+      {
+        "path": "evals.py",
+        "max_lines": 1691
+      },
+      {
+        "path": "execution.py",
+        "max_lines": 817
+      },
+      {
+        "path": "external_mcp.py",
+        "max_lines": 1104
+      },
+      {
+        "path": "federated_catalog.py",
+        "max_lines": 1515
+      },
+      {
+        "path": "gemini_acp.py",
+        "max_lines": 841
+      },
+      {
+        "path": "gemini_compatible.py",
+        "max_lines": 826
+      },
+      {
+        "path": "gemini_extension_target.py",
+        "max_lines": 1455
+      },
+      {
+        "path": "gemini_mcp_target.py",
+        "max_lines": 1139
+      },
+      {
+        "path": "github_environments.py",
+        "max_lines": 864
+      },
+      {
+        "path": "handoff_capsules.py",
+        "max_lines": 769
+      },
+      {
+        "path": "harnesses/agent_cli.py",
+        "max_lines": 1108
+      },
+      {
+        "path": "harnesses/codex_cli.py",
+        "max_lines": 968
+      },
+      {
+        "path": "harnesses/direct_chat.py",
+        "max_lines": 1190
+      },
+      {
+        "path": "harnesses/gemini_cli.py",
+        "max_lines": 992
+      },
+      {
+        "path": "integration_catalog.py",
+        "max_lines": 1871
+      },
+      {
+        "path": "integration_flows.py",
+        "max_lines": 2145
+      },
+      {
+        "path": "integration_groups.py",
+        "max_lines": 1121
+      },
+      {
+        "path": "integration_installer.py",
+        "max_lines": 1651
+      },
+      {
+        "path": "integration_lifecycle.py",
+        "max_lines": 862
+      },
+      {
+        "path": "integration_packages.py",
+        "max_lines": 1379
+      },
+      {
+        "path": "integration_runtime.py",
+        "max_lines": 1011
+      },
+      {
+        "path": "managed_mcp.py",
+        "max_lines": 887
+      },
+      {
+        "path": "mcp.py",
+        "max_lines": 788
+      },
+      {
+        "path": "native/claude.py",
+        "max_lines": 905
+      },
+      {
+        "path": "native/codex.py",
+        "max_lines": 638
+      },
+      {
+        "path": "native/gemini.py",
+        "max_lines": 1133
+      },
+      {
+        "path": "native/process.py",
+        "max_lines": 1331
+      },
+      {
+        "path": "native_cli_contracts.py",
+        "max_lines": 1079
+      },
+      {
+        "path": "openai_compatible.py",
+        "max_lines": 614
+      },
+      {
+        "path": "performance_baseline.py",
+        "max_lines": 607
+      },
+      {
+        "path": "permission_simulator.py",
+        "max_lines": 736
+      },
+      {
+        "path": "portable_skills.py",
+        "max_lines": 852
+      },
+      {
+        "path": "preflight.py",
+        "max_lines": 696
+      },
+      {
+        "path": "project.py",
+        "max_lines": 1224
+      },
+      {
+        "path": "provider_authentication_broker.py",
+        "max_lines": 997
+      },
+      {
+        "path": "provider_profiles.py",
+        "max_lines": 1237
+      },
+      {
+        "path": "provider_registry.py",
+        "max_lines": 1115
+      },
+      {
+        "path": "provider_settings.py",
+        "max_lines": 719
+      },
+      {
+        "path": "proxy.py",
+        "max_lines": 886
+      },
+      {
+        "path": "runtime/authority.py",
+        "max_lines": 613
+      },
+      {
+        "path": "runtime/network_access.py",
+        "max_lines": 699
+      },
+      {
+        "path": "runtime/store.py",
+        "max_lines": 3605
+      },
+      {
+        "path": "runtime/worker.py",
+        "max_lines": 804
+      },
+      {
+        "path": "runtime_performance_profile.py",
+        "max_lines": 1120
+      },
+      {
+        "path": "schedules.py",
+        "max_lines": 1344
+      },
+      {
+        "path": "secrets.py",
+        "max_lines": 737
+      },
+      {
+        "path": "session_runner.py",
+        "max_lines": 2180
+      },
+      {
+        "path": "sessions/filesystem.py",
+        "max_lines": 979
+      },
+      {
+        "path": "sessions/store.py",
+        "max_lines": 808
+      },
+      {
+        "path": "skill_library.py",
+        "max_lines": 1239
+      },
+      {
+        "path": "skills_catalog_proxy.py",
+        "max_lines": 813
+      },
+      {
+        "path": "state_backup.py",
+        "max_lines": 811
+      },
+      {
+        "path": "structured_processes.py",
+        "max_lines": 1266
+      },
+      {
+        "path": "structured_sessions.py",
+        "max_lines": 1209
+      },
+      {
+        "path": "trace_replay.py",
+        "max_lines": 1129
+      },
+      {
+        "path": "tui/app.py",
+        "max_lines": 3755
+      },
+      {
+        "path": "tui/client.py",
+        "max_lines": 4400
+      },
+      {
+        "path": "tui/i18n.py",
+        "max_lines": 625
+      },
+      {
+        "path": "types.py",
+        "max_lines": 699
+      },
+      {
+        "path": "ui/app.py",
+        "max_lines": 6229
+      },
+      {
+        "path": "ui/mutation_contracts.py",
+        "max_lines": 1059
+      },
+      {
+        "path": "ui/remote_identity.py",
+        "max_lines": 814
+      },
+      {
+        "path": "ui/routers/cockpit.py",
+        "max_lines": 987
+      },
+      {
+        "path": "ui/routers/runs.py",
+        "max_lines": 1223
+      },
+      {
+        "path": "ui/routers/workflows.py",
+        "max_lines": 774
+      },
+      {
+        "path": "workbench_protocol.py",
+        "max_lines": 733
+      },
+      {
+        "path": "workbench_resources.py",
+        "max_lines": 675
+      },
+      {
+        "path": "workflows.py",
+        "max_lines": 1734
+      },
+      {
+        "path": "worktrees.py",
+        "max_lines": 689
+      }
+    ]
+  },
+  "import_boundaries": {
+    "rules": [
+      {
+        "id": "core-is-leaf",
+        "sources": [
+          "core"
+        ],
+        "allowed_targets": [
+          "core"
+        ]
+      },
+      {
+        "id": "contracts-depend-only-on-core",
+        "sources": [
+          "contracts"
+        ],
+        "allowed_targets": [
+          "contracts",
+          "core"
+        ]
+      },
+      {
+        "id": "domains-do-not-import-surfaces",
+        "sources": [
+          "attachments",
+          "automation",
+          "execution",
+          "harnesses",
+          "integrations",
+          "native",
+          "projects",
+          "providers",
+          "review",
+          "runtime",
+          "sessions",
+          "skills",
+          "tools"
+        ],
+        "forbidden_targets": [
+          "cli",
+          "tui",
+          "ui"
+        ]
+      },
+      {
+        "id": "cross-context-imports-use-public-facades",
+        "sources": [
+          "attachments",
+          "automation",
+          "execution",
+          "harnesses",
+          "integrations",
+          "native",
+          "projects",
+          "providers",
+          "review",
+          "runtime",
+          "sessions",
+          "skills",
+          "tools"
+        ],
+        "target_contexts": [
+          "attachments",
+          "automation",
+          "execution",
+          "harnesses",
+          "integrations",
+          "native",
+          "projects",
+          "providers",
+          "review",
+          "runtime",
+          "sessions",
+          "skills",
+          "tools"
+        ],
+        "cross_context_only": true,
+        "allowed_target_modules": [
+          "api",
+          "contracts"
+        ]
+      }
+    ],
+    "temporary_violations": [
+      {
+        "source": "attachments/store.py",
+        "target": "gpt2giga_harness.sessions.redaction",
+        "owner": "T20",
+        "removal_gate": "T20-C2"
+      },
+      {
+        "source": "attachments/store.py",
+        "target": "gpt2giga_harness.sessions.store",
+        "owner": "T20",
+        "removal_gate": "T20-C2"
+      },
+      {
+        "source": "harnesses/gemini_cli.py",
+        "target": "gpt2giga_harness.runtime.models",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "harnesses/gemini_cli.py",
+        "target": "gpt2giga_harness.runtime.policy",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "harnesses/gemini_cli.py",
+        "target": "gpt2giga_harness.runtime.store",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/base.py",
+        "target": "gpt2giga_harness.runtime.policy",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/claude.py",
+        "target": "gpt2giga_harness.harnesses.agent_cli",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/claude.py",
+        "target": "gpt2giga_harness.harnesses.attachment_plan",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/claude.py",
+        "target": "gpt2giga_harness.harnesses.claude_code",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/codex.py",
+        "target": "gpt2giga_harness.harnesses.agent_cli",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/codex.py",
+        "target": "gpt2giga_harness.harnesses.attachment_plan",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/gemini.py",
+        "target": "gpt2giga_harness.harnesses.agent_cli",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/gemini.py",
+        "target": "gpt2giga_harness.harnesses.attachment_plan",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/gemini.py",
+        "target": "gpt2giga_harness.harnesses.gemini_cli",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/process.py",
+        "target": "gpt2giga_harness.runtime.models",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/process.py",
+        "target": "gpt2giga_harness.runtime.store",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/process.py",
+        "target": "gpt2giga_harness.sessions.models",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/process.py",
+        "target": "gpt2giga_harness.sessions.store",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/snapshots.py",
+        "target": "gpt2giga_harness.sessions.locking",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/snapshots.py",
+        "target": "gpt2giga_harness.sessions.redaction",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/snapshots.py",
+        "target": "gpt2giga_harness.sessions.store",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/store.py",
+        "target": "gpt2giga_harness.sessions.redaction",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "native/store.py",
+        "target": "gpt2giga_harness.sessions.store",
+        "owner": "T17",
+        "removal_gate": "T17-C2"
+      },
+      {
+        "source": "runtime/payloads.py",
+        "target": "gpt2giga_harness.sessions.locking",
+        "owner": "T04",
+        "removal_gate": "T04-C1"
+      },
+      {
+        "source": "runtime/payloads.py",
+        "target": "gpt2giga_harness.sessions.redaction",
+        "owner": "T04",
+        "removal_gate": "T04-C1"
+      },
+      {
+        "source": "runtime/policy.py",
+        "target": "gpt2giga_harness.sessions.redaction",
+        "owner": "T00",
+        "removal_gate": "T20-C2"
+      },
+      {
+        "source": "runtime/policy.py",
+        "target": "gpt2giga_harness.tools.policy",
+        "owner": "T00",
+        "removal_gate": "T20-C2"
+      },
+      {
+        "source": "runtime/reconcile.py",
+        "target": "gpt2giga_harness.sessions.models",
+        "owner": "T05",
+        "removal_gate": "T05-C3"
+      },
+      {
+        "source": "runtime/reconcile.py",
+        "target": "gpt2giga_harness.sessions.store",
+        "owner": "T05",
+        "removal_gate": "T05-C3"
+      },
+      {
+        "source": "runtime/store.py",
+        "target": "gpt2giga_harness.sessions.redaction",
+        "owner": "T03",
+        "removal_gate": "G-RF"
+      },
+      {
+        "source": "runtime/worker.py",
+        "target": "gpt2giga_harness.sessions.locking",
+        "owner": "T05",
+        "removal_gate": "T05-C3"
+      },
+      {
+        "source": "runtime/worker.py",
+        "target": "gpt2giga_harness.sessions.models",
+        "owner": "T05",
+        "removal_gate": "T05-C3"
+      },
+      {
+        "source": "runtime/worker.py",
+        "target": "gpt2giga_harness.sessions.store",
+        "owner": "T05",
+        "removal_gate": "T05-C3"
+      },
+      {
+        "source": "sessions/filesystem.py",
+        "target": "gpt2giga_harness.native.models",
+        "owner": "T02",
+        "removal_gate": "G-SQ"
+      },
+      {
+        "source": "sessions/filesystem.py",
+        "target": "gpt2giga_harness.runtime.models",
+        "owner": "T02",
+        "removal_gate": "G-SQ"
+      },
+      {
+        "source": "sessions/models.py",
+        "target": "gpt2giga_harness.native.models",
+        "owner": "T02",
+        "removal_gate": "G-SQ"
+      },
+      {
+        "source": "sessions/models.py",
+        "target": "gpt2giga_harness.runtime.models",
+        "owner": "T02",
+        "removal_gate": "G-SQ"
+      },
+      {
+        "source": "sessions/store.py",
+        "target": "gpt2giga_harness.native.models",
+        "owner": "T02",
+        "removal_gate": "G-SQ"
+      },
+      {
+        "source": "sessions/store.py",
+        "target": "gpt2giga_harness.runtime.models",
+        "owner": "T02",
+        "removal_gate": "G-SQ"
+      }
+    ]
+  }
+}
