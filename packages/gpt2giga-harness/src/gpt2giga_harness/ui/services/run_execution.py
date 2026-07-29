@@ -18,6 +18,7 @@ from gpt2giga_harness.sessions.store import new_id, utc_now
 from gpt2giga_harness.ui.async_execution import (
     run_in_threadpool,
 )
+from gpt2giga_harness.ui.services.session_queries import recent_runs
 
 
 def _fork_session_from_run(
@@ -100,7 +101,12 @@ async def _wait_for_started_run(
     task: asyncio.Task[Any],
 ) -> HarnessRun:
     for _ in range(200):
-        stored_runs = await run_in_threadpool(store.list_runs, session_id)
+        stored_runs = await run_in_threadpool(
+            recent_runs,
+            store,
+            session_id,
+            limit=100,
+        )
         runs = [run for run in stored_runs if run.id not in before_run_ids]
         if runs:
             return runs[-1]

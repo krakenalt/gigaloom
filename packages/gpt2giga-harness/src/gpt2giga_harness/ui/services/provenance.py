@@ -11,6 +11,11 @@ from gpt2giga_harness.reviewed_evidence import reviewed_evidence_manifest
 from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
 from gpt2giga_harness.sessions import HarnessSessionStore
 from gpt2giga_harness.sessions.models import HarnessRun
+from gpt2giga_harness.ui.services.session_queries import (
+    raw_requests_for_run,
+    raw_responses_for_run,
+    recent_events,
+)
 
 
 def _build_current_run_provenance(
@@ -30,9 +35,9 @@ def _build_current_run_provenance(
         run,
         session=session,
         spec=spec,
-        raw_requests=store.list_raw_requests(run.session_id),
-        raw_responses=store.list_raw_responses(run.session_id),
-        events=store.list_events(run.session_id, run_id=run.id),
+        raw_requests=raw_requests_for_run(store, run.id),
+        raw_responses=raw_responses_for_run(store, run.id),
+        events=recent_events(store, run.session_id, run_id=run.id),
         policy_audit_events=runtime_store.list_policy_audit_events(run_id=run.id)
         if runtime_store is not None
         else (),
@@ -51,9 +56,5 @@ def _reviewed_evidence_for_run(
 
 
 def _latest_raw_request_for_run(store: HarnessSessionStore, run: HarnessRun):
-    records = [
-        record
-        for record in store.list_raw_requests(run.session_id)
-        if record.run_id == run.id
-    ]
+    records = raw_requests_for_run(store, run.id, limit=1)
     return records[-1] if records else None

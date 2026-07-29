@@ -45,6 +45,7 @@ from gpt2giga_harness.sessions.event_stream import (
 )
 from gpt2giga_harness.support_bundle import build_run_support_bundle
 from gpt2giga_harness.ui.routers.schemas import RunBundleResponse
+from gpt2giga_harness.ui.services.session_queries import event_for_run
 
 
 router = APIRouter(route_class=ConformantAPIRoute)
@@ -282,16 +283,11 @@ def run_event_payload(
         raise HTTPException(status_code=404, detail="Run not found") from exc
     job = runtime_store.find_job_for_run(run_id) if runtime_store else None
     attempts = runtime_store.list_attempts(job.id) if runtime_store and job else ()
-    event = next(
-        (
-            item
-            for item in _job_events(session_store, run, attempts, include_hidden=True)
-            if item.id == event_id
-        ),
-        None,
-    )
-    if event is None:
-        raise HTTPException(status_code=404, detail="Trace event not found")
+    run_ids = {run.id, *(attempt.run_id for attempt in attempts)}
+    try:
+        event = event_for_run(session_store, run.session_id, run_ids, event_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Trace event not found") from exc
     if _is_hidden_reasoning(event):
         return {"event_id": event.id, "hidden": True, "payload": {}}
     return {

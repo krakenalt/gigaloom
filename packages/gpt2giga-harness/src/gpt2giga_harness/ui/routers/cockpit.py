@@ -44,6 +44,7 @@ from gpt2giga_harness.ui.async_execution import (
     ConformantAPIRoute,
     run_stream_offload,
 )
+from gpt2giga_harness.ui.services import session_queries as queries
 from gpt2giga_harness.worktrees import run_diff_response
 
 
@@ -283,12 +284,14 @@ def cockpit_message_content(
 ) -> Response:
     """Return one complete retained message after an explicit user action."""
     try:
-        retained = _store(request).list_messages(session_id)
-    except SessionNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="Session not found") from exc
-    selected = next((item for item in retained if item.id == message_id), None)
-    if selected is None:
-        raise HTTPException(status_code=404, detail="Message not found")
+        selected = queries.message_for_session(_store(request), session_id, message_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Session not found"
+            if isinstance(exc, SessionNotFoundError)
+            else "Message not found",
+        ) from exc
     content = selected.content
     return JSONResponse(
         {
@@ -372,15 +375,12 @@ def cockpit_run_raw(
     store = _store(request)
     run = _get_run(request, run_id)
     records = [
-        ("request", item)
-        for item in store.list_raw_requests(run.session_id)
-        if item.run_id == run.id
+        ("request", item) for item in queries.raw_requests_for_run(store, run.id)
     ]
     records.extend(
-        ("response", item)
-        for item in store.list_raw_responses(run.session_id)
-        if item.run_id == run.id
+        ("response", item) for item in queries.raw_responses_for_run(store, run.id)
     )
+    source_limited = len(records) >= queries.MAX_UI_RECORDS * 2
     records.sort(key=lambda item: (item[1].created_at, item[1].id, item[0]))
     per_record = max(512, (max_bytes - 1024) // max(len(records), 1))
     items = []
@@ -406,7 +406,7 @@ def cockpit_run_raw(
         {
             "run_id": run.id,
             "records": items,
-            "has_more": truncated,
+            "has_more": truncated or source_limited,
             "snapshot_revision": revision,
             "byte_count": byte_count,
         },

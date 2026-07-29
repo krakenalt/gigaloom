@@ -26,6 +26,10 @@ from gpt2giga_harness.ui.container import AppServices
 from gpt2giga_harness.ui.services import ActiveHeadlessRun
 from gpt2giga_harness.ui.services.navigation import session_summary as _session_summary
 from gpt2giga_harness.ui.services.run_execution import _wait_for_started_run
+from gpt2giga_harness.ui.services.session_queries import (
+    events_after as _events_after,
+    recent_runs as _recent_runs,
+)
 from gpt2giga_harness.ui.streaming.events import event_response as _event_response
 
 
@@ -49,7 +53,10 @@ def create_router(services: AppServices) -> APIRouter:
             )
             return submission.queued.run
         existing_runs = await run_in_threadpool(
-            services.session_store.list_runs, session_id
+            _recent_runs,
+            services.session_store,
+            session_id,
+            limit=100,
         )
         before_run_ids = {run.id for run in existing_runs}
         cancel_event = threading.Event()
@@ -165,8 +172,11 @@ def create_router(services: AppServices) -> APIRouter:
         after_id: str | None = Query(default=None),
     ) -> dict[str, Any]:
         try:
-            events = services.session_store.list_events(
-                session_id, run_id=run_id, after_id=after_id
+            events = _events_after(
+                services.session_store,
+                session_id,
+                run_id=run_id,
+                after_id=after_id,
             )
         except SessionNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Session not found") from exc

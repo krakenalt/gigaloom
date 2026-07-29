@@ -22,6 +22,10 @@ from gpt2giga_harness.sessions.models import (
 )
 from gpt2giga_harness.sessions.store import new_id, utc_now
 from gpt2giga_harness.types import parse_api_mode
+from gpt2giga_harness.ui.services.session_queries import (
+    recent_messages,
+    recent_runs,
+)
 from gpt2giga_harness.workspace import resolve_workspace
 
 _FILE_PREVIEW_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
@@ -39,8 +43,8 @@ def session_summary(
 ) -> dict[str, Any]:
     """Build the bounded session navigation projection."""
     session = store.get_session(session_id)
-    messages = store.list_messages(session_id)
-    runs = store.list_runs(session_id)
+    messages = recent_messages(store, session_id, limit=1)
+    runs = recent_runs(store, session_id, limit=100)
     preview = ""
     if messages:
         preview = " ".join(messages[-1].content.split())[:120]

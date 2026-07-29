@@ -24,6 +24,11 @@ from gpt2giga_harness.sessions.models import (
     run_to_dict,
 )
 from gpt2giga_harness.ui.services.navigation import session_summary
+from gpt2giga_harness.ui.services.session_queries import (
+    recent_events,
+    recent_messages,
+    recent_runs,
+)
 
 
 def arena_response(
@@ -76,9 +81,9 @@ def arena_child_response(
         run = store.get_run(child.run_id)
         payload["run"] = run_to_dict(run)
         payload["message"] = _last_run_message(store, run)
-        messages = store.list_messages(run.session_id)[-100:]
-        runs = store.list_runs(run.session_id)[-50:]
-        events = store.list_events(run.session_id)[-200:]
+        messages = recent_messages(store, run.session_id, limit=100)
+        runs = recent_runs(store, run.session_id, limit=50)
+        events = recent_events(store, run.session_id, limit=200)
         payload["messages"] = [message_to_dict(item) for item in messages]
         payload["runs"] = [run_to_dict(item) for item in runs]
         payload["activity"] = [
@@ -129,7 +134,7 @@ def _last_run_message(
 ) -> dict[str, Any] | None:
     messages = [
         message
-        for message in store.list_messages(run.session_id)
+        for message in recent_messages(store, run.session_id, limit=100)
         if message.run_id == run.id and message.role in {"assistant", "error"}
     ]
     if not messages:
