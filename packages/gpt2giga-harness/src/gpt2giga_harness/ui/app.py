@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import base64
-import binascii
-from contextlib import asynccontextmanager, suppress
-from dataclasses import dataclass, replace
+from contextlib import suppress
+from dataclasses import replace
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -22,47 +20,85 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from gpt2giga_harness.arena import (
     ArenaNotFoundError,
     ArenaReviewConflictError,
-    FilesystemHarnessArenaStore,
     HarnessArenaChildRun,
-    HarnessArenaRun,
-    arena_child_to_dict,
     arena_has_verdict,
-    arena_review_projection,
-    arena_to_dict,
     continue_arena,
     queue_arena,
     queue_arena_follow_up,
     record_arena_verdict,
     run_arena,
 )
-from gpt2giga_harness.application import SessionApplicationService
 from gpt2giga_harness import proxy
 from gpt2giga_harness.attachments import (
-    AttachmentLimits,
     AttachmentNotFoundError,
     AttachmentSessionNotFoundError,
     AttachmentValidationError,
     FilesystemAttachmentStore,
     HarnessAttachment,
     attachment_to_dict,
-    limits_from_project_settings,
     render_attachments_for_harness,
     render_plan_to_dict,
 )
 from gpt2giga_harness.attachments.limits import normalize_workspace_file
 from gpt2giga_harness.config import (
-    DEFAULT_MODEL_HINTS,
     HarnessConfig,
     pass_model_env_note,
 )
+from gpt2giga_harness.ui.container import build_app_services
+from gpt2giga_harness.ui.dependencies import install_app_services
+from gpt2giga_harness.ui.services import ActiveHeadlessRun
+from gpt2giga_harness.ui.services.arena import (
+    arena_response as _arena_response,
+    arena_summary_response as _arena_summary_response,
+    bounded_arena_workspace_paths as _bounded_arena_workspace_paths,
+    eval_run_response as _eval_run_response,
+    first_text as _first_text,
+)
+from gpt2giga_harness.ui.services.attachments import (
+    attachment_limits as _attachment_limits,
+    attachment_response as _attachment_response,
+    attachment_workspace as _attachment_workspace,
+    content_disposition as _content_disposition,
+    decode_attachment_payload as _decode_attachment_payload,
+    metadata_mapping as _metadata_mapping,
+    route_recommendation_attachments as _route_recommendation_attachments,
+    session_project_id as _session_project_id,
+    text_tuple as _text_tuple,
+    workspace_api_root as _workspace_api_root,
+    workspace_limits as _workspace_limits,
+)
+from gpt2giga_harness.ui.services.defaults import fallback_models as _fallback_models
+from gpt2giga_harness.ui.services.lifecycle import create_app_lifespan
+from gpt2giga_harness.ui.services.navigation import (
+    cache_navigation_response as _cache_navigation_response,
+    fork_session_from_session as _fork_session_from_session,
+    navigation_cached as _navigation_cached,
+    navigation_export_text as _navigation_export_text,
+    navigation_message_preview as _navigation_message_preview,
+    session_patch as _session_patch,
+    session_summary as _session_summary,
+    validate_navigation_binding as _validate_navigation_binding,
+)
+from gpt2giga_harness.ui.services.projects import project_response as _project_response
+from gpt2giga_harness.ui.streaming.events import (
+    arena_events as _arena_events,
+    arena_sse_event as _arena_sse_event,
+    arena_status_is_terminal as _arena_status_is_terminal,
+    encode_run_stream_cursor as _encode_run_stream_cursor,
+    event_response as _event_response,
+    native_output_sse as _native_output_sse,
+    native_sse_cursor as _native_sse_cursor,
+    resolve_run_stream_cursor as _resolve_run_stream_cursor,
+    run_resnapshot_sse as _run_resnapshot_sse,
+    run_sse_event as _run_sse_event,
+    run_status_is_terminal as _run_status_is_terminal,
+)
 from gpt2giga_harness.ui.async_execution import (
     AsyncDiagnosticsMiddleware,
-    AsyncExecutionDiagnostics,
     ConformantAPIRoute,
     async_handler_contract_errors,
     run_in_threadpool,
     run_stream_offload,
-    stop_monitor,
 )
 from gpt2giga_harness.ui.execution_contracts import install_execution_contracts
 from gpt2giga_harness.ui.routers.workbench_state import (
@@ -74,25 +110,18 @@ from gpt2giga_harness.ui.routers.workbench_resources import (
 from gpt2giga_harness.ui.routers.environments import router as environments_router
 from gpt2giga_harness.github_environments import GitHubEnvironmentService
 from gpt2giga_harness.environment_actions import (
-    EnvironmentCommitError,
     EnvironmentCommitService,
-    GovernedEnvironmentCommitService,
 )
 from gpt2giga_harness.environment_push import (
-    EnvironmentPushError,
     EnvironmentPushService,
-    GovernedEnvironmentPushService,
 )
 from gpt2giga_harness.environment_pull_requests import (
-    EnvironmentPullRequestError,
     EnvironmentPullRequestService,
-    GovernedEnvironmentPullRequestService,
 )
 from gpt2giga_harness.harnesses.attachment_plan import attachment_capability_error
 from gpt2giga_harness.evals import (
     EvalRunNotFoundError,
     EvalSpecNotFoundError,
-    FilesystemHarnessEvalStore,
     discover_eval_specs,
     eval_run_to_dict,
     eval_spec_load_error_to_dict,
@@ -145,10 +174,8 @@ from gpt2giga_harness.native.process import (
 from gpt2giga_harness.native.registry import (
     NativeHistoryConnectorRegistry,
     UnknownNativeHistoryConnectorError,
-    create_default_native_registry,
 )
 from gpt2giga_harness.native.store import (
-    FilesystemNativeSessionIndexStore,
     NativeSessionIndexStore,
     native_session_ref_to_dict,
 )
@@ -166,7 +193,6 @@ from gpt2giga_harness.project import (
     update_project_state,
 )
 from gpt2giga_harness.project_memory import (
-    FilesystemProjectMemoryStore,
     ProjectMemoryNotFoundError,
     memory_entry_to_dict,
 )
@@ -198,13 +224,12 @@ from gpt2giga_harness.provenance import (
     run_provenance_to_dict,
 )
 from gpt2giga_harness.reviewed_evidence import reviewed_evidence_manifest
-from gpt2giga_harness.registry import HarnessRegistry, create_default_registry
+from gpt2giga_harness.registry import HarnessRegistry
 from gpt2giga_harness.routing import (
     recommend_harness_route,
     route_recommendation_to_dict,
 )
 from gpt2giga_harness.runtime.models import RunStatus, job_to_dict
-from gpt2giga_harness.runtime.payloads import DurableJobPayloadStore
 from gpt2giga_harness.runtime.policy import (
     EnforcementLevel,
     INTERACTIVE_PROFILE,
@@ -218,23 +243,14 @@ from gpt2giga_harness.runtime.policy import (
     approval_request_to_dict,
     permission_profile,
 )
-from gpt2giga_harness.runtime.reconcile import RuntimeReconciler
 from gpt2giga_harness.runtime.store import JobNotFoundError, RuntimeCoordinationStore
-from gpt2giga_harness.runtime.worker import DurableJobDispatcher
-from gpt2giga_harness.schedules import ScheduleService
-from gpt2giga_harness.session_runner import HarnessSessionRunner
 from gpt2giga_harness.session_exports import write_session_export
-from gpt2giga_harness.trace_replay import TraceReplayService
-from gpt2giga_harness.handoff_capsules import HandoffCapsuleService
 from gpt2giga_harness.sessions import (
-    FilesystemHarnessSessionStore,
     HarnessSessionStore,
     RunNotFoundError,
     SessionNotFoundError,
 )
 from gpt2giga_harness.sessions.event_stream import (
-    EventCursorPosition,
-    RunEventBroker,
     StreamCapacityError,
     StreamSignal,
 )
@@ -255,7 +271,6 @@ from gpt2giga_harness.sessions.models import (
 from gpt2giga_harness.sessions.store import new_id, title_from_prompt, utc_now
 from gpt2giga_harness.session_titles import (
     apply_provider_native_title,
-    manual_title_metadata,
     provider_native_title_metadata,
     title_diagnostics,
 )
@@ -263,7 +278,6 @@ from gpt2giga_harness.cli_capabilities import (
     CliCapabilitySnapshot,
     cli_capability_snapshot_to_dict,
 )
-from gpt2giga_harness.workbench_protocol import WorkbenchBackbone
 from gpt2giga_harness.claude_handoff import (
     ClaudeHandoffError,
     claude_execution_surfaces_to_dict,
@@ -285,7 +299,6 @@ from gpt2giga_harness.tool_profiles import (
     build_tool_profile_statuses,
     tool_profile_status_to_dict,
 )
-from gpt2giga_harness.settings import HarnessSettingsStore
 from gpt2giga_harness.ui.performance import ui_performance_budgets
 from gpt2giga_harness.ui.mutation_contracts import install_mutation_contracts
 from gpt2giga_harness.ui.routers.runs import router as runs_router
@@ -316,7 +329,6 @@ from gpt2giga_harness.ui.routers.tui_actions import (
 from gpt2giga_harness.ui.routers.workflows import router as workflows_router
 from gpt2giga_harness.ui.routers.shell import create_shell_router
 from gpt2giga_harness.ui.security import (
-    HarnessUISecurity,
     HarnessUISecurityMiddleware,
     is_loopback_host,
 )
@@ -344,10 +356,6 @@ from gpt2giga_harness.workbench_execution import (
     workbench_admission_projection,
     workbench_transport_projection,
 )
-from gpt2giga_harness.workbench_resources import (
-    WorkbenchPreferenceStore,
-    WorkbenchResourceService,
-)
 
 
 NATIVE_SUBMIT_KEY_DELAY_SECONDS = 0.05
@@ -361,12 +369,6 @@ TUI_NAVIGATION_TERMINAL_RE = re.compile(
     re.DOTALL,
 )
 TUI_NAVIGATION_BIDI_RE = re.compile(r"[\u202a-\u202e\u2066-\u2069]")
-
-
-@dataclass
-class _ActiveHeadlessRun:
-    task: asyncio.Task[Any]
-    cancel_event: threading.Event
 
 
 def create_app(
@@ -392,224 +394,62 @@ def create_app(
     """Create the Unified Harness UI app."""
     config = config or HarnessConfig.from_env()
     validate_ui_bind(config, allow_remote=None)
-    registry = registry or create_default_registry()
-    store = store or FilesystemHarnessSessionStore(config.data_dir)
-    if runtime_store is None and isinstance(store, FilesystemHarnessSessionStore):
-        runtime_store = RuntimeCoordinationStore(store.data_dir)
-    reconciliation_report = (
-        RuntimeReconciler(runtime_store, store).reconcile()
-        if runtime_store is not None
-        else None
-    )
-    native_registry = native_registry or create_default_native_registry(
-        data_dir=config.data_dir
-    )
-    native_index_store = native_index_store or FilesystemNativeSessionIndexStore(
-        config.data_dir
-    )
-    native_process_manager = native_process_manager or NativeProcessManager(
-        session_store=store,
-        runtime_store=runtime_store,
-    )
-    attachment_store = FilesystemAttachmentStore(config.data_dir)
-    arena_store = FilesystemHarnessArenaStore(config.data_dir)
-    eval_store = FilesystemHarnessEvalStore(config.data_dir)
-    memory_store = FilesystemProjectMemoryStore()
-    settings_store = HarnessSettingsStore(config.data_dir, config)
-    provider_settings_service = provider_settings_service or ProviderSettingsService(
-        config.data_dir
-    )
-    native_login_broker = native_login_broker or NativeLoginBroker(
-        config.data_dir,
-        resolution_provider=lambda provider_id: registry.get(
-            provider_id
-        ).executable_resolution(),
-        capability_provider=lambda provider_id: registry.get(
-            provider_id
-        ).capability_probe(),
-    )
-    integration_flow_service = integration_flow_service or IntegrationFlowService(
-        config.data_dir
-    )
-    skill_library_service = skill_library_service or SkillLibraryService(
-        config.data_dir
-    )
-    github_environment_service = (
-        github_environment_service or GitHubEnvironmentService()
-    )
-    if environment_commit_service is None:
-        try:
-            environment_commit_service = EnvironmentCommitService(config.data_dir)
-        except EnvironmentCommitError:
-            environment_commit_service = None
-    if environment_push_service is None:
-        try:
-            environment_push_service = EnvironmentPushService(config.data_dir)
-        except EnvironmentPushError:
-            environment_push_service = None
-    if environment_pull_request_service is None:
-        try:
-            environment_pull_request_service = EnvironmentPullRequestService(
-                config.data_dir
-            )
-        except EnvironmentPullRequestError:
-            environment_pull_request_service = None
-    grouped_integration_service = (
-        grouped_integration_service
-        or GroupedIntegrationService(
-            config.data_dir,
-            flow_service=integration_flow_service,
-        )
-    )
-    integration_lifecycle_service = (
-        integration_lifecycle_service
-        or IntegrationLifecycleService(
-            config.data_dir,
-            flow_service=integration_flow_service,
-            group_service=grouped_integration_service,
-        )
-    )
-    runner = HarnessSessionRunner(
-        registry=registry,
+    services = build_app_services(
         config=config,
-        store=store,
-        attachment_store=attachment_store,
-        memory_store=memory_store,
-        provider_account_provider=native_login_broker,
-    )
-    durable_dispatcher = (
-        DurableJobDispatcher(
-            runtime_store=runtime_store,
-            payload_store=DurableJobPayloadStore(config.data_dir),
-            runner=runner,
-        )
-        if runtime_store is not None
-        and isinstance(store, FilesystemHarnessSessionStore)
-        else None
-    )
-    session_service = SessionApplicationService(
-        runner=runner,
-        settings_store=settings_store,
-        runtime_store=runtime_store,
-        dispatcher=durable_dispatcher,
-    )
-    policy_engine = PolicyEngine(runtime_store)
-    active_headless_runs: dict[str, _ActiveHeadlessRun] = {}
-    session_navigation_mutations: dict[str, dict[str, Any]] = {}
-    async_diagnostics = AsyncExecutionDiagnostics()
-    run_event_broker = getattr(store, "event_broker", RunEventBroker())
-    workbench_backbone = WorkbenchBackbone()
-    workbench_resources = WorkbenchResourceService(
+        registry=registry,
         session_store=store,
+        native_registry=native_registry,
+        native_index_store=native_index_store,
+        native_process_manager=native_process_manager,
         runtime_store=runtime_store,
-        preference_store=WorkbenchPreferenceStore(config.data_dir),
-        integration_service=integration_flow_service,
+        provider_settings_service=provider_settings_service,
+        native_login_broker=native_login_broker,
+        integration_flow_service=integration_flow_service,
+        grouped_integration_service=grouped_integration_service,
+        integration_lifecycle_service=integration_lifecycle_service,
+        skill_library_service=skill_library_service,
+        github_environment_service=github_environment_service,
+        environment_commit_service=environment_commit_service,
+        environment_push_service=environment_push_service,
+        environment_pull_request_service=environment_pull_request_service,
+        remote_oidc_client=remote_oidc_client,
     )
-
-    @asynccontextmanager
-    async def lifespan(_app: FastAPI):
-        monitor = asyncio.create_task(
-            async_diagnostics.monitor_event_loop(),
-            name="harness-event-loop-lag",
-        )
-        try:
-            yield
-        finally:
-            await stop_monitor(monitor)
+    registry = services.registry
+    store = services.session_store
+    runtime_store = services.runtime_store
+    native_registry = services.native_registry
+    native_index_store = services.native_index_store
+    native_process_manager = services.native_process_manager
+    attachment_store = services.attachment_store
+    arena_store = services.arena_store
+    eval_store = services.eval_store
+    memory_store = services.project_memory_store
+    settings_store = services.settings_store
+    runner = services.session_runner
+    durable_dispatcher = services.job_dispatcher
+    session_service = services.session_service
+    policy_engine = services.policy_engine
+    active_headless_runs = services.active_headless_runs
+    session_navigation_mutations = services.session_navigation_mutations
+    async_diagnostics = services.async_diagnostics
+    run_event_broker = services.run_event_broker
 
     app = FastAPI(
         title="gpt2giga Unified Harness",
         docs_url=None,
         redoc_url=None,
-        lifespan=lifespan,
+        lifespan=create_app_lifespan(services),
     )
     app.router.route_class = ConformantAPIRoute
-    ui_security = HarnessUISecurity(config, oidc_client=remote_oidc_client)
-    app.add_middleware(HarnessUISecurityMiddleware, security=ui_security)
+    app.add_middleware(
+        HarnessUISecurityMiddleware,
+        security=services.ui_security,
+    )
     app.add_middleware(
         AsyncDiagnosticsMiddleware,
         diagnostics=async_diagnostics,
     )
-    app.state.harness_config = config
-    app.state.harness_ui_security = ui_security
-    app.state.harness_registry = registry
-    app.state.harness_session_store = store
-    app.state.harness_runtime_store = runtime_store
-    app.state.harness_runtime_reconciliation = reconciliation_report
-    app.state.harness_session_runner = runner
-    app.state.harness_session_service = session_service
-    app.state.harness_job_dispatcher = durable_dispatcher
-    app.state.harness_trace_replay_service = TraceReplayService(
-        runner,
-        dispatcher=durable_dispatcher,
-    )
-    app.state.harness_handoff_capsule_service = HandoffCapsuleService(
-        store=store,
-        registry=registry,
-        runtime_store=runtime_store,
-    )
-    app.state.harness_policy_engine = policy_engine
-    app.state.harness_attachment_store = attachment_store
-    app.state.harness_arena_store = arena_store
-    app.state.harness_eval_store = eval_store
-    app.state.harness_schedule_service = (
-        ScheduleService(
-            runtime_store=runtime_store,
-            runner=runner,
-            dispatcher=durable_dispatcher,
-            eval_store=eval_store,
-        )
-        if runtime_store is not None and durable_dispatcher is not None
-        else None
-    )
-    app.state.harness_project_memory_store = memory_store
-    app.state.harness_native_registry = native_registry
-    app.state.harness_native_index_store = native_index_store
-    app.state.harness_native_process_manager = native_process_manager
-    app.state.harness_async_diagnostics = async_diagnostics
-    app.state.harness_run_event_broker = run_event_broker
-    app.state.harness_workbench_backbone = workbench_backbone
-    app.state.harness_workbench_resources = workbench_resources
-    app.state.harness_settings_store = settings_store
-    app.state.harness_provider_settings_service = provider_settings_service
-    app.state.harness_native_login_broker = native_login_broker
-    app.state.harness_integration_flow_service = integration_flow_service
-    app.state.harness_grouped_integration_service = grouped_integration_service
-    app.state.harness_integration_lifecycle_service = integration_lifecycle_service
-    app.state.harness_skill_library_service = skill_library_service
-    app.state.harness_github_environment_service = github_environment_service
-    app.state.harness_environment_commit_service = environment_commit_service
-    app.state.harness_governed_environment_commit_service = (
-        GovernedEnvironmentCommitService(
-            environment_commit_service,
-            runtime_store,
-            policy_engine,
-        )
-        if runtime_store is not None and environment_commit_service is not None
-        else None
-    )
-    app.state.harness_environment_push_service = environment_push_service
-    app.state.harness_governed_environment_push_service = (
-        GovernedEnvironmentPushService(
-            environment_push_service,
-            runtime_store,
-            policy_engine,
-        )
-        if runtime_store is not None and environment_push_service is not None
-        else None
-    )
-    app.state.harness_environment_pull_request_service = (
-        environment_pull_request_service
-    )
-    app.state.harness_governed_environment_pull_request_service = (
-        GovernedEnvironmentPullRequestService(
-            environment_pull_request_service,
-            runtime_store,
-            policy_engine,
-        )
-        if runtime_store is not None and environment_pull_request_service is not None
-        else None
-    )
+    install_app_services(app, services)
 
     def _approval_gate(
         action: PermissionAction,
@@ -2557,7 +2397,7 @@ def create_app(
             before_run_ids=before_run_ids,
             task=task,
         )
-        active_headless_runs[run.id] = _ActiveHeadlessRun(
+        active_headless_runs[run.id] = ActiveHeadlessRun(
             task=task,
             cancel_event=cancel_event,
         )
@@ -3669,7 +3509,7 @@ def create_app(
     app.include_router(create_provider_handoff_router(registry))
     # The shell catch-all must remain last so unknown API and asset paths never
     # become HTML responses.
-    app.include_router(create_shell_router(ui_security))
+    app.include_router(create_shell_router(services.ui_security))
     install_mutation_contracts(app)
     install_execution_contracts(app)
     if handler_errors := async_handler_contract_errors(app.routes):
@@ -3844,319 +3684,6 @@ async def _wait_for_started_run(
             break
         await asyncio.sleep(0.01)
     raise RuntimeError("Harness run did not start")
-
-
-def _event_response(event: HarnessStoredEvent) -> dict[str, Any]:
-    return event_to_dict(event)
-
-
-def _route_recommendation_attachments(
-    payload: Mapping[str, Any],
-    *,
-    attachment_store: FilesystemAttachmentStore,
-) -> tuple[Mapping[str, Any], ...]:
-    attachments: list[Mapping[str, Any]] = []
-    raw_attachments = payload.get("attachments")
-    if raw_attachments is not None:
-        if not isinstance(raw_attachments, list):
-            raise ValueError("attachments must be a list")
-        attachments.extend(
-            dict(item) for item in raw_attachments if isinstance(item, Mapping)
-        )
-    raw_ids = payload.get("attachment_ids")
-    if raw_ids is not None:
-        if not isinstance(raw_ids, list):
-            raise ValueError("attachment_ids must be a list")
-        for attachment_id in _text_tuple(raw_ids):
-            attachment = attachment_store.get_attachment(attachment_id)
-            attachment_payload = attachment_to_dict(attachment)
-            attachment_payload.pop("storage_path", None)
-            attachments.append(attachment_payload)
-    return tuple(attachments)
-
-
-def _text_tuple(value: Any) -> tuple[str, ...]:
-    if value is None:
-        return ()
-    if not isinstance(value, list):
-        raise ValueError("expected a list of strings")
-    items: list[str] = []
-    for item in value:
-        text = _optional_text(item)
-        if text is not None:
-            items.append(text)
-    return tuple(items)
-
-
-def _run_sse_event(event: HarnessStoredEvent, cursor: str) -> str:
-    payload = _event_response(event)
-    data = json.dumps(payload, ensure_ascii=False)
-    return f"id: {cursor}\ndata: {data}\n\n"
-
-
-def _run_resnapshot_sse(run: HarnessRun, cursor: str) -> str:
-    payload = {
-        "type": "resnapshot_required",
-        "reason": "slow_consumer",
-        "cursor": cursor,
-        "snapshot_url": f"/api/cockpit/sessions/{run.session_id}/events",
-        "stream_url": f"/api/runs/{run.id}/events/stream",
-    }
-    data = json.dumps(payload, ensure_ascii=False)
-    return f"event: resnapshot\nid: {cursor}\ndata: {data}\n\n"
-
-
-def _resolve_run_stream_cursor(
-    store: HarnessSessionStore,
-    run: HarnessRun,
-    value: str | None,
-    *,
-    tail_only: bool = False,
-) -> EventCursorPosition:
-    if value is None:
-        if tail_only:
-            resolver = getattr(store, "event_tail_offset", None)
-            if not callable(resolver):
-                raise ValueError("session store does not support durable event tails")
-            return EventCursorPosition(
-                offset=resolver(run.session_id),
-                terminal_seen=False,
-            )
-        return EventCursorPosition(offset=0, terminal_seen=False)
-    if value.startswith("hc1."):
-        return _decode_run_stream_cursor(value, run)
-    resolver = getattr(store, "resolve_event_cursor", None)
-    if not callable(resolver):
-        raise ValueError("session store does not support durable event cursors")
-    position = resolver(run.session_id, run_id=run.id, event_id=value)
-    if position is None:
-        raise ValueError("event cursor is stale; fetch a bounded snapshot")
-    return position
-
-
-def _encode_run_stream_cursor(
-    run: HarnessRun,
-    offset: int,
-    *,
-    terminal_event_seen: bool,
-) -> str:
-    scope = hashlib.sha256(f"{run.session_id}\0{run.id}".encode()).hexdigest()[:16]
-    payload = json.dumps(
-        {
-            "v": 1,
-            "scope": scope,
-            "offset": max(offset, 0),
-            "terminal": terminal_event_seen,
-        },
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    return "hc1." + base64.urlsafe_b64encode(payload).decode("ascii").rstrip("=")
-
-
-def _decode_run_stream_cursor(value: str, run: HarnessRun) -> EventCursorPosition:
-    try:
-        encoded = value.removeprefix("hc1.")
-        padding = "=" * (-len(encoded) % 4)
-        payload = json.loads(base64.urlsafe_b64decode(encoded + padding))
-        scope = hashlib.sha256(f"{run.session_id}\0{run.id}".encode()).hexdigest()[:16]
-        if (
-            not isinstance(payload, Mapping)
-            or payload.get("v") != 1
-            or payload.get("scope") != scope
-        ):
-            raise ValueError
-        offset = int(payload["offset"])
-        if offset < 0:
-            raise ValueError
-    except (
-        binascii.Error,
-        KeyError,
-        TypeError,
-        ValueError,
-        json.JSONDecodeError,
-    ) as exc:
-        raise ValueError("invalid or cross-run event cursor") from exc
-    return EventCursorPosition(
-        offset=offset,
-        terminal_seen=bool(payload.get("terminal")),
-    )
-
-
-def _native_sse_cursor(last_event_id: str | None) -> int:
-    value = _optional_text(last_event_id)
-    if value is None:
-        return 0
-    try:
-        return max(int(value), 0)
-    except ValueError:
-        return 0
-
-
-def _native_output_sse(payload: Mapping[str, Any]) -> str:
-    cursor = max(int(payload.get("cursor") or 0), 0)
-    data = json.dumps(payload, ensure_ascii=False)
-    return f"id: {cursor}\ndata: {data}\n\n"
-
-
-def _arena_response(
-    arena: HarnessArenaRun,
-    store: HarnessSessionStore,
-) -> dict[str, Any]:
-    payload = arena_to_dict(arena)
-    payload["child_runs"] = [
-        _arena_child_response(child, store) for child in arena.child_runs
-    ]
-    payload["review"] = arena_review_projection(arena, store)
-    try:
-        payload["session"] = _session_summary(store, arena.session_id)
-    except SessionNotFoundError:
-        payload["session"] = None
-    return {"arena": payload}
-
-
-def _arena_summary_response(arena: HarnessArenaRun) -> dict[str, Any]:
-    payload = arena_to_dict(arena)
-    payload["prompt"] = ""
-    payload["child_runs"] = [arena_child_to_dict(child) for child in arena.child_runs]
-    return payload
-
-
-def _eval_run_response(
-    eval_run,
-    store: HarnessSessionStore,
-) -> dict[str, Any]:
-    payload = eval_run_to_dict(eval_run)
-    try:
-        payload["session"] = _session_summary(store, eval_run.session_id)
-    except SessionNotFoundError:
-        payload["session"] = None
-    return {"eval_run": payload}
-
-
-def _arena_child_response(
-    child: HarnessArenaChildRun,
-    store: HarnessSessionStore,
-) -> dict[str, Any]:
-    payload = arena_child_to_dict(child)
-    if child.run_id is None:
-        return payload
-    try:
-        run = store.get_run(child.run_id)
-        payload["run"] = run_to_dict(run)
-        payload["message"] = _last_run_message(store, run)
-        messages = store.list_messages(run.session_id)[-100:]
-        runs = store.list_runs(run.session_id)[-50:]
-        events = store.list_events(run.session_id)[-200:]
-        payload["messages"] = [message_to_dict(item) for item in messages]
-        payload["runs"] = [run_to_dict(item) for item in runs]
-        payload["activity"] = [
-            event_to_dict(item)
-            for item in events
-            if item.type.startswith(("tool_", "approval_"))
-            or item.type
-            in {
-                "cancel_requested",
-                "error",
-                "run_canceled",
-                "run_finished",
-                "warning",
-            }
-        ][-100:]
-        payload["event_count"] = len(events)
-        payload["bounded"] = True
-    except (RunNotFoundError, SessionNotFoundError):
-        payload["missing"] = True
-    return payload
-
-
-def _last_run_message(
-    store: HarnessSessionStore,
-    run: HarnessRun,
-) -> dict[str, Any] | None:
-    messages = [
-        message
-        for message in store.list_messages(run.session_id)
-        if message.run_id == run.id and message.role in {"assistant", "error"}
-    ]
-    if not messages:
-        return None
-    return message_to_dict(messages[-1])
-
-
-def _arena_events(
-    arena: HarnessArenaRun,
-    store: HarnessSessionStore,
-    *,
-    after_id: str | None = None,
-) -> list[tuple[HarnessArenaChildRun, HarnessStoredEvent]]:
-    events: list[tuple[HarnessArenaChildRun, HarnessStoredEvent]] = []
-    for child in arena.child_runs:
-        if child.run_id is None or child.session_id is None:
-            continue
-        try:
-            child_events = store.list_events(child.session_id, run_id=child.run_id)
-        except SessionNotFoundError:
-            continue
-        events.extend((child, event) for event in child_events)
-    events.sort(key=lambda item: (item[1].created_at, item[0].index, item[1].id))
-    if after_id is None:
-        return events
-    seen = False
-    filtered: list[tuple[HarnessArenaChildRun, HarnessStoredEvent]] = []
-    for item in events:
-        if seen:
-            filtered.append(item)
-        elif item[1].id == after_id:
-            seen = True
-    return filtered
-
-
-def _arena_sse_event(
-    arena: HarnessArenaRun,
-    child: HarnessArenaChildRun,
-    event: HarnessStoredEvent,
-) -> str:
-    payload = {
-        "id": event.id,
-        "arena_id": arena.id,
-        "child_index": child.index,
-        "harness_id": child.harness_id,
-        "type": event.type,
-        "message": event.message,
-        "payload": dict(event.payload),
-        "created_at": event.created_at,
-        "event": event_to_dict(event),
-    }
-    data = json.dumps(payload, ensure_ascii=False)
-    return f"id: {event.id}\ndata: {data}\n\n"
-
-
-def _run_status_is_terminal(status: str) -> bool:
-    return status in {"succeeded", "failed", "canceled"}
-
-
-def _arena_status_is_terminal(status: str) -> bool:
-    return status in {"succeeded", "failed", "partial", "canceled"}
-
-
-def _bounded_arena_workspace_paths(value: Any) -> tuple[str, ...]:
-    if value is None:
-        return ()
-    if not isinstance(value, list):
-        raise ValueError("workspace_paths must be a list")
-    if len(value) > 8:
-        raise ValueError("workspace_paths must contain at most 8 files")
-    paths = tuple(str(item).strip() for item in value)
-    if any(not path for path in paths):
-        raise ValueError("workspace_paths must contain non-empty strings")
-    return paths
-
-
-def _first_text(value: Any) -> str | None:
-    if not isinstance(value, list) or not value:
-        return None
-    return _optional_text(value[0])
 
 
 def _native_project_id(
@@ -5758,472 +5285,3 @@ def _editor_dry_run(request: Request, payload: Mapping[str, Any]) -> bool:
             detail="Remote editor execution is disabled",
         )
     return dry_run
-
-
-def _decode_attachment_payload(value: Any) -> bytes:
-    text = _required_text(value, "data_base64 is required")
-    if text.startswith("data:") and "," in text:
-        text = text.split(",", 1)[1]
-    try:
-        return base64.b64decode(text, validate=True)
-    except (binascii.Error, ValueError) as exc:
-        raise ValueError("data_base64 is invalid") from exc
-
-
-def _metadata_mapping(value: Any) -> dict[str, Any]:
-    if isinstance(value, dict):
-        return dict(value)
-    return {}
-
-
-def _session_project_id(session: HarnessSession) -> str | None:
-    return _optional_text(session.metadata.get("project_id"))
-
-
-def _session_project_root(session: HarnessSession) -> str | None:
-    return _optional_text(session.metadata.get("project_root")) or _optional_text(
-        session.workspace
-    )
-
-
-def _attachment_limits(
-    session: HarnessSession,
-    *,
-    workspace_root: str | None = None,
-) -> AttachmentLimits:
-    project_root = workspace_root or _session_project_root(session)
-    if project_root is None:
-        return AttachmentLimits()
-    loaded = load_project_config(project_root)
-    return limits_from_project_settings(loaded.attachments)
-
-
-def _attachment_workspace(
-    session: HarnessSession,
-    payload: dict[str, Any],
-) -> str:
-    workspace = _optional_text(payload.get("workspace")) or _session_project_root(
-        session
-    )
-    if workspace is None:
-        raise ValueError("workspace is required")
-    return resolve_workspace(workspace)
-
-
-def _workspace_api_root(workspace: str | None, data_dir: str) -> str:
-    resolved = resolve_workspace(_optional_text(workspace))
-    if resolved is not None:
-        return resolved
-    return resolve_project(None, data_dir=data_dir).root
-
-
-def _workspace_limits(workspace_root: str) -> AttachmentLimits:
-    return limits_from_project_settings(load_project_config(workspace_root).attachments)
-
-
-def _attachment_response(
-    registry: HarnessRegistry,
-    attachment: HarnessAttachment,
-) -> dict[str, Any]:
-    payload = attachment_to_dict(attachment)
-    payload.pop("storage_path", None)
-    payload["url"] = f"/api/attachments/{attachment.id}"
-    payload["supported_by"] = _attachment_supported_by(registry, attachment)
-    payload["transport_by"] = _attachment_transport_by(registry, attachment)
-    payload["warnings"] = _attachment_warnings(registry, attachment)
-    return payload
-
-
-def _attachment_supported_by(
-    registry: HarnessRegistry,
-    attachment: HarnessAttachment,
-) -> dict[str, bool]:
-    support: dict[str, bool] = {}
-    for harness in registry.list():
-        spec = harness.spec()
-        support[spec.id] = bool(
-            spec.supports_attachments
-            and attachment.kind in spec.accepted_attachment_kinds
-        )
-    return support
-
-
-def _attachment_warnings(
-    registry: HarnessRegistry,
-    attachment: HarnessAttachment,
-) -> list[str]:
-    warnings: list[str] = []
-    for harness in registry.list():
-        spec = harness.spec()
-        if not spec.supports_attachments:
-            warnings.append(f"{spec.id} does not support attachments.")
-        elif attachment.kind not in spec.accepted_attachment_kinds:
-            warnings.append(f"{spec.id} does not accept {attachment.kind} attachments.")
-        else:
-            transport = _attachment_transport_for(spec, attachment)
-            if (
-                transport
-                and not transport["rich"]
-                and _effective_attachment_kind(attachment) in {"image", "document"}
-            ):
-                warnings.append(
-                    f"{spec.id} uses path or metadata reference only for "
-                    f"{_effective_attachment_kind(attachment)} attachments."
-                )
-    return warnings
-
-
-def _attachment_transport_by(
-    registry: HarnessRegistry,
-    attachment: HarnessAttachment,
-) -> dict[str, dict[str, Any]]:
-    return {
-        harness.spec().id: transport
-        for harness in registry.list()
-        if (transport := _attachment_transport_for(harness.spec(), attachment))
-    }
-
-
-def _attachment_transport_for(
-    spec,
-    attachment: HarnessAttachment,
-) -> dict[str, Any]:
-    capabilities = getattr(spec, "attachment_capabilities", {})
-    if not isinstance(capabilities, Mapping):
-        return {}
-    support = capabilities.get(_effective_attachment_kind(attachment))
-    if support is None:
-        support = capabilities.get(attachment.kind)
-    if support is None:
-        return {}
-    if isinstance(support, Mapping):
-        headless = support.get("headless", ())
-        native = support.get("native", ())
-        rich = bool(support.get("rich", False))
-        required = support.get("required_cli_capabilities", ())
-        detail = str(support.get("detail") or "")
-    else:
-        headless = getattr(support, "headless", ())
-        native = getattr(support, "native", ())
-        rich = bool(getattr(support, "rich", False))
-        required = getattr(support, "required_cli_capabilities", ())
-        detail = str(getattr(support, "detail", ""))
-    return {
-        "headless": [str(item) for item in headless],
-        "native": [str(item) for item in native],
-        "rich": rich,
-        "required_cli_capabilities": [str(item) for item in required],
-        "detail": detail,
-    }
-
-
-def _effective_attachment_kind(attachment: HarnessAttachment) -> str:
-    if attachment.kind == "workspace_file":
-        detected = attachment.metadata.get("detected_kind")
-        if isinstance(detected, str) and detected:
-            return detected
-    return attachment.kind
-
-
-def _content_disposition(filename: str) -> str:
-    safe = "".join(
-        char for char in filename if char.isalnum() or char in {" ", ".", "_", "-"}
-    ).strip()
-    if not safe:
-        safe = "attachment"
-    return f'inline; filename="{safe}"'
-
-
-def _session_summary(
-    store: HarnessSessionStore,
-    session_id: str,
-) -> dict[str, Any]:
-    session = store.get_session(session_id)
-    messages = store.list_messages(session_id)
-    runs = store.list_runs(session_id)
-    preview = ""
-    if messages:
-        preview = " ".join(messages[-1].content.split())[:120]
-    last_status = runs[-1].status if runs else None
-    active_runs = [
-        run.id
-        for run in runs
-        if run.status not in {RunStatus.SUCCEEDED, RunStatus.FAILED, RunStatus.CANCELED}
-    ]
-    native_reference = _navigation_native_reference(session)
-    payload = session_to_dict(session)
-    project_id = _optional_text(session.metadata.get("project_id"))
-    payload.update(
-        {
-            "last_message_preview": preview,
-            "last_run_status": last_status,
-            "project_id": project_id,
-            "project": (
-                {
-                    "id": project_id,
-                    "root": session.metadata.get("project_root"),
-                    "name": session.metadata.get("project_name"),
-                }
-                if project_id
-                else None
-            ),
-            "native_session_reference": native_reference,
-            "session_revision": session.updated_at,
-            "session_generation": _navigation_generation(native_reference),
-            "session_lease": active_runs[-1] if active_runs else None,
-            "title_diagnostics": title_diagnostics(session),
-        }
-    )
-    return payload
-
-
-def _navigation_native_reference(session: HarnessSession) -> dict[str, Any]:
-    explicit = session.metadata.get("native_session_reference")
-    if isinstance(explicit, Mapping):
-        return dict(explicit)
-    structured = session.metadata.get("structured_session_link")
-    if isinstance(structured, Mapping):
-        return {
-            "authority": structured.get("provider")
-            or structured.get("authority")
-            or session.native.get("harness_id"),
-            "native_id": structured.get("thread_id")
-            or structured.get("session_id")
-            or structured.get("native_session_id"),
-            "operation": structured.get("operation") or "resume",
-            "revision": structured.get("revision"),
-            "link_hash": structured.get("link_hash"),
-        }
-    return dict(session.native)
-
-
-def _navigation_generation(reference: Mapping[str, Any]) -> int:
-    revision = reference.get("revision")
-    if isinstance(revision, int) and revision >= 0:
-        return revision
-    link_hash = _optional_text(reference.get("link_hash"))
-    if not link_hash:
-        return 0
-    return int(hashlib.sha256(link_hash.encode("utf-8")).hexdigest()[:8], 16)
-
-
-def _validate_navigation_binding(
-    store: HarnessSessionStore,
-    session_id: str,
-    payload: Mapping[str, Any],
-) -> dict[str, Any]:
-    try:
-        summary = _session_summary(store, session_id)
-    except SessionNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="Session not found") from exc
-    expected = (
-        _required_text(payload.get("session_revision"), "session_revision"),
-        _navigation_non_negative_int(
-            payload.get("session_generation"), "session_generation"
-        ),
-        _optional_text(payload.get("session_lease")),
-    )
-    current = (
-        summary["session_revision"],
-        summary["session_generation"],
-        summary["session_lease"],
-    )
-    if expected != current:
-        raise HTTPException(
-            status_code=409,
-            detail="Session changed; authoritative resnapshot required",
-        )
-    _required_text(payload.get("idempotency_key"), "idempotency_key")
-    return summary
-
-
-def _navigation_cached(
-    cache: Mapping[str, dict[str, Any]],
-    payload: Mapping[str, Any],
-    action: str,
-) -> dict[str, Any] | None:
-    key = _optional_text(payload.get("idempotency_key"))
-    return cache.get(f"{action}:{key}") if key else None
-
-
-def _cache_navigation_response(
-    cache: dict[str, dict[str, Any]],
-    payload: Mapping[str, Any],
-    response: dict[str, Any],
-    action: str,
-) -> None:
-    key = _required_text(payload.get("idempotency_key"), "idempotency_key")
-    if len(cache) >= 512:
-        cache.pop(next(iter(cache)))
-    cache[f"{action}:{key}"] = response
-
-
-def _navigation_message_preview(message: HarnessMessage) -> str:
-    content = _navigation_safe_text(message.content)[:512]
-    return f"{_navigation_safe_text(message.role).upper()} · {message.created_at}\n{content}"
-
-
-def _navigation_export_text(
-    session: HarnessSession, messages: tuple[HarnessMessage, ...]
-) -> str:
-    transcript = "\n\n".join(
-        f"## {_navigation_safe_text(item.role).title()} · {item.created_at}\n\n"
-        f"{_navigation_safe_text(item.content)}"
-        for item in messages
-    )
-    return (
-        f"# {_navigation_safe_text(session.title)}\n\n"
-        f"Session: `{session.id}`  \n"
-        "Workspace: conversation context only; filesystem restore is not included.\n\n"
-        f"{transcript}\n"
-    )
-
-
-def _navigation_safe_text(value: Any) -> str:
-    text = TUI_NAVIGATION_TERMINAL_RE.sub("⟦terminal-control⟧", str(value))
-    text = TUI_FILE_PREVIEW_CONTROL_RE.sub("�", text)
-    return TUI_NAVIGATION_BIDI_RE.sub("�", text)
-
-
-def _navigation_non_negative_int(value: Any, field_name: str) -> int:
-    if isinstance(value, bool):
-        raise HTTPException(status_code=400, detail=f"{field_name} must be an integer")
-    try:
-        result = int(value)
-    except (TypeError, ValueError) as exc:
-        raise HTTPException(
-            status_code=400, detail=f"{field_name} must be an integer"
-        ) from exc
-    if result < 0:
-        raise HTTPException(
-            status_code=400, detail=f"{field_name} must be non-negative"
-        )
-    return result
-
-
-def _fork_session_from_session(
-    store: HarnessSessionStore, session_id: str
-) -> HarnessSession:
-    source = store.get_session(session_id)
-    reference = _navigation_native_reference(source)
-    metadata = {
-        **dict(source.metadata),
-        "forked_from_session_id": source.id,
-        "fork_semantics": "harness_replay",
-    }
-    metadata.pop("structured_session_link", None)
-    if reference:
-        metadata["native_session_reference"] = {
-            "authority": reference.get("authority"),
-            "native_id": reference.get("native_id")
-            or reference.get("session_id")
-            or reference.get("id"),
-            "workspace": source.workspace,
-            "operation": "fork",
-        }
-    fork = store.create_session(
-        title=f"Fork: {source.title}",
-        workspace=source.workspace,
-        default_harness_id=source.default_harness_id,
-        default_model=source.default_model,
-        default_api_mode=source.default_api_mode,
-        default_mode=source.default_mode,
-        metadata=metadata,
-    )
-    for message in store.list_messages(source.id):
-        store.append_message(
-            replace(
-                message,
-                id=new_id("msg"),
-                session_id=fork.id,
-                run_id=None,
-                created_at=utc_now(),
-                metadata={
-                    **dict(message.metadata),
-                    "forked_from_message_id": message.id,
-                },
-            )
-        )
-    return fork
-
-
-def _session_patch(
-    payload: dict[str, Any],
-    *,
-    session: HarnessSession | None = None,
-) -> dict[str, Any]:
-    allowed = {
-        "title",
-        "workspace",
-        "default_harness_id",
-        "default_model",
-        "default_api_mode",
-        "default_mode",
-        "pinned",
-        "archived",
-        "tags",
-        "metadata",
-    }
-    patch = {key: payload[key] for key in allowed if key in payload}
-    if "title" in patch and isinstance(patch.get("metadata"), Mapping):
-        patch["metadata"] = manual_title_metadata(patch["metadata"])
-    if "workspace" in patch:
-        patch["workspace"] = resolve_workspace(_optional_text(patch["workspace"]))
-    if "default_api_mode" in patch:
-        patch["default_api_mode"] = parse_api_mode(patch["default_api_mode"])
-    if "workbench_selection" in payload:
-        if session is None:
-            raise ValueError("session is required for workbench selection")
-        selection = payload["workbench_selection"]
-        if not isinstance(selection, Mapping):
-            raise ValueError("workbench selection must be an object")
-        kind = str(selection.get("kind") or "")
-        intent = str(selection.get("intent") or "")
-        authority = str(selection.get("authority") or "")
-        if kind not in {"coding_agent", "direct_chat"}:
-            raise ValueError("workbench kind is invalid")
-        if intent not in {"ask", "review", "change"}:
-            raise ValueError("task intent is invalid")
-        if authority not in {"read_only", "workspace_write"}:
-            raise ValueError("authority is invalid")
-        patch["default_mode"] = (
-            "plan"
-            if intent == "ask"
-            else "read"
-            if intent == "review" or authority == "read_only"
-            else "edit"
-        )
-        patch["metadata"] = {
-            **dict(session.metadata),
-            "workbench_selection": {
-                "schema_version": 1,
-                "kind": kind,
-                "intent": intent,
-                "authority": authority,
-                "input_source": "product",
-                "compatibility_warning": None,
-            },
-        }
-    return patch
-
-
-def _project_response(workspace: str | None, data_dir: str) -> dict[str, Any]:
-    project_context = resolve_project(workspace, data_dir=data_dir)
-    loaded = load_project_config(project_context.root)
-    config_payload = project_config_to_dict(loaded)
-    return {
-        "project": project_to_dict(project_context),
-        "config": config_payload,
-        "state": project_state_to_dict(load_project_state(project_context)),
-        "defaults": config_payload["defaults"],
-        "presets": list(config_payload["presets"].values()),
-        "tools": list(config_payload["tools"].values()),
-    }
-
-
-def _fallback_models(config: HarnessConfig) -> list[str]:
-    return list(
-        dict.fromkeys(
-            model for model in (config.default_model, *DEFAULT_MODEL_HINTS) if model
-        )
-    )

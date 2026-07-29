@@ -13,6 +13,33 @@ from gpt2giga_harness.types import (
     HarnessSpec,
 )
 from gpt2giga_harness.ui.app import create_app, validate_ui_bind
+from gpt2giga_harness.ui.dependencies import app_services
+
+
+def test_ui_installs_typed_application_service_container(tmp_path):
+    app = create_app(
+        HarnessConfig(data_dir=str(tmp_path / "harness")),
+        registry=create_default_registry(include_entry_points=False),
+    )
+
+    services = app_services(app)
+
+    assert app.state.harness_services is services
+    for name, dependency in services.legacy_state().items():
+        assert getattr(app.state, name) is dependency
+
+
+def test_typed_service_dependency_serves_workbench_state(tmp_path):
+    app = create_app(
+        HarnessConfig(data_dir=str(tmp_path / "harness")),
+        registry=create_default_registry(include_entry_points=False),
+    )
+
+    response = TestClient(app).get("/api/workbench/state")
+
+    assert response.status_code == 200
+    assert response.json()["cursor"]
+    assert response.json()["snapshot"]
 
 
 def test_ui_defaults_endpoint_does_not_expose_secrets(monkeypatch):
