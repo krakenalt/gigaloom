@@ -148,6 +148,7 @@ class AsyncExecutionDiagnostics:
     def __init__(self) -> None:
         self._lock = Lock()
         self._metrics: dict[str, _Metric] = defaultdict(_Metric)
+        self._markers: dict[str, int] = defaultdict(int)
         self._requests = 0
         self._cancellations = 0
         self._response_bytes = 0
@@ -174,6 +175,11 @@ class AsyncExecutionDiagnostics:
         with self._lock:
             self._lag_samples.append(max(0.0, lag_ms))
 
+    def record_marker(self, marker: str) -> None:
+        """Count one content-free diagnostic marker."""
+        with self._lock:
+            self._markers[marker] += 1
+
     def snapshot(self) -> dict[str, Any]:
         """Return aggregate measurements with no paths, payloads, or user content."""
         with self._lock:
@@ -193,6 +199,7 @@ class AsyncExecutionDiagnostics:
                     name: metric.snapshot()
                     for name, metric in sorted(self._metrics.items())
                 },
+                "markers": dict(sorted(self._markers.items())),
                 "capacity": {
                     workload.value: limit for workload, limit in _CAPACITY.items()
                 },

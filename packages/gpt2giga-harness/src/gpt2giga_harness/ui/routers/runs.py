@@ -44,6 +44,7 @@ from gpt2giga_harness.sessions.event_stream import (
     StreamSignal,
 )
 from gpt2giga_harness.support_bundle import build_run_support_bundle
+from gpt2giga_harness.ui.dependencies import app_services
 from gpt2giga_harness.ui.routers.schemas import RunBundleResponse
 from gpt2giga_harness.ui.services.session_queries import event_for_run
 
@@ -323,7 +324,8 @@ def run_bundle(run_id: str, request: Request) -> dict[str, Any]:
     store = _session_store(request)
     try:
         run = store.get_run(run_id)
-        payload = bundle_to_dict(store.get_session_bundle(run.session_id))
+        legacy_bundles = app_services(request.app).legacy_bundle_compatibility
+        payload = bundle_to_dict(legacy_bundles.export_session_bundle(run.session_id))
     except RunNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Run not found") from exc
     payload["selected_run_id"] = run.id

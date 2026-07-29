@@ -84,7 +84,10 @@ def create_router(services: AppServices) -> APIRouter:
     @router.get("/api/sessions/{session_id}")
     def get_session(session_id: str) -> dict[str, Any]:
         try:
-            return bundle_to_dict(services.session_store.get_session_bundle(session_id))
+            bundle = services.legacy_bundle_compatibility.export_session_bundle(
+                session_id
+            )
+            return bundle_to_dict(bundle)
         except SessionNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Session not found") from exc
 

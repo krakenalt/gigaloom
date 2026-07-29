@@ -66,6 +66,9 @@ from gpt2giga_harness.ui.remote_identity import RemoteOIDCClient
 from gpt2giga_harness.ui.security import HarnessUISecurity
 from gpt2giga_harness.ui.services import ActiveHeadlessRun
 from gpt2giga_harness.ui.services.approvals import ApprovalGateService
+from gpt2giga_harness.ui.services.legacy_bundles import (
+    LegacyFullBundleCompatibility,
+)
 from gpt2giga_harness.workbench_protocol import WorkbenchBackbone
 from gpt2giga_harness.workbench_resources import (
     WorkbenchPreferenceStore,
@@ -99,6 +102,7 @@ class AppServices:
     native_index_store: NativeSessionIndexStore
     native_process_manager: NativeProcessManager
     async_diagnostics: AsyncExecutionDiagnostics
+    legacy_bundle_compatibility: LegacyFullBundleCompatibility
     run_event_broker: RunEventBroker
     workbench_backbone: WorkbenchBackbone
     workbench_resources: WorkbenchResourceService
@@ -344,6 +348,10 @@ def build_app_services(
         native_index_store=native_index_store,
         native_process_manager=native_process_manager,
         async_diagnostics=async_diagnostics,
+        legacy_bundle_compatibility=LegacyFullBundleCompatibility(
+            store=session_store,
+            diagnostics=async_diagnostics,
+        ),
         run_event_broker=run_event_broker,
         workbench_backbone=workbench_backbone,
         workbench_resources=workbench_resources,

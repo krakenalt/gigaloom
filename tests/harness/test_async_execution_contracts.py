@@ -78,16 +78,16 @@ def test_execution_contract_rejects_new_unclassified_read_route(tmp_path):
 def test_blocking_session_read_does_not_stall_event_loop(tmp_path, monkeypatch):
     app = _app(tmp_path)
     store = app.state.harness_session_store
-    original = store.list_sessions
+    original = store.list_sessions_page
     entered = threading.Event()
     release = threading.Event()
 
-    def slow_list_sessions(**kwargs):
+    def slow_list_sessions_page(**kwargs):
         entered.set()
         release.wait(timeout=2)
         return original(**kwargs)
 
-    monkeypatch.setattr(store, "list_sessions", slow_list_sessions)
+    monkeypatch.setattr(store, "list_sessions_page", slow_list_sessions_page)
 
     with TestClient(app) as client, ThreadPoolExecutor(max_workers=1) as executor:
         pending = executor.submit(client.get, "/api/sessions")

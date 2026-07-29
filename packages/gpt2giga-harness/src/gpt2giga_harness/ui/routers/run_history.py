@@ -179,7 +179,9 @@ def create_router(services: AppServices) -> APIRouter:
             run = services.session_store.get_run(run_id)
             validate_run_action_binding(run, payload)
             session = _fork_session_from_run(services.session_store, run)
-            bundle = services.session_store.get_session_bundle(session.id)
+            bundle = services.legacy_bundle_compatibility.export_session_bundle(
+                session.id
+            )
         except RunNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Run not found") from exc
         except SessionNotFoundError as exc:
