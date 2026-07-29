@@ -80,6 +80,7 @@ class JobsRepository(RuntimeRepository):
         key_hash = _idempotency_hash(idempotency_key)
         now = _utc_now()
         job_id = _new_id("job")
+        required_fingerprint = required_capability_fingerprint or {}
         values = {
             "id": job_id,
             "origin": origin,
@@ -97,9 +98,8 @@ class JobsRepository(RuntimeRepository):
             "max_attempts": max_attempts,
             "priority": int(priority),
             "required_harness_id": _optional_text(required_harness_id),
-            "required_fingerprint_json": _safe_json(
-                required_capability_fingerprint or {}
-            ),
+            "required_fingerprint_json": _safe_json(required_fingerprint),
+            "required_os": _optional_text(required_fingerprint.get("os")),
             "timeout_seconds": (
                 float(timeout_seconds) if timeout_seconds is not None else None
             ),
@@ -115,14 +115,14 @@ class JobsRepository(RuntimeRepository):
                         id, origin, idempotency_key_hash, status, session_id,
                         user_message_id, initial_run_id, project_id, workflow_id, workflow_version,
                         schedule_id, agent_id, available_at, max_attempts, priority,
-                        required_harness_id, required_fingerprint_json,
+                        required_harness_id, required_fingerprint_json, required_os,
                         timeout_seconds, created_at, updated_at
                     ) VALUES (
                         :id, :origin, :idempotency_key_hash, :status, :session_id,
                         :user_message_id, :initial_run_id, :project_id, :workflow_id, :workflow_version,
                         :schedule_id, :agent_id, :available_at, :max_attempts,
                         :priority, :required_harness_id, :required_fingerprint_json,
-                        :timeout_seconds,
+                        :required_os, :timeout_seconds,
                         :created_at, :updated_at
                     )
                     """,

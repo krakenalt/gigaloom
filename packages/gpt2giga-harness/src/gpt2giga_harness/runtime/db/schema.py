@@ -1,7 +1,7 @@
 """Versioned SQLite schema for durable runtime coordination."""
 
 RUNTIME_DB_NAME = "runtime.sqlite3"
-RUNTIME_SCHEMA_VERSION = 11
+RUNTIME_SCHEMA_VERSION = 12
 
 MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
     (
@@ -402,6 +402,28 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             BEGIN
                 SELECT RAISE(ABORT, 'policy audit events are immutable');
             END
+            """,
+        ),
+    ),
+    (
+        12,
+        "bounded capability-aware queue claims",
+        (
+            "ALTER TABLE jobs ADD COLUMN required_os TEXT",
+            """
+            UPDATE jobs
+            SET required_os = NULLIF(
+                TRIM(CAST(json_extract(required_fingerprint_json, '$.os') AS TEXT)),
+                ''
+            )
+            WHERE json_valid(required_fingerprint_json)
+            """,
+            """
+            CREATE INDEX jobs_queue_claim_idx
+            ON jobs(
+                status, required_os, required_harness_id,
+                priority DESC, created_at, id
+            )
             """,
         ),
     ),
