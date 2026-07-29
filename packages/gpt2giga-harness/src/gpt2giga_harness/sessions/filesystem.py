@@ -35,6 +35,9 @@ from gpt2giga_harness.sessions.models import (
     session_from_dict,
     session_to_dict,
 )
+from gpt2giga_harness.sessions.storage.filesystem.catalog import (
+    legacy_index_from_payload,
+)
 from gpt2giga_harness.sessions.locking import exclusive_file_lock
 from gpt2giga_harness.sessions.event_stream import (
     EventCursorPosition,
@@ -804,7 +807,7 @@ class FilesystemHarnessSessionStore:
 
     def _index(self) -> dict[str, Path]:
         try:
-            return _index_from_payload(_read_json(self.sessions_dir / INDEX_FILE))
+            return legacy_index_from_payload(_read_json(self.sessions_dir / INDEX_FILE))
         except (FileNotFoundError, ValueError):
             return self._rebuild_index()
 
@@ -843,7 +846,7 @@ class FilesystemHarnessSessionStore:
 
     def _read_or_scan_index_unlocked(self, path: Path) -> dict[str, Path]:
         try:
-            return _index_from_payload(_read_json(path))
+            return legacy_index_from_payload(_read_json(path))
         except (FileNotFoundError, ValueError, json.JSONDecodeError):
             return self._scan_index_unlocked()
 
@@ -936,21 +939,6 @@ def _append_jsonl(path: Path, payload: Any) -> None:
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
-
-
-def _index_from_payload(raw: Mapping[str, Any]) -> dict[str, Path]:
-    sessions = raw.get("sessions", [])
-    if not isinstance(sessions, list):
-        raise ValueError("session index does not contain a list")
-    index: dict[str, Path] = {}
-    for item in sessions:
-        if not isinstance(item, Mapping):
-            continue
-        session_id = item.get("id")
-        rel_path = item.get("path")
-        if session_id and rel_path:
-            index[str(session_id)] = Path(str(rel_path))
-    return index
 
 
 _RECORD_PAGE_TYPES: dict[str, tuple[str, Callable[[Mapping[str, Any]], Any]]] = {

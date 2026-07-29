@@ -1,5 +1,11 @@
 """Normalized persistent sessions for the Unified Harness UI."""
 
+from gpt2giga_harness.sessions.storage.filesystem.catalog import (
+    SessionCatalog,
+    SessionCatalogEntry,
+    SessionCatalogState,
+    SessionLocator,
+)
 from gpt2giga_harness.sessions.conversation import (
     active_conversation_messages,
     history_before_edited_message,
@@ -33,6 +39,10 @@ __all__ = [
     "HarnessStoredEvent",
     "InMemoryHarnessSessionStore",
     "RunNotFoundError",
+    "SessionCatalog",
+    "SessionCatalogEntry",
+    "SessionCatalogState",
+    "SessionLocator",
     "SessionNotFoundError",
     "active_conversation_messages",
     "history_before_edited_message",
