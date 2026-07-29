@@ -121,6 +121,38 @@ def test_durable_run_path_keeps_full_bundle_unmaterialized(monkeypatch):
     assert store.bundle_exports == 0
 
 
+def test_normal_run_path_uses_bounded_history_and_direct_evidence_queries():
+    store = _BoundedQueryStore()
+    harness = _CaptureHarness()
+    runner = _runner(harness, store=store)
+    session = runner.create_session(default_harness_id="capture")
+
+    for index in range(12):
+        result = runner.run_in_session(
+            session.id,
+            {"harness_id": "capture", "prompt": f"turn {index}"},
+        )
+        assert result.has_materialized_bundle is False
+
+    tail = store.list_recent_messages(session.id, limit=2)
+    latest_user = next(message for message in tail if message.role == "user")
+    runner.run_in_session(
+        session.id,
+        {
+            "harness_id": "capture",
+            "prompt": "replacement",
+            "extra": {"edit_message_id": latest_user.id},
+        },
+    )
+
+    assert harness.last_request is not None
+    assert len(harness.last_request.messages) <= 20
+    assert harness.last_request.messages[-1].content == "replacement"
+    assert store.recent_message_queries >= 14
+    assert store.direct_message_queries >= 1
+    assert store.direct_event_queries > 0
+
+
 def test_session_runner_create_and_run_persists_success():
     harness = _CaptureHarness()
     runner = _runner(harness)
@@ -1418,6 +1450,44 @@ class _BundleCountingStore(InMemoryHarnessSessionStore):
     def export_session_bundle(self, session_id):
         self.bundle_exports += 1
         return super().export_session_bundle(session_id)
+
+
+class _BoundedQueryStore(InMemoryHarnessSessionStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.recent_message_queries = 0
+        self.direct_message_queries = 0
+        self.direct_event_queries = 0
+
+    def list_messages(self, session_id):
+        raise AssertionError("normal run path must not list the complete transcript")
+
+    def list_events(self, session_id, *, run_id=None, after_id=None):
+        raise AssertionError("normal run path must not scan the complete event log")
+
+    def list_recent_messages(
+        self,
+        session_id,
+        *,
+        limit,
+        before=None,
+        through=None,
+    ):
+        self.recent_message_queries += 1
+        return super().list_recent_messages(
+            session_id,
+            limit=limit,
+            before=before,
+            through=through,
+        )
+
+    def get_message(self, message_id):
+        self.direct_message_queries += 1
+        return super().get_message(message_id)
+
+    def get_event(self, event_id):
+        self.direct_event_queries += 1
+        return super().get_event(event_id)
 
 
 class _WorkspaceEditHarness(BaseHarness):

@@ -67,9 +67,7 @@ from gpt2giga_harness.runtime.structured import (
 )
 from gpt2giga_harness.runtime.policy import PermissionAction, permission_profile
 from gpt2giga_harness.sessions.conversation import (
-    active_conversation_messages,
     edited_message_metadata,
-    history_before_edited_message,
 )
 from gpt2giga_harness.sessions.models import (
     HarnessMessage,
@@ -243,9 +241,12 @@ class HarnessSessionRunner:
         if session is not None and not bool(
             _mapping(options["extra"]).get("isolated_history")
         ):
-            previous_messages = _previous_messages_for_turn(
-                self.store.list_messages(session.id),
+            previous_messages = self.preparation_service.previous_messages(
+                self.store,
+                session.id,
                 edit_message_id=_edit_message_id(options),
+                current_user_message_id=None,
+                limit=MAX_HISTORY_MESSAGES,
             )
         if options["attachment_ids"] and session is None:
             raise ValueError("session_id is required for attachment preflight")
@@ -447,7 +448,8 @@ class HarnessSessionRunner:
             user_message_id=user_message_id,
             excluded_history_run_ids=excluded_history_run_ids,
             new_message_id=new_id,
-            history_resolver=_previous_messages_for_turn,
+            history_resolver=self.preparation_service.previous_messages,
+            history_limit=MAX_HISTORY_MESSAGES,
             edit_message_id=_edit_message_id,
         )
         session = execution_context.session
@@ -974,7 +976,7 @@ class HarnessSessionRunner:
             spec=harness.spec(),
             raw_requests=(raw_request_record,),
             raw_responses=(raw_response_record,),
-            events=self.store.list_events(session.id, run_id=run.id),
+            events=self.persistence_service.provenance_events(run.id),
             data_dir=self.config.data_dir,
         )
         metadata = {
@@ -1519,30 +1521,6 @@ def _validate_continuation_identity(
 
 def _edit_message_id(options: Mapping[str, Any]) -> str | None:
     return _optional_text(_mapping(options.get("extra")).get("edit_message_id"))
-
-
-def _previous_messages_for_turn(
-    messages: tuple[HarnessMessage, ...],
-    *,
-    edit_message_id: str | None,
-    current_user_message_id: str | None = None,
-) -> tuple[HarnessMessage, ...]:
-    active = active_conversation_messages(messages)
-    if current_user_message_id is not None:
-        current = next(
-            (message for message in active if message.id == current_user_message_id),
-            None,
-        )
-        if current is not None:
-            edited_from = _optional_text(current.metadata.get("edited_from_message_id"))
-            if edit_message_id is not None and edited_from != edit_message_id:
-                raise ValueError("Edited user message branch does not match its source")
-            return tuple(
-                message for message in active if message.id != current_user_message_id
-            )
-    if edit_message_id is not None:
-        return history_before_edited_message(active, edit_message_id)
-    return active
 
 
 def _edit_continuation_source(

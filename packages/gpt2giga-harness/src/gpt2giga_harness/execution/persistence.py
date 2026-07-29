@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
 from gpt2giga_harness.sessions.api import HarnessStoredEvent
+
+MAX_PROVENANCE_EVENTS = 100
 
 
 @dataclass(frozen=True)
@@ -15,6 +17,11 @@ class RunPersistenceService:
     store: Any
     id_factory: Callable[[str], str]
     clock: Callable[[], str]
+    _event_ids_by_run: dict[str, list[str]] = field(
+        default_factory=dict,
+        repr=False,
+        compare=False,
+    )
 
     def append_event(
         self,
@@ -25,7 +32,7 @@ class RunPersistenceService:
         payload: Mapping[str, Any],
     ) -> HarnessStoredEvent:
         """Append one normalized stored event."""
-        return self.store.append_event(
+        stored = self.store.append_event(
             HarnessStoredEvent(
                 id=self.id_factory("evt"),
                 session_id=session_id,
@@ -35,6 +42,20 @@ class RunPersistenceService:
                 payload=payload,
                 created_at=self.clock(),
             )
+        )
+        event_ids = self._event_ids_by_run.setdefault(run_id, [])
+        event_ids.append(stored.id)
+        if len(event_ids) > MAX_PROVENANCE_EVENTS:
+            del event_ids[:-MAX_PROVENANCE_EVENTS]
+        return stored
+
+    def provenance_events(self, run_id: str) -> tuple[HarnessStoredEvent, ...]:
+        """Resolve the bounded current-run evidence window by direct identity."""
+        getter = getattr(self.store, "get_event", None)
+        if not callable(getter):
+            return ()
+        return tuple(
+            getter(event_id) for event_id in self._event_ids_by_run.get(run_id, ())
         )
 
     def append_raw_request(

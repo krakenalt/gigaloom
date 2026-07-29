@@ -20,6 +20,7 @@ class RunAdmissionService:
         excluded_history_run_ids: tuple[str, ...],
         new_message_id: Callable[[str], str],
         history_resolver: Callable[..., tuple[Any, ...]],
+        history_limit: int,
         edit_message_id: Callable[[Mapping[str, Any]], str | None],
     ) -> RunExecutionContext:
         """Resolve session, options, harness, and active conversation history."""
@@ -36,9 +37,11 @@ class RunAdmissionService:
             previous_messages = tuple(
                 message
                 for message in history_resolver(
-                    runner.store.list_messages(session.id),
+                    runner.store,
+                    session.id,
                     edit_message_id=edit_message_id(options),
                     current_user_message_id=user_message_id,
+                    limit=history_limit,
                 )
                 if message.run_id not in excluded_history_run_ids
             )

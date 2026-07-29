@@ -23,6 +23,44 @@ from gpt2giga_harness.projects.api import (
 class RunPreparationService:
     """Prepare provider inputs without invoking a harness."""
 
+    def previous_messages(
+        self,
+        store: Any,
+        session_id: str,
+        *,
+        edit_message_id: str | None,
+        current_user_message_id: str | None,
+        limit: int,
+    ) -> tuple[Any, ...]:
+        """Read one bounded active conversation window for the current turn."""
+        if current_user_message_id is not None:
+            current = store.get_message(current_user_message_id)
+            edited_from = _optional_text(current.metadata.get("edited_from_message_id"))
+            if edit_message_id is not None and edited_from != edit_message_id:
+                raise ValueError("Edited user message branch does not match its source")
+            return store.list_recent_messages(
+                session_id,
+                limit=limit,
+                before=current_user_message_id,
+            )
+        if edit_message_id is not None:
+            edited = store.get_message(edit_message_id)
+            if edited.role != "user":
+                raise ValueError("Only the latest user message can be edited")
+            tail = store.list_recent_messages(session_id, limit=limit)
+            latest_user = next(
+                (message for message in reversed(tail) if message.role == "user"),
+                None,
+            )
+            if latest_user is None or latest_user.id != edit_message_id:
+                raise ValueError("Only the latest user message can be edited")
+            return store.list_recent_messages(
+                session_id,
+                limit=limit,
+                before=edit_message_id,
+            )
+        return store.list_recent_messages(session_id, limit=limit)
+
     def prepare_attachments(
         self,
         runner: Any,
