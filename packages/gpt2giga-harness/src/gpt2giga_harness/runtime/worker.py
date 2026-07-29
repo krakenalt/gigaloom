@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 import hashlib
 import os
 import socket
@@ -30,7 +29,6 @@ from gpt2giga_harness.runtime.policy import (
     PolicyEngine,
     permission_profile,
 )
-from gpt2giga_harness.runtime.reconcile import RuntimeReconciler
 from gpt2giga_harness.runtime.side_effects import HarnessSideEffectExecutor
 from gpt2giga_harness.runtime.structured import (
     DURABLE_STRUCTURED_ADMISSION_FIELD,
@@ -43,13 +41,15 @@ from gpt2giga_harness.runtime.store import (
     SideEffectConflictError,
 )
 from gpt2giga_harness.runtime.workers.scheduler import (
-    HEARTBEAT,
     RECONCILIATION,
     RECOVERY,
     RETRIES,
     SCHEDULES,
+    WorkerMaintenanceRunner,
     WorkerMaintenanceScheduler,
+    adaptive_idle_delay as _adaptive_idle_delay,
 )
+from gpt2giga_harness.runtime.workers.status import worker_status as worker_status
 from gpt2giga_harness.session_runner import HarnessSessionRunner, QueuedHarnessRun
 from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
 from gpt2giga_harness.sessions.locking import exclusive_file_lock
@@ -333,11 +333,18 @@ class DurableJobWorker:
         self._maintenance = WorkerMaintenanceScheduler(
             heartbeat_seconds=self.heartbeat_seconds
         )
+        self._maintenance_runner = WorkerMaintenanceRunner(
+            scheduler=self._maintenance,
+            runtime_store=self.runtime_store,
+            session_store=self.session_store,
+            worker_id=self.worker_id,
+            trigger_schedules=lambda: self._trigger_schedules(),
+        )
 
     def run_once(self) -> bool:
         """Claim and execute at most one job; return whether work was claimed."""
         self._register()
-        self._run_due_maintenance()
+        self._maintenance_runner.run_due()
         claim = self.runtime_store.claim_next_job(
             worker_id=self.worker_id,
             capability_fingerprint=self.fingerprint,
@@ -469,32 +476,10 @@ class DurableJobWorker:
         )
         if retry_delay is not None:
             self._maintenance.request(RETRIES, delay_seconds=retry_delay)
-        self._maintenance.request(RECONCILIATION)
-        self._run_due_maintenance(only=(RECONCILIATION,))
+        self._maintenance.request(SCHEDULES, RECONCILIATION)
+        self._maintenance_runner.run_due(only=(RECONCILIATION,))
         self._advance_parent_workflow(updated_job)
         return True
-
-    def _run_due_maintenance(self, *, only: tuple[str, ...] | None = None) -> None:
-        """Run only maintenance tasks whose independent cadence is due."""
-        tasks = (
-            (HEARTBEAT, lambda: self.runtime_store.heartbeat_worker(self.worker_id)),
-            (SCHEDULES, self._trigger_schedules),
-            (RECOVERY, self.runtime_store.recover_expired_attempts),
-            (RETRIES, self.runtime_store.requeue_due_jobs),
-            (
-                RECONCILIATION,
-                lambda: RuntimeReconciler(
-                    self.runtime_store, self.session_store
-                ).reconcile(),
-            ),
-        )
-        for task, operation in tasks:
-            if only is not None and task not in only:
-                continue
-            if not self._maintenance.is_due(task):
-                continue
-            operation()
-            self._maintenance.complete(task)
 
     def _trigger_schedules(self) -> None:
         """Materialize due schedule occurrences before claiming normal work."""
@@ -725,52 +710,6 @@ class DurableJobWorker:
             origin=origin,
             schedule_id=schedule_id,
         ).advance(job.workflow_id)
-
-
-def worker_status(
-    store: RuntimeCoordinationStore, *, stale_after: float = 30.0
-) -> dict[str, Any]:
-    """Return a JSON-ready worker status snapshot."""
-    now = time.time()
-    workers = []
-    for worker in store.list_workers():
-        try:
-            heartbeat = datetime.fromisoformat(worker.heartbeat_at).timestamp()
-        except ValueError:
-            heartbeat = 0.0
-        effective = (
-            "offline"
-            if worker.status == "online" and now - heartbeat > stale_after
-            else worker.status
-        )
-        workers.append(
-            {
-                "id": worker.id,
-                "process_id": worker.process_id,
-                "hostname": worker.hostname,
-                "status": effective,
-                "started_at": worker.started_at,
-                "heartbeat_at": worker.heartbeat_at,
-                "stopped_at": worker.stopped_at,
-                "capability_fingerprint": dict(worker.capability_fingerprint),
-            }
-        )
-    return {
-        "workers": workers,
-        "online": sum(item["status"] == "online" for item in workers),
-    }
-
-
-def _adaptive_idle_delay(
-    minimum_seconds: float,
-    maximum_seconds: float,
-    idle_cycles: int,
-) -> float:
-    """Return bounded exponential idle delay after consecutive empty cycles."""
-    minimum = max(float(minimum_seconds), 0.05)
-    maximum = max(float(maximum_seconds), minimum)
-    exponent = max(min(int(idle_cycles) - 1, 16), 0)
-    return min(minimum * (2**exponent), maximum)
 
 
 def _idempotency_class(payload: Mapping[str, Any]) -> str:

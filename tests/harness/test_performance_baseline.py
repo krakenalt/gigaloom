@@ -264,6 +264,7 @@ def test_runtime_scaling_profile_captures_required_content_free_fixtures():
         "maintenance_cases": [
             "heartbeat",
             "idle",
+            "idle_minute",
             "schedule",
             "recovery",
             "reconcile",
@@ -273,7 +274,7 @@ def test_runtime_scaling_profile_captures_required_content_free_fixtures():
         "query_plan_sql_retained": False,
         "query_plan_parameter_values_retained": False,
     }
-    assert len(report["results"]) == 14
+    assert len(report["results"]) == 15
     by_metric = {item["id"]: item for item in report["results"]}
     assert (
         by_metric["runtime.queue.claim.incompatible_90_percent"]["details"][
@@ -307,10 +308,30 @@ def test_runtime_scaling_profile_captures_required_content_free_fixtures():
     for scale in (100, 1_000, 10_000, 50_000):
         result = by_metric[f"runtime.revisions.runs_center.rows_{scale}"]
         assert result["counters"]["rows_parsed"]["p95"] == scale
-    for variant in ("heartbeat", "idle", "schedule", "recovery", "reconcile"):
+    for variant in (
+        "heartbeat",
+        "idle",
+        "idle_minute",
+        "schedule",
+        "recovery",
+        "reconcile",
+    ):
         result = by_metric[f"runtime.worker.lifecycle.{variant}"]
         assert result["measured_window"] == "operation_only"
         assert result["regression_gate"]["blocking"] is False
+    idle_minute = by_metric["runtime.worker.lifecycle.idle_minute"]
+    heartbeat = by_metric["runtime.worker.lifecycle.heartbeat"]
+    assert heartbeat["details"]["attempt_leases"]["p95"] == 1
+    assert heartbeat["counters"]["sqlite_connections"]["p95"] == 1
+    assert heartbeat["counters"]["sqlite_writes"]["p95"] == 2
+    assert (
+        idle_minute["counters"]["sqlite_connections"]["p95"]
+        <= idle_minute["details"]["baseline_sql_connections"]["p95"] * 0.4
+    )
+    assert (
+        idle_minute["counters"]["sqlite_statements"]["p95"]
+        <= idle_minute["details"]["baseline_sql_statements"]["p95"] * 0.4
+    )
     counter_names = {
         "claimed_jobs",
         "duplicate_claims",

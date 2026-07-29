@@ -48,50 +48,41 @@ class WorkersRepository(RuntimeRepository):
         maximum = max(float(maximum_seconds), 0.0)
         now = datetime.now(timezone.utc)
         with self._connect() as connection:
-            rows = (
-                connection.execute(
-                    """
-                    SELECT MIN(available_at) FROM jobs
+            row = connection.execute(
+                """
+                SELECT MIN(deadline) FROM (
+                    SELECT MIN(available_at) AS deadline FROM jobs
                     WHERE status IN (?, ?) AND cancel_requested_at IS NULL
                       AND available_at > ?
-                    """,
-                    (
-                        JobStatus.QUEUED.value,
-                        JobStatus.RETRY_WAIT.value,
-                        now.isoformat(),
-                    ),
-                ).fetchone(),
-                connection.execute(
-                    """
-                    SELECT MIN(leased_until) FROM job_attempts
+                    UNION ALL
+                    SELECT MIN(leased_until) AS deadline FROM job_attempts
                     WHERE status IN (?, ?, ?) AND leased_until > ?
-                    """,
-                    (
-                        JobAttemptStatus.CLAIMED.value,
-                        JobAttemptStatus.STARTING.value,
-                        JobAttemptStatus.RUNNING.value,
-                        now.isoformat(),
-                    ),
-                ).fetchone(),
-                connection.execute(
-                    """
-                    SELECT MIN(next_run_at) FROM schedule_states
+                    UNION ALL
+                    SELECT MIN(next_run_at) AS deadline FROM schedule_states
                     WHERE enabled = 1 AND status = 'active' AND next_run_at > ?
-                    """,
-                    (now.isoformat(),),
-                ).fetchone(),
-            )
+                )
+                """,
+                (
+                    JobStatus.QUEUED.value,
+                    JobStatus.RETRY_WAIT.value,
+                    now.isoformat(),
+                    JobAttemptStatus.CLAIMED.value,
+                    JobAttemptStatus.STARTING.value,
+                    JobAttemptStatus.RUNNING.value,
+                    now.isoformat(),
+                    now.isoformat(),
+                ),
+            ).fetchone()
         deadlines: list[float] = []
-        for row in rows:
-            if row is None or row[0] is None:
-                continue
+        if row is not None and row[0] is not None:
             try:
                 deadline = datetime.fromisoformat(str(row[0]))
             except ValueError:
-                continue
-            if deadline.tzinfo is None:
-                deadline = deadline.replace(tzinfo=timezone.utc)
-            deadlines.append(max((deadline - now).total_seconds(), 0.0))
+                pass
+            else:
+                if deadline.tzinfo is None:
+                    deadline = deadline.replace(tzinfo=timezone.utc)
+                deadlines.append(max((deadline - now).total_seconds(), 0.0))
         return min((maximum, *deadlines))
 
     def wake_workers(self) -> int:

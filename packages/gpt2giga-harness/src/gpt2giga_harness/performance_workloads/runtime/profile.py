@@ -88,6 +88,7 @@ def run_runtime_scaling_baseline(*, samples: int) -> dict[str, Any]:
             "maintenance_cases": [
                 "heartbeat",
                 "idle",
+                "idle_minute",
                 "schedule",
                 "recovery",
                 "reconcile",

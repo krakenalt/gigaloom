@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 import time
-from typing import Final
+from typing import Any, Final
 
 HEARTBEAT: Final[str] = "heartbeat"
 SCHEDULES: Final[str] = "schedules"
@@ -77,3 +77,56 @@ class WorkerMaintenanceScheduler:
     def _require_task(task: str) -> None:
         if task not in MAINTENANCE_TASKS:
             raise ValueError(f"unknown worker maintenance task: {task}")
+
+
+class WorkerMaintenanceRunner:
+    """Execute due maintenance against worker-owned runtime resources."""
+
+    def __init__(
+        self,
+        *,
+        scheduler: WorkerMaintenanceScheduler,
+        runtime_store: Any,
+        session_store: Any,
+        worker_id: str,
+        trigger_schedules: Callable[[], None],
+    ) -> None:
+        self._scheduler = scheduler
+        self._runtime_store = runtime_store
+        self._session_store = session_store
+        self._worker_id = worker_id
+        self._trigger_schedules = trigger_schedules
+
+    def run_due(self, *, only: tuple[str, ...] | None = None) -> None:
+        """Run selected tasks whose independent cadence is due."""
+        operations = (
+            (HEARTBEAT, lambda: self._runtime_store.heartbeat_worker(self._worker_id)),
+            (SCHEDULES, self._trigger_schedules),
+            (RECOVERY, self._runtime_store.recover_expired_attempts),
+            (RETRIES, self._runtime_store.requeue_due_jobs),
+            (RECONCILIATION, self._reconcile),
+        )
+        for task, operation in operations:
+            if only is not None and task not in only:
+                continue
+            if not self._scheduler.is_due(task):
+                continue
+            operation()
+            self._scheduler.complete(task)
+
+    def _reconcile(self) -> None:
+        from gpt2giga_harness.runtime.reconcile import RuntimeReconciler
+
+        RuntimeReconciler(self._runtime_store, self._session_store).reconcile()
+
+
+def adaptive_idle_delay(
+    minimum_seconds: float,
+    maximum_seconds: float,
+    idle_cycles: int,
+) -> float:
+    """Return bounded exponential idle delay after consecutive empty cycles."""
+    minimum = max(float(minimum_seconds), 0.05)
+    maximum = max(float(maximum_seconds), minimum)
+    exponent = max(min(int(idle_cycles) - 1, 16), 0)
+    return min(minimum * (2**exponent), maximum)

@@ -215,7 +215,7 @@ def test_empty_worker_cycle_does_not_repeat_maintenance_queries(tmp_path, monkey
         lambda **kwargs: calls.append("claim"),
     )
     monkeypatch.setattr(
-        "gpt2giga_harness.runtime.worker.RuntimeReconciler.reconcile",
+        "gpt2giga_harness.runtime.reconcile.RuntimeReconciler.reconcile",
         lambda self: calls.append("reconciliation"),
     )
 
