@@ -20,10 +20,13 @@ import time
 import tracemalloc
 from typing import Any, Final
 
+from gpt2giga_harness.performance_workloads.surfaces.tui_render import (
+    profile_timeline_projections,
+    summarize_render_workloads,
+)
 from gpt2giga_harness.tui.app import (
     NATIVE_OUTPUT_POLL_SECONDS,
     RUN_POLL_SECONDS,
-    TimelinePanel,
     WorkbenchTui,
 )
 from gpt2giga_harness.tui.client import (
@@ -39,10 +42,17 @@ from gpt2giga_harness.tui.client import (
     TimelineEvent,
     neutralize_native_terminal_output,
 )
+from gpt2giga_harness.tui.widgets.timeline import (
+    DEFAULT_MAX_CHARS,
+    DEFAULT_MAX_ROWS,
+    DEFAULT_VISIBLE_CARDS,
+    TimelinePanel,
+    TimelineRenderCounters,
+)
 
 
-SCHEMA_VERSION: Final[str] = "gigaloom.tui-performance-profile.v3"
-FIXTURE_SET_VERSION: Final[str] = "g5-03.v1"
+SCHEMA_VERSION: Final[str] = "gigaloom.tui-performance-profile.v4"
+FIXTURE_SET_VERSION: Final[str] = "t10-render.v1"
 
 # Reviewed G5 repair budgets, not CI pass/fail thresholds.
 TARGET_BUDGETS: Final[dict[str, tuple[str, float]]] = {
@@ -53,6 +63,8 @@ TARGET_BUDGETS: Final[dict[str, tuple[str, float]]] = {
     "timeline_full_100_projection": ("ms", 16.0),
     "timeline_incremental_1_projection": ("ms", 8.0),
     "timeline_batch_10_projection": ("ms", 12.0),
+    "timeline_navigation_1_projection": ("ms", 100.0),
+    "timeline_full_10000_projection": ("ms", 16.0),
     "unchanged_run_poll_projection": ("ms", 2.0),
     "native_output_normalize_64k": ("ms", 5.0),
     "filesystem_roundtrip": ("ms", 10.0),
@@ -67,6 +79,7 @@ TARGET_BUDGETS: Final[dict[str, tuple[str, float]]] = {
 @dataclass(frozen=True)
 class _TuiSample:
     timings_ms: dict[str, float]
+    timeline_counters: dict[str, TimelineRenderCounters]
     retained_memory_bytes: int
     retained_events: int
     retained_characters: int
@@ -123,6 +136,9 @@ def run_tui_performance_profile(*, samples: int) -> dict[str, Any]:
     for sample in comparator_samples:
         for metric, value in sample.items():
             raw.setdefault(metric, []).append(value)
+    render_workloads = summarize_render_workloads(
+        [sample.timeline_counters for sample in tui_samples]
+    )
 
     results = [
         _summarize(metric, values, *TARGET_BUDGETS[metric])
@@ -174,10 +190,13 @@ def run_tui_performance_profile(*, samples: int) -> dict[str, Any]:
             "native_poll_updates_widgets_on_empty_output": False,
             "run_delivery": "persistent_event_stream_with_bounded_resnapshot",
             "native_delivery": "persistent_event_stream_with_bounded_reconnect",
-            "timeline_render_strategy": "stable_event_card_cache",
+            "timeline_render_strategy": "bounded_incremental_window",
             "event_batching": "bounded_snapshot_then_local_event_projection",
             "timeline_event_limit": MAX_TIMELINE_EVENTS,
             "timeline_character_limit": MAX_TIMELINE_CHARS,
+            "timeline_visible_card_limit": DEFAULT_VISIBLE_CARDS,
+            "timeline_row_limit": DEFAULT_MAX_ROWS,
+            "timeline_widget_character_limit": DEFAULT_MAX_CHARS,
             "native_scrollback_character_limit": MAX_NATIVE_SCROLLBACK_CHARS,
         },
         "startup_imports": {
@@ -214,10 +233,23 @@ def run_tui_performance_profile(*, samples: int) -> dict[str, Any]:
                     "timeline_full_100_projection",
                     "timeline_incremental_1_projection",
                     "timeline_batch_10_projection",
+                    "timeline_navigation_1_projection",
+                    "timeline_full_10000_projection",
                     "timeline_retained_memory",
                 ],
             },
         },
+        "measurement_contract": {
+            "fixture_setup_in_measured_window": False,
+            "production_widget_used_in_measured_window": True,
+            "absolute_wall_time_is_ci_blocking": False,
+            "algorithmic_counters_are_ci_stable": True,
+            "full_history_fixture_events": 10_000,
+            "visible_card_limit": DEFAULT_VISIBLE_CARDS,
+            "row_limit": DEFAULT_MAX_ROWS,
+            "character_limit": DEFAULT_MAX_CHARS,
+        },
+        "render_workloads": render_workloads,
         "results": results,
         "ranked_bottlenecks": ranked,
         "accepted_repairs": [
@@ -251,10 +283,14 @@ def run_tui_performance_profile(*, samples: int) -> dict[str, Any]:
                     "timeline_full_100_projection",
                     "timeline_incremental_1_projection",
                     "timeline_batch_10_projection",
+                    "timeline_navigation_1_projection",
+                    "timeline_full_10000_projection",
                 ],
                 "budget": {
                     "full_100_projection_ms_p95": 16.0,
                     "incremental_1_projection_ms_p95": 8.0,
+                    "navigation_projection_ms_p95": 100.0,
+                    "events_inspected_max": DEFAULT_VISIBLE_CARDS,
                     "retained_events_max": MAX_TIMELINE_EVENTS,
                     "retained_characters_max": MAX_TIMELINE_CHARS,
                 },
@@ -341,7 +377,8 @@ async def _profile_tui_once() -> _TuiSample:
             raise RuntimeError("TUI input-to-paint probe did not apply its key event")
         timings["first_input_to_paint"] = _elapsed_ms(started)
 
-        timings.update(_profile_timeline_projections())
+        projection_timings, timeline_counters = profile_timeline_projections()
+        timings.update(projection_timings)
         app._apply_run_snapshot(_run_snapshot(_events(0, 100), reason="cursor_gap"))
 
         client.poll_snapshot = _run_snapshot(())
@@ -368,6 +405,7 @@ async def _profile_tui_once() -> _TuiSample:
         )
     return _TuiSample(
         timings_ms=timings,
+        timeline_counters=timeline_counters,
         retained_memory_bytes=retained_memory,
         retained_events=retained_events,
         retained_characters=retained_characters,
@@ -406,31 +444,6 @@ def _run_snapshot(
         cursor=f"ip1.1.{cursor}",
         resnapshot_reason=reason,
     )
-
-
-def _profile_timeline_projections() -> dict[str, float]:
-    labels = {"message": "MESSAGE"}
-    full_10 = _events(0, 10)
-    full_100 = _events(0, 100)
-    incremental_1 = (*full_100[1:], *_events(100, 1))
-    batch_10 = (*full_100[10:], *_events(100, 10))
-
-    def measure(
-        initial: tuple[TimelineEvent, ...],
-        events: tuple[TimelineEvent, ...],
-    ) -> float:
-        panel = TimelinePanel("empty", labels, id="timeline")
-        panel.set_events(initial)
-        started = time.perf_counter_ns()
-        panel.set_events(events)
-        return _elapsed_ms(started)
-
-    return {
-        "timeline_full_10_projection": measure((), full_10),
-        "timeline_full_100_projection": measure((), full_100),
-        "timeline_incremental_1_projection": measure(full_100, incremental_1),
-        "timeline_batch_10_projection": measure(full_100, batch_10),
-    }
 
 
 def _cold_import_probe() -> dict[str, float]:

@@ -23,6 +23,7 @@ from gpt2giga_harness.tui.commands import (
 )
 from gpt2giga_harness.tui.i18n import CATALOGS, translator
 from gpt2giga_harness.tui.shell_contract import minimal_shell_contract
+from gpt2giga_harness.tui.widgets.timeline import DEFAULT_VISIBLE_CARDS
 from gpt2giga_harness.tui.client import (
     ApprovalSummary,
     ArtifactSummary,
@@ -651,7 +652,7 @@ def _run_snapshot(
     )
 
 
-def test_timeline_panel_suppresses_unchanged_updates_and_reuses_stable_cards(
+def test_timeline_panel_bounds_updates_and_reuses_immutable_card_bodies(
     monkeypatch,
 ):
     panel = TimelinePanel("empty", {"message": "MESSAGE"}, id="timeline")
@@ -665,20 +666,25 @@ def test_timeline_panel_suppresses_unchanged_updates_and_reuses_stable_cards(
         for index in range(100)
     )
     rendered = 0
-    render_card = panel._render_card
+    render_card_body = panel._render_card_body
 
     def counted(*args, **kwargs):
         nonlocal rendered
         rendered += 1
-        return render_card(*args, **kwargs)
+        return render_card_body(*args, **kwargs)
 
-    monkeypatch.setattr(panel, "_render_card", counted)
+    monkeypatch.setattr(panel, "_render_card_body", counted)
 
     assert panel.set_events(events) is True
-    assert rendered == 100
+    assert rendered == DEFAULT_VISIBLE_CARDS
+    assert panel.last_render_counters.events_inspected == DEFAULT_VISIBLE_CARDS
+    assert panel.last_render_counters.cards_rendered == DEFAULT_VISIBLE_CARDS
+    assert panel.last_render_counters.widget_updates == 1
     rendered = 0
     assert panel.set_events(events) is False
     assert rendered == 0
+    assert panel.last_render_counters.events_inspected == 0
+    assert panel.last_render_counters.widget_updates == 0
 
     shifted = (
         *events[1:],
@@ -690,7 +696,99 @@ def test_timeline_panel_suppresses_unchanged_updates_and_reuses_stable_cards(
         ),
     )
     assert panel.set_events(shifted) is True
-    assert rendered <= 3
+    assert rendered == 1
+    assert panel.last_render_counters.events_inspected == DEFAULT_VISIBLE_CARDS
+    assert panel.last_render_counters.cards_rendered == 1
+    assert panel.last_render_counters.widget_updates == 1
+
+    rendered = 0
+    panel.action_previous_card()
+    assert rendered == 0
+    assert panel.last_render_counters.events_inspected == DEFAULT_VISIBLE_CARDS
+    assert panel.last_render_counters.cards_rendered == 0
+    assert panel.last_render_counters.widget_updates == 1
+
+
+def test_timeline_panel_render_work_is_independent_of_full_history_size():
+    small = TimelinePanel("empty", {"message": "MESSAGE"}, id="small")
+    large = TimelinePanel("empty", {"message": "MESSAGE"}, id="large")
+
+    def event(index: int) -> TimelineEvent:
+        return TimelineEvent(
+            f"evt_{index}",
+            "message_delta",
+            f"event {index}",
+            category="message",
+        )
+
+    small.set_events(tuple(event(index) for index in range(100)))
+    large.set_events(tuple(event(index) for index in range(10_000)))
+
+    assert small.last_render_counters.events_inspected == DEFAULT_VISIBLE_CARDS
+    assert large.last_render_counters.events_inspected == DEFAULT_VISIBLE_CARDS
+    assert small.last_render_counters.cards_rendered == DEFAULT_VISIBLE_CARDS
+    assert large.last_render_counters.cards_rendered == DEFAULT_VISIBLE_CARDS
+    assert "event 9999" in str(large.render())
+    assert "event 0" not in str(large.render())
+
+
+def test_timeline_panel_stops_at_row_and_character_budgets():
+    panel = TimelinePanel(
+        "empty",
+        {"message": "MESSAGE"},
+        id="timeline",
+        max_visible_cards=4,
+        max_rows=3,
+        max_chars=100,
+    )
+    panel.set_events(
+        (
+            TimelineEvent(
+                "evt_1",
+                "message_delta",
+                "event",
+                delta="one\ntwo\nthree\nfour",
+                category="message",
+            ),
+        )
+    )
+    panel.action_toggle_card()
+
+    rendered = str(panel.render())
+    assert len(rendered) <= 100
+    assert len(rendered.splitlines()) <= 3
+    assert panel.last_render_counters.events_inspected == 1
+    assert panel.last_render_counters.cards_rendered == 0
+    assert panel.last_render_counters.chars_produced == len(rendered)
+
+
+def test_timeline_panel_click_maps_visible_rows_to_global_event_index(monkeypatch):
+    panel = TimelinePanel(
+        "empty",
+        {"message": "MESSAGE"},
+        id="timeline",
+        max_visible_cards=4,
+    )
+    panel.set_events(
+        tuple(
+            TimelineEvent(
+                f"evt_{index}",
+                "message_delta",
+                f"event {index}",
+                category="message",
+            )
+            for index in range(10)
+        )
+    )
+    monkeypatch.setattr(panel, "focus", lambda: None)
+
+    class Click:
+        y = 0
+
+    panel.on_click(Click())
+
+    assert panel.active_index == 6
+    assert panel.events[6].id in panel.expanded
 
 
 @pytest.mark.anyio

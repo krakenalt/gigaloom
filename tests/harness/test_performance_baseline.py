@@ -514,8 +514,8 @@ def test_tui_detail_profile_is_ranked_bounded_and_content_free():
     report = run_performance_baseline(samples=1, profile="tui-detail")
 
     _assert_g6_03_report_contract(report, profile="tui-detail")
-    assert report["schema_version"] == "gigaloom.tui-performance-profile.v3"
-    assert report["fixture_set_version"] == "g5-03.v1"
+    assert report["schema_version"] == "gigaloom.tui-performance-profile.v4"
+    assert report["fixture_set_version"] == "t10-render.v1"
     assert report["privacy"] == {
         "content_captured": False,
         "secrets_captured": False,
@@ -526,8 +526,11 @@ def test_tui_detail_profile_is_ranked_bounded_and_content_free():
     }
     assert (
         report["current_contract"]["timeline_render_strategy"]
-        == "stable_event_card_cache"
+        == "bounded_incremental_window"
     )
+    assert report["current_contract"]["timeline_visible_card_limit"] == 40
+    assert report["current_contract"]["timeline_row_limit"] == 200
+    assert report["current_contract"]["timeline_widget_character_limit"] == 64_000
     assert report["current_contract"]["run_poll_rerenders_unchanged_snapshot"] is False
     assert report["current_contract"]["run_delivery"].startswith(
         "persistent_event_stream"
@@ -552,6 +555,8 @@ def test_tui_detail_profile_is_ranked_bounded_and_content_free():
                 "timeline_full_100_projection",
                 "timeline_incremental_1_projection",
                 "timeline_batch_10_projection",
+                "timeline_navigation_1_projection",
+                "timeline_full_10000_projection",
                 "timeline_retained_memory",
             ],
         },
@@ -576,6 +581,8 @@ def test_tui_detail_profile_is_ranked_bounded_and_content_free():
         "first_input_to_paint",
         "timeline_full_100_projection",
         "timeline_incremental_1_projection",
+        "timeline_navigation_1_projection",
+        "timeline_full_10000_projection",
         "unchanged_run_poll_projection",
         "timeline_retained_memory",
         "run_timer_wakeup_rate",
@@ -589,6 +596,8 @@ def test_tui_detail_profile_is_ranked_bounded_and_content_free():
         "first_input_to_paint",
         "timeline_full_100_projection",
         "timeline_incremental_1_projection",
+        "timeline_navigation_1_projection",
+        "timeline_full_10000_projection",
         "unchanged_run_poll_projection",
         "run_timer_wakeup_rate",
         "run_active_request_rate",
@@ -617,6 +626,35 @@ def test_tui_detail_profile_is_ranked_bounded_and_content_free():
     ):
         assert by_metric[metric]["target_status"] == "within_target"
     assert report["startup_imports"]["module_count_p95"] > 0
+    by_workload = {item["id"]: item for item in report["render_workloads"]}
+    assert (
+        by_workload["timeline_full_10000_projection"]["counters"]["events_inspected"][
+            "max"
+        ]
+        == 40
+    )
+    assert (
+        by_workload["timeline_incremental_1_projection"]["counters"]["cards_rendered"][
+            "max"
+        ]
+        == 1
+    )
+    assert (
+        by_workload["timeline_incremental_1_projection"]["counters"]["widget_updates"][
+            "max"
+        ]
+        == 1
+    )
+    assert (
+        by_workload["timeline_navigation_1_projection"]["counters"]["cards_rendered"][
+            "max"
+        ]
+        == 0
+    )
+    assert all(
+        item["counters"]["chars_produced"]["max"] <= 64_000
+        for item in report["render_workloads"]
+    )
     assert [item["rank"] for item in report["ranked_bottlenecks"]] == list(
         range(1, len(report["ranked_bottlenecks"]) + 1)
     )
@@ -809,7 +847,7 @@ def test_performance_cli_writes_private_tui_profile(tmp_path, capsys):
     )
 
     payload = json.loads(output.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "gigaloom.tui-performance-profile.v3"
+    assert payload["schema_version"] == "gigaloom.tui-performance-profile.v4"
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
     assert "Wrote private performance report" in capsys.readouterr().out
 
