@@ -32,6 +32,7 @@ import {
   EnvironmentCard,
   useEnvironmentActions,
 } from "../features/workbench/environment-actions";
+import { useDeferredWorkbenchProjection } from "../features/workbench/lazy-projections";
 import {
   GeneratedFilePreview,
   GeneratedFileCard,
@@ -62,6 +63,7 @@ import {
   type RunConfig,
   useRunConfiguration,
 } from "../features/workbench/run-configuration";
+import { createWorkbenchRunStreamSelector } from "../features/workbench/stream-projection";
 import {
   ArchiveSessionIcon,
   DeleteSessionIcon,
@@ -114,7 +116,10 @@ import {
   sessionGroups,
   shortId,
 } from "../surface-model";
-import { useRunEventStream } from "../stream-store";
+import {
+  useRunEventStreamSelector,
+  useRunEventStreamStore,
+} from "../stream-store";
 import {
   projectWorkbenchStream,
   workbenchRunActive,
@@ -263,14 +268,27 @@ export function WorkbenchSurface() {
   const harnesses = useQuery(harnessesOptions());
   const models = useQuery(modelsOptions(runConfig.apiMode));
   const settings = useQuery(settingsOptions());
-  const integrations = useQuery(integrationFlowOptions());
+  const integrationsEnabled = useDeferredWorkbenchProjection(
+    sessionId,
+    toolPickerOpen || plusMenuOpen || advancedOpen,
+  );
+  const environmentEnabled = useDeferredWorkbenchProjection(sessionId);
+  const attachmentsEnabled = useDeferredWorkbenchProjection(
+    sessionId,
+    draggingFiles || plusMenuOpen,
+  );
+  const eventsEnabled = useDeferredWorkbenchProjection(sessionId);
+  const integrations = useQuery({
+    ...integrationFlowOptions(),
+    enabled: integrationsEnabled,
+  });
   const overview = useQuery({
     ...sessionOverviewOptions(sessionId ?? "pending"),
     enabled: sessionId !== undefined,
   });
   const environment = useQuery({
     ...environmentOptions(sessionId ?? "pending"),
-    enabled: sessionId !== undefined,
+    enabled: environmentEnabled,
   });
   const messages = useQuery({
     ...sessionMessagesOptions(sessionId ?? "pending"),
@@ -282,7 +300,7 @@ export function WorkbenchSurface() {
   });
   const attachments = useQuery({
     ...sessionAttachmentsOptions(sessionId ?? "pending"),
-    enabled: sessionId !== undefined,
+    enabled: attachmentsEnabled,
   });
   const atQuery = activeAtQuery(prompt, composerCaret);
   const deferredAtQuery = useDeferredValue(atQuery?.query ?? "");
@@ -297,7 +315,7 @@ export function WorkbenchSurface() {
   ).filter((skill) => !selectedSkills.some((selected) => selected.id === skill.id));
   const events = useQuery({
     ...sessionEventsOptions(sessionId ?? "pending"),
-    enabled: sessionId !== undefined,
+    enabled: eventsEnabled,
   });
   const activeMessages = useMemo(
     () => projectActiveMessageTimeline(messages.data?.messages ?? []),
@@ -354,7 +372,13 @@ export function WorkbenchSurface() {
     sessionId === undefined ? retainedLatestRun?.id : startedRuns[sessionId] ?? retainedLatestRun?.id;
   const locallyStartedRunSelected =
     sessionId !== undefined && startedRuns[sessionId] === selectedRunId;
-  const stream = useRunEventStream(selectedRunId, 0, !locallyStartedRunSelected);
+  const streamStore = useRunEventStreamStore(
+    selectedRunId,
+    0,
+    !locallyStartedRunSelected,
+  );
+  const streamSelector = useMemo(createWorkbenchRunStreamSelector, []);
+  const stream = useRunEventStreamSelector(streamStore, streamSelector);
 
   useEffect(() => {
     if (sessionId === undefined || typeof globalThis.EventSource !== "function") {
