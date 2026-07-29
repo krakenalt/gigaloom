@@ -15,7 +15,10 @@ const approvalPreview = readFileSync(
   fileURLToPath(new URL("./inspectors/InspectorFrame.tsx", import.meta.url)),
   "utf8",
 );
-const api = readFileSync(fileURLToPath(new URL("./api.ts", import.meta.url)), "utf8");
+const environmentApi = readFileSync(
+  fileURLToPath(new URL("./api/environment.ts", import.meta.url)),
+  "utf8",
+);
 const styles = readFileSync(fileURLToPath(new URL("./styles.css", import.meta.url)), "utf8");
 
 describe("governed Environment push flow", () => {
@@ -31,7 +34,7 @@ describe("governed Environment push flow", () => {
     expect(approvalPreview).toContain("PushApprovalPreview");
     expect(approvalPreview).toContain("preview?.remote_head");
     expect(approvalPreview).toContain("permissionRecord");
-    expect(api).toContain("force_update: boolean");
+    expect(environmentApi).toContain("force_update: boolean");
   });
 
   it("links the exact remote commit and run evidence after completion", () => {

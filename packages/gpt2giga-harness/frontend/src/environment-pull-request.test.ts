@@ -15,7 +15,10 @@ const approvalPreview = readFileSync(
   fileURLToPath(new URL("./inspectors/InspectorFrame.tsx", import.meta.url)),
   "utf8",
 );
-const api = readFileSync(fileURLToPath(new URL("./api.ts", import.meta.url)), "utf8");
+const environmentApi = readFileSync(
+  fileURLToPath(new URL("./api/environment.ts", import.meta.url)),
+  "utf8",
+);
 const styles = readFileSync(fileURLToPath(new URL("./styles.css", import.meta.url)), "utf8");
 
 describe("governed Environment pull-request flow", () => {
@@ -32,7 +35,7 @@ describe("governed Environment pull-request flow", () => {
     expect(approvalPreview).toContain("preview?.source_head");
     expect(approvalPreview).toContain("preview?.base_head");
     expect(approvalPreview).toContain("preview?.title");
-    expect(api).toContain("EnvironmentPullRequestPreview");
+    expect(environmentApi).toContain("EnvironmentPullRequestPreview");
   });
 
   it("links the exact PR, commit, checks, and run evidence", () => {
