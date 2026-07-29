@@ -115,7 +115,7 @@ def test_filesystem_store_persists_invocation_mode_on_runs(tmp_path):
     )
 
 
-def test_filesystem_store_updates_run_with_one_authoritative_log_scan(
+def test_filesystem_store_updates_run_with_one_authoritative_record_read(
     tmp_path, monkeypatch
 ):
     store = FilesystemHarnessSessionStore(tmp_path)
@@ -131,20 +131,24 @@ def test_filesystem_store_updates_run_with_one_authoritative_log_scan(
         workspace=None,
     )
     assert store.get_run(run.id) == run
-    original_read_jsonl = filesystem_runs._read_jsonl
-    scans = 0
+    original_read_run_state = filesystem_runs._read_run_state
+    reads = 0
 
-    def counted_read_jsonl(*args, **kwargs):
-        nonlocal scans
-        scans += 1
-        return original_read_jsonl(*args, **kwargs)
+    def counted_read_run_state(*args, **kwargs):
+        nonlocal reads
+        reads += 1
+        return original_read_run_state(*args, **kwargs)
 
-    monkeypatch.setattr(filesystem_runs, "_read_jsonl", counted_read_jsonl)
+    monkeypatch.setattr(
+        filesystem_runs,
+        "_read_run_state",
+        counted_read_run_state,
+    )
 
     updated = store.update_run(run.id, status="succeeded")
 
     assert updated.status.value == "succeeded"
-    assert scans == 1
+    assert reads == 1
 
 
 def test_filesystem_store_update_run_rebuilds_stale_session_lookup(tmp_path):

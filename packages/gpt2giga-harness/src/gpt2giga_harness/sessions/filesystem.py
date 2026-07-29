@@ -37,7 +37,7 @@ from gpt2giga_harness.sessions.models import (
 from gpt2giga_harness.sessions.storage.filesystem.catalog import SessionLocator
 from gpt2giga_harness.sessions.storage.filesystem.runs import (
     RUNS_FILE,
-    LegacyJsonlRunRepository,
+    FilesystemRunRepository,
     RunRepository,
 )
 from gpt2giga_harness.sessions.locking import exclusive_file_lock
@@ -113,7 +113,7 @@ class FilesystemHarnessSessionStore(FilesystemSessionQueryMixin):
         )
         self._read_index_lock = threading.RLock()
         self.event_broker = RunEventBroker()
-        self._run_repository: RunRepository = LegacyJsonlRunRepository(
+        self._run_repository: RunRepository = FilesystemRunRepository(
             session_dir=self._session_dir,
             current_read_index=lambda: self._read_index,
             read_index=self._session_read_index,
@@ -240,6 +240,17 @@ class FilesystemHarnessSessionStore(FilesystemSessionQueryMixin):
     ) -> FilesystemRecordPage:
         """Read a bounded cursor page without scanning preceding history."""
         self.get_session(session_id)
+        bounded_limit = min(max(limit, 1), 100)
+        bounded_bytes = min(max(max_bytes, 1024), 1024 * 1024)
+        if record_type == "runs":
+            return self._list_run_record_page(
+                session_id,
+                projector=projector,
+                offset=offset,
+                snapshot_revision=snapshot_revision,
+                limit=bounded_limit,
+                max_bytes=bounded_bytes,
+            )
         filename, parser = _RECORD_PAGE_TYPES.get(record_type, (None, None))
         if filename is None or parser is None:
             raise ValueError(f"unsupported session record type: {record_type}")
@@ -247,8 +258,6 @@ class FilesystemHarnessSessionStore(FilesystemSessionQueryMixin):
         revision = _record_snapshot_revision(path)
         if snapshot_revision is not None and snapshot_revision != revision:
             raise StaleReadSnapshotError(f"{record_type} cursor snapshot is stale")
-        bounded_limit = min(max(limit, 1), 100)
-        bounded_bytes = min(max(max_bytes, 1024), 1024 * 1024)
         if not path.exists():
             return FilesystemRecordPage((), None, False, revision, 0)
         items: list[dict[str, Any]] = []
@@ -297,6 +306,51 @@ class FilesystemHarnessSessionStore(FilesystemSessionQueryMixin):
             next_offset if has_more else None,
             has_more,
             revision,
+            byte_count,
+        )
+
+    def _list_run_record_page(
+        self,
+        session_id: str,
+        *,
+        projector: Callable[[Any], dict[str, Any]],
+        offset: int,
+        snapshot_revision: str | None,
+        limit: int,
+        max_bytes: int,
+    ) -> FilesystemRecordPage:
+        page = self._run_repository.list_page(
+            session_id,
+            offset=offset,
+            snapshot_revision=snapshot_revision,
+            limit=limit,
+        )
+        items: list[dict[str, Any]] = []
+        byte_count = 0
+        has_more = page.has_more
+        next_offset = page.next_offset
+        for entry in page.items:
+            projected = projector(entry.run)
+            projected_bytes = len(
+                json.dumps(
+                    projected,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            )
+            if items and byte_count + projected_bytes > max_bytes:
+                has_more = True
+                next_offset = entry.offset
+                break
+            if projected_bytes > max_bytes:
+                raise ValueError("projected record exceeds the response byte limit")
+            items.append(projected)
+            byte_count += projected_bytes
+        return FilesystemRecordPage(
+            tuple(items),
+            next_offset if has_more else None,
+            has_more,
+            page.snapshot_revision,
             byte_count,
         )
 
