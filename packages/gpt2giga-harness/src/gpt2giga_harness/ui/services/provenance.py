@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from gpt2giga_harness.config import HarnessConfig
 from gpt2giga_harness.provenance import build_run_provenance
 from gpt2giga_harness.registry import HarnessRegistry
+from gpt2giga_harness.reviewed_evidence import reviewed_evidence_manifest
 from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
 from gpt2giga_harness.sessions import HarnessSessionStore
 from gpt2giga_harness.sessions.models import HarnessRun
@@ -35,3 +38,22 @@ def _build_current_run_provenance(
         else (),
         data_dir=config.data_dir,
     )
+
+
+def _reviewed_evidence_for_run(
+    runtime_store: RuntimeCoordinationStore | None, run_id: str
+) -> dict[str, Any] | None:
+    if runtime_store is None:
+        return None
+    return reviewed_evidence_manifest(
+        run_id, runtime_store.list_policy_audit_events(run_id=run_id)
+    )
+
+
+def _latest_raw_request_for_run(store: HarnessSessionStore, run: HarnessRun):
+    records = [
+        record
+        for record in store.list_raw_requests(run.session_id)
+        if record.run_id == run.id
+    ]
+    return records[-1] if records else None

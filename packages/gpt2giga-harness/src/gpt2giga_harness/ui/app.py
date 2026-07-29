@@ -12,23 +12,6 @@ from typing import Any, Mapping
 from fastapi import Body, FastAPI, Header, HTTPException, Query
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from gpt2giga_harness.arena import (
-    ArenaNotFoundError,
-    ArenaReviewConflictError,
-    HarnessArenaChildRun,
-    arena_has_verdict,
-    continue_arena,
-    queue_arena,
-    queue_arena_follow_up,
-    record_arena_verdict,
-    run_arena,
-)
-from gpt2giga_harness.attachments import (
-    AttachmentNotFoundError,
-    AttachmentSessionNotFoundError,
-    AttachmentValidationError,
-)
-from gpt2giga_harness.attachments.limits import normalize_workspace_file
 from gpt2giga_harness.config import (
     HarnessConfig,
 )
@@ -64,9 +47,6 @@ from gpt2giga_harness.preflight import (
     build_preflight_report,
     format_preflight_block_message,
 )
-from gpt2giga_harness.project import (
-    resolve_project,
-)
 from gpt2giga_harness.provenance import (
     build_replay_request,
     run_provenance_to_dict,
@@ -77,7 +57,6 @@ from gpt2giga_harness.provider_account_sessions import (
 from gpt2giga_harness.provider_authentication_broker import NativeLoginBroker
 from gpt2giga_harness.provider_settings import ProviderSettingsService
 from gpt2giga_harness.registry import HarnessRegistry
-from gpt2giga_harness.reviewed_evidence import reviewed_evidence_manifest
 from gpt2giga_harness.runtime.models import job_to_dict
 from gpt2giga_harness.runtime.policy import (
     INTERACTIVE_PROFILE,
@@ -138,6 +117,12 @@ from gpt2giga_harness.ui.remote_identity import (
 )
 from gpt2giga_harness.ui.routers.agents import router as agents_router
 from gpt2giga_harness.ui.routers.approvals import router as approvals_router
+from gpt2giga_harness.ui.routers.arena import (
+    create_router as create_arena_router,
+)
+from gpt2giga_harness.ui.routers.attachments import (
+    create_router as create_attachments_router,
+)
 from gpt2giga_harness.ui.routers.automation import router as automation_router
 from gpt2giga_harness.ui.routers.catalog import create_router as create_catalog_router
 from gpt2giga_harness.ui.routers.cockpit import router as cockpit_router
@@ -199,66 +184,17 @@ from gpt2giga_harness.ui.security import (
     is_loopback_host,
 )
 from gpt2giga_harness.ui.services import ActiveHeadlessRun
-from gpt2giga_harness.ui.services.arena import (
-    arena_response as _arena_response,
-)
-from gpt2giga_harness.ui.services.arena import (
-    arena_summary_response as _arena_summary_response,
-)
-from gpt2giga_harness.ui.services.arena import (
-    bounded_arena_workspace_paths as _bounded_arena_workspace_paths,
-)
-from gpt2giga_harness.ui.services.arena import (
-    first_text as _first_text,
-)
-from gpt2giga_harness.ui.services.attachments import (
-    attachment_limits as _attachment_limits,
-)
-from gpt2giga_harness.ui.services.attachments import (
-    attachment_response as _attachment_response,
-)
-from gpt2giga_harness.ui.services.attachments import (
-    attachment_workspace as _attachment_workspace,
-)
-from gpt2giga_harness.ui.services.attachments import (
-    content_disposition as _content_disposition,
-)
-from gpt2giga_harness.ui.services.attachments import (
-    decode_attachment_payload as _decode_attachment_payload,
-)
-from gpt2giga_harness.ui.services.attachments import (
-    metadata_mapping as _metadata_mapping,
-)
-from gpt2giga_harness.ui.services.attachments import (
-    session_project_id as _session_project_id,
-)
-from gpt2giga_harness.ui.services.attachments import (
-    workspace_api_root as _workspace_api_root,
-)
-from gpt2giga_harness.ui.services.attachments import (
-    workspace_limits as _workspace_limits,
-)
 from gpt2giga_harness.ui.services.lifecycle import create_app_lifespan
 from gpt2giga_harness.ui.services.navigation import (
     session_summary as _session_summary,
 )
 from gpt2giga_harness.ui.services.provenance import (
     _build_current_run_provenance,
+    _latest_raw_request_for_run,
+    _reviewed_evidence_for_run,
 )
 from gpt2giga_harness.ui.services.request_values import (
     optional_text as _optional_text,
-)
-from gpt2giga_harness.ui.services.request_values import (
-    required_text as _required_text,
-)
-from gpt2giga_harness.ui.streaming.events import (
-    arena_events as _arena_events,
-)
-from gpt2giga_harness.ui.streaming.events import (
-    arena_sse_event as _arena_sse_event,
-)
-from gpt2giga_harness.ui.streaming.events import (
-    arena_status_is_terminal as _arena_status_is_terminal,
 )
 from gpt2giga_harness.ui.streaming.events import (
     encode_run_stream_cursor as _encode_run_stream_cursor,
@@ -280,8 +216,6 @@ from gpt2giga_harness.ui.streaming.events import (
 )
 from gpt2giga_harness.workspace import (
     resolve_workspace,
-    workspace_file_metadata,
-    workspace_tree,
 )
 from gpt2giga_harness.worktrees import (
     WorktreeConflictError,
@@ -295,8 +229,6 @@ from gpt2giga_harness.worktrees import (
 
 RUN_EVENT_STREAM_HEARTBEAT_SECONDS = 15.0
 RUN_EVENT_STREAM_POLL_SECONDS = 0.1
-TUI_FILE_PREVIEW_BYTES = 8 * 1024
-TUI_FILE_PREVIEW_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 TUI_NAVIGATION_TERMINAL_RE = re.compile(
     r"\x1b(?:\][^\x07\x1b]*(?:\x07|\x1b\\)?|P.*?(?:\x1b\\|$)|\[[0-?]*[ -/]*[@-~]|[@-_])",
     re.DOTALL,
@@ -353,8 +285,6 @@ def create_app(
     native_registry = services.native_registry
     native_index_store = services.native_index_store
     native_process_manager = services.native_process_manager
-    attachment_store = services.attachment_store
-    arena_store = services.arena_store
     runner = services.session_runner
     durable_dispatcher = services.job_dispatcher
     session_service = services.session_service
@@ -459,228 +389,6 @@ def create_app(
                 "approval": approval_request_to_dict(approval),
             },
         )
-
-    @app.post("/api/sessions/{session_id}/attachments")
-    def create_attachment(
-        session_id: str,
-        payload: dict[str, Any] = Body(...),
-    ) -> dict[str, Any]:
-        try:
-            session = store.get_session(session_id)
-            attachment = attachment_store.create_upload(
-                session_id=session.id,
-                project_id=_session_project_id(session),
-                filename=str(payload.get("filename") or ""),
-                data=_decode_attachment_payload(payload.get("data_base64")),
-                mime_type=_optional_text(payload.get("mime_type")),
-                source=_optional_text(payload.get("source")) or "upload",
-                metadata=_metadata_mapping(payload.get("metadata")),
-                limits=_attachment_limits(session),
-            )
-        except (SessionNotFoundError, AttachmentSessionNotFoundError) as exc:
-            raise HTTPException(status_code=404, detail="Session not found") from exc
-        except (AttachmentValidationError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"attachment": _attachment_response(registry, attachment)}
-
-    @app.post("/api/sessions/{session_id}/attachments/workspace")
-    def create_workspace_attachment(
-        session_id: str,
-        payload: dict[str, Any] = Body(...),
-    ) -> dict[str, Any]:
-        try:
-            session = store.get_session(session_id)
-            workspace_root = _attachment_workspace(session, payload)
-            attachment = attachment_store.create_workspace_reference(
-                session_id=session.id,
-                project_id=_session_project_id(session)
-                or resolve_project(workspace_root, data_dir=config.data_dir).id,
-                workspace_root=workspace_root,
-                path=_required_text(payload.get("path"), "path is required"),
-                mime_type=_optional_text(payload.get("mime_type")),
-                metadata=_metadata_mapping(payload.get("metadata")),
-                limits=_attachment_limits(session, workspace_root=workspace_root),
-            )
-        except (SessionNotFoundError, AttachmentSessionNotFoundError) as exc:
-            raise HTTPException(status_code=404, detail="Session not found") from exc
-        except (AttachmentValidationError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"attachment": _attachment_response(registry, attachment)}
-
-    @app.get("/api/sessions/{session_id}/attachments/workspace/search")
-    def search_session_workspace_attachments(
-        session_id: str,
-        q: str | None = Query(default=None),
-        limit: int = Query(default=20, ge=1, le=50),
-    ) -> dict[str, Any]:
-        """Return bounded safe attachment candidates for one session workspace."""
-        try:
-            session = store.get_session(session_id)
-            workspace_root = _attachment_workspace(session, {})
-            files = workspace_tree(
-                workspace_root,
-                query=q,
-                limits=_attachment_limits(session, workspace_root=workspace_root),
-                result_limit=limit,
-            )
-        except SessionNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Session not found") from exc
-        except (AttachmentValidationError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "q": _optional_text(q) or "",
-            "files": files,
-            "bounded": True,
-        }
-
-    @app.get("/api/sessions/{session_id}/attachments/workspace/preview")
-    def preview_session_workspace_attachment(
-        session_id: str,
-        path: str = Query(min_length=1),
-    ) -> dict[str, Any]:
-        """Return a bounded terminal-safe text preview for one safe candidate."""
-        try:
-            session = store.get_session(session_id)
-            workspace_root = _attachment_workspace(session, {})
-            limits = _attachment_limits(session, workspace_root=workspace_root)
-            metadata = workspace_file_metadata(
-                workspace_root,
-                path,
-                limits=limits,
-            )
-            preview = {
-                "status": "unsupported",
-                "text": "Preview is unavailable for this file type.",
-                "truncated": False,
-            }
-            if metadata["kind"] == "text":
-                resolved, _relative = normalize_workspace_file(
-                    workspace_root, path, limits
-                )
-                raw = resolved.read_bytes()[: TUI_FILE_PREVIEW_BYTES + 1]
-                text = raw[:TUI_FILE_PREVIEW_BYTES].decode("utf-8", errors="replace")
-                truncated = len(raw) > TUI_FILE_PREVIEW_BYTES
-                preview = {
-                    "status": "truncated" if truncated else "ready",
-                    "text": TUI_FILE_PREVIEW_CONTROL_RE.sub("�", text).replace(
-                        "\r", ""
-                    ),
-                    "truncated": truncated,
-                }
-        except SessionNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Session not found") from exc
-        except (AttachmentValidationError, OSError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"file": metadata, "preview": preview, "bounded": True}
-
-    @app.get("/api/sessions/{session_id}/attachments")
-    def session_attachments(session_id: str) -> dict[str, Any]:
-        try:
-            store.get_session(session_id)
-            attachments = attachment_store.list_session_attachments(session_id)
-        except (SessionNotFoundError, AttachmentSessionNotFoundError) as exc:
-            raise HTTPException(status_code=404, detail="Session not found") from exc
-        return {
-            "attachments": [
-                _attachment_response(registry, attachment) for attachment in attachments
-            ]
-        }
-
-    @app.get("/api/attachments/{attachment_id}/metadata")
-    def attachment_metadata(attachment_id: str) -> dict[str, Any]:
-        try:
-            attachment = attachment_store.get_attachment(attachment_id)
-        except AttachmentNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Attachment not found") from exc
-        return {"attachment": _attachment_response(registry, attachment)}
-
-    @app.get("/api/attachments/{attachment_id}")
-    def attachment_blob(attachment_id: str) -> Response:
-        try:
-            attachment = attachment_store.get_attachment(attachment_id)
-            if attachment.storage_path:
-                data = attachment_store.read_blob(attachment_id)
-            elif attachment.workspace_path and attachment.mime_type.startswith(
-                "image/"
-            ):
-                session = store.get_session(attachment.session_id)
-                workspace_root = _attachment_workspace(session, {})
-                resolved, _relative = normalize_workspace_file(
-                    workspace_root,
-                    attachment.workspace_path,
-                    _attachment_limits(session, workspace_root=workspace_root),
-                )
-                data = resolved.read_bytes()
-            else:
-                raise AttachmentValidationError("Attachment has no stored blob")
-        except AttachmentNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Attachment not found") from exc
-        except SessionNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Session not found") from exc
-        except OSError as exc:
-            raise HTTPException(
-                status_code=400,
-                detail="Attachment content is unavailable",
-            ) from exc
-        except (AttachmentValidationError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return Response(
-            content=data,
-            media_type=attachment.mime_type,
-            headers={
-                "Content-Disposition": _content_disposition(attachment.filename),
-                "X-GPT2GIGA-Attachment-Id": attachment.id,
-            },
-        )
-
-    @app.delete("/api/attachments/{attachment_id}")
-    def delete_attachment(attachment_id: str) -> dict[str, Any]:
-        try:
-            attachment_store.delete_attachment(attachment_id)
-        except AttachmentNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Attachment not found") from exc
-        return {"deleted": True}
-
-    @app.get("/api/workspace/tree")
-    def workspace_tree_endpoint(
-        workspace: str | None = Query(default=None),
-        q: str | None = Query(default=None),
-        limit: int = Query(default=50, ge=1, le=200),
-    ) -> dict[str, Any]:
-        try:
-            workspace_root = _workspace_api_root(workspace, config.data_dir)
-            files = workspace_tree(
-                workspace_root,
-                query=q,
-                limits=_workspace_limits(workspace_root),
-                result_limit=limit,
-            )
-        except (AttachmentValidationError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "workspace": workspace_root,
-            "q": _optional_text(q) or "",
-            "files": files,
-        }
-
-    @app.get("/api/workspace/file/metadata")
-    def workspace_file_metadata_endpoint(
-        workspace: str | None = Query(default=None),
-        path: str = Query(...),
-    ) -> dict[str, Any]:
-        try:
-            workspace_root = _workspace_api_root(workspace, config.data_dir)
-            metadata = workspace_file_metadata(
-                workspace_root,
-                path,
-                limits=_workspace_limits(workspace_root),
-            )
-        except (AttachmentValidationError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {
-            "workspace": workspace_root,
-            "file": metadata,
-        }
 
     async def _start_headless_run(
         session_id: str,
@@ -1400,332 +1108,6 @@ def create_app(
             ]
         }
 
-    @app.get("/api/arena/runs")
-    def list_arena_runs(
-        workspace: str | None = Query(default=None),
-        limit: int = Query(default=20, ge=1, le=100),
-    ) -> dict[str, Any]:
-        resolved_workspace = resolve_workspace(_optional_text(workspace))
-        arenas = arena_store.list(workspace=resolved_workspace, limit=limit)
-        return {"arenas": [_arena_summary_response(arena) for arena in arenas]}
-
-    @app.post("/api/arena/runs")
-    async def create_arena_run(
-        payload: dict[str, Any] = Body(...),
-    ) -> dict[str, Any]:
-        try:
-            payload = dict(payload)
-            if not str(payload.get("prompt") or "").strip():
-                raise ValueError("prompt is required")
-            if _first_text(payload.get("harness_ids")) is None:
-                raise ValueError("harness_ids must contain at least one harness")
-            workspace_paths = _bounded_arena_workspace_paths(
-                payload.pop("workspace_paths", None)
-            )
-            session_id = _optional_text(payload.get("session_id"))
-            if workspace_paths and session_id is None:
-                session = runner.create_session(
-                    title=title_from_prompt(str(payload.get("prompt") or "")),
-                    workspace=_optional_text(payload.get("workspace")),
-                    default_harness_id=_first_text(payload.get("harness_ids"))
-                    or "echo",
-                    default_model=_optional_text(payload.get("model")),
-                    default_api_mode=payload.get("api_mode"),
-                    default_mode=str(payload.get("mode") or "plan"),
-                )
-                session_id = session.id
-                payload["session_id"] = session_id
-            if workspace_paths:
-                session = store.get_session(session_id or "")
-                workspace_root = _attachment_workspace(session, payload)
-                attachment_ids = [
-                    attachment_store.create_workspace_reference(
-                        session_id=session.id,
-                        project_id=_session_project_id(session)
-                        or resolve_project(workspace_root, data_dir=config.data_dir).id,
-                        workspace_root=workspace_root,
-                        path=path,
-                        metadata={"arena_shared": True},
-                        limits=_attachment_limits(
-                            session, workspace_root=workspace_root
-                        ),
-                    ).id
-                    for path in workspace_paths
-                ]
-                payload["attachment_ids"] = attachment_ids
-            arena_runner = queue_arena if durable_dispatcher is not None else run_arena
-            arena = await run_in_threadpool(
-                arena_runner,
-                runner=runner,
-                arena_store=arena_store,
-                payload=payload,
-                session_id=_optional_text(payload.get("session_id")),
-                **(
-                    {"dispatcher": durable_dispatcher}
-                    if durable_dispatcher is not None
-                    else {}
-                ),
-            )
-        except SessionNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Session not found") from exc
-        except (AttachmentValidationError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return await run_in_threadpool(_arena_response, arena, store)
-
-    @app.get("/api/arena/runs/{arena_id}")
-    def get_arena_run(arena_id: str) -> dict[str, Any]:
-        try:
-            arena = arena_store.get(arena_id)
-        except ArenaNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Arena run not found") from exc
-        return _arena_response(arena, store)
-
-    @app.post("/api/arena/runs/{arena_id}/turns")
-    async def create_arena_follow_up(
-        arena_id: str,
-        payload: dict[str, Any] = Body(...),
-    ) -> dict[str, Any]:
-        try:
-            arena = await run_in_threadpool(arena_store.get, arena_id)
-            if arena_has_verdict(arena):
-                raise ArenaReviewConflictError(
-                    "arena verdict is immutable; start a new comparison"
-                )
-            payload = dict(payload)
-            if not str(payload.get("prompt") or "").strip():
-                raise ValueError("prompt is required")
-            workspace_paths = _bounded_arena_workspace_paths(
-                payload.pop("workspace_paths", None)
-            )
-            if workspace_paths:
-                session = await run_in_threadpool(store.get_session, arena.session_id)
-                workspace_root = _attachment_workspace(session, payload)
-
-                def create_shared_attachments() -> list[str]:
-                    return [
-                        attachment_store.create_workspace_reference(
-                            session_id=session.id,
-                            project_id=_session_project_id(session)
-                            or resolve_project(
-                                workspace_root, data_dir=config.data_dir
-                            ).id,
-                            workspace_root=workspace_root,
-                            path=path,
-                            metadata={"arena_shared": True, "arena_id": arena.id},
-                            limits=_attachment_limits(
-                                session, workspace_root=workspace_root
-                            ),
-                        ).id
-                        for path in workspace_paths
-                    ]
-
-                payload["attachment_ids"] = await run_in_threadpool(
-                    create_shared_attachments
-                )
-            follow_up_runner = (
-                queue_arena_follow_up
-                if durable_dispatcher is not None
-                else continue_arena
-            )
-            arena = await run_in_threadpool(
-                follow_up_runner,
-                runner=runner,
-                arena_store=arena_store,
-                arena=arena,
-                payload=payload,
-                **(
-                    {"dispatcher": durable_dispatcher}
-                    if durable_dispatcher is not None
-                    else {}
-                ),
-            )
-        except ArenaNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Arena run not found") from exc
-        except ArenaReviewConflictError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        except (AttachmentValidationError, SessionNotFoundError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return await run_in_threadpool(_arena_response, arena, store)
-
-    @app.post("/api/arena/runs/{arena_id}/verdict")
-    def create_arena_verdict(
-        arena_id: str,
-        payload: dict[str, Any] = Body(...),
-    ) -> dict[str, Any]:
-        try:
-            arena = arena_store.get(arena_id)
-            arena = record_arena_verdict(
-                arena_store=arena_store,
-                session_store=store,
-                arena=arena,
-                payload=payload,
-            )
-        except ArenaNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Arena run not found") from exc
-        except ArenaReviewConflictError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return _arena_response(arena, store)
-
-    @app.post("/api/arena/runs/{arena_id}/children/{child_index}/retry")
-    async def retry_arena_child(
-        arena_id: str,
-        child_index: int,
-    ) -> dict[str, Any]:
-        try:
-            arena = await run_in_threadpool(arena_store.get, arena_id)
-            if arena_has_verdict(arena):
-                raise ArenaReviewConflictError(
-                    "arena verdict is immutable; start a new comparison"
-                )
-            child = next(item for item in arena.child_runs if item.index == child_index)
-            if child.run_id is None or child.session_id is None:
-                raise ValueError("arena child has not started")
-            source_run = await run_in_threadpool(store.get_run, child.run_id)
-            raw_request = await run_in_threadpool(
-                _latest_raw_request_for_run, store, source_run
-            )
-            replay_payload = build_replay_request(
-                source_run,
-                raw_request=raw_request,
-                reviewed_evidence=_reviewed_evidence_for_run(
-                    runtime_store, source_run.id
-                ),
-            )
-            if source_run.status.value in {"queued", "running", "retry_wait"}:
-                raise ValueError("arena child is still active")
-            replay_payload["extra"] = {
-                **dict(replay_payload.get("extra") or {}),
-                "arena": {
-                    "arena_id": arena.id,
-                    "child_index": child.index,
-                    "child_count": len(arena.harness_ids),
-                    "parent_session_id": arena.session_id,
-                    "turn_index": max(int(arena.metadata.get("turn_count") or 0), 0),
-                },
-            }
-            target_session_id = child.session_id
-            if (
-                replay_payload.get("execution_transport")
-                == ExecutionTransport.NATIVE_STRUCTURED.value
-            ):
-                if durable_dispatcher is None:
-                    raise ValueError(
-                        "native_structured Arena retry requires the durable runtime"
-                    )
-                if source_run.mode == "edit":
-                    replay_payload["workspace_policy"] = "worktree"
-                retry_session = runner.create_session(
-                    title=f"Arena retry: {title_from_prompt(source_run.prompt)}",
-                    workspace=source_run.workspace,
-                    default_harness_id=source_run.harness_id,
-                    default_model=source_run.model,
-                    default_api_mode=source_run.api_mode,
-                    default_mode=source_run.mode,
-                )
-                retry_session = store.update_session(
-                    retry_session.id,
-                    metadata={
-                        **dict(retry_session.metadata),
-                        "arena_retry_source_run_id": source_run.id,
-                        "arena_id": arena.id,
-                        "arena_child_index": child.index,
-                    },
-                )
-                target_session_id = retry_session.id
-            if durable_dispatcher is not None:
-                submission = await run_in_threadpool(
-                    durable_dispatcher.submit,
-                    target_session_id,
-                    replay_payload,
-                    idempotency_key=(
-                        f"arena:{arena.id}:{child.index}:retry:{source_run.id}"
-                    ),
-                    origin="manual",
-                )
-                replacement = HarnessArenaChildRun(
-                    harness_id=child.harness_id,
-                    index=child.index,
-                    session_id=target_session_id,
-                    run_id=submission.queued.run.id,
-                    status="queued",
-                )
-            else:
-                result = await run_in_threadpool(
-                    runner.run_in_session, target_session_id, replay_payload
-                )
-                replacement = HarnessArenaChildRun(
-                    harness_id=child.harness_id,
-                    index=child.index,
-                    session_id=target_session_id,
-                    run_id=result.run.id,
-                    status=result.run.status.value,
-                    error=result.run.error,
-                    result_text=(
-                        result.result.text
-                        if result.run.status.value == "succeeded"
-                        else None
-                    ),
-                )
-            arena = arena_store.upsert_child(arena.id, replacement)
-        except ArenaNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Arena run not found") from exc
-        except ArenaReviewConflictError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        except (RunNotFoundError, StopIteration) as exc:
-            raise HTTPException(
-                status_code=404, detail="Arena child not found"
-            ) from exc
-        except (SessionNotFoundError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return await run_in_threadpool(_arena_response, arena, store)
-
-    @app.get("/api/arena/runs/{arena_id}/events/stream")
-    async def arena_events_stream(
-        arena_id: str,
-        after_id: str | None = Query(default=None),
-    ) -> StreamingResponse:
-        try:
-            await run_stream_offload(arena_store.get, arena_id)
-        except ArenaNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Arena run not found") from exc
-
-        async def stream_events():
-            last_id = _optional_text(after_id)
-
-            def poll_stream(cursor_value: str | None):
-                current_arena = arena_store.get(arena_id)
-                events = _arena_events(
-                    current_arena,
-                    store,
-                    after_id=cursor_value,
-                )
-                return current_arena, events
-
-            while True:
-                try:
-                    current_arena, events = await run_stream_offload(
-                        poll_stream, last_id
-                    )
-                except ArenaNotFoundError:
-                    break
-                for child, event in events:
-                    last_id = event.id
-                    yield _arena_sse_event(current_arena, child, event)
-                if _arena_status_is_terminal(current_arena.status) and not events:
-                    break
-                await asyncio.sleep(0.25)
-
-        return StreamingResponse(
-            stream_events(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "X-Accel-Buffering": "no",
-            },
-        )
-
     @app.post("/api/run")
     def run(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
         harness_id = str(payload.get("harness_id") or "echo")
@@ -1812,6 +1194,8 @@ def create_app(
     app.include_router(create_project_tools_router(services))
     app.include_router(create_evals_router(services))
     app.include_router(create_session_catalog_router(services))
+    app.include_router(create_attachments_router(services))
+    app.include_router(create_arena_router(services))
     app.include_router(create_native_sessions_router(services))
     app.include_router(
         create_native_process_start_router(
@@ -1870,30 +1254,6 @@ def validate_ui_bind(
         raise ValueError(
             f"Refusing to bind GigaLoom UI to non-loopback host {config.ui_host}. {exc}"
         ) from exc
-
-
-def _reviewed_evidence_for_run(
-    runtime_store: RuntimeCoordinationStore | None,
-    run_id: str,
-) -> dict[str, Any] | None:
-    if runtime_store is None:
-        return None
-    return reviewed_evidence_manifest(
-        run_id,
-        runtime_store.list_policy_audit_events(run_id=run_id),
-    )
-
-
-def _latest_raw_request_for_run(
-    store: HarnessSessionStore,
-    run: HarnessRun,
-):
-    records = [
-        record
-        for record in store.list_raw_requests(run.session_id)
-        if record.run_id == run.id
-    ]
-    return records[-1] if records else None
 
 
 def _fork_session_from_run(

@@ -1,0 +1,274 @@
+"""Attachments domain routes."""
+
+from __future__ import annotations
+
+import re
+from typing import Any
+
+from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi.responses import Response
+
+from gpt2giga_harness.attachments import (
+    AttachmentNotFoundError,
+    AttachmentSessionNotFoundError,
+    AttachmentValidationError,
+)
+from gpt2giga_harness.attachments.limits import normalize_workspace_file
+from gpt2giga_harness.project import resolve_project
+from gpt2giga_harness.sessions import (
+    SessionNotFoundError,
+)
+from gpt2giga_harness.ui.async_execution import (
+    ConformantAPIRoute,
+)
+from gpt2giga_harness.ui.container import AppServices
+from gpt2giga_harness.ui.services.attachments import (
+    attachment_limits as _attachment_limits,
+)
+from gpt2giga_harness.ui.services.attachments import (
+    attachment_response as _attachment_response,
+)
+from gpt2giga_harness.ui.services.attachments import (
+    attachment_workspace as _attachment_workspace,
+)
+from gpt2giga_harness.ui.services.attachments import (
+    content_disposition as _content_disposition,
+)
+from gpt2giga_harness.ui.services.attachments import (
+    decode_attachment_payload as _decode_attachment_payload,
+)
+from gpt2giga_harness.ui.services.attachments import (
+    metadata_mapping as _metadata_mapping,
+)
+from gpt2giga_harness.ui.services.attachments import (
+    session_project_id as _session_project_id,
+)
+from gpt2giga_harness.ui.services.attachments import (
+    workspace_api_root as _workspace_api_root,
+)
+from gpt2giga_harness.ui.services.attachments import (
+    workspace_limits as _workspace_limits,
+)
+from gpt2giga_harness.ui.services.request_values import optional_text as _optional_text
+from gpt2giga_harness.ui.services.request_values import required_text as _required_text
+from gpt2giga_harness.workspace import (
+    workspace_file_metadata,
+    workspace_tree,
+)
+
+TUI_FILE_PREVIEW_BYTES = 8 * 1024
+TUI_FILE_PREVIEW_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
+
+
+def create_router(services: AppServices) -> APIRouter:
+    """Create the attachments router."""
+    router = APIRouter(route_class=ConformantAPIRoute)
+
+    @router.post("/api/sessions/{session_id}/attachments")
+    def create_attachment(
+        session_id: str, payload: dict[str, Any] = Body(...)
+    ) -> dict[str, Any]:
+        try:
+            session = services.session_store.get_session(session_id)
+            attachment = services.attachment_store.create_upload(
+                session_id=session.id,
+                project_id=_session_project_id(session),
+                filename=str(payload.get("filename") or ""),
+                data=_decode_attachment_payload(payload.get("data_base64")),
+                mime_type=_optional_text(payload.get("mime_type")),
+                source=_optional_text(payload.get("source")) or "upload",
+                metadata=_metadata_mapping(payload.get("metadata")),
+                limits=_attachment_limits(session),
+            )
+        except (SessionNotFoundError, AttachmentSessionNotFoundError) as exc:
+            raise HTTPException(status_code=404, detail="Session not found") from exc
+        except (AttachmentValidationError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"attachment": _attachment_response(services.registry, attachment)}
+
+    @router.post("/api/sessions/{session_id}/attachments/workspace")
+    def create_workspace_attachment(
+        session_id: str, payload: dict[str, Any] = Body(...)
+    ) -> dict[str, Any]:
+        try:
+            session = services.session_store.get_session(session_id)
+            workspace_root = _attachment_workspace(session, payload)
+            attachment = services.attachment_store.create_workspace_reference(
+                session_id=session.id,
+                project_id=_session_project_id(session)
+                or resolve_project(
+                    workspace_root, data_dir=services.config.data_dir
+                ).id,
+                workspace_root=workspace_root,
+                path=_required_text(payload.get("path"), "path is required"),
+                mime_type=_optional_text(payload.get("mime_type")),
+                metadata=_metadata_mapping(payload.get("metadata")),
+                limits=_attachment_limits(session, workspace_root=workspace_root),
+            )
+        except (SessionNotFoundError, AttachmentSessionNotFoundError) as exc:
+            raise HTTPException(status_code=404, detail="Session not found") from exc
+        except (AttachmentValidationError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"attachment": _attachment_response(services.registry, attachment)}
+
+    @router.get("/api/sessions/{session_id}/attachments/workspace/search")
+    def search_session_workspace_attachments(
+        session_id: str,
+        q: str | None = Query(default=None),
+        limit: int = Query(default=20, ge=1, le=50),
+    ) -> dict[str, Any]:
+        """Return bounded safe attachment candidates for one session workspace."""
+        try:
+            session = services.session_store.get_session(session_id)
+            workspace_root = _attachment_workspace(session, {})
+            files = workspace_tree(
+                workspace_root,
+                query=q,
+                limits=_attachment_limits(session, workspace_root=workspace_root),
+                result_limit=limit,
+            )
+        except SessionNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Session not found") from exc
+        except (AttachmentValidationError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"q": _optional_text(q) or "", "files": files, "bounded": True}
+
+    @router.get("/api/sessions/{session_id}/attachments/workspace/preview")
+    def preview_session_workspace_attachment(
+        session_id: str, path: str = Query(min_length=1)
+    ) -> dict[str, Any]:
+        """Return a bounded terminal-safe text preview for one safe candidate."""
+        try:
+            session = services.session_store.get_session(session_id)
+            workspace_root = _attachment_workspace(session, {})
+            limits = _attachment_limits(session, workspace_root=workspace_root)
+            metadata = workspace_file_metadata(workspace_root, path, limits=limits)
+            preview = {
+                "status": "unsupported",
+                "text": "Preview is unavailable for this file type.",
+                "truncated": False,
+            }
+            if metadata["kind"] == "text":
+                resolved, _relative = normalize_workspace_file(
+                    workspace_root, path, limits
+                )
+                raw = resolved.read_bytes()[: TUI_FILE_PREVIEW_BYTES + 1]
+                text = raw[:TUI_FILE_PREVIEW_BYTES].decode("utf-8", errors="replace")
+                truncated = len(raw) > TUI_FILE_PREVIEW_BYTES
+                preview = {
+                    "status": "truncated" if truncated else "ready",
+                    "text": TUI_FILE_PREVIEW_CONTROL_RE.sub("�", text).replace(
+                        "\r", ""
+                    ),
+                    "truncated": truncated,
+                }
+        except SessionNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Session not found") from exc
+        except (AttachmentValidationError, OSError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"file": metadata, "preview": preview, "bounded": True}
+
+    @router.get("/api/sessions/{session_id}/attachments")
+    def session_attachments(session_id: str) -> dict[str, Any]:
+        try:
+            services.session_store.get_session(session_id)
+            attachments = services.attachment_store.list_session_attachments(session_id)
+        except (SessionNotFoundError, AttachmentSessionNotFoundError) as exc:
+            raise HTTPException(status_code=404, detail="Session not found") from exc
+        return {
+            "attachments": [
+                _attachment_response(services.registry, attachment)
+                for attachment in attachments
+            ]
+        }
+
+    @router.get("/api/attachments/{attachment_id}/metadata")
+    def attachment_metadata(attachment_id: str) -> dict[str, Any]:
+        try:
+            attachment = services.attachment_store.get_attachment(attachment_id)
+        except AttachmentNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Attachment not found") from exc
+        return {"attachment": _attachment_response(services.registry, attachment)}
+
+    @router.get("/api/attachments/{attachment_id}")
+    def attachment_blob(attachment_id: str) -> Response:
+        try:
+            attachment = services.attachment_store.get_attachment(attachment_id)
+            if attachment.storage_path:
+                data = services.attachment_store.read_blob(attachment_id)
+            elif attachment.workspace_path and attachment.mime_type.startswith(
+                "image/"
+            ):
+                session = services.session_store.get_session(attachment.session_id)
+                workspace_root = _attachment_workspace(session, {})
+                resolved, _relative = normalize_workspace_file(
+                    workspace_root,
+                    attachment.workspace_path,
+                    _attachment_limits(session, workspace_root=workspace_root),
+                )
+                data = resolved.read_bytes()
+            else:
+                raise AttachmentValidationError("Attachment has no stored blob")
+        except AttachmentNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Attachment not found") from exc
+        except SessionNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Session not found") from exc
+        except OSError as exc:
+            raise HTTPException(
+                status_code=400, detail="Attachment content is unavailable"
+            ) from exc
+        except (AttachmentValidationError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return Response(
+            content=data,
+            media_type=attachment.mime_type,
+            headers={
+                "Content-Disposition": _content_disposition(attachment.filename),
+                "X-GPT2GIGA-Attachment-Id": attachment.id,
+            },
+        )
+
+    @router.delete("/api/attachments/{attachment_id}")
+    def delete_attachment(attachment_id: str) -> dict[str, Any]:
+        try:
+            services.attachment_store.delete_attachment(attachment_id)
+        except AttachmentNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Attachment not found") from exc
+        return {"deleted": True}
+
+    @router.get("/api/workspace/tree")
+    def workspace_tree_endpoint(
+        workspace: str | None = Query(default=None),
+        q: str | None = Query(default=None),
+        limit: int = Query(default=50, ge=1, le=200),
+    ) -> dict[str, Any]:
+        try:
+            workspace_root = _workspace_api_root(workspace, services.config.data_dir)
+            files = workspace_tree(
+                workspace_root,
+                query=q,
+                limits=_workspace_limits(workspace_root),
+                result_limit=limit,
+            )
+        except (AttachmentValidationError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {
+            "workspace": workspace_root,
+            "q": _optional_text(q) or "",
+            "files": files,
+        }
+
+    @router.get("/api/workspace/file/metadata")
+    def workspace_file_metadata_endpoint(
+        workspace: str | None = Query(default=None), path: str = Query(...)
+    ) -> dict[str, Any]:
+        try:
+            workspace_root = _workspace_api_root(workspace, services.config.data_dir)
+            metadata = workspace_file_metadata(
+                workspace_root, path, limits=_workspace_limits(workspace_root)
+            )
+        except (AttachmentValidationError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"workspace": workspace_root, "file": metadata}
+
+    return router
