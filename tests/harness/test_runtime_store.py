@@ -128,6 +128,60 @@ def test_db_provider_preserves_sqlite_contract_and_closes_resources(tmp_path):
             pass
 
 
+def test_db_provider_bounds_connection_and_database_setup_counts(tmp_path, monkeypatch):
+    connection_count = 0
+    setup_statements: list[str] = []
+    process_id = 101
+    original_connect = sqlite3.connect
+    count_lock = threading.Lock()
+
+    class TracingConnection(sqlite3.Connection):
+        def execute(self, sql, parameters=(), /):
+            setup_statements.append(" ".join(sql.lower().split()))
+            return super().execute(sql, parameters)
+
+    def traced_connect(*args, **kwargs):
+        nonlocal connection_count
+        with count_lock:
+            connection_count += 1
+        return original_connect(*args, **kwargs, factory=TracingConnection)
+
+    monkeypatch.setattr(
+        "gpt2giga_harness.runtime.db.connection.sqlite3.connect",
+        traced_connect,
+    )
+    monkeypatch.setattr(
+        "gpt2giga_harness.runtime.db.connection.getpid",
+        lambda: process_id,
+    )
+    provider = DbProvider(tmp_path / "provider-budget.sqlite3")
+
+    def read_database() -> int:
+        with provider.connect() as connection:
+            return int(connection.execute("SELECT 1").fetchone()[0])
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        assert list(executor.map(lambda _: read_database(), range(8))) == [1] * 8
+
+    assert connection_count == 8
+    assert setup_statements.count("pragma journal_mode = wal") == 1
+    assert setup_statements.count("pragma foreign_keys = on") == 8
+    assert setup_statements.count("pragma synchronous = full") == 8
+    assert "pragma busy_timeout = 10000" not in setup_statements
+
+    inherited_lock = provider._state_lock
+    inherited_lock.acquire()
+    process_id = 202
+    try:
+        with provider.connect() as connection:
+            assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    finally:
+        inherited_lock.release()
+
+    assert connection_count == 9
+    assert setup_statements.count("pragma journal_mode = wal") == 2
+
+
 def test_db_transaction_instruments_wait_and_preserves_atomicity(tmp_path, monkeypatch):
     provider = DbProvider(tmp_path / "transaction.sqlite3")
     measurements: list[tuple[str, float]] = []
