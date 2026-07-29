@@ -28,6 +28,11 @@ from gpt2giga_harness.performance_workloads import (
     discover_workloads,
     workload_contracts,
 )
+from gpt2giga_harness.performance_workloads.sessions import events
+from gpt2giga_harness.performance_workloads.sessions.profile import (
+    _measure_case,
+    run_session_storage_scaling_baseline,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -202,6 +207,23 @@ def test_workload_discovery_accepts_new_module_without_central_inventory(
     ]
 
 
+def test_session_storage_case_resets_mutable_fixture_between_samples(tmp_path):
+    steady_append_factory = events.case_factories()[-2]
+
+    result = _measure_case(steady_append_factory(tmp_path), samples=2)
+
+    assert result["samples"] == 2
+    assert result["details"]["appended_events"]["p95"] == 100
+    assert result["counters"]["fsync_calls"]["p95"] == 100
+    assert result["counters"]["index_reads"]["p95"] == 200
+
+
+@pytest.mark.parametrize("samples", (0, 101))
+def test_session_storage_profile_rejects_unbounded_sample_counts(samples):
+    with pytest.raises(ValueError, match="samples must be between 1 and 100"):
+        run_session_storage_scaling_baseline(samples=samples)
+
+
 def test_local_detail_profile_keeps_bounded_content_free_samples():
     report = run_performance_baseline(samples=1, profile="local-detail")
 
@@ -228,6 +250,130 @@ def test_local_detail_profile_keeps_bounded_content_free_samples():
                     "p95": DETAIL_REFERENCE_BUDGETS_MS[result["id"]],
                 },
             }
+    storage = report["session_storage_baseline"]
+    assert (
+        len(json.dumps(report, ensure_ascii=True).encode())
+        < REPORT_ARTIFACT_MAX_BYTES["local-detail"]
+    )
+    assert storage["schema_version"] == "gigaloom.session-storage-baseline.v1"
+    assert storage["fixture_set_version"] == "t01-2.v1"
+    assert storage["samples_per_case"] == 1
+    assert storage["privacy"] == report["privacy"]
+    assert storage["measurement_contract"] == {
+        "fixture_setup_in_measured_window": False,
+        "fixture_setup": "direct_content_free_canonical_state",
+        "production_store_used_in_measured_window": True,
+        "durability_disabled_in_measured_window": False,
+        "absolute_wall_time_is_ci_blocking": False,
+        "algorithmic_counters_are_ci_stable": True,
+        "catalog_scales": [10, 100, 1_000],
+        "message_history": 5_000,
+        "message_tail": 20,
+        "run_scales": [10, 100, 1_000],
+        "event_history": 50_000,
+        "steady_events": 100,
+        "burst_events": 500,
+    }
+    assert len(storage["results"]) == 21
+    by_storage_metric = {item["id"]: item for item in storage["results"]}
+    assert all(
+        item["measured_window"] == "operation_only"
+        and item["regression_gate"]
+        == {
+            "blocking": False,
+            "classification": "reference_wall_time_algorithmic_counters",
+        }
+        for item in storage["results"]
+    )
+    counters = {
+        "atomic_replaces",
+        "bytes_read",
+        "bytes_written",
+        "files_opened",
+        "fsync_calls",
+        "index_reads",
+        "manifest_reads",
+        "rows_parsed",
+        "sqlite_connections",
+        "sqlite_statements",
+    }
+    assert all(set(item["counters"]) == counters for item in storage["results"])
+    assert (
+        by_storage_metric["sessions.catalog.create_1000"]["counters"]["index_reads"][
+            "p95"
+        ]
+        == 1
+    )
+    assert (
+        by_storage_metric["sessions.catalog.first_page_cold_1000"]["counters"][
+            "manifest_reads"
+        ]["p95"]
+        == 1_000
+    )
+    assert (
+        by_storage_metric["sessions.catalog.first_page_cold_1000"]["counters"][
+            "index_reads"
+        ]["p95"]
+        == 1_001
+    )
+    assert (
+        by_storage_metric["sessions.catalog.first_page_warm_1000"]["counters"][
+            "manifest_reads"
+        ]["p95"]
+        == 0
+    )
+    assert (
+        by_storage_metric["sessions.messages.latest_20_of_5000"]["counters"][
+            "rows_parsed"
+        ]["p95"]
+        == 5_000
+    )
+    assert (
+        by_storage_metric["sessions.catalog.create_10"]["counters"]["bytes_written"][
+            "p95"
+        ]
+        < by_storage_metric["sessions.catalog.create_100"]["counters"]["bytes_written"][
+            "p95"
+        ]
+        < by_storage_metric["sessions.catalog.create_1000"]["counters"][
+            "bytes_written"
+        ]["p95"]
+    )
+    for scale in (10, 100, 1_000):
+        update = by_storage_metric[f"sessions.runs.update_1_of_{scale}"]
+        assert update["counters"]["rows_parsed"]["p95"] == scale
+        assert update["counters"]["atomic_replaces"]["p95"] == 1
+        assert update["counters"]["fsync_calls"]["p95"] == 1
+    assert (
+        by_storage_metric["sessions.events.direct_lookup_last_of_50000"]["counters"][
+            "rows_parsed"
+        ]["p95"]
+        == 50_000
+    )
+    assert (
+        by_storage_metric["sessions.events.append_steady_100"]["counters"][
+            "fsync_calls"
+        ]["p95"]
+        == 100
+    )
+    assert (
+        by_storage_metric["sessions.events.append_steady_100"]["counters"][
+            "index_reads"
+        ]["p95"]
+        == 200
+    )
+    assert (
+        by_storage_metric["sessions.events.append_burst_500"]["counters"][
+            "fsync_calls"
+        ]["p95"]
+        == 500
+    )
+    assert (
+        by_storage_metric["sessions.events.append_burst_500"]["counters"][
+            "index_reads"
+        ]["p95"]
+        == 1_000
+    )
 
 
 def test_tui_detail_profile_is_ranked_bounded_and_content_free():

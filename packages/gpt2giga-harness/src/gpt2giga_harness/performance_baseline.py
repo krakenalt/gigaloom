@@ -197,6 +197,13 @@ def run_performance_baseline(
             )
             for name in selected
         ]
+    session_storage_baseline = None
+    if profile == "local-detail":
+        from gpt2giga_harness.performance_workloads.sessions.profile import (
+            run_session_storage_scaling_baseline,
+        )
+
+        session_storage_baseline = run_session_storage_scaling_baseline(samples=samples)
 
     failed = [
         result["id"]
@@ -205,42 +212,43 @@ def run_performance_baseline(
         and result["percentiles_ms"]["p95"]
         > result["regression_gate"]["budget_ms"]["p95"]
     ]
-    return _finalize_report(
-        {
-            "schema_version": SCHEMA_VERSION,
-            "fixture_set_version": FIXTURE_SET_VERSION,
-            "captured_at": datetime.now(timezone.utc).isoformat(),
-            "profile": profile,
-            "samples_per_probe": samples,
-            "environment": {
-                "python": platform.python_version(),
-                "implementation": platform.python_implementation(),
-                "platform": platform.platform(),
-            },
-            "privacy": {
-                "content_captured": False,
-                "secrets_captured": False,
-                "native_homes_accessed": False,
-                "provider_traffic": False,
-                "network_accessed": False,
-                "temporary_state_only": True,
-            },
-            "measurement_contract": {
-                "required_workloads": list(REQUIRED_WORKLOADS),
-                "unavailable_metrics_are_null": True,
-                "optimization_targets_require_explicit_review": True,
-                "detailed_traces_are_opt_in": True,
-                "ci_gate_metrics": list(CI_SMOKE_BUDGETS_MS),
-                "detail_only_metrics": sorted(
-                    set(DETAIL_REFERENCE_BUDGETS_MS) - set(CI_SMOKE_BUDGETS_MS)
-                ),
-                "provider_or_external_network_latency_is_blocking": False,
-            },
-            "results": results,
-            "status": "failed" if failed else "passed",
-            "failed_budgets": failed,
-        }
-    )
+    report: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "fixture_set_version": FIXTURE_SET_VERSION,
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "profile": profile,
+        "samples_per_probe": samples,
+        "environment": {
+            "python": platform.python_version(),
+            "implementation": platform.python_implementation(),
+            "platform": platform.platform(),
+        },
+        "privacy": {
+            "content_captured": False,
+            "secrets_captured": False,
+            "native_homes_accessed": False,
+            "provider_traffic": False,
+            "network_accessed": False,
+            "temporary_state_only": True,
+        },
+        "measurement_contract": {
+            "required_workloads": list(REQUIRED_WORKLOADS),
+            "unavailable_metrics_are_null": True,
+            "optimization_targets_require_explicit_review": True,
+            "detailed_traces_are_opt_in": True,
+            "ci_gate_metrics": list(CI_SMOKE_BUDGETS_MS),
+            "detail_only_metrics": sorted(
+                set(DETAIL_REFERENCE_BUDGETS_MS) - set(CI_SMOKE_BUDGETS_MS)
+            ),
+            "provider_or_external_network_latency_is_blocking": False,
+        },
+        "results": results,
+        "status": "failed" if failed else "passed",
+        "failed_budgets": failed,
+    }
+    if session_storage_baseline is not None:
+        report["session_storage_baseline"] = session_storage_baseline
+    return _finalize_report(report)
 
 
 def write_performance_report(path: str | Path, report: Mapping[str, Any]) -> None:

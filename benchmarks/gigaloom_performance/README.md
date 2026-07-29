@@ -74,3 +74,16 @@ profiles, fixture variants, required metrics and algorithmic counters, and the
 gate that consumes the evidence. Discovery rejects duplicate IDs, incomplete
 required-family coverage, unsupported profiles, and non-typed declarations
 before a benchmark starts.
+
+The `local-detail` report also contains the non-blocking
+`session_storage_baseline`. Its canonical fixtures cover 10/100/1,000-session
+catalog operations, cold and warm first pages, a 5,000-message tail, run
+updates at 10/100/1,000 rows, 50,000-event reads, a 100-event steady-capacity
+sample, and a 500-event burst. Fixture creation is outside every measured
+window. Measured writes retain the production store's real atomic replace and
+`fsync` behavior.
+
+Wall time is reference evidence because it depends on the host filesystem.
+Algorithmic counters remain explicit and stable: bytes read/written, files
+opened, manifest/index reads, rows parsed, atomic replaces, `fsync` calls, and
+SQLite connections/statements.
