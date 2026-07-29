@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from collections import Counter
 from dataclasses import dataclass, replace
-import json
-from pathlib import Path
 import threading
 import time
 from typing import Any, Mapping
@@ -16,17 +13,23 @@ from gpt2giga_harness.attachments import (
     FilesystemAttachmentStore,
     HarnessAttachment,
     attachment_to_dict,
-    render_attachments_for_harness,
-    render_plan_to_dict,
 )
 from gpt2giga_harness.config import HarnessConfig
 from gpt2giga_harness.execution import ExecutionTransport
+from gpt2giga_harness.execution.admission import RunAdmissionService
 from gpt2giga_harness.execution.attachments import PreparedAttachments
-from gpt2giga_harness.execution.context import RunExecutionContext
 from gpt2giga_harness.execution.continuation import (
     build_continuation_plan,
 )
+from gpt2giga_harness.execution.finalization import RunFinalizationService
+from gpt2giga_harness.execution.invocation import (
+    HarnessExecutionService,
+    InvocationAccumulator,
+    cancel_requested,
+)
 from gpt2giga_harness.execution.options import RunOptions
+from gpt2giga_harness.execution.persistence import RunPersistenceService
+from gpt2giga_harness.execution.preparation import RunPreparationService
 from gpt2giga_harness.managed_mcp import HeadlessManagedMCPSnapshotStore
 from gpt2giga_harness.mcp import build_mcp_inventory
 from gpt2giga_harness.native.models import parse_invocation_mode
@@ -106,16 +109,12 @@ from gpt2giga_harness.types import (
     result_to_dict,
 )
 from gpt2giga_harness.worktrees import (
-    WorkspaceExecution,
-    WorkspacePolicy,
     capture_workspace_diff,
     parse_workspace_policy,
-    prepare_workspace_execution,
 )
 from gpt2giga_harness.workspace import resolve_workspace
 
 MAX_HISTORY_MESSAGES = 20
-MAX_REASONING_CHARACTERS = 32_768
 
 
 @dataclass(frozen=True)
@@ -176,6 +175,15 @@ class HarnessSessionRunner:
         )
         self.memory_store = memory_store or FilesystemProjectMemoryStore()
         self.provider_account_provider = provider_account_provider
+        self.admission_service = RunAdmissionService()
+        self.preparation_service = RunPreparationService()
+        self.invocation_service = HarnessExecutionService()
+        self.persistence_service = RunPersistenceService(
+            store=store,
+            id_factory=new_id,
+            clock=utc_now,
+        )
+        self.finalization_service = RunFinalizationService()
 
     def preflight(
         self,
@@ -395,61 +403,29 @@ class HarnessSessionRunner:
         durable: bool = False,
     ) -> HarnessSessionRunResult:
         """Run one prompt inside an existing session."""
-        session = self.store.get_session(session_id)
-        options = self._run_options(payload, session=session)
-        session, provider_account_binding = self._prepare_provider_account_session(
-            session,
-            options,
+        execution_context = self.admission_service.admit(
+            self,
+            session_id,
+            payload,
+            user_message_id=user_message_id,
+            excluded_history_run_ids=excluded_history_run_ids,
+            new_message_id=new_id,
+            history_resolver=_previous_messages_for_turn,
+            edit_message_id=_edit_message_id,
         )
-        harness = self.registry.get(options["harness_id"])
-        logical_user_message_id = user_message_id or new_id("msg")
-        previous_messages = ()
-        if not bool(_mapping(options["extra"]).get("isolated_history")):
-            previous_messages = tuple(
-                message
-                for message in _previous_messages_for_turn(
-                    self.store.list_messages(session.id),
-                    edit_message_id=_edit_message_id(options),
-                    current_user_message_id=user_message_id,
-                )
-                if message.run_id not in excluded_history_run_ids
-            )
-        execution_context = RunExecutionContext(
-            session=session,
-            options=options,
-            harness=harness,
-            logical_user_message_id=logical_user_message_id,
-            previous_messages=previous_messages,
-            provider_account_binding=provider_account_binding,
+        session = execution_context.session
+        options = execution_context.options
+        harness = execution_context.harness
+        logical_user_message_id = execution_context.logical_user_message_id
+        provider_account_binding = execution_context.provider_account_binding
+        prepared_attachments = self.preparation_service.prepare_attachments(
+            self,
+            execution_context,
+            metadata_factory=_run_attachment_metadata,
         )
-        attachments = self._load_attachments(
-            session.id,
-            options["attachment_ids"],
-        )
-        attachment_payloads = tuple(
-            _run_attachment_metadata(attachment) for attachment in attachments
-        )
-        attachment_render_plan = (
-            render_attachments_for_harness(
-                options["harness_id"],
-                attachments,
-                self.attachment_store,
-                prompt=options["prompt"],
-            )
-            if attachment_payloads
-            else None
-        )
-        attachment_render_plan_payload = (
-            render_plan_to_dict(attachment_render_plan)
-            if attachment_render_plan is not None
-            else None
-        )
-        prepared_attachments = PreparedAttachments(
-            attachments=attachments,
-            metadata=attachment_payloads,
-            render_plan=attachment_render_plan,
-            render_plan_payload=attachment_render_plan_payload,
-        )
+        attachments = prepared_attachments.attachments
+        attachment_payloads = prepared_attachments.metadata
+        attachment_render_plan_payload = prepared_attachments.render_plan_payload
         project_memory = self._load_project_memory(options["workspace"])
         project_memory_payload = (
             memory_entries_to_context(project_memory) if project_memory else None
@@ -494,7 +470,7 @@ class HarnessSessionRunner:
         if preflight.hard_block:
             raise PreflightBlockedError(preflight)
         managed_mcp_snapshot = self._prepare_managed_mcp_snapshot(options)
-        _validate_continuation_identity(session, options)
+        self.admission_service.validate_continuation_identity(execution_context)
         preflight_payload = preflight_report_to_dict(preflight)
         effective_prompt = _prompt_with_project_memory(
             options["prompt"],
@@ -579,22 +555,11 @@ class HarnessSessionRunner:
                 started_at=utc_now(),
                 metadata=run_metadata,
             )
-        workspace_execution = _continued_workspace_execution(
-            session,
-            options,
+        workspace_execution = self.preparation_service.prepare_workspace(
+            execution_context,
+            run_id=run.id,
             data_dir=self.config.data_dir,
         )
-        if workspace_execution is None:
-            workspace_execution = prepare_workspace_execution(
-                requested_policy=options["workspace_policy"],
-                harness_kind=options["harness_kind"],
-                mode=options["mode"],
-                workspace=options["workspace"],
-                data_dir=self.config.data_dir,
-                session_id=session.id,
-                run_id=run.id,
-                dry_run=bool(options["extra"].get("dry_run")),
-            )
         run_metadata["workspace_execution"] = workspace_execution.to_metadata()
         run = self.store.update_run(run.id, metadata=run_metadata)
         if user_message_id is None:
@@ -660,11 +625,9 @@ class HarnessSessionRunner:
         if project_memory_payload:
             request_extra["project_memory"] = project_memory_payload
         request_extra["preflight"] = preflight_payload
-        emitted_event_counts: Counter[str] = Counter()
-        latest_usage: dict[str, Any] = {}
-        reasoning_parts: dict[str, list[str]] = {"summary": [], "text": [], "model": []}
+        invocation = InvocationAccumulator()
 
-        def event_sink(event: HarnessEvent) -> None:
+        def append_streamed_event(event: HarnessEvent) -> None:
             self._append_event(
                 session.id,
                 run.id,
@@ -672,11 +635,6 @@ class HarnessSessionRunner:
                 event.message,
                 event_to_dict(event)["payload"],
             )
-            emitted_event_counts[_event_fingerprint(event)] += 1
-            usage = _usage_from_event(event)
-            if usage is not None:
-                _merge_usage(latest_usage, usage)
-            _collect_reasoning(reasoning_parts, event)
 
         request = HarnessRequest(
             prompt=effective_prompt,
@@ -699,7 +657,7 @@ class HarnessSessionRunner:
             run_id=run.id,
             native_session_id=options["native_session_id"],
             cancel_event=cancel_event,
-            event_sink=event_sink,
+            event_sink=invocation.event_sink(append_streamed_event),
             process_sink=process_sink,
             extra=request_extra,
         )
@@ -770,7 +728,7 @@ class HarnessSessionRunner:
         if attachment_render_plan_payload:
             raw_request["attachment_render_plan"] = attachment_render_plan_payload
         raw_request["preflight"] = preflight_payload
-        raw_request_record = self.store.append_raw_request(
+        raw_request_record = self.persistence_service.append_raw_request(
             session_id=session.id,
             run_id=run.id,
             payload=raw_request,
@@ -799,36 +757,16 @@ class HarnessSessionRunner:
                     "codes": sorted({finding.code for finding in preflight.findings}),
                 },
             )
-        try:
-            if _cancel_requested(cancel_event):
-                result = HarnessResult(ok=False, text="", error="Harness run canceled.")
-            elif (
-                durable
-                and options["execution_transport"]
-                is ExecutionTransport.NATIVE_STRUCTURED
-            ):
-                if not isinstance(harness, DurableStructuredHarness):
-                    raise ValueError(
-                        "durable structured admission changed after submission"
-                    )
-                result = harness.run_durable_structured(
-                    request, self.config.to_context()
-                )
-            else:
-                result = harness.run(request, self.config.to_context())
-        except Exception as exc:
-            result = HarnessResult(ok=False, text="", error=str(exc))
-        if _cancel_requested(cancel_event):
-            result = HarnessResult(
-                ok=False,
-                text="",
-                raw=result.raw,
-                events=result.events,
-                command=result.command,
-                error="Harness run canceled.",
-            )
+        result = self.invocation_service.invoke(
+            harness=harness,
+            request=request,
+            config_context=self.config.to_context(),
+            durable=durable,
+            structured_harness_type=DurableStructuredHarness,
+            cancel_event=cancel_event,
+        )
 
-        raw_response_record = self.store.append_raw_response(
+        raw_response_record = self.persistence_service.append_raw_response(
             session_id=session.id,
             run_id=run.id,
             payload=result_to_dict(result),
@@ -841,9 +779,7 @@ class HarnessSessionRunner:
             {"ok": result.ok},
         )
         for event in result.events:
-            fingerprint = _event_fingerprint(event)
-            if emitted_event_counts[fingerprint] > 0:
-                emitted_event_counts[fingerprint] -= 1
+            if invocation.was_emitted(event):
                 continue
             self._append_event(
                 session.id,
@@ -852,38 +788,19 @@ class HarnessSessionRunner:
                 event.message,
                 event_to_dict(event)["payload"],
             )
-            usage = _usage_from_event(event)
-            if usage is not None:
-                _merge_usage(latest_usage, usage)
-            _collect_reasoning(reasoning_parts, event)
+            invocation.observe(event)
 
-        if _cancel_requested(cancel_event):
-            status = "canceled"
-            role = "error"
-            content = "Harness run canceled."
-            event_type = HarnessEventType.RUN_CANCELED.value
-            event_message = "Harness run canceled."
-            error = content
-        elif result.ok:
-            status = "succeeded"
-            role = "assistant"
-            content = result.text
-            event_type = HarnessEventType.MESSAGE_COMPLETED.value
-            event_message = "Assistant message completed."
-            error = None
-        else:
-            status = "failed"
-            role = "error"
-            content = result.error or result.text or "Harness run failed"
-            event_type = HarnessEventType.ERROR.value
-            event_message = "Harness run failed."
-            error = content
-        message_metadata: dict[str, Any] = {}
-        if role == "assistant" and latest_usage:
-            message_metadata["usage"] = dict(latest_usage)
-        reasoning = _final_reasoning(reasoning_parts)
-        if role == "assistant" and reasoning:
-            message_metadata["reasoning"] = reasoning
+        latest_usage = invocation.latest_usage
+        terminal = self.finalization_service.resolve(
+            result,
+            canceled=cancel_requested(cancel_event),
+            latest_usage=latest_usage,
+            reasoning=invocation.reasoning(),
+        )
+        status = terminal.status
+        role = terminal.role
+        content = terminal.content
+        error = terminal.error
         self.store.append_message(
             HarnessMessage(
                 id=new_id("msg"),
@@ -895,14 +812,14 @@ class HarnessSessionRunner:
                 harness_id=options["harness_id"],
                 model=options["model"],
                 api_mode=options["api_mode"],
-                metadata=message_metadata,
+                metadata=terminal.message_metadata,
             )
         )
         self._append_event(
             session.id,
             run.id,
-            event_type,
-            event_message,
+            terminal.event_type,
+            terminal.event_message,
             {"role": role},
         )
         metadata = dict(run_metadata)
@@ -1507,16 +1424,12 @@ class HarnessSessionRunner:
         message: str,
         payload: Mapping[str, Any],
     ) -> HarnessStoredEvent:
-        return self.store.append_event(
-            HarnessStoredEvent(
-                id=new_id("evt"),
-                session_id=session_id,
-                run_id=run_id,
-                type=event_type,
-                message=message,
-                payload=payload,
-                created_at=utc_now(),
-            )
+        return self.persistence_service.append_event(
+            session_id,
+            run_id,
+            event_type,
+            message,
+            payload,
         )
 
 
@@ -1614,50 +1527,6 @@ def _edit_continuation_source(
                 "turn_id": link.get("latest_turn_id"),
             }
     return {"action": "start"}
-
-
-def _continued_workspace_execution(
-    session: HarnessSession,
-    options: Mapping[str, Any],
-    *,
-    data_dir: str,
-) -> WorkspaceExecution | None:
-    """Reuse the first isolated edit worktree for later app-server turns."""
-    link = _mapping(session.metadata.get("app_server_thread"))
-    snapshot = _mapping(link.get("snapshot"))
-    if not link or snapshot.get("permission_mode") != "edit":
-        return None
-    if options.get("harness_id") != "codex-cli" or options.get("mode") != "edit":
-        return None
-    source = _optional_text(snapshot.get("source_workspace"))
-    effective = _optional_text(snapshot.get("workspace"))
-    requested_source = _optional_text(options.get("workspace"))
-    if source != requested_source or effective is None:
-        raise ValueError(
-            "Codex app-server edit continuation changed its source workspace; "
-            "fork explicitly."
-        )
-    effective_path = Path(effective).expanduser().resolve()
-    owned_root = Path(data_dir).expanduser().resolve() / "worktrees"
-    try:
-        effective_path.relative_to(owned_root)
-    except ValueError as exc:
-        raise ValueError(
-            "Stored Codex app-server worktree is outside Harness ownership"
-        ) from exc
-    if not effective_path.is_dir():
-        raise ValueError(
-            "Stored Codex app-server worktree is unavailable; fork explicitly."
-        )
-    requested_policy = parse_workspace_policy(options.get("workspace_policy"))
-    return WorkspaceExecution(
-        requested_policy=requested_policy,
-        policy=WorkspacePolicy.WORKTREE,
-        source_workspace=source,
-        source_git_root=_optional_text(snapshot.get("source_git_root")),
-        effective_workspace=str(effective_path),
-        worktree_path=str(effective_path),
-    )
 
 
 def _project_metadata(workspace: str | None, *, data_dir: str) -> dict[str, str]:
@@ -1937,96 +1806,3 @@ def _request_extra(
     if attachment_render_plan:
         payload["attachment_render_plan"] = dict(attachment_render_plan)
     return payload
-
-
-def _cancel_requested(cancel_event: Any | None) -> bool:
-    if cancel_event is None:
-        return False
-    is_set = getattr(cancel_event, "is_set", None)
-    return bool(is_set()) if callable(is_set) else False
-
-
-def _event_fingerprint(event: HarnessEvent) -> str:
-    """Return a stable fingerprint used to suppress already-streamed events."""
-    return json.dumps(
-        event_to_dict(event),
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
-    )
-
-
-def _usage_from_event(event: HarnessEvent) -> dict[str, Any] | None:
-    """Extract safe token counters from one normalized usage event."""
-    if event.type != HarnessEventType.USAGE.value:
-        return None
-    payload = event_to_dict(event)["payload"]
-    aliases = {
-        "input_tokens": ("input_tokens", "prompt_tokens"),
-        "output_tokens": ("output_tokens", "completion_tokens"),
-        "total_tokens": ("total_tokens",),
-        "cached_input_tokens": ("cached_input_tokens", "cached_tokens"),
-        "reasoning_output_tokens": (
-            "reasoning_output_tokens",
-            "reasoning_tokens",
-            "thoughts_tokens",
-        ),
-        "tool_tokens": ("tool_tokens",),
-    }
-    usage: dict[str, Any] = {}
-    for target, keys in aliases.items():
-        value = next(
-            (payload[key] for key in keys if _is_nonnegative_integer(payload.get(key))),
-            None,
-        )
-        if value is not None:
-            usage[target] = value
-    if (
-        "total_tokens" not in usage
-        and {
-            "input_tokens",
-            "output_tokens",
-        }
-        <= usage.keys()
-    ):
-        usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
-    source = payload.get("source")
-    if isinstance(source, str) and source:
-        usage["source"] = source
-    return usage or None
-
-
-def _is_nonnegative_integer(value: Any) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
-
-
-def _collect_reasoning(
-    target: dict[str, list[str]],
-    event: HarnessEvent,
-) -> None:
-    if event.type != HarnessEventType.REASONING_DELTA.value:
-        return
-    payload = event_to_dict(event)["payload"]
-    delta = payload.get("delta")
-    if not isinstance(delta, str) or not delta:
-        return
-    kind = str(payload.get("kind") or "model")
-    target.setdefault(kind, []).append(delta)
-
-
-def _final_reasoning(parts: Mapping[str, list[str]]) -> str:
-    selected = parts.get("summary") or parts.get("model") or parts.get("text") or []
-    return "".join(selected)[:MAX_REASONING_CHARACTERS]
-
-
-def _merge_usage(target: dict[str, Any], update: Mapping[str, Any]) -> None:
-    """Merge partial usage snapshots and keep the aggregate total consistent."""
-    explicit_total = "total_tokens" in update
-    target.update(update)
-    if (
-        not explicit_total
-        and _is_nonnegative_integer(target.get("input_tokens"))
-        and _is_nonnegative_integer(target.get("output_tokens"))
-    ):
-        target["total_tokens"] = target["input_tokens"] + target["output_tokens"]
