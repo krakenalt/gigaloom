@@ -55,12 +55,22 @@ class TracingRuntimeStore(RuntimeCoordinationStore):
     def __init__(self, data_dir: str | Path) -> None:
         self._trace_lock = threading.Lock()
         self._trace_counts = SqlCounts()
+        self._claim_rows_inspected = 0
         super().__init__(data_dir)
 
     def trace_snapshot(self) -> SqlCounts:
         """Return the current aggregate trace counters."""
         with self._trace_lock:
             return self._trace_counts
+
+    def claim_rows_snapshot(self) -> int:
+        """Return bounded candidate rows fetched by queue claims."""
+        with self._trace_lock:
+            return self._claim_rows_inspected
+
+    def _observe_claim_candidates(self, count: int) -> None:
+        with self._trace_lock:
+            self._claim_rows_inspected += max(int(count), 0)
 
     def _record_statement(self, statement: str) -> None:
         operation = statement.lstrip().split(None, 1)[0].upper() if statement else ""

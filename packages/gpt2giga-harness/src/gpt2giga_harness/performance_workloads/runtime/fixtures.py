@@ -12,37 +12,10 @@ from typing import Any, Final
 from gpt2giga_harness.performance_workloads.runtime.instrumentation import (
     TracingRuntimeStore,
 )
+from gpt2giga_harness.runtime.jobs.claims import _candidate_query
 
 
 FIXED_AT: Final[str] = "2026-01-01T00:00:00+00:00"
-CLAIM_QUERY: Final[str] = """
-SELECT candidate.* FROM jobs AS candidate
-WHERE candidate.status = ?
-  AND (candidate.available_at IS NULL OR candidate.available_at <= ?)
-  AND candidate.cancel_requested_at IS NULL
-  AND (
-    candidate.origin != 'interactive'
-    OR NOT EXISTS (
-      SELECT 1 FROM jobs AS blocker
-      WHERE blocker.session_id = candidate.session_id
-        AND blocker.id != candidate.id
-        AND (
-          blocker.status = ?
-          OR (
-            blocker.status IN (?, ?, ?, ?)
-            AND (
-              blocker.created_at < candidate.created_at
-              OR (
-                blocker.created_at = candidate.created_at
-                AND blocker.id < candidate.id
-              )
-            )
-          )
-        )
-    )
-  )
-ORDER BY candidate.priority DESC, candidate.created_at, candidate.id
-"""
 REVISION_JOBS_QUERY: Final[str] = "SELECT COUNT(*), COALESCE(SUM(version), 0) FROM jobs"
 
 
@@ -61,6 +34,7 @@ def seed_jobs(
             f"session-{index:05d}",
             f"message-{index:05d}",
             f"run-{index:05d}",
+            "incompatible" if index < incompatible else None,
             json.dumps({"os": "incompatible"}) if index < incompatible else "{}",
             (
                 FIXED_AT
@@ -77,9 +51,9 @@ def seed_jobs(
             INSERT INTO jobs (
                 id, origin, idempotency_key_hash, status, session_id,
                 user_message_id, initial_run_id, available_at, max_attempts,
-                priority, required_fingerprint_json, cancel_requested_at,
+                priority, required_os, required_fingerprint_json, cancel_requested_at,
                 created_at, updated_at
-            ) VALUES (?, 'manual', ?, 'queued', ?, ?, ?, ?, 1, 0, ?, ?, ?, ?)
+            ) VALUES (?, 'manual', ?, 'queued', ?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?)
             """,
             (
                 (
@@ -89,6 +63,7 @@ def seed_jobs(
                     message,
                     run_id,
                     FIXED_AT,
+                    required_os,
                     required,
                     canceled_at,
                     at,
@@ -100,6 +75,7 @@ def seed_jobs(
                     session,
                     message,
                     run_id,
+                    required_os,
                     required,
                     canceled_at,
                     at,
@@ -144,19 +120,17 @@ def explain_query_plan(
 def build_query_plans(root: Path) -> list[dict[str, Any]]:
     """Capture stable plans for runtime scaling and maintenance reads."""
     store = TracingRuntimeStore(root)
+    claim_query, claim_parameters = _candidate_query(
+        now=FIXED_AT,
+        worker_os="fixture",
+        available_harness_ids=(),
+        cursor=None,
+    )
     specs: Iterable[tuple[str, str, Sequence[Any]]] = (
         (
             "queue_claim",
-            CLAIM_QUERY,
-            (
-                "queued",
-                FIXED_AT,
-                "running",
-                "queued",
-                "retry_wait",
-                "waiting_approval",
-                "waiting_input",
-            ),
+            claim_query,
+            claim_parameters,
         ),
         ("runs_center_jobs", REVISION_JOBS_QUERY, ()),
         (
