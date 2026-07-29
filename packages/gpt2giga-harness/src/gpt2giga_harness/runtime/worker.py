@@ -594,12 +594,12 @@ class DurableJobWorker:
             ):
                 timed_out.set()
                 cancel_event.set()
-            self.runtime_store.heartbeat_attempt(
+            self.runtime_store.heartbeat_worker_attempt(
                 attempt_id,
                 worker_id=self.worker_id,
                 lease_seconds=self.lease_seconds,
+                minimum_interval_seconds=self.heartbeat_seconds * 0.5,
             )
-            self.runtime_store.heartbeat_worker(self.worker_id)
 
     def _record_process(self, attempt_id: str, process: Mapping[str, Any]) -> None:
         process_id = int(process["process_id"])

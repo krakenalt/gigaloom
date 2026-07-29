@@ -5,6 +5,7 @@ import threading
 import time
 
 from fastapi.testclient import TestClient
+import pytest
 
 from gpt2giga_harness import cli
 from gpt2giga_harness.arena import FilesystemHarnessArenaStore, queue_arena
@@ -18,7 +19,10 @@ from gpt2giga_harness.runtime.models import (
 )
 from gpt2giga_harness.runtime.payloads import DurableJobPayloadStore
 from gpt2giga_harness.runtime.side_effects import HarnessSideEffectExecutor
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
+from gpt2giga_harness.runtime.store import (
+    ConcurrentUpdateError,
+    RuntimeCoordinationStore,
+)
 from gpt2giga_harness.runtime.worker import (
     RECOVERY_MARKER_IDENTITY_FIELD,
     DurableJobDispatcher,
@@ -227,6 +231,87 @@ def test_empty_worker_cycle_does_not_repeat_maintenance_queries(tmp_path, monkey
         "claim",
         "claim",
     ]
+
+
+def test_worker_batches_attempt_lease_and_worker_heartbeat(tmp_path):
+    store = RuntimeCoordinationStore(tmp_path)
+    store.register_worker(
+        worker_id="worker_batch",
+        process_id=123,
+        hostname="fixture",
+        capability_fingerprint={},
+    )
+    job = store.submit_job(
+        session_id="sess_batch",
+        user_message_id="msg_batch",
+        initial_run_id="run_batch",
+        idempotency_key="batch-heartbeat",
+    ).job
+    claim = store.claim_next_job(
+        worker_id="worker_batch",
+        capability_fingerprint={},
+        lease_seconds=5,
+    )
+    assert claim is not None
+    before_worker = store.list_workers()[0]
+
+    heartbeat = store.heartbeat_worker_attempt(
+        claim.attempt.id,
+        worker_id="worker_batch",
+        lease_seconds=10,
+        minimum_interval_seconds=0,
+    )
+    after_worker = store.list_workers()[0]
+
+    assert heartbeat.job_id == job.id
+    assert heartbeat.lease_owner == "worker_batch"
+    assert heartbeat.heartbeat_at is not None
+    assert heartbeat.leased_until > claim.attempt.leased_until
+    assert heartbeat.version == claim.attempt.version + 1
+    assert after_worker.heartbeat_at == heartbeat.heartbeat_at
+    assert after_worker.heartbeat_at >= before_worker.heartbeat_at
+
+    coalesced = store.heartbeat_worker_attempt(
+        claim.attempt.id,
+        worker_id="worker_batch",
+        lease_seconds=10,
+        minimum_interval_seconds=60,
+    )
+    assert coalesced.version == heartbeat.version
+    assert store.list_workers()[0].heartbeat_at == after_worker.heartbeat_at
+
+
+def test_worker_heartbeat_rejects_attempt_owned_by_another_worker(tmp_path):
+    store = RuntimeCoordinationStore(tmp_path)
+    store.register_worker(
+        worker_id="worker_owner",
+        process_id=123,
+        hostname="fixture",
+        capability_fingerprint={},
+    )
+    store.submit_job(
+        session_id="sess_owner",
+        user_message_id="msg_owner",
+        initial_run_id="run_owner",
+        idempotency_key="owned-heartbeat",
+    )
+    claim = store.claim_next_job(
+        worker_id="worker_owner",
+        capability_fingerprint={},
+        lease_seconds=5,
+    )
+    assert claim is not None
+
+    with pytest.raises(ConcurrentUpdateError, match="lease is not owned"):
+        store.heartbeat_worker_attempt(
+            claim.attempt.id,
+            worker_id="worker_intruder",
+            lease_seconds=10,
+        )
+
+    unchanged = store.get_attempt(claim.attempt.id)
+    assert unchanged.version == claim.attempt.version
+    assert unchanged.heartbeat_at == claim.attempt.heartbeat_at
 
 
 def test_worker_fails_orphaned_job_without_stopping(tmp_path):

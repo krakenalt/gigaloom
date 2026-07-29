@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping
 
 from gpt2giga_harness.runtime.db.transactions import transaction as _transaction
 from gpt2giga_harness.runtime.models import (
+    JobAttempt,
     JobAttemptStatus,
     JobStatus,
     RuntimeWorker,
+    TERMINAL_ATTEMPT_STATUSES,
 )
 from gpt2giga_harness.runtime.repositories.base import RuntimeRepository
+from gpt2giga_harness.runtime.repositories.errors import (
+    AttemptNotFoundError,
+    ConcurrentUpdateError,
+    InvalidStateTransitionError,
+)
 from gpt2giga_harness.runtime.repositories.records import (
+    _attempt_from_row,
     _safe_json,
     _utc_now,
     _worker_from_row,
@@ -136,6 +144,79 @@ class WorkersRepository(RuntimeRepository):
                 (_utc_now(), worker_id),
             )
 
+    def heartbeat_worker_attempt(
+        self,
+        attempt_id: str,
+        *,
+        worker_id: str,
+        lease_seconds: float,
+        minimum_interval_seconds: float = 0.0,
+    ) -> JobAttempt:
+        """Renew an owned attempt lease and worker heartbeat atomically."""
+        now = datetime.now(timezone.utc)
+        now_text = now.isoformat()
+        lease_duration = max(float(lease_seconds), 1.0)
+        minimum_interval = max(float(minimum_interval_seconds), 0.0)
+        with self._connect() as connection, _transaction(connection):
+            row = connection.execute(
+                "SELECT * FROM job_attempts WHERE id = ?", (attempt_id,)
+            ).fetchone()
+            if row is None:
+                raise AttemptNotFoundError(attempt_id)
+            current = _attempt_from_row(row)
+            if current.lease_owner != worker_id:
+                raise ConcurrentUpdateError(
+                    f"attempt {attempt_id} lease is not owned by worker {worker_id}"
+                )
+            if current.status in TERMINAL_ATTEMPT_STATUSES:
+                raise InvalidStateTransitionError(
+                    f"terminal attempt {attempt_id} cannot be heartbeated"
+                )
+            if _heartbeat_is_fresh(
+                current,
+                now=now,
+                minimum_interval_seconds=minimum_interval,
+            ):
+                return current
+            leased_until = (now + timedelta(seconds=lease_duration)).isoformat()
+            connection.execute(
+                """
+                UPDATE job_attempts
+                SET heartbeat_at = ?, leased_until = ?, updated_at = ?,
+                    version = version + 1
+                WHERE id = ? AND lease_owner = ? AND version = ?
+                  AND status NOT IN (?, ?, ?, ?)
+                """,
+                (
+                    now_text,
+                    leased_until,
+                    now_text,
+                    attempt_id,
+                    worker_id,
+                    current.version,
+                    JobAttemptStatus.SUCCEEDED.value,
+                    JobAttemptStatus.FAILED.value,
+                    JobAttemptStatus.CANCELED.value,
+                    JobAttemptStatus.INTERRUPTED.value,
+                ),
+            )
+            if connection.execute("SELECT changes()").fetchone()[0] != 1:
+                raise ConcurrentUpdateError(
+                    f"attempt {attempt_id} changed while renewing its lease"
+                )
+            connection.execute(
+                """
+                UPDATE workers
+                SET heartbeat_at = ?, status = 'online'
+                WHERE id = ?
+                """,
+                (now_text, worker_id),
+            )
+            updated = connection.execute(
+                "SELECT * FROM job_attempts WHERE id = ?", (attempt_id,)
+            ).fetchone()
+        return _attempt_from_row(updated)
+
     def stop_worker(self, worker_id: str) -> None:
         """Mark one worker as cleanly stopped."""
         now = _utc_now()
@@ -152,3 +233,24 @@ class WorkersRepository(RuntimeRepository):
                 "SELECT * FROM workers ORDER BY heartbeat_at DESC, id"
             ).fetchall()
         return tuple(_worker_from_row(row) for row in rows)
+
+
+def _heartbeat_is_fresh(
+    attempt: JobAttempt,
+    *,
+    now: datetime,
+    minimum_interval_seconds: float,
+) -> bool:
+    if minimum_interval_seconds <= 0 or attempt.heartbeat_at is None:
+        return False
+    try:
+        heartbeat_at = datetime.fromisoformat(attempt.heartbeat_at)
+        leased_until = datetime.fromisoformat(attempt.leased_until or "")
+    except ValueError:
+        return False
+    if heartbeat_at.tzinfo is None:
+        heartbeat_at = heartbeat_at.replace(tzinfo=timezone.utc)
+    if leased_until.tzinfo is None:
+        leased_until = leased_until.replace(tzinfo=timezone.utc)
+    age = max((now - heartbeat_at).total_seconds(), 0.0)
+    return age < minimum_interval_seconds and leased_until > now
