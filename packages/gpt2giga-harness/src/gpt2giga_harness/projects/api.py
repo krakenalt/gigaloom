@@ -1,4 +1,4 @@
-"""Public project configuration, bootstrap, memory, and state boundary."""
+"""Public project configuration, workspace, and environment boundary."""
 
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
@@ -95,6 +95,41 @@ if TYPE_CHECKING:
         new_memory_id,
         utc_now,
     )
+    from .environment.commit import (
+        EnvironmentCommitError,
+        EnvironmentCommitOutcome,
+        EnvironmentCommitPreview,
+        EnvironmentCommitResult,
+        EnvironmentCommitService,
+        GovernedEnvironmentCommitService,
+    )
+    from .environment.editor import EditorOpenError, EditorOpenPlan
+    from .environment.github import (
+        GitHubEnvironmentService,
+        GitHubEnvironmentSnapshot,
+    )
+    from .environment.models import (
+        EnvironmentCaptureError,
+        EnvironmentSnapshot,
+        HostedRepositoryHint,
+    )
+    from .environment.pull_request import (
+        EnvironmentPullRequestError,
+        EnvironmentPullRequestOutcome,
+        EnvironmentPullRequestPreview,
+        EnvironmentPullRequestResult,
+        EnvironmentPullRequestService,
+        GovernedEnvironmentPullRequestService,
+    )
+    from .environment.push import (
+        EnvironmentPushError,
+        EnvironmentPushOutcome,
+        EnvironmentPushPreview,
+        EnvironmentPushResult,
+        EnvironmentPushService,
+        GovernedEnvironmentPushService,
+    )
+    from .environment.registry import EnvironmentProviderRegistry
     from .workspace.api import (
         MAX_PATCH_CHARS,
         RunDiffReview,
@@ -173,6 +208,67 @@ _LAZY_EXPORT_MODULES = {
     ),
     **dict.fromkeys(
         {
+            "EnvironmentCaptureError",
+            "EnvironmentSnapshot",
+            "HostedRepositoryHint",
+        },
+        "environment.models",
+    ),
+    **dict.fromkeys(
+        {
+            "EnvironmentProviderRegistry",
+        },
+        "environment.registry",
+    ),
+    **dict.fromkeys(
+        {
+            "EnvironmentCommitError",
+            "EnvironmentCommitOutcome",
+            "EnvironmentCommitPreview",
+            "EnvironmentCommitResult",
+            "EnvironmentCommitService",
+            "GovernedEnvironmentCommitService",
+        },
+        "environment.commit",
+    ),
+    **dict.fromkeys(
+        {
+            "EnvironmentPushError",
+            "EnvironmentPushOutcome",
+            "EnvironmentPushPreview",
+            "EnvironmentPushResult",
+            "EnvironmentPushService",
+            "GovernedEnvironmentPushService",
+        },
+        "environment.push",
+    ),
+    **dict.fromkeys(
+        {
+            "EnvironmentPullRequestError",
+            "EnvironmentPullRequestOutcome",
+            "EnvironmentPullRequestPreview",
+            "EnvironmentPullRequestResult",
+            "EnvironmentPullRequestService",
+            "GovernedEnvironmentPullRequestService",
+        },
+        "environment.pull_request",
+    ),
+    **dict.fromkeys(
+        {
+            "GitHubEnvironmentService",
+            "GitHubEnvironmentSnapshot",
+        },
+        "environment.github",
+    ),
+    **dict.fromkeys(
+        {
+            "EditorOpenError",
+            "EditorOpenPlan",
+        },
+        "environment.editor",
+    ),
+    **dict.fromkeys(
+        {
             "MAX_PATCH_CHARS",
             "RunDiffReview",
             "WorkspaceDiff",
@@ -238,9 +334,35 @@ __all__ = [
     "DEFAULT_PROMPT_TEMPLATE_DIR",
     "DEFAULT_PROMPT_TEMPLATES",
     "FilesystemProjectMemoryStore",
+    "EditorOpenError",
+    "EditorOpenPlan",
+    "EnvironmentCaptureError",
+    "EnvironmentCommitError",
+    "EnvironmentCommitOutcome",
+    "EnvironmentCommitPreview",
+    "EnvironmentCommitResult",
+    "EnvironmentCommitService",
+    "EnvironmentProviderRegistry",
+    "EnvironmentPullRequestError",
+    "EnvironmentPullRequestOutcome",
+    "EnvironmentPullRequestPreview",
+    "EnvironmentPullRequestResult",
+    "EnvironmentPullRequestService",
+    "EnvironmentPushError",
+    "EnvironmentPushOutcome",
+    "EnvironmentPushPreview",
+    "EnvironmentPushResult",
+    "EnvironmentPushService",
+    "EnvironmentSnapshot",
     "HarnessProject",
     "HarnessProjectConfig",
     "HarnessProjectState",
+    "GitHubEnvironmentService",
+    "GitHubEnvironmentSnapshot",
+    "GovernedEnvironmentCommitService",
+    "GovernedEnvironmentPullRequestService",
+    "GovernedEnvironmentPushService",
+    "HostedRepositoryHint",
     "LEGACY_BACKUP_SCHEMA_VERSION",
     "MANAGED_STATE_DIRECTORIES",
     "MAX_INCLUDED_MEMORY",

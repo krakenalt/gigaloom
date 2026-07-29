@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from gpt2giga_harness.config import DEFAULT_CHAT_MODEL
-from gpt2giga_harness.editor import DEFAULT_EDITOR_COMMAND, DEFAULT_TERMINAL_COMMAND
+from .environment.editor import DEFAULT_EDITOR_COMMAND, DEFAULT_TERMINAL_COMMAND
 from gpt2giga_harness.native import models as native_models
 from gpt2giga_harness.types import GigaChatApiMode
 
