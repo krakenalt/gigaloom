@@ -18,7 +18,6 @@ from textual.widgets import (
     Header,
     Input,
     Label,
-    ListItem,
     ListView,
     Static,
 )
@@ -34,6 +33,8 @@ from gpt2giga_harness.tui.commands import (
     slash_commands,
     visible_commands,
 )
+from gpt2giga_harness.tui.widgets.navigation import NavigationItem
+from gpt2giga_harness.tui.widgets.timeline import TimelinePanel
 
 if TYPE_CHECKING:
     from gpt2giga_harness.tui.client import (
@@ -68,12 +69,20 @@ RUN_POLL_SECONDS = RUN_RESNAPSHOT_SECONDS
 NATIVE_OUTPUT_POLL_SECONDS = NATIVE_RECONNECT_SECONDS
 
 
-class NavigationItem(ListItem):
-    """List item that retains one opaque navigation identity."""
+def __getattr__(name: str) -> Any:
+    """Lazily preserve legacy screen re-exports without slowing TUI import."""
+    if name in {"FilePickerScreen", "SessionBrowserScreen"}:
+        from gpt2giga_harness.tui.screens import browsers
 
-    def __init__(self, label: str, value: str) -> None:
-        super().__init__(Label(label, markup=False))
-        self.value = value
+        value = getattr(browsers, name)
+    elif name in {"ContextDrawerScreen", "ResourceDrawerScreen"}:
+        from gpt2giga_harness.tui.screens import drawers
+
+        value = getattr(drawers, name)
+    else:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    globals()[name] = value
+    return value
 
 
 @dataclass(frozen=True)
@@ -103,152 +112,6 @@ def _new_run_action_binding(
         generation=generation,
         idempotency_key=idempotency_key,
     )
-
-
-class TimelinePanel(Static):
-    """Keyboard and mouse expandable typed transcript cards."""
-
-    can_focus = True
-    BINDINGS: ClassVar[list[Binding]] = [
-        Binding("up", "previous_card", "Previous", show=False),
-        Binding("down", "next_card", "Next", show=False),
-        Binding("enter", "toggle_card", "Expand", show=False),
-        Binding("space", "toggle_card", "Expand", show=False),
-    ]
-
-    def __init__(self, empty: str, labels: dict[str, str], *, id: str) -> None:
-        super().__init__(empty, id=id, markup=False)
-        self.empty = empty
-        self.labels = labels
-        self.events: tuple[TimelineEvent, ...] = ()
-        self.active_index = 0
-        self.expanded: set[str] = set()
-        self._card_rows: list[tuple[int, int]] = []
-        self._card_cache: dict[
-            str, tuple[TimelineEvent, bool, bool, tuple[str, ...]]
-        ] = {}
-
-    def set_events(self, events: tuple[TimelineEvent, ...]) -> bool:
-        if events == self.events:
-            return False
-        self.events = events
-        self.active_index = min(self.active_index, max(len(events) - 1, 0))
-        retained = {event.id for event in events}
-        self.expanded.intersection_update(retained)
-        self._card_cache = {
-            event_id: cached
-            for event_id, cached in self._card_cache.items()
-            if event_id in retained
-        }
-        self._render_cards()
-        return True
-
-    def action_previous_card(self) -> None:
-        if self.events:
-            self.active_index = max(self.active_index - 1, 0)
-            self._render_cards()
-
-    def action_next_card(self) -> None:
-        if self.events:
-            self.active_index = min(self.active_index + 1, len(self.events) - 1)
-            self._render_cards()
-
-    def action_toggle_card(self) -> None:
-        if not self.events:
-            return
-        event_id = self.events[self.active_index].id
-        if event_id in self.expanded:
-            self.expanded.remove(event_id)
-        else:
-            self.expanded.add(event_id)
-        self._render_cards()
-
-    def on_click(self, event: events.Click) -> None:
-        self.focus()
-        self.active_index = next(
-            (
-                index
-                for index, (start, end) in enumerate(self._card_rows)
-                if start <= event.y < end
-            ),
-            self.active_index,
-        )
-        self.action_toggle_card()
-
-    def _render_cards(self) -> None:
-        lines: list[str] = []
-        self._card_rows = []
-        for index, event in enumerate(self.events):
-            start_row = len(lines)
-            active = index == self.active_index
-            expanded = event.id in self.expanded
-            cached = self._card_cache.get(event.id)
-            if (
-                cached is None
-                or cached[0] != event
-                or cached[1] is not active
-                or cached[2] is not expanded
-            ):
-                card = self._render_card(event, active=active, expanded=expanded)
-                self._card_cache[event.id] = (event, active, expanded, card)
-            else:
-                card = cached[3]
-            lines.extend(card)
-            self._card_rows.append((start_row, len(lines)))
-        self.update("\n".join(lines)[-64_000:] or self.empty)
-
-    def _render_card(
-        self,
-        event: TimelineEvent,
-        *,
-        active: bool,
-        expanded: bool,
-    ) -> tuple[str, ...]:
-        active_marker = ">" if active else " "
-        expanded_marker = "−" if expanded else "+"
-        title = event.tool_name or event.message or event.type
-        title = title.replace("\n", " ")[:160]
-        category = _timeline_card_category(event)
-        label = self.labels.get(category, category.upper())
-        preview = ""
-        if event.delta and event.delta.replace("\n", " ") != title:
-            preview = f" · {event.delta.replace(chr(10), ' ')[:120]}"
-        lines = [f"{active_marker}[{expanded_marker}] [{label}] {title}{preview}"]
-        if expanded:
-            detail = event.delta or event.message or "—"
-            lines.extend(f"    {line}" for line in detail.splitlines() or ("—",))
-            if event.stream:
-                lines.append(f"    stream: {event.stream}")
-            if event.artifact_kind or event.artifact_id:
-                lines.append(
-                    "    artifact: "
-                    f"{event.artifact_kind or 'artifact'} · "
-                    f"{event.artifact_id or 'authoritative run inspection'}"
-                )
-            if event.truncated:
-                lines.append("    preview truncated; open authoritative evidence")
-        return tuple(lines)
-
-
-def _timeline_card_category(event: TimelineEvent) -> str:
-    if event.category != "status":
-        return event.category
-    normalized = event.type.lower()
-    if "message" in normalized:
-        return "message"
-    if "reason" in normalized:
-        return "reasoning"
-    if "tool" in normalized:
-        return "tool"
-    if "approval" in normalized:
-        return "approval"
-    if "input" in normalized or "question" in normalized:
-        return "question"
-    if "warning" in normalized:
-        return "warning"
-    if "error" in normalized or "failed" in normalized:
-        return "error"
-    return "status"
 
 
 class TextPrompt(ModalScreen[str | None]):
@@ -352,326 +215,6 @@ class HelpScreen(ModalScreen[None]):
         self.dismiss(None)
 
 
-class FilePickerScreen(ModalScreen[Any]):
-    """Bounded keyboard-first project file picker with safe preview."""
-
-    CSS = """
-    FilePickerScreen { align: center middle; }
-    #file-dialog {
-        width: 92%;
-        height: 88%;
-        padding: 1 2;
-        border: round $accent;
-        background: $surface;
-    }
-    #file-policy { height: auto; color: $text-muted; }
-    #file-list { height: 40%; margin-top: 1; border: round $primary-background; }
-    #file-preview { height: 1fr; margin-top: 1; overflow: auto hidden; }
-    #file-actions { height: 3; align-horizontal: right; }
-    #file-actions Button { margin-left: 1; }
-    """
-
-    BINDINGS: ClassVar[list[Binding]] = [
-        Binding("escape", "cancel", "Cancel", show=False),
-    ]
-
-    def __init__(
-        self,
-        candidates: tuple[FileCandidate, ...],
-        *,
-        title: str,
-        policy: str,
-        attach: str,
-        cancel: str,
-        empty: str,
-    ) -> None:
-        super().__init__()
-        self.candidates = candidates
-        self.dialog_title = title
-        self.policy = policy
-        self.attach_label = attach
-        self.cancel_label = cancel
-        self.empty = empty
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="file-dialog"):
-            yield Label(self.dialog_title, classes="dialog-title", markup=False)
-            yield Static(self.policy, id="file-policy", markup=False)
-            yield ListView(
-                *(
-                    NavigationItem(
-                        f"{item.path} · {item.kind} · {item.size_bytes} B",
-                        item.path,
-                    )
-                    for item in self.candidates
-                ),
-                id="file-list",
-            )
-            yield Static(self.empty, id="file-preview", markup=False)
-            with Horizontal(id="file-actions"):
-                yield Button(self.cancel_label, id="file-cancel")
-                yield Button(
-                    self.attach_label,
-                    id="file-attach",
-                    variant="primary",
-                    disabled=not self.candidates,
-                )
-
-    def on_mount(self) -> None:
-        view = self.query_one("#file-list", ListView)
-        if self.candidates:
-            view.index = 0
-            self._render_preview(0)
-        view.focus()
-
-    @on(ListView.Highlighted, "#file-list")
-    def highlight_file(self, event: ListView.Highlighted) -> None:
-        item = event.item
-        if not isinstance(item, NavigationItem):
-            return
-        index = next(
-            (
-                index
-                for index, candidate in enumerate(self.candidates)
-                if candidate.path == item.value
-            ),
-            None,
-        )
-        if index is not None:
-            self._render_preview(index)
-
-    @on(ListView.Selected, "#file-list")
-    def select_file(self, event: ListView.Selected) -> None:
-        item = event.item
-        if isinstance(item, NavigationItem):
-            self.dismiss(
-                next(
-                    candidate
-                    for candidate in self.candidates
-                    if candidate.path == item.value
-                )
-            )
-
-    @on(Button.Pressed, "#file-attach")
-    def attach_file(self) -> None:
-        index = self.query_one("#file-list", ListView).index
-        if index is not None and 0 <= index < len(self.candidates):
-            self.dismiss(self.candidates[index])
-
-    @on(Button.Pressed, "#file-cancel")
-    def cancel_file(self) -> None:
-        self.dismiss(None)
-
-    def action_cancel(self) -> None:
-        self.dismiss(None)
-
-    def _render_preview(self, index: int) -> None:
-        candidate = self.candidates[index]
-        header = (
-            f"{candidate.path}\n{candidate.mime_type} · {candidate.preview_status}\n\n"
-        )
-        self.query_one("#file-preview", Static).update(header + candidate.preview)
-
-
-class SessionBrowserScreen(ModalScreen[Any]):
-    """Search and preview bounded session projections across projects."""
-
-    CSS = """
-    SessionBrowserScreen {
-        align: center middle;
-    }
-    #session-browser-dialog {
-        width: 96%;
-        max-width: 100;
-        height: 92%;
-        max-height: 32;
-        padding: 1 2;
-        border: round $accent;
-        background: $surface;
-    }
-    #session-browser-query {
-        height: 3;
-    }
-    #session-browser-body {
-        height: 1fr;
-        layout: horizontal;
-    }
-    #session-browser-results, #session-browser-preview {
-        width: 1fr;
-        height: 1fr;
-        overflow: auto hidden;
-    }
-    #session-browser-preview {
-        padding: 0 1;
-        border-left: solid $primary-background;
-    }
-    #session-browser-actions {
-        height: 3;
-        align-horizontal: right;
-    }
-    #session-browser-actions Button {
-        margin-left: 1;
-    }
-    """
-
-    BINDINGS = [Binding("escape", "cancel", "Cancel", show=False)]
-
-    def __init__(
-        self,
-        sessions: tuple[SessionSummary, ...],
-        *,
-        title: str,
-        placeholder: str,
-        open_label: str,
-        cancel_label: str,
-        empty: str,
-    ) -> None:
-        super().__init__()
-        self.sessions = sessions
-        self.title = title
-        self.placeholder = placeholder
-        self.open_label = open_label
-        self.cancel_label = cancel_label
-        self.empty = empty
-        self.filtered: tuple[SessionSummary, ...] = sessions
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="session-browser-dialog"):
-            yield Label(self.title, markup=False)
-            yield Input(placeholder=self.placeholder, id="session-browser-query")
-            with Horizontal(id="session-browser-body"):
-                yield ListView(id="session-browser-results")
-                yield Static("", id="session-browser-preview", markup=False)
-            with Horizontal(id="session-browser-actions"):
-                yield Button(
-                    self.open_label, id="session-browser-open", variant="primary"
-                )
-                yield Button(self.cancel_label, id="session-browser-cancel")
-
-    def on_mount(self) -> None:
-        self._apply_filter("")
-        self.query_one("#session-browser-query", Input).focus()
-
-    @on(Input.Changed, "#session-browser-query")
-    def filter_sessions(self, event: Input.Changed) -> None:
-        self._apply_filter(event.value)
-
-    @on(ListView.Highlighted, "#session-browser-results")
-    def preview_session(self, event: ListView.Highlighted) -> None:
-        item = event.item
-        if not isinstance(item, NavigationItem):
-            return
-        selected = next(
-            (session for session in self.filtered if session.id == item.value), None
-        )
-        if selected is not None:
-            self._render_preview(selected)
-
-    @on(ListView.Selected, "#session-browser-results")
-    def select_session(self, event: ListView.Selected) -> None:
-        item = event.item
-        if isinstance(item, NavigationItem):
-            self._dismiss_id(item.value)
-
-    @on(Button.Pressed, "#session-browser-open")
-    def open_session(self) -> None:
-        highlighted = self.query_one(
-            "#session-browser-results", ListView
-        ).highlighted_child
-        if isinstance(highlighted, NavigationItem):
-            self._dismiss_id(highlighted.value)
-
-    @on(Button.Pressed, "#session-browser-cancel")
-    def cancel_session(self) -> None:
-        self.dismiss(None)
-
-    def action_cancel(self) -> None:
-        self.dismiss(None)
-
-    def _dismiss_id(self, session_id: str) -> None:
-        self.dismiss(
-            next((item for item in self.filtered if item.id == session_id), None)
-        )
-
-    def _apply_filter(self, value: str) -> None:
-        terms = value.casefold().split()
-
-        def matches(session: SessionSummary) -> bool:
-            searchable = " ".join(
-                filter(
-                    None,
-                    (
-                        session.title,
-                        session.preview,
-                        session.workspace,
-                        session.project_id,
-                        session.harness_id,
-                        session.native_authority,
-                        session.native_session_id,
-                    ),
-                )
-            ).casefold()
-            for term in terms:
-                if term.startswith("provider:"):
-                    provider = term.partition(":")[2]
-                    if (
-                        provider
-                        not in " ".join(
-                            filter(None, (session.harness_id, session.native_authority))
-                        ).casefold()
-                    ):
-                        return False
-                elif term.startswith("project:"):
-                    project = term.partition(":")[2]
-                    if (
-                        project
-                        not in " ".join(
-                            filter(None, (session.project_id, session.workspace))
-                        ).casefold()
-                    ):
-                        return False
-                elif term == "archived:true":
-                    if not session.archived:
-                        return False
-                elif term not in searchable:
-                    return False
-            return True
-
-        self.filtered = tuple(item for item in self.sessions if matches(item))
-        results = self.query_one("#session-browser-results", ListView)
-        results.clear()
-        for session in self.filtered:
-            marker = "[archived] " if session.archived else ""
-            results.append(NavigationItem(f"{marker}{session.title}", session.id))
-        if self.filtered:
-            results.index = 0
-            self._render_preview(self.filtered[0])
-        else:
-            self.query_one("#session-browser-preview", Static).update(self.empty)
-
-    def _render_preview(self, session: SessionSummary) -> None:
-        native = (
-            f"{session.native_authority}:{session.native_session_id} "
-            f"({session.native_operation or 'linked'})"
-            if session.native_session_id
-            else "none"
-        )
-        self.query_one("#session-browser-preview", Static).update(
-            "\n".join(
-                (
-                    session.title,
-                    f"Provider: {session.harness_id}",
-                    f"Project: {session.project_id or session.workspace or 'unbound'}",
-                    f"Native session: {native}",
-                    f"Revision: {session.revision}",
-                    f"State: {'archived' if session.archived else 'active'}",
-                    "",
-                    session.preview or "No retained transcript preview.",
-                )
-            )
-        )
-
-
 class DetailScreen(ModalScreen[None]):
     """Bounded read-only inspection or handoff detail."""
 
@@ -711,198 +254,6 @@ class DetailScreen(ModalScreen[None]):
 
     def action_close(self) -> None:
         self.dismiss(None)
-
-
-class ResourceDrawerScreen(ModalScreen[tuple[str, str] | None]):
-    """Bounded keyboard-first task or process drawer."""
-
-    CSS = """
-    ResourceDrawerScreen { align: center middle; }
-    #resource-dialog {
-        width: 94%; height: 90%; padding: 1 2;
-        border: round $accent; background: $surface;
-    }
-    #resource-body { height: 1fr; layout: horizontal; }
-    #resource-list, #resource-detail { width: 1fr; height: 1fr; overflow: auto hidden; }
-    #resource-detail { padding: 0 1; border-left: solid $primary-background; }
-    #resource-actions { height: 3; align-horizontal: right; }
-    #resource-actions Button { min-width: 10; margin-left: 1; }
-    """
-
-    BINDINGS = [Binding("escape", "cancel", "Close", show=False)]
-
-    def __init__(
-        self,
-        *,
-        title: str,
-        rows: tuple[tuple[str, str, str], ...],
-        actions: tuple[tuple[str, str], ...],
-        empty: str,
-        close: str,
-    ) -> None:
-        super().__init__()
-        self.dialog_title = title
-        self.rows = rows
-        self.actions = actions
-        self.empty = empty
-        self.close_label = close
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="resource-dialog"):
-            yield Label(self.dialog_title, markup=False)
-            with Horizontal(id="resource-body"):
-                yield ListView(
-                    *(
-                        NavigationItem(label, identity)
-                        for identity, label, _ in self.rows
-                    ),
-                    id="resource-list",
-                )
-                yield Static(self.empty, id="resource-detail", markup=False)
-            with Horizontal(id="resource-actions"):
-                for action, label in self.actions:
-                    yield Button(label, id=f"resource-{action}")
-                yield Button(self.close_label, id="resource-close", variant="primary")
-
-    def on_mount(self) -> None:
-        if self.rows:
-            self.query_one("#resource-list", ListView).index = 0
-            self._render_detail(self.rows[0][0])
-        self.query_one("#resource-list", ListView).focus()
-
-    @on(ListView.Highlighted, "#resource-list")
-    def highlight_resource(self, event: ListView.Highlighted) -> None:
-        if isinstance(event.item, NavigationItem):
-            self._render_detail(event.item.value)
-
-    @on(ListView.Selected, "#resource-list")
-    def select_resource(self, event: ListView.Selected) -> None:
-        if isinstance(event.item, NavigationItem):
-            self.dismiss(("inspect", event.item.value))
-
-    @on(Button.Pressed)
-    def resource_action(self, event: Button.Pressed) -> None:
-        if event.button.id == "resource-close":
-            self.dismiss(None)
-            return
-        highlighted = self.query_one("#resource-list", ListView).highlighted_child
-        if not isinstance(highlighted, NavigationItem):
-            return
-        action = str(event.button.id or "").removeprefix("resource-")
-        self.dismiss((action, highlighted.value))
-
-    def action_cancel(self) -> None:
-        self.dismiss(None)
-
-    def _render_detail(self, identity: str) -> None:
-        detail = next(
-            (body for key, _, body in self.rows if key == identity), self.empty
-        )
-        self.query_one("#resource-detail", Static).update(detail)
-
-
-class ContextDrawerScreen(ModalScreen[str | None]):
-    """Keyboard-first drawer for non-chat Workbench context."""
-
-    CSS = """
-    ContextDrawerScreen { align: right middle; }
-    #context-dialog {
-        width: 64;
-        max-width: 96%;
-        height: 100%;
-        padding: 1 2;
-        border-left: solid $accent;
-        background: $surface;
-    }
-    #context-body { height: 1fr; layout: horizontal; }
-    #context-list { width: 30; min-width: 24; height: 1fr; }
-    #context-detail {
-        width: 1fr;
-        height: 1fr;
-        padding: 0 1;
-        border-left: solid $primary-background;
-        overflow: auto hidden;
-    }
-    #context-drawer-actions { height: 3; align-horizontal: right; }
-    #context-drawer-actions Button { min-width: 10; margin-left: 1; }
-    """
-
-    BINDINGS = [Binding("escape", "cancel", "Close", show=False)]
-
-    def __init__(
-        self,
-        rows: tuple[tuple[str, str, str], ...],
-        *,
-        title: str,
-        open_label: str,
-        close_label: str,
-    ) -> None:
-        super().__init__()
-        self.rows = rows
-        self.dialog_title = title
-        self.open_label = open_label
-        self.close_label = close_label
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="context-dialog"):
-            yield Label(self.dialog_title, classes="dialog-title", markup=False)
-            with Horizontal(id="context-body"):
-                yield ListView(
-                    *(
-                        NavigationItem(label, command_id)
-                        for command_id, label, _ in self.rows
-                    ),
-                    id="context-list",
-                )
-                yield Static("", id="context-detail", markup=False)
-            with Horizontal(id="context-drawer-actions"):
-                yield Button(self.close_label, id="context-close")
-                yield Button(
-                    self.open_label,
-                    id="context-open",
-                    variant="primary",
-                )
-
-    def on_mount(self) -> None:
-        if self.rows:
-            self.query_one("#context-list", ListView).index = 0
-            self._render_detail(self.rows[0][0])
-        self.query_one("#context-list", ListView).focus()
-
-    @on(ListView.Highlighted, "#context-list")
-    def highlight_context(self, event: ListView.Highlighted) -> None:
-        if isinstance(event.item, NavigationItem):
-            self._render_detail(event.item.value)
-
-    @on(ListView.Selected, "#context-list")
-    def select_context(self, event: ListView.Selected) -> None:
-        if isinstance(event.item, NavigationItem):
-            self.dismiss(event.item.value)
-
-    @on(Button.Pressed, "#context-open")
-    def open_context(self) -> None:
-        highlighted = self.query_one("#context-list", ListView).highlighted_child
-        if isinstance(highlighted, NavigationItem):
-            self.dismiss(highlighted.value)
-
-    @on(Button.Pressed, "#context-close")
-    def close_context(self) -> None:
-        self.dismiss(None)
-
-    def action_cancel(self) -> None:
-        self.dismiss(None)
-
-    def _render_detail(self, command_id: str) -> None:
-        detail = next(
-            (body for key, _, body in self.rows if key == command_id),
-            "",
-        )
-        self.query_one("#context-detail", Static).update(detail)
-
-    @property
-    def body(self) -> str:
-        """Return bounded text for tests and accessibility inspection."""
-        return "\n".join(f"{label}\n{detail}" for _, label, detail in self.rows)
 
 
 class ApprovalScreen(ModalScreen[str | None]):
@@ -2092,6 +1443,8 @@ class WorkbenchTui(App[None]):
         )
 
     async def action_sessions(self) -> None:
+        from gpt2giga_harness.tui.screens.browsers import SessionBrowserScreen
+
         self._set_status(self.t("status.loading_sessions"))
         try:
             sessions = await self.client.search_sessions(include_archived=True)
@@ -2295,6 +1648,8 @@ class WorkbenchTui(App[None]):
         self.push_screen(HelpScreen(self.t("help.title"), body))
 
     def action_context_drawer(self) -> None:
+        from gpt2giga_harness.tui.screens.drawers import ContextDrawerScreen
+
         self.push_screen(
             ContextDrawerScreen(
                 self._context_rows(),
@@ -2339,6 +1694,8 @@ class WorkbenchTui(App[None]):
         )
 
     async def action_tasks(self) -> None:
+        from gpt2giga_harness.tui.screens.drawers import ResourceDrawerScreen
+
         snapshot = await self._load_resources()
         if snapshot is None:
             return
@@ -2379,6 +1736,8 @@ class WorkbenchTui(App[None]):
         )
 
     async def action_processes(self) -> None:
+        from gpt2giga_harness.tui.screens.drawers import ResourceDrawerScreen
+
         snapshot = await self._load_resources()
         if snapshot is None:
             return
@@ -2427,6 +1786,8 @@ class WorkbenchTui(App[None]):
         self._show_detail(self.t("command.usage"), body)
 
     async def action_preferences(self) -> None:
+        from gpt2giga_harness.tui.screens.drawers import ResourceDrawerScreen
+
         snapshot = await self._load_resources()
         if snapshot is None:
             return
@@ -2677,6 +2038,8 @@ class WorkbenchTui(App[None]):
         await self._reload()
 
     async def _file_query_chosen(self, value: str | None) -> None:
+        from gpt2giga_harness.tui.screens.browsers import FilePickerScreen
+
         if value is None or self.selected_session_id is None:
             return
         self._set_status(self.t("status.loading_files"))
