@@ -356,7 +356,8 @@ provider passthrough или approval semantics.
 Извлечение `core` и `contracts` — отдельно согласуемая Phase B. Она начинается
 только после подтверждения integration owner, что hot-path owners перестали
 изменять shared modules. До gate заморожены `types.py`, `config.py`,
-`execution.py`, `safe_paths.py` и `instrumentation.py`.
+compatibility surface в `execution/__init__.py`, `safe_paths.py` и
+`instrumentation.py`.
 
 ## Владение во время миграции
 

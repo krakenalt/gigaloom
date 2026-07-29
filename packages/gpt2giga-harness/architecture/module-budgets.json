@@ -135,7 +135,6 @@
         "removal_gate": "T15-PHASE-B",
         "paths": [
           "config.py",
-          "execution.py",
           "instrumentation.py",
           "safe_paths.py",
           "settings.py",
@@ -329,7 +328,7 @@
         "max_lines": 1691
       },
       {
-        "path": "execution.py",
+        "path": "execution/__init__.py",
         "max_lines": 817
       },
       {

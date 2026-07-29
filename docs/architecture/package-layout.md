@@ -360,7 +360,8 @@ provider passthrough, or approval semantics implicitly.
 `core` and `contracts` extraction is a separately approved Phase B. It starts
 only after the integration owner confirms that hot-path owners have stopped
 changing the shared modules. Until that gate, `types.py`, `config.py`,
-`execution.py`, `safe_paths.py`, and `instrumentation.py` remain frozen.
+the compatibility surface in `execution/__init__.py`, `safe_paths.py`, and
+`instrumentation.py` remain frozen.
 
 ## Ownership during migration
 
