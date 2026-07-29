@@ -7,6 +7,7 @@ import pytest
 
 from gpt2giga_harness import cli, proxy
 from gpt2giga_harness import entrypoint
+from gpt2giga_harness.cli_commands.handlers import ui as ui_handlers
 from gpt2giga_harness.codex_mcp_target import CodexMCPTargetDriver
 from gpt2giga_harness.harnesses.base import BaseHarness
 from gpt2giga_harness.harnesses.claude_code import ClaudeCodeHarness
@@ -76,7 +77,7 @@ def _ready_execution_readiness(*_args, **_kwargs):
 
 
 def test_cli_ui_allows_cold_worker_fingerprint_startup():
-    assert cli.UI_WORKER_START_TIMEOUT_SECONDS == 10.0
+    assert ui_handlers.UI_WORKER_START_TIMEOUT_SECONDS == 10.0
 
 
 def test_cli_version_reports_distribution_version(capsys):
@@ -130,16 +131,16 @@ def test_cli_ui_starts_and_stops_worker_when_none_is_online(
         )
         return {"workers": workers, "online": len(workers)}
 
-    monkeypatch.setattr(cli, "worker_status", fake_worker_status)
+    monkeypatch.setattr(ui_handlers, "worker_status", fake_worker_status)
     monkeypatch.setattr(
-        cli.subprocess,
+        ui_handlers.subprocess,
         "Popen",
         lambda command, **kwargs: popen_calls.append((command, kwargs)) or process,
     )
-    monkeypatch.setattr(cli, "create_app", lambda _config: "app")
+    monkeypatch.setattr(ui_handlers, "create_app", lambda _config: "app")
     uvicorn_calls = []
     monkeypatch.setattr(
-        cli.uvicorn,
+        ui_handlers.uvicorn,
         "run",
         lambda *args, **kwargs: uvicorn_calls.append((args, kwargs)),
     )
@@ -177,22 +178,22 @@ def test_cli_ui_reuses_online_worker_or_allows_autostart_opt_out(
 ):
     monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(
-        cli,
+        ui_handlers,
         "worker_status",
         lambda _store: {"workers": [{"status": "online"}], "online": 1},
     )
     monkeypatch.setattr(
-        cli.subprocess,
+        ui_handlers.subprocess,
         "Popen",
         lambda *args, **kwargs: pytest.fail("must not start another worker"),
     )
-    monkeypatch.setattr(cli, "create_app", lambda _config: "app")
-    monkeypatch.setattr(cli.uvicorn, "run", lambda *args, **kwargs: None)
+    monkeypatch.setattr(ui_handlers, "create_app", lambda _config: "app")
+    monkeypatch.setattr(ui_handlers.uvicorn, "run", lambda *args, **kwargs: None)
 
     assert cli.main(["ui"]) == 0
 
     monkeypatch.setattr(
-        cli,
+        ui_handlers,
         "worker_status",
         lambda _store: pytest.fail("opt-out must skip worker discovery"),
     )
@@ -219,10 +220,10 @@ def test_cli_ui_starts_missing_workers_to_reach_target_pool(
         processes.append(process)
         return process
 
-    monkeypatch.setattr(cli, "worker_status", fake_worker_status)
-    monkeypatch.setattr(cli.subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(cli, "create_app", lambda _config: "app")
-    monkeypatch.setattr(cli.uvicorn, "run", lambda *args, **kwargs: None)
+    monkeypatch.setattr(ui_handlers, "worker_status", fake_worker_status)
+    monkeypatch.setattr(ui_handlers.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(ui_handlers, "create_app", lambda _config: "app")
+    monkeypatch.setattr(ui_handlers.uvicorn, "run", lambda *args, **kwargs: None)
 
     assert cli.main(["ui", "--worker-count", "4"]) == 0
 
