@@ -67,6 +67,13 @@
         "paths": [
           "performance_workloads"
         ]
+      },
+      {
+        "owner": "T08",
+        "removal_gate": "G-CL",
+        "paths": [
+          "cli_commands"
+        ]
       }
     ],
     "temporary_module_groups": [
