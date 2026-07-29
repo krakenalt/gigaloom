@@ -35,9 +35,7 @@ from gpt2giga_harness.sessions.models import (
     session_from_dict,
     session_to_dict,
 )
-from gpt2giga_harness.sessions.storage.filesystem.catalog import (
-    SessionLocator,
-)
+from gpt2giga_harness.sessions.storage.filesystem.catalog import SessionLocator
 from gpt2giga_harness.sessions.locking import exclusive_file_lock
 from gpt2giga_harness.sessions.event_stream import (
     EventCursorPosition,
@@ -56,11 +54,15 @@ from gpt2giga_harness.sessions.read_index import (
     SessionReadIndex,
     StaleReadSnapshotError,
 )
+from gpt2giga_harness.sessions.queries import (
+    FilesystemSessionQueryMixin,
+    filter_events,
+)
+from gpt2giga_harness.sessions.record_files import read_jsonl_with_offsets
 from gpt2giga_harness.session_titles import new_session_metadata
 from gpt2giga_harness.sessions.store import (
     RunNotFoundError,
     SessionNotFoundError,
-    _filter_events,
     _matches_session,
     _patch_run,
     _patch_session,
@@ -93,7 +95,7 @@ class FilesystemRecordPage:
     byte_count: int
 
 
-class FilesystemHarnessSessionStore:
+class FilesystemHarnessSessionStore(FilesystemSessionQueryMixin):
     """Persist normalized harness history as transparent JSON and JSONL files."""
 
     def __init__(self, data_dir: str | Path) -> None:
@@ -390,9 +392,10 @@ class FilesystemHarnessSessionStore:
             content=str(redact_for_storage(message.content)),
             metadata=_redacted_mapping(message.metadata),
         )
-        self._append_jsonl(
+        self._append_indexed_record(
             self._session_dir(message.session_id) / MESSAGES_FILE,
             message_to_dict(stored),
+            lambda index, offset: index.record_message(stored, offset),
         )
         return stored
 
@@ -443,7 +446,7 @@ class FilesystemHarnessSessionStore:
         )
         self._append_jsonl(self._session_dir(session_id) / RUNS_FILE, run_to_dict(run))
         if self._read_index is not None:
-            self._read_index.upsert_run(run, 0)
+            self._read_index.append_run(run)
         self.event_broker.publish_runs_center()
         return run
 
@@ -506,9 +509,10 @@ class FilesystemHarnessSessionStore:
             message=str(redact_for_storage(event.message)),
             payload=redact_event_payload(event.payload),
         )
-        self._append_jsonl(
+        self._append_indexed_record(
             self._session_dir(event.session_id) / EVENTS_FILE,
             event_to_dict(stored),
+            lambda index, offset: index.record_event(stored, offset),
         )
         self.event_broker.publish(stored)
         return stored
@@ -621,7 +625,7 @@ class FilesystemHarnessSessionStore:
                 event_from_dict,
             )
         )
-        return tuple(_filter_events(events, run_id=run_id, after_id=after_id))
+        return tuple(filter_events(events, run_id=run_id, after_id=after_id))
 
     def append_raw_request(
         self,
@@ -630,7 +634,9 @@ class FilesystemHarnessSessionStore:
         run_id: str,
         payload: Mapping[str, Any],
     ) -> HarnessRawRecord:
-        return self._append_raw(RAW_REQUESTS_FILE, session_id, run_id, payload)
+        return self._append_raw(
+            "request", RAW_REQUESTS_FILE, session_id, run_id, payload
+        )
 
     def append_raw_response(
         self,
@@ -639,7 +645,9 @@ class FilesystemHarnessSessionStore:
         run_id: str,
         payload: Mapping[str, Any],
     ) -> HarnessRawRecord:
-        return self._append_raw(RAW_RESPONSES_FILE, session_id, run_id, payload)
+        return self._append_raw(
+            "response", RAW_RESPONSES_FILE, session_id, run_id, payload
+        )
 
     def list_raw_requests(self, session_id: str) -> tuple[HarnessRawRecord, ...]:
         self.get_session(session_id)
@@ -717,6 +725,7 @@ class FilesystemHarnessSessionStore:
 
     def _append_raw(
         self,
+        kind: str,
         filename: str,
         session_id: str,
         run_id: str,
@@ -730,9 +739,10 @@ class FilesystemHarnessSessionStore:
             payload=_redacted_mapping(payload),
             created_at=utc_now(),
         )
-        self._append_jsonl(
+        self._append_indexed_record(
             self._session_dir(session_id) / filename,
             raw_record_to_dict(record),
+            lambda index, offset: index.record_raw(kind, record, offset),
         )
         return record
 
@@ -766,6 +776,11 @@ class FilesystemHarnessSessionStore:
             if not self._session_read_index().is_complete():
                 self._rebuild_read_index()
 
+    def _ensure_record_index(self) -> None:
+        with self._read_index_lock:
+            if not self._session_read_index().records_complete():
+                self._rebuild_read_index()
+
     def _session_read_index(self) -> SessionReadIndex:
         with self._read_index_lock:
             if self._read_index is None:
@@ -776,6 +791,10 @@ class FilesystemHarnessSessionStore:
         with self._read_index_lock:
             sessions: list[HarnessSession] = []
             runs: list[tuple[HarnessRun, int]] = []
+            messages: list[tuple[HarnessMessage, int]] = []
+            events: list[tuple[HarnessStoredEvent, int]] = []
+            raw_requests: list[tuple[HarnessRawRecord, int]] = []
+            raw_responses: list[tuple[HarnessRawRecord, int]] = []
             for entry in self._session_locator.entries():
                 try:
                     session_dir = self._session_dir(entry.session_id)
@@ -788,9 +807,36 @@ class FilesystemHarnessSessionStore:
                             _read_jsonl(session_dir / RUNS_FILE, run_from_dict)
                         )
                     )
+                    messages.extend(
+                        read_jsonl_with_offsets(
+                            session_dir / MESSAGES_FILE, message_from_dict
+                        )
+                    )
+                    events.extend(
+                        read_jsonl_with_offsets(
+                            session_dir / EVENTS_FILE, event_from_dict
+                        )
+                    )
+                    raw_requests.extend(
+                        read_jsonl_with_offsets(
+                            session_dir / RAW_REQUESTS_FILE, raw_record_from_dict
+                        )
+                    )
+                    raw_responses.extend(
+                        read_jsonl_with_offsets(
+                            session_dir / RAW_RESPONSES_FILE, raw_record_from_dict
+                        )
+                    )
                 except (SessionNotFoundError, ValueError, OSError, KeyError):
                     continue
-            self._session_read_index().replace_all(sessions, runs)
+            self._session_read_index().replace_all(
+                sessions,
+                runs,
+                messages=messages,
+                events=events,
+                raw_requests=raw_requests,
+                raw_responses=raw_responses,
+            )
 
     def _write_session(self, session: HarnessSession, session_dir: Path) -> None:
         _write_json_atomic(session_dir / MANIFEST_FILE, session_to_dict(session))
@@ -808,6 +854,23 @@ class FilesystemHarnessSessionStore:
 
     def _append_jsonl(self, path: Path, payload: Mapping[str, Any]) -> None:
         _append_jsonl(path, redact_for_storage(dict(payload)))
+
+    def _append_indexed_record(
+        self,
+        path: Path,
+        payload: Mapping[str, Any],
+        recorder: Callable[[SessionReadIndex, int], None],
+    ) -> None:
+        with self._read_index_lock:
+            index = self._read_index
+            complete = index is not None and index.records_complete()
+            if complete:
+                index.mark_records_complete(False)
+            offset = _append_jsonl(path, redact_for_storage(dict(payload)))
+            if index is not None:
+                recorder(index, offset)
+                if complete:
+                    index.mark_records_complete(True)
 
     def _write_jsonl(self, path: Path, payloads: list[Mapping[str, Any]]) -> None:
         _write_jsonl_atomic(
@@ -874,7 +937,7 @@ def _write_jsonl_atomic_unlocked(path: Path, payloads: list[Any]) -> None:
     os.replace(temp_path, path)
 
 
-def _append_jsonl(path: Path, payload: Any) -> None:
+def _append_jsonl(path: Path, payload: Any) -> int:
     with exclusive_file_lock(path):
         path.parent.mkdir(parents=True, exist_ok=True)
         encoded = (
@@ -882,10 +945,12 @@ def _append_jsonl(path: Path, payload: Any) -> None:
         ).encode("utf-8")
         descriptor = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
         try:
+            offset = os.lseek(descriptor, 0, os.SEEK_END)
             os.write(descriptor, encoded)
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
+    return offset
 
 
 _RECORD_PAGE_TYPES: dict[str, tuple[str, Callable[[Mapping[str, Any]], Any]]] = {

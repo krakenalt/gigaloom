@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from gpt2giga_harness.native.models import parse_invocation_mode
 from gpt2giga_harness.runtime.models import RunStatus, parse_run_status
+from gpt2giga_harness.sessions.api import SessionQueryStore
 from gpt2giga_harness.sessions.models import (
     HarnessMessage,
     HarnessNativeLink,
@@ -32,6 +33,11 @@ from gpt2giga_harness.sessions.redaction import (
     redact_event_payload,
     redact_for_storage,
 )
+from gpt2giga_harness.sessions.queries import (
+    InMemoryQueryIndex,
+    InMemorySessionQueryMixin,
+    filter_events,
+)
 from gpt2giga_harness.session_titles import (
     manual_title_metadata,
     merge_title_metadata,
@@ -48,7 +54,7 @@ class RunNotFoundError(KeyError):
     """Raised when a harness run does not exist."""
 
 
-class HarnessSessionStore(Protocol):
+class HarnessSessionStore(SessionQueryStore, Protocol):
     """Persistence contract for normalized harness UI history."""
 
     def create_session(
@@ -233,7 +239,7 @@ class HarnessSessionStore(Protocol):
         """Return a complete session bundle."""
 
 
-class InMemoryHarnessSessionStore:
+class InMemoryHarnessSessionStore(InMemorySessionQueryMixin):
     """In-memory session store for hermetic tests."""
 
     def __init__(self) -> None:
@@ -244,6 +250,7 @@ class InMemoryHarnessSessionStore:
         self._raw_requests: dict[str, list[HarnessRawRecord]] = {}
         self._raw_responses: dict[str, list[HarnessRawRecord]] = {}
         self._native_links: dict[str, list[HarnessNativeLink]] = {}
+        self._query_index = InMemoryQueryIndex()
         self._session_lock = threading.RLock()
         self._session_generation = 0
         self._run_generation = 0
@@ -370,6 +377,7 @@ class InMemoryHarnessSessionStore:
             self._raw_requests.pop(session_id, None)
             self._raw_responses.pop(session_id, None)
             self._native_links.pop(session_id, None)
+            self._query_index.delete_session(session_id)
             self._session_generation += 1
         self.event_broker.publish_session(session_id)
         self.event_broker.publish_runs_center()
@@ -390,6 +398,7 @@ class InMemoryHarnessSessionStore:
             self._raw_requests.pop(session_id, None)
             self._raw_responses.pop(session_id, None)
             self._native_links.pop(session_id, None)
+            self._query_index.delete_session(session_id)
             self._session_generation += 1
         self.event_broker.publish_session(session_id)
         self.event_broker.publish_runs_center()
@@ -410,6 +419,7 @@ class InMemoryHarnessSessionStore:
             metadata=_redacted_mapping(message.metadata),
         )
         self._messages.setdefault(message.session_id, []).append(stored)
+        self._query_index.record_message(stored)
         return stored
 
     def list_messages(self, session_id: str) -> tuple[HarnessMessage, ...]:
@@ -484,6 +494,7 @@ class InMemoryHarnessSessionStore:
             payload=redact_event_payload(event.payload),
         )
         self._events.setdefault(event.session_id, []).append(stored)
+        self._query_index.record_event(stored)
         self.event_broker.publish(stored)
         return stored
 
@@ -558,7 +569,7 @@ class InMemoryHarnessSessionStore:
     ) -> tuple[HarnessStoredEvent, ...]:
         self.get_session(session_id)
         events = self._events.get(session_id, ())
-        return tuple(_filter_events(events, run_id=run_id, after_id=after_id))
+        return tuple(filter_events(events, run_id=run_id, after_id=after_id))
 
     def append_raw_request(
         self,
@@ -567,7 +578,9 @@ class InMemoryHarnessSessionStore:
         run_id: str,
         payload: Mapping[str, Any],
     ) -> HarnessRawRecord:
-        return self._append_raw(self._raw_requests, session_id, run_id, payload)
+        return self._append_raw(
+            "request", self._raw_requests, session_id, run_id, payload
+        )
 
     def append_raw_response(
         self,
@@ -576,7 +589,9 @@ class InMemoryHarnessSessionStore:
         run_id: str,
         payload: Mapping[str, Any],
     ) -> HarnessRawRecord:
-        return self._append_raw(self._raw_responses, session_id, run_id, payload)
+        return self._append_raw(
+            "response", self._raw_responses, session_id, run_id, payload
+        )
 
     def list_raw_requests(self, session_id: str) -> tuple[HarnessRawRecord, ...]:
         self.get_session(session_id)
@@ -626,6 +641,7 @@ class InMemoryHarnessSessionStore:
 
     def _append_raw(
         self,
+        kind: str,
         target: dict[str, list[HarnessRawRecord]],
         session_id: str,
         run_id: str,
@@ -640,6 +656,7 @@ class InMemoryHarnessSessionStore:
             created_at=utc_now(),
         )
         target.setdefault(session_id, []).append(record)
+        self._query_index.record_raw(kind, record)
         return record
 
     def _find_run(self, run_id: str) -> tuple[str, int, HarnessRun]:
@@ -699,27 +716,6 @@ def _matches_session(
     if q and q.lower() not in session.title.lower():
         return False
     return True
-
-
-def _filter_events(
-    events: list[HarnessStoredEvent] | tuple[HarnessStoredEvent, ...],
-    *,
-    run_id: str | None,
-    after_id: str | None,
-) -> list[HarnessStoredEvent]:
-    result = list(events)
-    if run_id is not None:
-        result = [event for event in result if event.run_id == run_id]
-    if after_id is not None:
-        seen = False
-        filtered: list[HarnessStoredEvent] = []
-        for event in result:
-            if seen:
-                filtered.append(event)
-            elif event.id == after_id:
-                seen = True
-        result = filtered
-    return result
 
 
 def _patch_session(session: HarnessSession, patch: Mapping[str, Any]) -> HarnessSession:

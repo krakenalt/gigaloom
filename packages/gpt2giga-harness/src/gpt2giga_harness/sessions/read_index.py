@@ -9,13 +9,21 @@ from pathlib import Path
 import sqlite3
 from typing import Iterable, Iterator
 
+from gpt2giga_harness.sessions.api import StaleReadSnapshotError
 from gpt2giga_harness.sessions.models import (
+    HarnessMessage,
+    HarnessRawRecord,
     HarnessRun,
     HarnessSession,
+    HarnessStoredEvent,
     run_from_dict,
     run_to_dict,
     session_from_dict,
     session_to_dict,
+)
+from gpt2giga_harness.sessions.record_index import (
+    RECORD_INDEX_SCHEMA,
+    SessionRecordIndexMixin,
 )
 
 
@@ -38,11 +46,7 @@ class SessionIndexPage:
     generation: int
 
 
-class StaleReadSnapshotError(ValueError):
-    """Raised when a cursor no longer names the current read snapshot."""
-
-
-class SessionReadIndex:
+class SessionReadIndex(SessionRecordIndexMixin):
     """Maintain rebuildable direct session and run lookup projections."""
 
     def __init__(self, path: str | Path) -> None:
@@ -79,6 +83,7 @@ class SessionReadIndex:
                 CREATE INDEX IF NOT EXISTS read_index_runs_session_idx
                     ON read_index_runs(session_id, position);
                 """
+                + RECORD_INDEX_SCHEMA
             )
             connection.execute(
                 "INSERT OR IGNORE INTO read_index_meta(key, value) VALUES ('generation', '0')"
@@ -88,6 +93,9 @@ class SessionReadIndex:
             )
             connection.execute(
                 "INSERT OR IGNORE INTO read_index_meta(key, value) VALUES ('run_generation', '0')"
+            )
+            connection.execute(
+                "INSERT OR IGNORE INTO read_index_meta(key, value) VALUES ('records_complete', '0')"
             )
 
     def is_complete(self) -> bool:
@@ -99,16 +107,32 @@ class SessionReadIndex:
         self,
         sessions: Iterable[HarnessSession],
         runs: Iterable[tuple[HarnessRun, int]],
+        *,
+        messages: Iterable[tuple[HarnessMessage, int]] = (),
+        events: Iterable[tuple[HarnessStoredEvent, int]] = (),
+        raw_requests: Iterable[tuple[HarnessRawRecord, int]] = (),
+        raw_responses: Iterable[tuple[HarnessRawRecord, int]] = (),
     ) -> None:
         """Atomically rebuild the derived projection from authoritative JSON state."""
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             connection.execute("DELETE FROM read_index_runs")
             connection.execute("DELETE FROM read_index_sessions")
+            connection.execute("DELETE FROM read_index_messages")
+            connection.execute("DELETE FROM read_index_events")
+            connection.execute("DELETE FROM read_index_raw_records")
             for session in sessions:
                 self._upsert_session(connection, session)
             for run, position in runs:
                 self._upsert_run(connection, run, position)
+            for message, position in messages:
+                self._record_message(connection, message, position)
+            for event, position in events:
+                self._record_event(connection, event, position)
+            for record, position in raw_requests:
+                self._record_raw(connection, "request", record, position)
+            for record, position in raw_responses:
+                self._record_raw(connection, "response", record, position)
             generation = self._generation(connection) + 1
             self._set_meta(connection, "generation", str(generation))
             self._set_meta(
@@ -117,6 +141,7 @@ class SessionReadIndex:
                 str(self._run_generation(connection) + 1),
             )
             self._set_meta(connection, "complete", "1")
+            self._set_meta(connection, "records_complete", "1")
 
     def upsert_session(self, session: HarnessSession) -> None:
         """Refresh one session projection and advance the list snapshot."""
@@ -137,6 +162,16 @@ class SessionReadIndex:
             )
             connection.execute(
                 "DELETE FROM read_index_sessions WHERE id = ?", (session_id,)
+            )
+            connection.execute(
+                "DELETE FROM read_index_messages WHERE session_id = ?", (session_id,)
+            )
+            connection.execute(
+                "DELETE FROM read_index_events WHERE session_id = ?", (session_id,)
+            )
+            connection.execute(
+                "DELETE FROM read_index_raw_records WHERE session_id = ?",
+                (session_id,),
             )
             if self._meta(connection, "complete") == "1":
                 self._set_meta(
