@@ -1,10 +1,29 @@
 """Runtime queue claim workload."""
 
-from typing import Final
+from __future__ import annotations
+
+import concurrent.futures
+from pathlib import Path
+import threading
+from typing import Any, Final
 
 from gpt2giga_harness.performance_workloads import WorkloadSpec
+from gpt2giga_harness.performance_workloads.runtime.contracts import (
+    RuntimeCase,
+    RuntimeCaseFactory,
+)
+from gpt2giga_harness.performance_workloads.runtime.fixtures import seed_jobs
+from gpt2giga_harness.performance_workloads.runtime.instrumentation import (
+    RuntimeCounters,
+    TracingRuntimeStore,
+)
 
 
+QUEUE_SIZE: Final[int] = 10_000
+WORKER_FINGERPRINT: Final[dict[str, Any]] = {
+    "os": "fixture",
+    "harnesses": {},
+}
 WORKLOADS: Final[tuple[WorkloadSpec, ...]] = (
     WorkloadSpec(
         id="runtime.queue.claim",
@@ -28,3 +47,123 @@ WORKLOADS: Final[tuple[WorkloadSpec, ...]] = (
         future_gate="G-PERF",
     ),
 )
+
+
+def case_factories() -> tuple[RuntimeCaseFactory, ...]:
+    """Return bounded queue cases in deterministic registry order."""
+    return (
+        _claim_factory("queued_10000", incompatible=0, expected_index=0),
+        _claim_factory(
+            "incompatible_90_percent",
+            incompatible=9_000,
+            expected_index=9_000,
+        ),
+        _claim_factory(
+            "compatible_at_window_end",
+            incompatible=9_000,
+            expected_index=9_999,
+            excluded_before_end=999,
+        ),
+        _parallel_claim_factory(2),
+        _parallel_claim_factory(8),
+    )
+
+
+def _claim_factory(
+    variant: str,
+    *,
+    incompatible: int,
+    expected_index: int,
+    excluded_before_end: int = 0,
+) -> RuntimeCaseFactory:
+    def factory(root: Path) -> RuntimeCase:
+        store = TracingRuntimeStore(root)
+        seed_jobs(
+            store,
+            count=QUEUE_SIZE,
+            incompatible=incompatible,
+            excluded_before_end=excluded_before_end,
+        )
+
+        def operation(counters: RuntimeCounters) -> dict[str, int]:
+            claim = store.claim_next_job(
+                worker_id="fixture-worker",
+                capability_fingerprint=WORKER_FINGERPRINT,
+                lease_seconds=5,
+            )
+            expected = f"job-{expected_index:05d}"
+            if claim is None or claim.job.id != expected:
+                raise RuntimeError(f"queue fixture did not claim {expected}")
+            candidates = QUEUE_SIZE - excluded_before_end
+            counters.rows_parsed = candidates
+            counters.claimed_jobs = 1
+            return {
+                "compatible_candidate_position": (
+                    expected_index + 1 - excluded_before_end
+                ),
+                "compatible_queue_position": expected_index + 1,
+                "excluded_jobs": excluded_before_end,
+                "incompatible_jobs": incompatible,
+            }
+
+        return RuntimeCase(
+            id=f"runtime.queue.claim.{variant}",
+            family="runtime/queue",
+            fixture={
+                "queued_jobs": QUEUE_SIZE,
+                "incompatible_jobs": incompatible,
+                "excluded_jobs": excluded_before_end,
+                "workers": 1,
+            },
+            store=store,
+            operation=operation,
+        )
+
+    return factory
+
+
+def _parallel_claim_factory(worker_count: int) -> RuntimeCaseFactory:
+    def factory(root: Path) -> RuntimeCase:
+        store = TracingRuntimeStore(root)
+        seed_jobs(store, count=QUEUE_SIZE)
+
+        def operation(counters: RuntimeCounters) -> dict[str, int]:
+            barrier = threading.Barrier(worker_count)
+
+            def claim(worker_index: int) -> str:
+                barrier.wait(timeout=5)
+                item = store.claim_next_job(
+                    worker_id=f"fixture-worker-{worker_index}",
+                    capability_fingerprint=WORKER_FINGERPRINT,
+                    lease_seconds=5,
+                )
+                if item is None:
+                    raise RuntimeError("parallel queue fixture missed a claim")
+                return item.job.id
+
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=worker_count
+            ) as executor:
+                claimed = list(executor.map(claim, range(worker_count)))
+            counters.claimed_jobs = len(claimed)
+            counters.duplicate_claims = len(claimed) - len(set(claimed))
+            counters.rows_parsed = sum(
+                QUEUE_SIZE - index for index in range(worker_count)
+            )
+            if counters.duplicate_claims:
+                raise RuntimeError("parallel queue fixture duplicated a claim")
+            return {
+                "workers": worker_count,
+                "claimed_jobs": len(claimed),
+                "duplicate_claims": counters.duplicate_claims,
+            }
+
+        return RuntimeCase(
+            id=f"runtime.queue.claim.workers_{worker_count}",
+            family="runtime/queue",
+            fixture={"queued_jobs": QUEUE_SIZE, "workers": worker_count},
+            store=store,
+            operation=operation,
+        )
+
+    return factory

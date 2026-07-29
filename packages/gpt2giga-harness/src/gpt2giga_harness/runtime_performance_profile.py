@@ -200,6 +200,9 @@ def run_runtime_performance_profile(*, samples: int) -> dict[str, Any]:
     """Measure current durable runtime and request paths in temporary state."""
     if not 1 <= samples <= MAX_SAMPLES:
         raise ValueError(f"samples must be between 1 and {MAX_SAMPLES}")
+    from gpt2giga_harness.performance_workloads.runtime.profile import (
+        run_runtime_scaling_baseline,
+    )
 
     observations: dict[str, list[_OperationSample]] = {}
     with tempfile.TemporaryDirectory(prefix="gigaloom-g6-profile-") as raw_root:
@@ -258,9 +261,11 @@ def run_runtime_performance_profile(*, samples: int) -> dict[str, Any]:
         for family, metrics in REQUIRED_COVERAGE.items()
         if set(metrics) - observed_ids
     }
+    runtime_scaling_baseline = run_runtime_scaling_baseline(samples=samples)
     return {
         "schema_version": SCHEMA_VERSION,
         "fixture_set_version": FIXTURE_SET_VERSION,
+        "source_commit": runtime_scaling_baseline["source_commit"],
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "profile": "runtime-detail",
         "samples_per_probe": samples,
@@ -340,6 +345,7 @@ def run_runtime_performance_profile(*, samples: int) -> dict[str, Any]:
             },
         ],
         "missing_coverage": missing,
+        "runtime_scaling_baseline": runtime_scaling_baseline,
         "status": (
             "passed"
             if not missing

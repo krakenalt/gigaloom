@@ -33,6 +33,9 @@ from gpt2giga_harness.performance_workloads.sessions.profile import (
     _measure_case,
     run_session_storage_scaling_baseline,
 )
+from gpt2giga_harness.performance_workloads.runtime.profile import (
+    run_runtime_scaling_baseline,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -222,6 +225,116 @@ def test_session_storage_case_resets_mutable_fixture_between_samples(tmp_path):
 def test_session_storage_profile_rejects_unbounded_sample_counts(samples):
     with pytest.raises(ValueError, match="samples must be between 1 and 100"):
         run_session_storage_scaling_baseline(samples=samples)
+
+
+@pytest.mark.parametrize("samples", (0, 101))
+def test_runtime_scaling_profile_rejects_unbounded_sample_counts(samples):
+    with pytest.raises(ValueError, match="samples must be between 1 and 100"):
+        run_runtime_scaling_baseline(samples=samples)
+
+
+def test_runtime_scaling_profile_captures_required_content_free_fixtures():
+    report = run_runtime_scaling_baseline(samples=1)
+
+    assert report["schema_version"] == "gigaloom.runtime-scaling-baseline.v1"
+    assert report["fixture_set_version"] == "t01-3.v1"
+    assert report["profile"] == "runtime-detail"
+    assert len(report["source_commit"]) == 40
+    assert report["samples_per_case"] == 1
+    assert report["environment"]["fingerprint"]["algorithm"] == "sha256"
+    assert len(report["environment"]["fingerprint"]["value"]) == 64
+    assert report["privacy"] == {
+        "content_captured": False,
+        "secrets_captured": False,
+        "private_paths_captured": False,
+        "sql_parameter_values_captured": False,
+        "native_homes_accessed": False,
+        "provider_traffic": False,
+        "network_accessed": False,
+        "temporary_state_only": True,
+    }
+    assert report["measurement_contract"] == {
+        "fixture_setup_in_measured_window": False,
+        "fixture_setup": "direct_content_free_canonical_state",
+        "production_store_used_in_measured_window": True,
+        "queue_size": 10_000,
+        "incompatible_percent": 90,
+        "worker_counts": [2, 8],
+        "revision_scales": [100, 1_000, 10_000, 50_000],
+        "maintenance_cases": [
+            "heartbeat",
+            "idle",
+            "schedule",
+            "recovery",
+            "reconcile",
+        ],
+        "absolute_wall_time_is_ci_blocking": False,
+        "algorithmic_counters_are_ci_stable": True,
+        "query_plan_sql_retained": False,
+        "query_plan_parameter_values_retained": False,
+    }
+    assert len(report["results"]) == 14
+    by_metric = {item["id"]: item for item in report["results"]}
+    assert (
+        by_metric["runtime.queue.claim.incompatible_90_percent"]["details"][
+            "compatible_candidate_position"
+        ]["p95"]
+        == 9_001
+    )
+    assert (
+        by_metric["runtime.queue.claim.compatible_at_window_end"]["details"][
+            "compatible_candidate_position"
+        ]["p95"]
+        == 9_001
+    )
+    assert (
+        by_metric["runtime.queue.claim.compatible_at_window_end"]["details"][
+            "compatible_queue_position"
+        ]["p95"]
+        == 10_000
+    )
+    assert (
+        by_metric["runtime.queue.claim.compatible_at_window_end"]["fixture"][
+            "incompatible_jobs"
+        ]
+        == 9_000
+    )
+    for workers in (2, 8):
+        result = by_metric[f"runtime.queue.claim.workers_{workers}"]
+        assert result["details"]["workers"]["p95"] == workers
+        assert result["counters"]["claimed_jobs"]["p95"] == workers
+        assert result["counters"]["duplicate_claims"]["p95"] == 0
+    for scale in (100, 1_000, 10_000, 50_000):
+        result = by_metric[f"runtime.revisions.runs_center.rows_{scale}"]
+        assert result["counters"]["rows_parsed"]["p95"] == scale
+    for variant in ("heartbeat", "idle", "schedule", "recovery", "reconcile"):
+        result = by_metric[f"runtime.worker.lifecycle.{variant}"]
+        assert result["measured_window"] == "operation_only"
+        assert result["regression_gate"]["blocking"] is False
+    counter_names = {
+        "claimed_jobs",
+        "duplicate_claims",
+        "maintenance_cycles",
+        "rows_parsed",
+        "sqlite_connections",
+        "sqlite_reads",
+        "sqlite_statements",
+        "sqlite_writes",
+        "wakeups",
+    }
+    assert all(set(item["counters"]) == counter_names for item in report["results"])
+
+    serialized_plans = json.dumps(report["query_plans"], sort_keys=True)
+    assert len(report["query_plans"]) == 8
+    assert "2026-01-01" not in serialized_plans
+    assert "fixture" not in serialized_plans
+    for plan in report["query_plans"]:
+        assert set(plan) == {"id", "sql_sha256", "parameter_count", "steps"}
+        assert len(plan["sql_sha256"]) == 64
+        assert plan["steps"]
+        assert all(
+            set(step) == {"select_id", "parent_id", "detail"} for step in plan["steps"]
+        )
 
 
 def test_local_detail_profile_keeps_bounded_content_free_samples():
@@ -495,6 +608,7 @@ def test_runtime_detail_profile_is_ranked_bounded_and_content_free():
     _assert_g6_03_report_contract(report, profile="runtime-detail")
     assert report["schema_version"] == "gigaloom.runtime-performance-profile.v3"
     assert report["fixture_set_version"] == "g6-02.v1"
+    assert len(report["source_commit"]) == 40
     assert report["privacy"] == {
         "content_captured": False,
         "secrets_captured": False,
@@ -507,6 +621,10 @@ def test_runtime_detail_profile_is_ranked_bounded_and_content_free():
     assert report["measurement_contract"]["g6_01_authorized"] is True
     assert report["measurement_contract"]["g6_02_authorized"] is True
     assert report["missing_coverage"] == {}
+    assert (
+        report["runtime_scaling_baseline"]["schema_version"]
+        == "gigaloom.runtime-scaling-baseline.v1"
+    )
     assert report["status"] == "passed"
     metrics = {item["id"] for item in report["results"]}
     assert {
