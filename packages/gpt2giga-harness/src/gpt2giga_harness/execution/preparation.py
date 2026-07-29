@@ -38,11 +38,18 @@ class RunPreparationService:
             edited_from = _optional_text(current.metadata.get("edited_from_message_id"))
             if edit_message_id is not None and edited_from != edit_message_id:
                 raise ValueError("Edited user message branch does not match its source")
-            return store.list_recent_messages(
+            before = store.list_recent_messages(
                 session_id,
                 limit=limit,
                 before=current_user_message_id,
             )
+            tail = store.list_recent_messages(session_id, limit=limit)
+            tail_ids = tuple(message.id for message in tail)
+            try:
+                after = tail[tail_ids.index(current_user_message_id) + 1 :]
+            except ValueError:
+                after = tail
+            return (*before, *after)[-limit:]
         if edit_message_id is not None:
             edited = store.get_message(edit_message_id)
             if edited.role != "user":
