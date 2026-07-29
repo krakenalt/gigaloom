@@ -31,11 +31,15 @@ from gpt2giga_harness.sessions.models import (
     raw_record_from_dict,
     raw_record_to_dict,
     run_from_dict,
-    run_to_dict,
     session_from_dict,
     session_to_dict,
 )
 from gpt2giga_harness.sessions.storage.filesystem.catalog import SessionLocator
+from gpt2giga_harness.sessions.storage.filesystem.runs import (
+    RUNS_FILE,
+    LegacyJsonlRunRepository,
+    RunRepository,
+)
 from gpt2giga_harness.sessions.locking import exclusive_file_lock
 from gpt2giga_harness.sessions.event_stream import (
     EventCursorPosition,
@@ -61,10 +65,8 @@ from gpt2giga_harness.sessions.queries import (
 from gpt2giga_harness.sessions.record_files import read_jsonl_with_offsets
 from gpt2giga_harness.session_titles import new_session_metadata
 from gpt2giga_harness.sessions.store import (
-    RunNotFoundError,
     SessionNotFoundError,
     _matches_session,
-    _patch_run,
     _patch_session,
     _redacted_mapping,
     _title_or_default,
@@ -76,7 +78,6 @@ from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability
 INDEX_FILE = "index.json"
 MANIFEST_FILE = "manifest.json"
 MESSAGES_FILE = "messages.jsonl"
-RUNS_FILE = "runs.jsonl"
 EVENTS_FILE = "events.jsonl"
 RAW_REQUESTS_FILE = "raw_requests.jsonl"
 RAW_RESPONSES_FILE = "raw_responses.jsonl"
@@ -112,6 +113,14 @@ class FilesystemHarnessSessionStore(FilesystemSessionQueryMixin):
         )
         self._read_index_lock = threading.RLock()
         self.event_broker = RunEventBroker()
+        self._run_repository: RunRepository = LegacyJsonlRunRepository(
+            session_dir=self._session_dir,
+            current_read_index=lambda: self._read_index,
+            read_index=self._session_read_index,
+            ensure_read_index=self._ensure_read_index,
+            rebuild_read_index=self._rebuild_read_index,
+            publish_runs_center=self.event_broker.publish_runs_center,
+        )
 
     def create_session(
         self,
@@ -444,58 +453,17 @@ class FilesystemHarnessSessionStore(FilesystemSessionQueryMixin):
             started_at=started_at,
             metadata=_redacted_mapping(metadata),
         )
-        self._append_jsonl(self._session_dir(session_id) / RUNS_FILE, run_to_dict(run))
-        if self._read_index is not None:
-            self._read_index.append_run(run)
-        self.event_broker.publish_runs_center()
-        return run
+        return self._run_repository.append(run)
 
     def update_run(self, run_id: str, **patch: Any) -> HarnessRun:
-        self._ensure_read_index()
-        indexed = self._session_read_index().lookup_run(run_id)
-        if indexed is None:
-            raise RunNotFoundError(run_id)
-        for attempt in range(2):
-            session_id = indexed[0]
-            path = self._session_dir(session_id) / RUNS_FILE
-            with exclusive_file_lock(path):
-                runs = _read_jsonl(path, run_from_dict)
-                for index, run in enumerate(runs):
-                    if run.id != run_id:
-                        continue
-                    updated = _patch_run(run, patch)
-                    runs[index] = updated
-                    _write_jsonl_atomic_unlocked(
-                        path,
-                        [redact_for_storage(run_to_dict(item)) for item in runs],
-                    )
-                    self._session_read_index().upsert_run(updated, index)
-                    self.event_broker.publish_runs_center()
-                    return updated
-            if attempt == 0:
-                # The JSONL log is authoritative. Rebuild the derived index once
-                # if another writer left its row pointing at the wrong session.
-                self._rebuild_read_index()
-                indexed = self._session_read_index().lookup_run(run_id)
-                if indexed is None:
-                    break
-        raise RunNotFoundError(run_id)
+        return self._run_repository.update(run_id, **patch)
 
     def get_run(self, run_id: str) -> HarnessRun:
-        self._ensure_read_index()
-        indexed = self._session_read_index().lookup_run(run_id)
-        if indexed is None:
-            raise RunNotFoundError(run_id)
-        return indexed[2]
+        return self._run_repository.get(run_id)
 
     def list_runs(self, session_id: str) -> tuple[HarnessRun, ...]:
         self.get_session(session_id)
-        return tuple(
-            _read_jsonl(
-                self._session_dir(session_id) / RUNS_FILE,
-                run_from_dict,
-            )
-        )
+        return self._run_repository.list(session_id)
 
     def runs_center_generation(self) -> tuple[int, int]:
         """Return cheap session/run generations for global live invalidation."""
@@ -746,31 +714,6 @@ class FilesystemHarnessSessionStore(FilesystemSessionQueryMixin):
         )
         return record
 
-    def _find_run(self, run_id: str) -> tuple[str, int, HarnessRun, list[HarnessRun]]:
-        self._ensure_read_index()
-        indexed = self._session_read_index().lookup_run(run_id)
-        if indexed is not None:
-            session_id, _, expected = indexed
-            runs = list(self.list_runs(session_id))
-            for index, run in enumerate(runs):
-                if run.id == run_id:
-                    return session_id, index, run, runs
-            # The JSONL files remain authoritative if the derived row is stale.
-            self._rebuild_read_index()
-            refreshed = self._session_read_index().lookup_run(run_id)
-            if refreshed is not None:
-                return self._find_run_from_session(refreshed[0], run_id)
-        raise RunNotFoundError(run_id)
-
-    def _find_run_from_session(
-        self, session_id: str, run_id: str
-    ) -> tuple[str, int, HarnessRun, list[HarnessRun]]:
-        runs = list(self.list_runs(session_id))
-        for index, run in enumerate(runs):
-            if run.id == run_id:
-                return session_id, index, run, runs
-        raise RunNotFoundError(run_id)
-
     def _ensure_read_index(self) -> None:
         with self._read_index_lock:
             if not self._session_read_index().is_complete():
@@ -804,7 +747,7 @@ class FilesystemHarnessSessionStore(FilesystemSessionQueryMixin):
                     runs.extend(
                         (run, index)
                         for index, run in enumerate(
-                            _read_jsonl(session_dir / RUNS_FILE, run_from_dict)
+                            self._run_repository.list(entry.session_id)
                         )
                     )
                     messages.extend(

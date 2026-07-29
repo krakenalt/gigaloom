@@ -1,7 +1,7 @@
 from dataclasses import replace
 import json
 
-import gpt2giga_harness.sessions.filesystem as filesystem_sessions
+import gpt2giga_harness.sessions.storage.filesystem.runs as filesystem_runs
 from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
 from gpt2giga_harness.native import HarnessInvocationMode, NativeSessionStatus
 from gpt2giga_harness.sessions.models import (
@@ -131,7 +131,7 @@ def test_filesystem_store_updates_run_with_one_authoritative_log_scan(
         workspace=None,
     )
     assert store.get_run(run.id) == run
-    original_read_jsonl = filesystem_sessions._read_jsonl
+    original_read_jsonl = filesystem_runs._read_jsonl
     scans = 0
 
     def counted_read_jsonl(*args, **kwargs):
@@ -139,7 +139,7 @@ def test_filesystem_store_updates_run_with_one_authoritative_log_scan(
         scans += 1
         return original_read_jsonl(*args, **kwargs)
 
-    monkeypatch.setattr(filesystem_sessions, "_read_jsonl", counted_read_jsonl)
+    monkeypatch.setattr(filesystem_runs, "_read_jsonl", counted_read_jsonl)
 
     updated = store.update_run(run.id, status="succeeded")
 
