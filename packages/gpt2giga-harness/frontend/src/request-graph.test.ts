@@ -37,6 +37,63 @@ function sessionResponse(id: string, title = id): SessionOverviewResponse {
 }
 
 describe("Cockpit request graph", () => {
+  it("preserves domain query key identities", () => {
+    expect({
+      approvals: requestKeys.approvals(),
+      attention: requestKeys.attention(),
+      environment: requestKeys.environment("session-one"),
+      harnesses: requestKeys.harnesses(),
+      models: requestKeys.models("v2"),
+      providerAccounts: requestKeys.providerAccounts(),
+      providers: requestKeys.providers(),
+      runCenterSummary: requestKeys.runCenterSummary("run-one"),
+      runOverview: requestKeys.runOverview("run-one"),
+      runProjection: requestKeys.runProjection("run-one", "report"),
+      runsCenter: requestKeys.runsCenter(),
+      runScope: requestKeys.runScope("run-one"),
+      runTrace: requestKeys.runTrace("run-one"),
+      sessionAttachments: requestKeys.sessionAttachments("session-one"),
+      sessionIndex: requestKeys.sessionIndex(),
+      sessionOverview: requestKeys.sessionOverview("session-one"),
+      sessionProjection: requestKeys.sessionProjection("session-one", "messages"),
+      sessionScope: requestKeys.sessionScope("session-one"),
+      settings: requestKeys.settings(),
+      workspaceFiles: requestKeys.workspaceFiles("session-one", "readme"),
+    }).toEqual({
+      approvals: ["cockpit", "approvals"],
+      attention: ["cockpit", "attention"],
+      environment: ["cockpit", "session", "session-one", "environment"],
+      harnesses: ["cockpit", "harnesses"],
+      models: ["cockpit", "models", "v2"],
+      providerAccounts: ["cockpit", "provider-accounts"],
+      providers: ["cockpit", "providers"],
+      runCenterSummary: ["cockpit", "run", "run-one", "center-summary"],
+      runOverview: ["cockpit", "run", "run-one", "overview"],
+      runProjection: ["cockpit", "run", "run-one", "report"],
+      runsCenter: ["cockpit", "runs-center"],
+      runScope: ["cockpit", "run", "run-one"],
+      runTrace: ["cockpit", "run", "run-one", "trace"],
+      sessionAttachments: [
+        "cockpit",
+        "session",
+        "session-one",
+        "attachments",
+      ],
+      sessionIndex: ["cockpit", "session-index"],
+      sessionOverview: ["cockpit", "session", "session-one", "overview"],
+      sessionProjection: ["cockpit", "session", "session-one", "messages"],
+      sessionScope: ["cockpit", "session", "session-one"],
+      settings: ["cockpit", "settings"],
+      workspaceFiles: [
+        "cockpit",
+        "session",
+        "session-one",
+        "workspace-files",
+        "readme",
+      ],
+    });
+  });
+
   it("deduplicates concurrent reads with one stable query key", async () => {
     let resolveResponse: ((response: Response) => void) | undefined;
     const response = new Promise<Response>((resolve) => {
