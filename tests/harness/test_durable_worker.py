@@ -26,6 +26,15 @@ from gpt2giga_harness.runtime.worker import (
     _adaptive_idle_delay,
 )
 from gpt2giga_harness.runtime.wakeup import WorkerWakeReceiver
+from gpt2giga_harness.runtime.workers.scheduler import (
+    HEARTBEAT,
+    MAINTENANCE_TASKS,
+    RECONCILIATION,
+    RECOVERY,
+    RETRIES,
+    SCHEDULES,
+    WorkerMaintenanceScheduler,
+)
 from gpt2giga_harness.session_runner import HarnessSessionRunner
 from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
 from gpt2giga_harness.types import (
@@ -137,6 +146,87 @@ def test_worker_idle_backoff_and_deadlines_are_bounded(tmp_path):
         idempotency_key="already-due",
     )
     assert due_store.next_worker_maintenance_delay(1.0) == 1.0
+
+
+def test_worker_maintenance_scheduler_tracks_independent_cadences():
+    now = [100.0]
+    scheduler = WorkerMaintenanceScheduler(
+        heartbeat_seconds=2,
+        schedule_seconds=5,
+        retry_seconds=7,
+        recovery_seconds=11,
+        reconciliation_seconds=30,
+        clock=lambda: now[0],
+    )
+
+    assert {task for task in MAINTENANCE_TASKS if scheduler.is_due(task)} == set(
+        MAINTENANCE_TASKS
+    )
+    for task in MAINTENANCE_TASKS:
+        scheduler.complete(task)
+
+    now[0] += 2
+    assert scheduler.is_due(HEARTBEAT)
+    assert not scheduler.is_due(SCHEDULES)
+    assert scheduler.next_delay(10) == 0
+    scheduler.complete(HEARTBEAT)
+    assert scheduler.next_delay(10) == 2
+
+    scheduler.request(RETRIES, RECOVERY)
+    assert scheduler.is_due(RETRIES)
+    assert scheduler.is_due(RECOVERY)
+    assert not scheduler.is_due(RECONCILIATION)
+
+
+def test_empty_worker_cycle_does_not_repeat_maintenance_queries(tmp_path, monkeypatch):
+    worker = DurableJobWorker(
+        HarnessConfig(data_dir=str(tmp_path)),
+        registry=create_default_registry(include_entry_points=False),
+        worker_id="worker_cadence",
+    )
+    calls: list[str] = []
+    monkeypatch.setattr(
+        worker.runtime_store,
+        "heartbeat_worker",
+        lambda worker_id: calls.append("heartbeat"),
+    )
+    monkeypatch.setattr(
+        worker,
+        "_trigger_schedules",
+        lambda: calls.append("schedules"),
+    )
+    monkeypatch.setattr(
+        worker.runtime_store,
+        "recover_expired_attempts",
+        lambda: calls.append("recovery"),
+    )
+    monkeypatch.setattr(
+        worker.runtime_store,
+        "requeue_due_jobs",
+        lambda: calls.append("retries"),
+    )
+    monkeypatch.setattr(
+        worker.runtime_store,
+        "claim_next_job",
+        lambda **kwargs: calls.append("claim"),
+    )
+    monkeypatch.setattr(
+        "gpt2giga_harness.runtime.worker.RuntimeReconciler.reconcile",
+        lambda self: calls.append("reconciliation"),
+    )
+
+    assert worker.run_once() is False
+    assert worker.run_once() is False
+
+    assert calls == [
+        "heartbeat",
+        "schedules",
+        "recovery",
+        "retries",
+        "reconciliation",
+        "claim",
+        "claim",
+    ]
 
 
 def test_worker_fails_orphaned_job_without_stopping(tmp_path):

@@ -42,6 +42,14 @@ from gpt2giga_harness.runtime.store import (
     SideEffectBlockedError,
     SideEffectConflictError,
 )
+from gpt2giga_harness.runtime.workers.scheduler import (
+    HEARTBEAT,
+    RECONCILIATION,
+    RECOVERY,
+    RETRIES,
+    SCHEDULES,
+    WorkerMaintenanceScheduler,
+)
 from gpt2giga_harness.session_runner import HarnessSessionRunner, QueuedHarnessRun
 from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
 from gpt2giga_harness.sessions.locking import exclusive_file_lock
@@ -322,15 +330,14 @@ class DurableJobWorker:
         )
         self.fingerprint = build_worker_fingerprint(self.registry)
         self._registered = False
+        self._maintenance = WorkerMaintenanceScheduler(
+            heartbeat_seconds=self.heartbeat_seconds
+        )
 
     def run_once(self) -> bool:
         """Claim and execute at most one job; return whether work was claimed."""
         self._register()
-        self.runtime_store.heartbeat_worker(self.worker_id)
-        self._trigger_schedules()
-        self.runtime_store.recover_expired_attempts()
-        self.runtime_store.requeue_due_jobs()
-        RuntimeReconciler(self.runtime_store, self.session_store).reconcile()
+        self._run_due_maintenance()
         claim = self.runtime_store.claim_next_job(
             worker_id=self.worker_id,
             capability_fingerprint=self.fingerprint,
@@ -460,9 +467,34 @@ class DurableJobWorker:
                 "error": error,
             },
         )
-        RuntimeReconciler(self.runtime_store, self.session_store).reconcile()
+        if retry_delay is not None:
+            self._maintenance.request(RETRIES, delay_seconds=retry_delay)
+        self._maintenance.request(RECONCILIATION)
+        self._run_due_maintenance(only=(RECONCILIATION,))
         self._advance_parent_workflow(updated_job)
         return True
+
+    def _run_due_maintenance(self, *, only: tuple[str, ...] | None = None) -> None:
+        """Run only maintenance tasks whose independent cadence is due."""
+        tasks = (
+            (HEARTBEAT, lambda: self.runtime_store.heartbeat_worker(self.worker_id)),
+            (SCHEDULES, self._trigger_schedules),
+            (RECOVERY, self.runtime_store.recover_expired_attempts),
+            (RETRIES, self.runtime_store.requeue_due_jobs),
+            (
+                RECONCILIATION,
+                lambda: RuntimeReconciler(
+                    self.runtime_store, self.session_store
+                ).reconcile(),
+            ),
+        )
+        for task, operation in tasks:
+            if only is not None and task not in only:
+                continue
+            if not self._maintenance.is_due(task):
+                continue
+            operation()
+            self._maintenance.complete(task)
 
     def _trigger_schedules(self) -> None:
         """Materialize due schedule occurrences before claiming normal work."""
@@ -514,6 +546,7 @@ class DurableJobWorker:
                     maximum_wait,
                     idle_cycles,
                 )
+                wait_seconds = self._maintenance.next_delay(wait_seconds)
                 wait_seconds = self.runtime_store.next_worker_maintenance_delay(
                     wait_seconds
                 )
@@ -525,6 +558,7 @@ class DurableJobWorker:
                     wait_seconds = min(wait_seconds, idle_remaining)
                 if receiver.wait(wait_seconds):
                     idle_cycles = 0
+                    self._maintenance.request(SCHEDULES, RETRIES, RECOVERY)
         finally:
             receiver.close()
             if self._registered:
