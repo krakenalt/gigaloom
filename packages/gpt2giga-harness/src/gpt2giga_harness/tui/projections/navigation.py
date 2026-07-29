@@ -10,7 +10,7 @@ from gpt2giga_harness.project import (
     HarnessProject,
 )
 from gpt2giga_harness.product_capabilities import legacy_mode_compatibility_receipt
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
+from gpt2giga_harness.sessions.api import SessionQueryStore
 from gpt2giga_harness.sessions.models import (
     HarnessMessage,
     HarnessSession,
@@ -18,7 +18,6 @@ from gpt2giga_harness.sessions.models import (
 
 from gpt2giga_harness.tui.contracts import (
     MAX_DISPLAY_CHARS,
-    _TERMINAL_RUN_STATUSES,
     ProjectSummary,
     SessionSummary,
     SessionActionBinding,
@@ -42,6 +41,7 @@ from gpt2giga_harness.tui.projections.values import (
     _neutralize_presentation_text,
     _optional_identity,
 )
+from gpt2giga_harness.tui.clients.session_queries import session_navigation_records
 
 
 def _in_process_integration_summary(
@@ -112,16 +112,18 @@ def _project_summary_from_mapping(
 
 def _session_summary(
     session: HarnessSession,
-    store: FilesystemHarnessSessionStore | None = None,
+    store: SessionQueryStore | None = None,
 ) -> SessionSummary:
     native = _session_native_reference(session.native, session.metadata)
     task_intent, authority, warning = _workbench_selection_summary(
         session.metadata,
         mode=session.default_mode,
     )
-    runs = store.list_runs(session.id) if store is not None else ()
-    messages = store.list_messages(session.id) if store is not None else ()
-    active = [run.id for run in runs if run.status.value not in _TERMINAL_RUN_STATUSES]
+    preview_message, lease = (
+        session_navigation_records(store, session.id)
+        if store is not None
+        else (None, None)
+    )
     return SessionSummary(
         id=session.id,
         title=_display_text(session.title),
@@ -133,8 +135,8 @@ def _session_summary(
         archived=session.archived,
         project_id=_optional_text(session.metadata.get("project_id")),
         preview=(
-            _bounded_content_text(" ".join(messages[-1].content.split()), 120)
-            if messages
+            _bounded_content_text(" ".join(preview_message.content.split()), 120)
+            if preview_message is not None
             else ""
         ),
         native_authority=_optional_display_text(native.get("authority")),
@@ -144,7 +146,7 @@ def _session_summary(
         native_operation=_optional_display_text(native.get("operation")),
         revision=session.updated_at,
         generation=_session_generation(native),
-        lease=active[-1] if active else None,
+        lease=lease,
         task_intent=task_intent,
         authority=authority,
         compatibility_warning=warning,

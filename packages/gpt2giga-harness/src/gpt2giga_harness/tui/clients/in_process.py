@@ -93,6 +93,7 @@ from gpt2giga_harness.tui.projections.environment import _capture_environment_su
 
 from gpt2giga_harness.tui.clients.in_process_actions import _InProcessActionsMixin
 from gpt2giga_harness.tui.clients.in_process_runs import _InProcessRunsMixin
+from gpt2giga_harness.tui.clients.session_queries import session_preview_messages
 
 
 class InProcessWorkbenchClient(_InProcessActionsMixin, _InProcessRunsMixin):
@@ -290,17 +291,16 @@ class InProcessWorkbenchClient(_InProcessActionsMixin, _InProcessRunsMixin):
         self, session_id: str, *, transcript_query: str = ""
     ) -> SessionPreview:
         session = self.store.get_session(session_id)
-        messages = self.store.list_messages(session_id)
-        needle = transcript_query.strip().casefold()
-        matches = [
-            item for item in messages if not needle or needle in item.content.casefold()
-        ]
-        selected = matches[-100:]
+        messages, match_count, truncated = session_preview_messages(
+            self.store,
+            session_id,
+            transcript_query,
+        )
         return SessionPreview(
             session=_session_summary(session, self.store),
-            transcript=tuple(_message_preview(item) for item in selected),
-            match_count=len(matches),
-            truncated=len(matches) > len(selected),
+            transcript=tuple(_message_preview(item) for item in messages),
+            match_count=match_count,
+            truncated=truncated,
         )
 
     async def rename_session(

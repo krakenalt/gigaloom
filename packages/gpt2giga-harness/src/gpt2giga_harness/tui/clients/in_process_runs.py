@@ -26,7 +26,6 @@ from gpt2giga_harness.tui.contracts import (
     MAX_TIMELINE_EVENTS,
     RUN_START_TIMEOUT_SECONDS,
     RUN_STREAM_RESNAPSHOT_SECONDS,
-    _TERMINAL_RUN_STATUSES,
     WorkbenchClientError,
     SessionSummary,
     RunActionBinding,
@@ -53,6 +52,10 @@ from gpt2giga_harness.tui.projections.runs import (
     _bounded_timeline,
     _approval_summary,
     _messages_through_run,
+)
+from gpt2giga_harness.tui.clients.session_queries import (
+    newest_session_run_id,
+    preferred_session_run,
 )
 
 
@@ -83,7 +86,7 @@ class _InProcessRunsMixin:
             if previous.session_id != session_id:
                 raise WorkbenchClientError("idempotency key belongs to another session")
             return await self.snapshot_run(previous.id)
-        before = {run.id for run in self.store.list_runs(session_id)}
+        before_run_id = newest_session_run_id(self.store, session_id)
         cancel_event = threading.Event()
         payload: dict[str, Any] = {
             "prompt": prompt,
@@ -118,7 +121,7 @@ class _InProcessRunsMixin:
             ),
             name=f"tui-turn-{key}",
         )
-        run = await self._wait_for_run(session_id, before, task)
+        run = await self._wait_for_run(session_id, before_run_id, task)
         self._submitted_turns[key] = run.id
         self._active_runs[run.id] = (task, cancel_event)
         task.add_done_callback(
@@ -216,11 +219,10 @@ class _InProcessRunsMixin:
             subscription.close()
 
     async def latest_run(self, session_id: str) -> RunSnapshot | None:
-        runs = self.store.list_runs(session_id)
-        if not runs:
+        run = preferred_session_run(self.store, session_id)
+        if run is None:
             return None
-        active = [run for run in runs if run.status.value not in _TERMINAL_RUN_STATUSES]
-        return await self.snapshot_run((active or list(runs))[-1].id)
+        return await self.snapshot_run(run.id)
 
     async def cancel_run(self, binding: RunActionBinding) -> RunSnapshot:
         run = self._validate_binding(binding)
@@ -327,16 +329,14 @@ class _InProcessRunsMixin:
     async def _wait_for_run(
         self,
         session_id: str,
-        before: set[str],
+        before_run_id: str | None,
         task: asyncio.Task[Any],
     ) -> HarnessRun:
         deadline = asyncio.get_running_loop().time() + RUN_START_TIMEOUT_SECONDS
         while asyncio.get_running_loop().time() < deadline:
-            created = [
-                run for run in self.store.list_runs(session_id) if run.id not in before
-            ]
-            if created:
-                return created[-1]
+            current_run_id = newest_session_run_id(self.store, session_id)
+            if current_run_id is not None and current_run_id != before_run_id:
+                return self.sessions.get_run(current_run_id)
             if task.done():
                 task.result()
                 break
