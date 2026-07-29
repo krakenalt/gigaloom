@@ -23,7 +23,6 @@ from gpt2giga_harness.sessions.models import (
     HarnessStoredEvent,
     bundle_to_dict,
     event_from_dict,
-    event_to_dict,
     message_from_dict,
     message_to_dict,
     native_link_from_dict,
@@ -35,6 +34,9 @@ from gpt2giga_harness.sessions.models import (
     session_to_dict,
 )
 from gpt2giga_harness.sessions.storage.filesystem.catalog import SessionLocator
+from gpt2giga_harness.sessions.storage.filesystem.events import (
+    FilesystemEventPersistenceMixin as _EventPersistenceMixin,
+)
 from gpt2giga_harness.sessions.storage.filesystem.runs import (
     RUNS_FILE,
     FilesystemRunRepository,
@@ -52,7 +54,6 @@ from gpt2giga_harness.sessions.event_stream import (
     event_stream_size,
 )
 from gpt2giga_harness.sessions.redaction import (
-    redact_event_payload,
     redact_for_storage,
 )
 from gpt2giga_harness.sessions.read_index import (
@@ -99,7 +100,11 @@ class FilesystemRecordPage:
     byte_count: int
 
 
-class FilesystemHarnessSessionStore(_WriteBatchMixin, FilesystemSessionQueryMixin):
+class FilesystemHarnessSessionStore(
+    _EventPersistenceMixin,
+    _WriteBatchMixin,
+    FilesystemSessionQueryMixin,
+):
     """Persist normalized harness history as transparent JSON and JSONL files."""
 
     def __init__(self, data_dir: str | Path) -> None:
@@ -527,21 +532,6 @@ class FilesystemHarnessSessionStore(_WriteBatchMixin, FilesystemSessionQueryMixi
         self._ensure_read_index()
         return self._session_read_index().runs_center_generation()
 
-    def append_event(self, event: HarnessStoredEvent) -> HarnessStoredEvent:
-        self.get_session(event.session_id)
-        stored = replace(
-            event,
-            message=str(redact_for_storage(event.message)),
-            payload=redact_event_payload(event.payload),
-        )
-        self._append_indexed_record(
-            self._session_dir(event.session_id) / EVENTS_FILE,
-            event_to_dict(stored),
-            lambda index, offset: index.record_event(stored, offset),
-        )
-        self.event_broker.publish(stored)
-        return stored
-
     def event_tail_offset(self, session_id: str) -> int:
         """Return the JSONL byte offset without reading retained event rows."""
         self.get_session(session_id)
@@ -852,8 +842,8 @@ class FilesystemHarnessSessionStore(_WriteBatchMixin, FilesystemSessionQueryMixi
             raise SessionNotFoundError(session_id)
         return session_dir
 
-    def _append_jsonl(self, path: Path, payload: Mapping[str, Any]) -> None:
-        _append_jsonl(path, redact_for_storage(dict(payload)))
+    def _append_jsonl(self, path: Path, payload: Mapping[str, Any]) -> int:
+        return _append_jsonl(path, redact_for_storage(dict(payload)))
 
     def _append_indexed_record(
         self,

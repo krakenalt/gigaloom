@@ -13,7 +13,6 @@ from gpt2giga_harness.sessions.models import (
     HarnessMessage,
     HarnessRun,
     HarnessStoredEvent,
-    event_to_dict,
     message_to_dict,
 )
 from gpt2giga_harness.sessions.redaction import redact_for_storage
@@ -53,13 +52,21 @@ class FilesystemSessionWriteBatchMixin:
                 existing = prepared_write_batch_from_marker(_read_json(marker_path))
                 if existing.marker_bytes != prepared.marker_bytes:
                     raise ValueError("batch_id is already bound to another write set")
-                result = self._apply_prepared_batch(existing, recovering=True)
+                result = self._apply_prepared_batch(
+                    existing,
+                    session_dir=session_dir,
+                    recovering=True,
+                )
                 marker_path.unlink(missing_ok=True)
                 return result
             if needs_marker:
                 _write_marker(marker_path, prepared.marker_bytes)
             try:
-                result = self._apply_prepared_batch(prepared, recovering=False)
+                result = self._apply_prepared_batch(
+                    prepared,
+                    session_dir=session_dir,
+                    recovering=False,
+                )
             except Exception:
                 if not needs_marker:
                     marker_path.unlink(missing_ok=True)
@@ -75,13 +82,18 @@ class FilesystemSessionWriteBatchMixin:
             prepared = prepared_write_batch_from_marker(_read_json(marker_path))
             session_dir = self._session_dir(prepared.batch.session_id)
             with exclusive_file_lock(session_dir / _BATCH_LOCK_TARGET):
-                self._apply_prepared_batch(prepared, recovering=True)
+                self._apply_prepared_batch(
+                    prepared,
+                    session_dir=session_dir,
+                    recovering=True,
+                )
                 marker_path.unlink(missing_ok=True)
 
     def _apply_prepared_batch(
         self,
         prepared: PreparedSessionWriteBatch,
         *,
+        session_dir: Path,
         recovering: bool,
     ) -> SessionWriteBatchResult:
         batch = prepared.batch
@@ -104,8 +116,8 @@ class FilesystemSessionWriteBatchMixin:
             recovering=recovering,
         )
         events = self._append_event_batch(
-            batch.session_id,
             batch.events,
+            path=session_dir / _EVENTS_FILE,
             recovering=recovering,
         )
         return SessionWriteBatchResult(
@@ -136,20 +148,18 @@ class FilesystemSessionWriteBatchMixin:
 
     def _append_event_batch(
         self,
-        session_id: str,
         events: tuple[HarnessStoredEvent, ...],
         *,
+        path: Path,
         recovering: bool,
     ) -> tuple[HarnessStoredEvent, ...]:
         if not events:
             return ()
-        path = self._session_dir(session_id) / _EVENTS_FILE
         pending = _missing_records(path, events) if recovering else events
-        self._append_record_payloads(
+        self._append_prepared_events(
             path,
-            tuple(event_to_dict(item) for item in pending),
             pending,
-            record_type="event",
+            publish=False,
         )
         for event in events:
             self.event_broker.publish(event)

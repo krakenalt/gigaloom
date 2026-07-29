@@ -11,6 +11,10 @@ from uuid import uuid4
 from gpt2giga_harness.native.models import parse_invocation_mode
 from gpt2giga_harness.runtime.models import RunStatus, parse_run_status
 from gpt2giga_harness.sessions.api import SessionQueryStore
+from gpt2giga_harness.sessions.event_persistence import (
+    EventPersistenceStore,
+    InMemoryEventPersistenceMixin,
+)
 import gpt2giga_harness.sessions.write_batch as _write_batch
 from gpt2giga_harness.sessions.models import (
     HarnessMessage,
@@ -30,10 +34,7 @@ from gpt2giga_harness.sessions.event_stream import (
     RunEventBroker,
     event_stream_size,
 )
-from gpt2giga_harness.sessions.redaction import (
-    redact_event_payload,
-    redact_for_storage,
-)
+from gpt2giga_harness.sessions.redaction import redact_for_storage
 from gpt2giga_harness.sessions.queries import (
     InMemoryQueryIndex,
     InMemorySessionQueryMixin,
@@ -55,7 +56,7 @@ class RunNotFoundError(KeyError):
     """Raised when a harness run does not exist."""
 
 
-class HarnessSessionStore(SessionQueryStore, Protocol):
+class HarnessSessionStore(SessionQueryStore, EventPersistenceStore, Protocol):
     """Persistence contract for normalized harness UI history."""
 
     def create_session(
@@ -161,9 +162,6 @@ class HarnessSessionStore(SessionQueryStore, Protocol):
     def runs_center_generation(self) -> tuple[int, int]:
         """Return cheap session/run generations for global live invalidation."""
 
-    def append_event(self, event: HarnessStoredEvent) -> HarnessStoredEvent:
-        """Append one event."""
-
     def event_tail_offset(self, session_id: str) -> int:
         """Return the durable append offset after all retained session events."""
 
@@ -241,7 +239,10 @@ class HarnessSessionStore(SessionQueryStore, Protocol):
         """Return a complete session bundle."""
 
 
-class InMemoryHarnessSessionStore(InMemorySessionQueryMixin):
+class InMemoryHarnessSessionStore(
+    InMemoryEventPersistenceMixin,
+    InMemorySessionQueryMixin,
+):
     """In-memory session store for hermetic tests."""
 
     apply_write_batch = _write_batch.InMemorySessionWriteBatchMixin.apply_write_batch
@@ -489,18 +490,6 @@ class InMemoryHarnessSessionStore(InMemorySessionQueryMixin):
     def runs_center_generation(self) -> tuple[int, int]:
         """Return cheap session/run generations for global live invalidation."""
         return self._session_generation, self._run_generation
-
-    def append_event(self, event: HarnessStoredEvent) -> HarnessStoredEvent:
-        self.get_session(event.session_id)
-        stored = replace(
-            event,
-            message=str(redact_for_storage(event.message)),
-            payload=redact_event_payload(event.payload),
-        )
-        self._events.setdefault(event.session_id, []).append(stored)
-        self._query_index.record_event(stored)
-        self.event_broker.publish(stored)
-        return stored
 
     def event_tail_offset(self, session_id: str) -> int:
         """Return the in-memory append offset without replaying retained events."""

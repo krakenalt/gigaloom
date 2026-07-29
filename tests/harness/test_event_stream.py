@@ -1,10 +1,17 @@
 import asyncio
+from dataclasses import replace
 
 import pytest
 
+import gpt2giga_harness.sessions.storage.filesystem.events as event_storage
 from gpt2giga_harness.sessions import (
+    EventPersistenceClass,
     FilesystemHarnessSessionStore,
     InMemoryHarnessSessionStore,
+    classify_event_persistence,
+)
+from gpt2giga_harness.sessions.event_persistence import (
+    MAX_EVENT_APPEND_BATCH_RECORDS,
 )
 from gpt2giga_harness.sessions.event_stream import RunEventBroker, StreamSignal
 from gpt2giga_harness.sessions.models import HarnessStoredEvent
@@ -21,6 +28,120 @@ def _event(event_id: str, *, run_id: str = "run-one") -> HarnessStoredEvent:
         payload={"delta": event_id},
         created_at=utc_now(),
     )
+
+
+def test_event_persistence_classification_is_conservative():
+    assert (
+        classify_event_persistence("message_delta")
+        is EventPersistenceClass.PRESENTATION_DELTA
+    )
+    assert (
+        classify_event_persistence("run_finished") is EventPersistenceClass.FINAL_STATE
+    )
+    assert classify_event_persistence("error") is EventPersistenceClass.FINAL_STATE
+    assert (
+        classify_event_persistence("warning") is EventPersistenceClass.CRITICAL_CONTROL
+    )
+    assert (
+        classify_event_persistence("future_unknown_event")
+        is EventPersistenceClass.CRITICAL_CONTROL
+    )
+
+
+def test_active_event_appender_batches_deltas_and_forces_durable_boundaries(
+    tmp_path,
+    monkeypatch,
+):
+    store = FilesystemHarnessSessionStore(tmp_path)
+    session = store.create_session(title="active")
+    locate_calls = 0
+    manifest_reads = 0
+    fsync_calls = 0
+    original_locate = store._session_locator.locate
+    original_read_json = event_storage._read_json
+    original_fsync = event_storage.os.fsync
+
+    def counted_locate(session_id):
+        nonlocal locate_calls
+        locate_calls += 1
+        return original_locate(session_id)
+
+    def counted_read_json(path):
+        nonlocal manifest_reads
+        if path.name == event_storage.MANIFEST_FILE:
+            manifest_reads += 1
+        return original_read_json(path)
+
+    def counted_fsync(descriptor):
+        nonlocal fsync_calls
+        fsync_calls += 1
+        return original_fsync(descriptor)
+
+    monkeypatch.setattr(store._session_locator, "locate", counted_locate)
+    monkeypatch.setattr(event_storage, "_read_json", counted_read_json)
+    monkeypatch.setattr(event_storage.os, "fsync", counted_fsync)
+
+    appender = store.event_appender(session.id)
+    records = (
+        replace(_event("evt-delta-1"), session_id=session.id),
+        replace(_event("evt-delta-2"), session_id=session.id),
+        replace(
+            _event("evt-control"),
+            session_id=session.id,
+            type="warning",
+        ),
+        replace(_event("evt-delta-3"), session_id=session.id),
+        replace(
+            _event("evt-terminal"),
+            session_id=session.id,
+            type="run_finished",
+        ),
+        replace(_event("evt-delta-4"), session_id=session.id),
+    )
+
+    assert appender.append_many(records) == records
+    assert fsync_calls == 3
+    assert locate_calls == 1
+    assert manifest_reads == 1
+
+    final = replace(_event("evt-final-delta"), session_id=session.id)
+    assert appender.append(final) == final
+    assert fsync_calls == 4
+    assert locate_calls == 1
+    assert manifest_reads == 1
+
+    assert [
+        item.event.id
+        for item in store.list_event_tail_page(
+            session.id,
+            run_id=None,
+            limit=100,
+        ).items
+    ] == [event.id for event in (*records, final)]
+
+
+@pytest.mark.parametrize("store_kind", ["memory", "filesystem"])
+def test_event_appender_is_session_bound_and_bounded(tmp_path, store_kind):
+    store = (
+        InMemoryHarnessSessionStore()
+        if store_kind == "memory"
+        else FilesystemHarnessSessionStore(tmp_path)
+    )
+    session = store.create_session(title="bounded")
+    appender = store.event_appender(session.id)
+
+    with pytest.raises(ValueError, match="another session"):
+        appender.append(_event("evt-wrong-session"))
+    with pytest.raises(ValueError, match="at most 64"):
+        appender.append_many(
+            replace(
+                _event(f"evt-{index}"),
+                session_id=session.id,
+            )
+            for index in range(MAX_EVENT_APPEND_BATCH_RECORDS + 1)
+        )
+
+    assert store.list_events(session.id) == ()
 
 
 async def test_run_event_broker_wakes_only_exact_run_and_resnapshots_overflow():

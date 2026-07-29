@@ -18,6 +18,12 @@ from gpt2giga_harness.sessions.conversation import (
     active_conversation_messages,
     history_before_edited_message,
 )
+from gpt2giga_harness.sessions.event_persistence import (
+    EventPersistenceClass,
+    EventPersistenceStore,
+    SessionEventAppender,
+    classify_event_persistence,
+)
 from gpt2giga_harness.sessions.filesystem import FilesystemHarnessSessionStore
 from gpt2giga_harness.sessions.models import (
     HarnessMessage,
@@ -42,8 +48,10 @@ from gpt2giga_harness.sessions.write_batch import (
 )
 
 __all__ = [
-    "FilesystemHarnessSessionStore",
     "EventNotFoundError",
+    "EventPersistenceClass",
+    "EventPersistenceStore",
+    "FilesystemHarnessSessionStore",
     "HarnessMessage",
     "HarnessNativeLink",
     "HarnessRawRecord",
@@ -62,6 +70,7 @@ __all__ = [
     "SessionCatalog",
     "SessionCatalogEntry",
     "SessionCatalogState",
+    "SessionEventAppender",
     "SessionLocator",
     "SessionNotFoundError",
     "SessionQueryStore",
@@ -69,5 +78,6 @@ __all__ = [
     "SessionWriteBatchResult",
     "StaleReadSnapshotError",
     "active_conversation_messages",
+    "classify_event_persistence",
     "history_before_edited_message",
 ]
