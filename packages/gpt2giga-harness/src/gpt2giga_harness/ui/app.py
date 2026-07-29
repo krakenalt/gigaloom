@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
-
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
 
 from gpt2giga_harness.config import (
     HarnessConfig,
@@ -35,23 +32,10 @@ from gpt2giga_harness.native.store import (
 from gpt2giga_harness.provider_authentication_broker import NativeLoginBroker
 from gpt2giga_harness.provider_settings import ProviderSettingsService
 from gpt2giga_harness.registry import HarnessRegistry
-from gpt2giga_harness.runtime.policy import (
-    INTERACTIVE_PROFILE,
-    EnforcementLevel,
-    PermissionAction,
-    PolicyContext,
-    PolicyDecision,
-    approval_request_to_dict,
-)
-from gpt2giga_harness.runtime.store import JobNotFoundError, RuntimeCoordinationStore
+from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
 from gpt2giga_harness.sessions import (
     HarnessSessionStore,
 )
-from gpt2giga_harness.sessions.models import (
-    HarnessRun,
-    HarnessStoredEvent,
-)
-from gpt2giga_harness.sessions.store import new_id, utc_now
 from gpt2giga_harness.skill_library import SkillLibraryService
 from gpt2giga_harness.ui.async_execution import (
     AsyncDiagnosticsMiddleware,
@@ -118,9 +102,6 @@ def create_app(
         environment_pull_request_service=environment_pull_request_service,
         remote_oidc_client=remote_oidc_client,
     )
-    store = services.session_store
-    runtime_store = services.runtime_store
-    policy_engine = services.policy_engine
     async_diagnostics = services.async_diagnostics
 
     app = FastAPI(
@@ -140,91 +121,10 @@ def create_app(
     )
     install_app_services(app, services)
 
-    def _approval_gate(
-        action: PermissionAction,
-        run: HarnessRun,
-        *,
-        reason: str,
-        preview: Mapping[str, Any],
-        approval_binding: str | None = None,
-        enforcement_owner: str | None = None,
-    ) -> JSONResponse | None:
-        if runtime_store is None:
-            raise HTTPException(
-                status_code=409,
-                detail="Durable runtime is required for policy-gated actions",
-            )
-        session = store.get_session(run.session_id)
-        runtime_metadata = run.metadata.get("runtime")
-        job_id = (
-            str(runtime_metadata.get("job_id") or "") or None
-            if isinstance(runtime_metadata, Mapping)
-            else None
-        )
-        if job_id is not None:
-            try:
-                runtime_store.get_job(job_id)
-            except JobNotFoundError:
-                job_id = None
-        context = PolicyContext(
-            project_id=str(session.metadata.get("project_id") or "") or None,
-            session_id=run.session_id,
-            run_id=run.id,
-            job_id=job_id,
-            reason=reason,
-            preview=preview,
-            approval_binding=approval_binding,
-            enforcement_owner=enforcement_owner,
-        )
-        resolution = policy_engine.resolve(
-            action,
-            profile=INTERACTIVE_PROFILE,
-            context=context,
-            enforcement=EnforcementLevel.ENFORCED_BY_HARNESS,
-        )
-        if resolution.decision is PolicyDecision.DENY:
-            raise HTTPException(status_code=403, detail="Action denied by policy")
-        if resolution.decision is PolicyDecision.ALLOW:
-            return None
-        approval = runtime_store.create_approval_request(resolution, context)
-        existing = any(
-            event.type == "approval_requested"
-            and event.payload.get("approval_id") == approval.id
-            for event in store.list_events(run.session_id, run_id=run.id)
-        )
-        if not existing:
-            store.append_event(
-                HarnessStoredEvent(
-                    id=new_id("evt"),
-                    session_id=run.session_id,
-                    run_id=run.id,
-                    type="approval_requested",
-                    message=f"Approval required for {action.value}.",
-                    payload={
-                        "approval_id": approval.id,
-                        "action": action.value,
-                        "enforcement": resolution.enforcement.value,
-                    },
-                    created_at=utc_now(),
-                    trace_id=context.job_id or run.id,
-                    job_id=context.job_id,
-                    span_kind="approval",
-                    span_status="pending",
-                )
-            )
-        return JSONResponse(
-            status_code=202,
-            content={
-                "approval_required": True,
-                "approval": approval_request_to_dict(approval),
-            },
-        )
-
     install_application_routers(
         app,
         services,
         native_login_broker=native_login_broker,
-        approval_gate=_approval_gate,
     )
     install_mutation_contracts(app)
     install_execution_contracts(app)

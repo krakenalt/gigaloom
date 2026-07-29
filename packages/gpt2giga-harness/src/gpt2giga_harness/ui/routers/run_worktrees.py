@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Protocol
+from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import JSONResponse
@@ -21,7 +21,6 @@ from gpt2giga_harness.sessions import (
     RunNotFoundError,
 )
 from gpt2giga_harness.sessions.models import (
-    HarnessRun,
     HarnessStoredEvent,
     run_to_dict,
 )
@@ -42,22 +41,7 @@ from gpt2giga_harness.worktrees import (
 )
 
 
-class ApprovalGate(Protocol):
-    """Approval boundary required by reviewed worktree promotions."""
-
-    def __call__(
-        self,
-        action: PermissionAction,
-        run: HarnessRun,
-        *,
-        reason: str,
-        preview: Mapping[str, Any],
-        approval_binding: str | None = None,
-        enforcement_owner: str | None = None,
-    ) -> JSONResponse | None: ...
-
-
-def create_router(services: AppServices, *, approval_gate: ApprovalGate) -> APIRouter:
+def create_router(services: AppServices) -> APIRouter:
     """Create the run worktrees router."""
     router = APIRouter(route_class=ConformantAPIRoute)
 
@@ -69,7 +53,7 @@ def create_router(services: AppServices, *, approval_gate: ApprovalGate) -> APIR
             run = services.session_store.get_run(run_id)
             branch_name = _optional_text(payload.get("branch_name"))
             review = review_run_diff(run.metadata, branch_name=branch_name)
-            approval_response = approval_gate(
+            approval_response = services.approval_gate.gate(
                 PermissionAction.GIT_APPLY,
                 run,
                 reason="Apply an isolated worktree diff to the source checkout.",
@@ -126,7 +110,7 @@ def create_router(services: AppServices, *, approval_gate: ApprovalGate) -> APIR
                 or build_pr_artifact(run).branch_name_suggestion
             )
             review = review_run_diff(run.metadata, branch_name=branch_name)
-            approval_response = approval_gate(
+            approval_response = services.approval_gate.gate(
                 PermissionAction.GIT_BRANCH_CREATE,
                 run,
                 reason="Create a local branch from the isolated run patch.",

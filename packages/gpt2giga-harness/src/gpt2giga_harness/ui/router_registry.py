@@ -51,7 +51,6 @@ from gpt2giga_harness.ui.routers.run_history import (
 from gpt2giga_harness.ui.routers.run_streams import (
     create_router as create_run_streams_router,
 )
-from gpt2giga_harness.ui.routers.run_worktrees import ApprovalGate
 from gpt2giga_harness.ui.routers.run_worktrees import (
     create_router as create_run_worktrees_router,
 )
@@ -80,15 +79,12 @@ def install_application_routers(
     services: AppServices,
     *,
     native_login_broker: NativeLoginBroker | None,
-    approval_gate: ApprovalGate,
 ) -> None:
     """Install domain routers in deterministic compatibility order."""
     app.include_router(create_session_runs_router(services))
     app.include_router(create_run_streams_router(services))
     app.include_router(create_run_history_router(services))
-    app.include_router(
-        create_run_worktrees_router(services, approval_gate=approval_gate)
-    )
+    app.include_router(create_run_worktrees_router(services))
     app.include_router(create_legacy_run_router(services))
     app.include_router(create_catalog_router(services))
     app.include_router(create_projects_router(services))

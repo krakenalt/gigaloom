@@ -65,6 +65,7 @@ from gpt2giga_harness.ui.async_execution import AsyncExecutionDiagnostics
 from gpt2giga_harness.ui.remote_identity import RemoteOIDCClient
 from gpt2giga_harness.ui.security import HarnessUISecurity
 from gpt2giga_harness.ui.services import ActiveHeadlessRun
+from gpt2giga_harness.ui.services.approvals import ApprovalGateService
 from gpt2giga_harness.workbench_protocol import WorkbenchBackbone
 from gpt2giga_harness.workbench_resources import (
     WorkbenchPreferenceStore,
@@ -88,6 +89,7 @@ class AppServices:
     trace_replay_service: TraceReplayService
     handoff_capsule_service: HandoffCapsuleService
     policy_engine: PolicyEngine
+    approval_gate: ApprovalGateService
     attachment_store: FilesystemAttachmentStore
     arena_store: FilesystemHarnessArenaStore
     eval_store: FilesystemHarnessEvalStore
@@ -319,6 +321,11 @@ def build_app_services(
             runtime_store=runtime_store,
         ),
         policy_engine=policy_engine,
+        approval_gate=ApprovalGateService(
+            policy_engine=policy_engine,
+            runtime_store=runtime_store,
+            session_store=session_store,
+        ),
         attachment_store=attachment_store,
         arena_store=arena_store,
         eval_store=eval_store,
