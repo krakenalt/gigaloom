@@ -11,6 +11,7 @@ import threading
 
 import gpt2giga_harness.sessions.filesystem as filesystem
 import gpt2giga_harness.sessions.read_index as read_index
+import gpt2giga_harness.sessions.storage.filesystem.runs as run_storage
 
 _INSTRUMENTATION_LOCK = threading.RLock()
 
@@ -69,6 +70,9 @@ def observe_session_storage() -> Iterator[StorageCounters]:
     original_write_json = filesystem._write_json_atomic_unlocked
     original_write_jsonl = filesystem._write_jsonl_atomic_unlocked
     original_append_jsonl = filesystem._append_jsonl
+    original_run_read_json = run_storage._read_json
+    original_run_write_authoritative_json = run_storage._write_authoritative_json
+    original_run_write_derived_json = run_storage._write_derived_json
     original_sqlite = read_index.sqlite3
 
     def read_json(path: Path) -> dict[str, Any]:
@@ -104,11 +108,30 @@ def observe_session_storage() -> Iterator[StorageCounters]:
         counters.bytes_written += max(_path_size(path) - before, 0)
         counters.fsync_calls += 1
 
+    def read_run_json(path: Path) -> dict[str, Any]:
+        counters.files_opened += 1
+        counters.bytes_read += _path_size(path)
+        payload = original_run_read_json(path)
+        if path.parent.name == run_storage.RUN_RECORDS_DIR:
+            counters.rows_parsed += 1
+        return payload
+
+    def write_authoritative_run_json(path: Path, payload: Any) -> None:
+        original_run_write_authoritative_json(path, payload)
+        _record_atomic_write(counters, path)
+
+    def write_derived_run_json(path: Path, payload: Any) -> None:
+        original_run_write_derived_json(path, payload)
+        _record_atomic_write(counters, path, fsync=False)
+
     filesystem._read_json = read_json
     filesystem._read_jsonl = read_jsonl
     filesystem._write_json_atomic_unlocked = write_json
     filesystem._write_jsonl_atomic_unlocked = write_jsonl
     filesystem._append_jsonl = append_jsonl
+    run_storage._read_json = read_run_json
+    run_storage._write_authoritative_json = write_authoritative_run_json
+    run_storage._write_derived_json = write_derived_run_json
     read_index.sqlite3 = _SQLiteProxy(original_sqlite, counters)
     try:
         yield counters
@@ -118,15 +141,23 @@ def observe_session_storage() -> Iterator[StorageCounters]:
         filesystem._write_json_atomic_unlocked = original_write_json
         filesystem._write_jsonl_atomic_unlocked = original_write_jsonl
         filesystem._append_jsonl = original_append_jsonl
+        run_storage._read_json = original_run_read_json
+        run_storage._write_authoritative_json = original_run_write_authoritative_json
+        run_storage._write_derived_json = original_run_write_derived_json
         read_index.sqlite3 = original_sqlite
         _INSTRUMENTATION_LOCK.release()
 
 
-def _record_atomic_write(counters: StorageCounters, path: Path) -> None:
+def _record_atomic_write(
+    counters: StorageCounters,
+    path: Path,
+    *,
+    fsync: bool = True,
+) -> None:
     counters.files_opened += 1
     counters.bytes_written += _path_size(path)
     counters.atomic_replaces += 1
-    counters.fsync_calls += 1
+    counters.fsync_calls += int(fsync)
 
 
 def _path_size(path: Path) -> int:

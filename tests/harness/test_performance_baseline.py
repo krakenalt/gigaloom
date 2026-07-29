@@ -470,8 +470,8 @@ def test_local_detail_profile_keeps_bounded_content_free_samples():
     } == {609}
     for scale in (10, 100, 1_000):
         update = by_storage_metric[f"sessions.runs.update_1_of_{scale}"]
-        assert update["counters"]["rows_parsed"]["p95"] == scale
-        assert update["counters"]["atomic_replaces"]["p95"] == 1
+        assert update["counters"]["rows_parsed"]["p95"] == 1
+        assert update["counters"]["atomic_replaces"]["p95"] == 2
         assert update["counters"]["fsync_calls"]["p95"] == 1
     assert (
         by_storage_metric["sessions.events.direct_lookup_last_of_50000"]["counters"][
