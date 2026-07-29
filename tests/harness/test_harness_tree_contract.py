@@ -67,6 +67,19 @@ def test_plugin_entry_points_retain_stable_targets() -> None:
         "builtins/direct_chat/payloads.py",
         "builtins/direct_chat/tools.py",
         "builtins/claude/cli.py",
+        "builtins/codex/cli.py",
+        "builtins/codex/config.py",
+        "builtins/codex/streaming.py",
+        "builtins/codex/app_server/approvals.py",
+        "builtins/codex/app_server/contracts.py",
+        "builtins/codex/app_server/driver.py",
+        "builtins/codex/app_server/links.py",
+        "builtins/codex/app_server/process.py",
+        "builtins/codex/app_server/protocol.py",
+        "builtins/codex/app_server/rollout.py",
+        "builtins/codex/app_server/session.py",
+        "builtins/codex/app_server/snapshots.py",
+        "builtins/codex/app_server/utils.py",
     ],
 )
 def test_c2_implementation_modules_respect_size_budget(relative_path: str) -> None:
@@ -82,3 +95,24 @@ def test_legacy_harness_modules_remain_thin(legacy: str) -> None:
         (HARNESS_ROOT / f"{legacy}.py").read_text(encoding="utf-8").splitlines()
     )
     assert line_count <= 30
+
+
+def test_codex_app_server_compatibility_facade_remains_bounded() -> None:
+    facade = (
+        ROOT
+        / "packages"
+        / "gpt2giga-harness"
+        / "src"
+        / "gpt2giga_harness"
+        / "codex_app_server.py"
+    )
+    assert len(facade.read_text(encoding="utf-8").splitlines()) <= 250
+
+
+def test_codex_protocol_normalization_is_separate_from_process_lifecycle() -> None:
+    app_server = HARNESS_ROOT / "builtins" / "codex" / "app_server"
+    protocol_source = (app_server / "protocol.py").read_text(encoding="utf-8")
+    process_source = (app_server / "process.py").read_text(encoding="utf-8")
+    assert "import subprocess" not in protocol_source
+    assert ".process import" not in protocol_source
+    assert ".protocol import" not in process_source
