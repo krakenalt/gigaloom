@@ -8,6 +8,11 @@ from types import SimpleNamespace
 import pytest
 
 from gpt2giga_harness.config import HarnessConfig
+from gpt2giga_harness.execution.attachments import PreparedAttachments
+from gpt2giga_harness.execution.context import RunExecutionContext
+from gpt2giga_harness.execution.continuation import ContinuationPlan
+from gpt2giga_harness.execution.milestones import PersistenceMilestone
+from gpt2giga_harness.execution.options import RunOptions
 from gpt2giga_harness.harnesses.base import BaseHarness
 from gpt2giga_harness.native import HarnessInvocationMode
 from gpt2giga_harness.preflight import PreflightBlockedError
@@ -38,6 +43,37 @@ from gpt2giga_harness.types import (
     HarnessSpec,
     emit_event,
 )
+
+
+def test_session_runner_uses_typed_execution_context_objects():
+    harness = _CaptureHarness()
+    runner = _runner(harness)
+    options = runner._run_options(
+        {"harness_id": "capture", "prompt": "hello"},
+        session=None,
+    )
+    context = RunExecutionContext(
+        session=object(),
+        options=options,
+        harness=harness,
+        logical_user_message_id="msg_test",
+        previous_messages=(),
+        provider_account_binding=None,
+    )
+    attachments = PreparedAttachments(attachments=(), metadata=())
+    continuation = ContinuationPlan(
+        {"strategy": "start", "prompt_id": "msg_test", "supported": True}
+    )
+
+    assert isinstance(options, RunOptions)
+    assert options.prompt == options["prompt"] == "hello"
+    assert context.milestone is PersistenceMilestone.ADMITTED
+    assert attachments.render_plan is None
+    assert continuation.to_dict()["prompt_id"] == "msg_test"
+    assert continuation.public_payload() == {
+        "strategy": "start",
+        "supported": True,
+    }
 
 
 def test_session_runner_create_and_run_persists_success():

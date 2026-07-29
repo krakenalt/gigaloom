@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, replace
-import hashlib
 import json
 from pathlib import Path
 import threading
@@ -21,8 +20,13 @@ from gpt2giga_harness.attachments import (
     render_plan_to_dict,
 )
 from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.codex_app_server import build_execution_snapshot
 from gpt2giga_harness.execution import ExecutionTransport
+from gpt2giga_harness.execution.attachments import PreparedAttachments
+from gpt2giga_harness.execution.context import RunExecutionContext
+from gpt2giga_harness.execution.continuation import (
+    build_continuation_plan,
+)
+from gpt2giga_harness.execution.options import RunOptions
 from gpt2giga_harness.managed_mcp import HeadlessManagedMCPSnapshotStore
 from gpt2giga_harness.mcp import build_mcp_inventory
 from gpt2giga_harness.native.models import parse_invocation_mode
@@ -296,9 +300,13 @@ class HarnessSessionRunner:
             session.id,
             options["attachment_ids"],
         )
-        attachment_payloads = tuple(
-            _run_attachment_metadata(attachment) for attachment in attachments
+        prepared_attachments = PreparedAttachments(
+            attachments=attachments,
+            metadata=tuple(
+                _run_attachment_metadata(attachment) for attachment in attachments
+            ),
         )
+        attachment_payloads = prepared_attachments.metadata
         managed_mcp_snapshot = self._prepare_managed_mcp_snapshot(options)
         _validate_continuation_identity(session, options)
         message_id = new_id("msg")
@@ -406,6 +414,14 @@ class HarnessSessionRunner:
                 )
                 if message.run_id not in excluded_history_run_ids
             )
+        execution_context = RunExecutionContext(
+            session=session,
+            options=options,
+            harness=harness,
+            logical_user_message_id=logical_user_message_id,
+            previous_messages=previous_messages,
+            provider_account_binding=provider_account_binding,
+        )
         attachments = self._load_attachments(
             session.id,
             options["attachment_ids"],
@@ -427,6 +443,12 @@ class HarnessSessionRunner:
             render_plan_to_dict(attachment_render_plan)
             if attachment_render_plan is not None
             else None
+        )
+        prepared_attachments = PreparedAttachments(
+            attachments=attachments,
+            metadata=attachment_payloads,
+            render_plan=attachment_render_plan,
+            render_plan_payload=attachment_render_plan_payload,
         )
         project_memory = self._load_project_memory(options["workspace"])
         project_memory_payload = (
@@ -461,7 +483,7 @@ class HarnessSessionRunner:
         preflight = build_preflight_report(
             prompt=options["prompt"],
             workspace=options["workspace"],
-            previous_messages=previous_messages,
+            previous_messages=execution_context.previous_messages,
             attachments=attachments,
             project_memory=project_memory,
             data_dir=self.config.data_dir,
@@ -624,7 +646,7 @@ class HarnessSessionRunner:
                 },
             )
         request_messages = self._build_request_messages(
-            previous_messages,
+            execution_context.previous_messages,
             prompt=effective_prompt,
         )
         request_extra = _request_extra(
@@ -668,7 +690,8 @@ class HarnessSessionRunner:
             workspace=workspace_execution.request_workspace,
             messages=request_messages,
             attachments=tuple(
-                attachment_to_dict(attachment) for attachment in attachments
+                attachment_to_dict(attachment)
+                for attachment in prepared_attachments.attachments
             ),
             attachment_render_plan=attachment_render_plan_payload,
             builtin_tools=options["builtin_tools"],
@@ -680,23 +703,23 @@ class HarnessSessionRunner:
             process_sink=process_sink,
             extra=request_extra,
         )
-        continuation = _continuation_plan(
+        continuation = build_continuation_plan(
             request,
-            harness=harness,
-            session=session,
-            previous_messages=previous_messages,
-            prompt_id=logical_user_message_id,
+            harness=execution_context.harness,
+            session=execution_context.session,
+            previous_messages=execution_context.previous_messages,
+            prompt_id=execution_context.logical_user_message_id,
             edit_source=_edit_continuation_source(
                 self.store,
                 edit_message_id=edit_message_id,
-                previous_messages=previous_messages,
+                previous_messages=execution_context.previous_messages,
             ),
         )
-        request_extra["continuation"] = continuation
+        request_extra["continuation"] = continuation.to_dict()
         request = replace(request, extra=request_extra)
-        run_metadata["continuation"] = _public_continuation(continuation)
+        run_metadata["continuation"] = continuation.public_payload()
         run = self.store.update_run(run.id, metadata=run_metadata)
-        if previous_messages and continuation.get("strategy") in {
+        if execution_context.previous_messages and continuation.get("strategy") in {
             HeadlessContinuationStrategy.UNSUPPORTED.value,
             HeadlessContinuationStrategy.DEGRADED_REPLAY.value,
             HeadlessContinuationStrategy.ONE_SHOT.value,
@@ -735,7 +758,7 @@ class HarnessSessionRunner:
             ],
             "builtin_tools": [tool.value for tool in options["builtin_tools"]],
             "extra": options["extra"],
-            "continuation": _public_continuation(continuation),
+            "continuation": continuation.public_payload(),
         }
         if effective_prompt != options["prompt"]:
             raw_request["original_prompt"] = options["prompt"]
@@ -1018,7 +1041,7 @@ class HarnessSessionRunner:
         payload: Mapping[str, Any],
         *,
         session: HarnessSession | None,
-    ) -> dict[str, Any]:
+    ) -> RunOptions:
         prompt = str(payload.get("prompt") or "")
         harness_id = str(
             payload.get("harness_id")
@@ -1075,38 +1098,38 @@ class HarnessSessionRunner:
         required_permission_actions = _permission_actions(
             extra.get("required_permission_actions")
         )
-        return {
-            "prompt": prompt,
-            "harness_id": harness_id,
-            "harness_kind": spec.kind,
-            "model": model,
-            "api_mode": api_mode,
-            "builtin_tools": builtin_tools,
-            "capability": capability,
-            "mode": mode,
-            "invocation_mode": invocation_mode,
-            "execution_transport": execution_transport,
-            "workspace": workspace,
-            "stream": bool(payload.get("stream")),
-            "extra": extra,
-            "native_session_id": _optional_text(payload.get("native_session_id")),
-            "attachment_ids": attachment_ids,
-            "workspace_policy": workspace_policy,
-            "permission_profile": selected_permission_profile.id,
-            "permission_origin": origin,
-            "required_permission_actions": required_permission_actions,
-            "agent_id": _optional_text(payload.get("agent_id")),
-            "agent_profile_snapshot": (
+        return RunOptions(
+            prompt=prompt,
+            harness_id=harness_id,
+            harness_kind=spec.kind,
+            model=model,
+            api_mode=api_mode,
+            builtin_tools=builtin_tools,
+            capability=capability,
+            mode=mode,
+            invocation_mode=invocation_mode,
+            execution_transport=execution_transport,
+            workspace=workspace,
+            stream=bool(payload.get("stream")),
+            extra=extra,
+            native_session_id=_optional_text(payload.get("native_session_id")),
+            attachment_ids=attachment_ids,
+            workspace_policy=workspace_policy,
+            permission_profile=selected_permission_profile.id,
+            permission_origin=origin,
+            required_permission_actions=required_permission_actions,
+            agent_id=_optional_text(payload.get("agent_id")),
+            agent_profile_snapshot=(
                 dict(payload["agent_profile_snapshot"])
                 if isinstance(payload.get("agent_profile_snapshot"), Mapping)
                 else None
             ),
-            "agent_execution_plan": (
+            agent_execution_plan=(
                 dict(payload["agent_execution_plan"])
                 if isinstance(payload.get("agent_execution_plan"), Mapping)
                 else None
             ),
-        }
+        )
 
     def _prepare_provider_account_session(
         self,
@@ -1409,7 +1432,7 @@ class HarnessSessionRunner:
 
     def _prepare_managed_mcp_snapshot(
         self,
-        options: dict[str, Any],
+        options: RunOptions,
     ) -> Mapping[str, Any] | None:
         """Resolve or freeze the selected managed tools before run creation."""
         extra = dict(_mapping(options.get("extra")))
@@ -1591,177 +1614,6 @@ def _edit_continuation_source(
                 "turn_id": link.get("latest_turn_id"),
             }
     return {"action": "start"}
-
-
-def _continuation_plan(
-    request: HarnessRequest,
-    *,
-    harness: Any,
-    session: HarnessSession,
-    previous_messages: tuple[HarnessMessage, ...],
-    prompt_id: str,
-    edit_source: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Select one truthful, machine-readable headless continuation strategy."""
-    if (
-        request.execution_transport is ExecutionTransport.NATIVE_STRUCTURED
-        and harness.spec().id != "codex-cli"
-    ):
-        return {
-            "strategy": ExecutionTransport.NATIVE_STRUCTURED.value,
-            "supported": True,
-            "continuity_proven": True,
-            "action": (
-                "start"
-                if edit_source is not None
-                else "continue"
-                if previous_messages
-                else "start"
-            ),
-            "prompt_id": prompt_id,
-            "history_replayed": edit_source is not None and bool(previous_messages),
-        }
-    if (
-        request.invocation_mode.value != "headless"
-        and request.execution_transport is not ExecutionTransport.NATIVE_STRUCTURED
-    ):
-        return {
-            "strategy": HeadlessContinuationStrategy.NATIVE_CLI_RESUME.value,
-            "supported": bool(request.native_session_id),
-            "reason": "Native continuity is owned by the managed native connector.",
-        }
-    spec = harness.spec()
-    configured = getattr(
-        spec,
-        "headless_continuation",
-        HeadlessContinuationStrategy.ONE_SHOT,
-    )
-    strategy = (
-        configured.value
-        if isinstance(configured, HeadlessContinuationStrategy)
-        else str(configured)
-    )
-    if strategy == HeadlessContinuationStrategy.STRUCTURED_THREAD.value:
-        probe = getattr(harness, "capability_probe", None)
-        snapshot = probe() if callable(probe) else None
-        capabilities = getattr(snapshot, "capabilities", {})
-        if not isinstance(capabilities, Mapping) or not capabilities.get("app-server"):
-            return {
-                "strategy": HeadlessContinuationStrategy.DEGRADED_REPLAY.value,
-                "supported": True,
-                "continuity_proven": False,
-                "reason": (
-                    "Codex app-server is unavailable; normalized history is replayed "
-                    "into a fresh codex exec --ephemeral process."
-                ),
-            }
-        managed_mcp = _mapping(request.extra.get("managed_mcp_snapshot"))
-        home_identity = (
-            "apphome_"
-            + hashlib.sha256(
-                (
-                    f"{request.api_mode.value}\0"
-                    f"{managed_mcp.get('snapshot_hash') or 'no-tools'}"
-                ).encode("utf-8")
-            ).hexdigest()[:24]
-        )
-        execution_snapshot = build_execution_snapshot(
-            request,
-            managed_home_id=home_identity,
-        )
-        link = _mapping(session.metadata.get("app_server_thread"))
-        fork = _mapping(session.metadata.get("app_server_fork"))
-        native_operation = str(
-            request.extra.get("native_session_operation") or ""
-        ).strip()
-        if request.native_session_id and not link and not fork:
-            if native_operation == "resume":
-                link = {
-                    "schema_version": 1,
-                    "protocol": "codex-app-server-json-rpc-v2",
-                    "thread_id": request.native_session_id,
-                    "snapshot": execution_snapshot,
-                    "snapshot_hash": execution_snapshot["snapshot_hash"],
-                    "runtime_status": "external",
-                }
-            elif native_operation == "fork":
-                fork = {"thread_id": request.native_session_id}
-            else:
-                raise ValueError(
-                    "Codex native session identity requires resume or fork"
-                )
-        if edit_source is not None:
-            link = _mapping(edit_source.get("link"))
-            fork = (
-                {
-                    "thread_id": edit_source.get("thread_id"),
-                    "turn_id": edit_source.get("turn_id"),
-                }
-                if edit_source.get("action") == "fork"
-                else {}
-            )
-        if link:
-            expected = str(link.get("snapshot_hash") or "")
-            if expected != execution_snapshot["snapshot_hash"]:
-                raise ValueError(
-                    "Codex app-server continuation changed route, model, workspace, "
-                    "permission mode, managed home, or tool snapshot; fork explicitly."
-                )
-        action = (
-            "fork"
-            if fork
-            else "resume"
-            if native_operation == "resume" and link
-            else "continue"
-            if link
-            else "start"
-        )
-        return {
-            "strategy": HeadlessContinuationStrategy.STRUCTURED_THREAD.value,
-            "supported": True,
-            "continuity_proven": True,
-            "action": action,
-            "prompt_id": prompt_id,
-            "snapshot": execution_snapshot,
-            "link": link or None,
-            "fork_thread_id": fork.get("thread_id"),
-            "fork_turn_id": fork.get("turn_id"),
-            "protocol": "codex-app-server-json-rpc-v2",
-            "cli_version": str(getattr(snapshot, "version", None) or "unknown"),
-            "normalized_history_canonical": True,
-            "history_replayed": False,
-        }
-    if strategy == HeadlessContinuationStrategy.STRUCTURED_REPLAY.value:
-        return {
-            "strategy": strategy,
-            "supported": True,
-            "continuity_proven": True,
-            "history_replayed": bool(previous_messages),
-            "reason": "Normalized Harness messages are sent as one structured request.",
-        }
-    if strategy == HeadlessContinuationStrategy.UNSUPPORTED.value:
-        return {
-            "strategy": strategy,
-            "supported": False,
-            "continuity_proven": False,
-            "reason": (
-                f"{spec.title} headless mode does not consume a stable external "
-                "session id or normalized prior turns; this run is one-shot."
-            ),
-        }
-    return {
-        "strategy": HeadlessContinuationStrategy.ONE_SHOT.value,
-        "supported": False,
-        "continuity_proven": False,
-        "reason": "This adapter advertises one-shot execution only.",
-    }
-
-
-def _public_continuation(value: Mapping[str, Any]) -> dict[str, Any]:
-    """Remove delivery-only ids while retaining truthful continuity evidence."""
-    return {
-        key: item for key, item in value.items() if key not in {"prompt_id", "link"}
-    }
 
 
 def _continued_workspace_execution(
