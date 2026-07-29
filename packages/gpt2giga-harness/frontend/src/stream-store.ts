@@ -134,10 +134,12 @@ export interface RunStreamSelection<Selection> {
 export class RunEventStreamStore {
   private readonly maxEvents: number;
   private readonly maxPendingEvents: number;
+  private readonly maxSeenEventIds: number;
+  private readonly maxCoalescedEventIds: number;
   private readonly scheduleFrame: FrameScheduler;
   private readonly createEventSource: EventSourceFactory;
   private readonly listeners = new Set<() => void>();
-  private readonly seenIds = new Set<string>();
+  private readonly seenIds = new Map<string, undefined>();
   private pending: RunStreamEvent[] = [];
   private cancelFrame: (() => void) | null = null;
   private source: EventSourceLike | null = null;
@@ -147,12 +149,19 @@ export class RunEventStreamStore {
     options: {
       maxEvents?: number;
       maxPendingEvents?: number;
+      maxSeenEventIds?: number;
+      maxCoalescedEventIds?: number;
       scheduleFrame?: FrameScheduler;
       createEventSource?: EventSourceFactory;
     } = {},
   ) {
     this.maxEvents = Math.max(1, options.maxEvents ?? 500);
     this.maxPendingEvents = Math.max(1, options.maxPendingEvents ?? 512);
+    this.maxSeenEventIds = Math.max(1, options.maxSeenEventIds ?? 4096);
+    this.maxCoalescedEventIds = Math.max(
+      1,
+      options.maxCoalescedEventIds ?? 512,
+    );
     this.scheduleFrame = options.scheduleFrame ?? defaultFrameScheduler;
     this.createEventSource =
       options.createEventSource ?? defaultEventSourceFactory;
@@ -215,8 +224,7 @@ export class RunEventStreamStore {
     source.addEventListener("resnapshot", (message) => {
       if (this.source !== source) return;
       const payload = parseObject(message.data);
-      this.flushPending();
-      this.patchSnapshot({
+      this.appendEvents(this.drainPending(), {
         status: "resnapshot_required",
         resnapshotUrl:
           typeof payload?.snapshot_url === "string"
@@ -246,21 +254,25 @@ export class RunEventStreamStore {
   }
 
   ingest(event: RunStreamEvent): void {
-    if (!event.id || this.seenIds.has(event.id)) return;
-    this.seenIds.add(event.id);
+    if (!event.id || !this.rememberEventId(event.id)) return;
     if (isControlEvent(event.type)) {
-      this.flushPending();
-      this.appendEvents([event]);
-      if (event.type === "run_finished" || event.type === "run_canceled") {
+      const terminal =
+        event.type === "run_finished" || event.type === "run_canceled";
+      if (terminal) {
         this.source?.close();
         this.source = null;
-        this.patchSnapshot({ status: "closed" });
       }
+      this.appendEvents([...this.drainPending(), event], {
+        ...(terminal ? { status: "closed" as const } : {}),
+      });
       return;
     }
     this.pending.push(event);
     if (this.pending.length > this.maxPendingEvents) {
-      this.pending = coalescePresentationDeltas(this.pending);
+      this.pending = coalescePresentationDeltas(
+        this.pending,
+        this.maxCoalescedEventIds,
+      );
       if (this.pending.length > this.maxPendingEvents) {
         this.pending = this.pending.slice(-this.maxPendingEvents);
         this.patchSnapshot({ status: "resnapshot_required" });
@@ -275,21 +287,56 @@ export class RunEventStreamStore {
   }
 
   private flushPending(): void {
-    this.cancelFrame?.();
-    this.cancelFrame = null;
-    if (this.pending.length === 0) return;
-    const events = coalescePresentationDeltas(this.pending);
-    this.pending = [];
+    const events = this.drainPending();
+    if (events.length === 0) return;
     this.appendEvents(events);
   }
 
-  private appendEvents(events: readonly RunStreamEvent[]): void {
+  private drainPending(): RunStreamEvent[] {
+    this.cancelFrame?.();
+    this.cancelFrame = null;
+    if (this.pending.length === 0) return [];
+    const events = coalescePresentationDeltas(
+      this.pending,
+      this.maxCoalescedEventIds,
+    );
+    this.pending = [];
+    return events;
+  }
+
+  private appendEvents(
+    events: readonly RunStreamEvent[],
+    patch: Partial<RunStreamSnapshotInput> = {},
+  ): void {
     const combined = [...this.snapshot.events, ...events];
     const truncated = combined.length > this.maxEvents;
     this.patchSnapshot({
+      ...patch,
       events: truncated ? combined.slice(-this.maxEvents) : combined,
       windowTruncated: this.snapshot.windowTruncated || truncated,
     });
+  }
+
+  private rememberEventId(eventId: string): boolean {
+    if (this.seenIds.has(eventId)) return false;
+    this.seenIds.set(eventId, undefined);
+    if (this.seenIds.size > this.maxSeenEventIds) {
+      const oldestEventId = this.seenIds.keys().next().value;
+      if (oldestEventId !== undefined) this.seenIds.delete(oldestEventId);
+    }
+    return true;
+  }
+
+  getBufferMetrics(): {
+    pendingEvents: number;
+    retainedEvents: number;
+    seenEventIds: number;
+  } {
+    return {
+      pendingEvents: this.pending.length,
+      retainedEvents: this.snapshot.events.length,
+      seenEventIds: this.seenIds.size,
+    };
   }
 
   private patchSnapshot(patch: Partial<RunStreamSnapshotInput>): void {
@@ -347,7 +394,9 @@ export function useRunEventStream(
 
 export function coalescePresentationDeltas(
   events: readonly RunStreamEvent[],
+  maxCoalescedIds = 512,
 ): RunStreamEvent[] {
+  const coalescedIdLimit = Math.max(1, Math.floor(maxCoalescedIds));
   const result: RunStreamEvent[] = [];
   for (const event of events) {
     const previous = result.at(-1);
@@ -367,7 +416,7 @@ export function coalescePresentationDeltas(
         coalesced_ids: [
           ...(previous.coalesced_ids ?? [previous.id]),
           event.id,
-        ],
+        ].slice(-coalescedIdLimit),
       };
     } else {
       result.push(event);

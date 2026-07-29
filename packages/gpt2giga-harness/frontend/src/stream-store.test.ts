@@ -67,12 +67,15 @@ describe("run event stream store", () => {
 
   it("batches normal deltas per frame and prioritizes terminal control", () => {
     const frames: Array<() => void> = [];
+    const cancelFrame = vi.fn();
     const store = new RunEventStreamStore({
       scheduleFrame: (callback) => {
         frames.push(callback);
-        return vi.fn();
+        return cancelFrame;
       },
     });
+    const listener = vi.fn();
+    store.subscribe(listener);
 
     store.ingest(event("one", "message_delta", "A"));
     store.ingest(event("two", "message_delta", "B"));
@@ -89,6 +92,45 @@ describe("run event stream store", () => {
       "two",
     ]);
     expect(store.getSnapshot().status).toBe("closed");
+    expect(cancelFrame).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenCalledOnce();
+  });
+
+  it("bounds burst memory and emits one presentation update per frame", () => {
+    const frames: Array<() => void> = [];
+    const store = new RunEventStreamStore({
+      scheduleFrame: (callback) => {
+        frames.push(callback);
+        return vi.fn();
+      },
+    });
+    const presentationListener = vi.fn();
+    store
+      .select(selectRunStreamPresentation)
+      .subscribe(presentationListener);
+
+    for (let index = 0; index < 10_000; index += 1) {
+      store.ingest(event(`delta-${index}`, "message_delta", "x"));
+    }
+
+    expect(frames).toHaveLength(1);
+    expect(store.getBufferMetrics().pendingEvents).toBeLessThanOrEqual(512);
+    expect(store.getBufferMetrics()).toMatchObject({
+      retainedEvents: 0,
+      seenEventIds: 4096,
+    });
+    frames.shift()?.();
+
+    const presentation = store.getSnapshot().presentation.events;
+    expect(presentationListener).toHaveBeenCalledOnce();
+    expect(presentation).toHaveLength(1);
+    expect(presentation[0]?.payload?.delta).toHaveLength(10_000);
+    expect(presentation[0]?.coalesced_ids).toHaveLength(512);
+    expect(store.getBufferMetrics()).toEqual({
+      pendingEvents: 0,
+      retainedEvents: 1,
+      seenEventIds: 4096,
+    });
   });
 
   it("deduplicates reconnect replay and bounds the retained render window", () => {

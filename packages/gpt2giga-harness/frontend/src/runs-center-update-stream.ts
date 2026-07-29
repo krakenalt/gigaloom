@@ -1,3 +1,8 @@
+import {
+  createFrameCoalescer,
+  type FrameScheduler,
+} from "./bounded-rendering";
+
 export interface RunsCenterUpdateEvent {
   revision: string;
   type: "runs.updated";
@@ -24,14 +29,25 @@ const defaultEventSourceFactory: EventSourceFactory = (url) =>
 export function observeRunsCenterUpdates(
   onRevision: (event: RunsCenterUpdateEvent | null) => void,
   createEventSource: EventSourceFactory = defaultEventSourceFactory,
+  scheduleFrame?: FrameScheduler,
 ): () => void {
+  const updates = createFrameCoalescer(onRevision, {
+    isEqual: (left, right) => left?.revision === right?.revision,
+    schedule: scheduleFrame,
+  });
   const source = createEventSource("/api/runs/updates/stream");
   source.onmessage = (message) => {
     const event = parseRunsCenterUpdate(message.data);
-    if (event !== null) onRevision(event);
+    if (event !== null) updates.enqueue(event);
   };
-  source.addEventListener("resnapshot", () => onRevision(null));
-  return () => source.close();
+  source.addEventListener("resnapshot", () => {
+    updates.reset();
+    onRevision(null);
+  });
+  return () => {
+    updates.cancel();
+    source.close();
+  };
 }
 
 function parseRunsCenterUpdate(value: string): RunsCenterUpdateEvent | null {
