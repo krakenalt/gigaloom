@@ -35,16 +35,8 @@ from gpt2giga_harness.capability_matrix import (
     render_adapter_capability_matrix_markdown,
     render_agent_surface_capability_matrix_markdown,
 )
-from gpt2giga_harness.product_inventory import (
-    build_product_inventory,
-    canonical_inventory_json,
-    load_product_inventory,
-    validate_product_inventory,
-)
-from gpt2giga_harness.cli_commands.errors import format_cli_error
 from gpt2giga_harness.cli_commands.output import print_json as _print_json
 from gpt2giga_harness.cli_commands.parser import build_parser
-from gpt2giga_harness.cli_commands.registry import resolve_handler
 from gpt2giga_harness.config import HarnessConfig
 from gpt2giga_harness.completion import render_completion
 from gpt2giga_harness.cli_capabilities import cli_capability_snapshot_to_dict
@@ -205,7 +197,6 @@ from gpt2giga_harness.types import (
     spec_to_dict,
 )
 from gpt2giga_harness.worktrees import parse_workspace_policy
-from gpt2giga_harness.ui.app import create_app
 from gpt2giga_harness.workspace import resolve_workspace
 from gpt2giga_harness.workbench_execution import workbench_transport_projection
 from gpt2giga_harness.workflows import (
@@ -228,21 +219,9 @@ AGENT_ALIASES = {
 
 def main(argv: list[str] | None = None) -> int:
     """Run the Unified Harness CLI."""
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    if not hasattr(args, "handler"):
-        parser.print_help()
-        return 2
-    config = _config_from_args(args)
-    try:
-        handler = resolve_handler(args.handler)
-        return handler(args, config)
-    except Exception as exc:
-        message = format_cli_error(exc)
-        if message is None:
-            raise
-        print(message, file=sys.stderr)
-        return 2
+    from gpt2giga_harness.cli_commands.main import main as command_main
+
+    return command_main(argv)
 
 
 def _handle_doctor(args: argparse.Namespace, config: HarnessConfig) -> int:
@@ -456,6 +435,13 @@ def _handle_harness_capabilities(
     args: argparse.Namespace,
     config: HarnessConfig,
 ) -> int:
+    from gpt2giga_harness.product_inventory import (
+        build_product_inventory,
+        canonical_inventory_json,
+        load_product_inventory,
+        validate_product_inventory,
+    )
+
     registry = create_default_registry(include_entry_points=False)
     if args.agents and args.inventory:
         print(
@@ -464,6 +450,8 @@ def _handle_harness_capabilities(
         )
         return 2
     if args.inventory:
+        from gpt2giga_harness.ui.app import create_app
+
         with tempfile.TemporaryDirectory(prefix="gigaloom-product-inventory-") as root:
             app = create_app(
                 HarnessConfig(data_dir=root),
@@ -2136,14 +2124,6 @@ def _run_harness(
             preflight,
         )
     return _result_with_preflight(harness.run(request, config.to_context()), preflight)
-
-
-def _config_from_args(args: argparse.Namespace) -> HarnessConfig:
-    config = HarnessConfig.from_env()
-    return config.with_overrides(
-        proxy_url=getattr(args, "proxy_url", None),
-        auto_start_proxy=getattr(args, "start_proxy", None),
-    )
 
 
 def _print_result(result, *, as_json: bool) -> None:

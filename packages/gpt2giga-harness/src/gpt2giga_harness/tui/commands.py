@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Iterable
+from typing import TYPE_CHECKING, Callable, Iterable
 
-from textual.binding import Binding
+if TYPE_CHECKING:
+    from textual.binding import Binding
 
 
 @dataclass(frozen=True)
@@ -324,6 +325,8 @@ COMMAND_REGISTRY: tuple[CommandSpec, ...] = (
 
 def command_bindings(translate: Callable[[str], str]) -> list[Binding]:
     """Build keyboard bindings and footer labels from the shared registry."""
+    from textual.binding import Binding
+
     return [
         Binding(
             command.key,

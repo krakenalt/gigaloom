@@ -100,6 +100,15 @@ def test_cli_completion_is_static_and_leaves_provider_suffix_owned(shell, capsys
     assert "--output-format" not in output
 
 
+@pytest.mark.parametrize("shell", ("bash", "zsh", "fish", "powershell"))
+def test_console_completion_preserves_cli_output(shell, capsys):
+    assert entrypoint.main(["completion", shell]) == 0
+    entrypoint_output = capsys.readouterr().out
+
+    assert cli.main(["completion", shell]) == 0
+    assert entrypoint_output == capsys.readouterr().out
+
+
 def test_console_entrypoint_reports_version_without_importing_full_cli(
     capsys, monkeypatch
 ):
@@ -109,6 +118,44 @@ def test_console_entrypoint_reports_version_without_importing_full_cli(
 
     assert "gpt2giga_harness.cli" not in sys.modules
     assert capsys.readouterr().out == f"GigaLoom {version('gigaloom')} (gigaloom)\n"
+
+
+def test_console_config_path_preserves_cli_output(capsys):
+    assert entrypoint.main(["config", "path"]) == 0
+    entrypoint_output = capsys.readouterr().out
+
+    assert cli.main(["config", "path"]) == 0
+    assert entrypoint_output == capsys.readouterr().out
+
+
+def test_console_automation_help_preserves_cli_output(capsys):
+    arguments = ["--non-interactive", "--help"]
+    with pytest.raises(SystemExit) as entrypoint_exit:
+        entrypoint.main(arguments)
+    entrypoint_streams = capsys.readouterr()
+
+    with pytest.raises(SystemExit) as cli_exit:
+        cli.main(arguments)
+    assert entrypoint_exit.value.code == cli_exit.value.code == 0
+    assert entrypoint_streams == capsys.readouterr()
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    (
+        ["completion", "unsupported"],
+        ["config", "path", "unexpected"],
+    ),
+)
+def test_console_metadata_errors_preserve_cli_contract(arguments, capsys):
+    with pytest.raises(SystemExit) as entrypoint_exit:
+        entrypoint.main(arguments)
+    entrypoint_streams = capsys.readouterr()
+
+    with pytest.raises(SystemExit) as cli_exit:
+        cli.main(arguments)
+    assert entrypoint_exit.value.code == cli_exit.value.code == 2
+    assert entrypoint_streams == capsys.readouterr()
 
 
 def test_cli_ui_starts_and_stops_worker_when_none_is_online(

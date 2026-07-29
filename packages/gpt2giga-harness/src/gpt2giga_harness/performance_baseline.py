@@ -26,7 +26,6 @@ except ModuleNotFoundError:  # pragma: no cover - exercised on Windows
 from gpt2giga_harness.config import HarnessConfig
 from gpt2giga_harness.performance_workloads import workload_contracts
 from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.ui.app import create_app
 
 
 SCHEMA_VERSION: Final[str] = "gigaloom.performance-baseline.v2"
@@ -575,6 +574,7 @@ def _probe_worker_runtime(root: Path) -> Mapping[str, float]:
 
 def _probe_web_api(root: Path) -> Mapping[str, float]:
     from fastapi.testclient import TestClient
+    from gpt2giga_harness.ui.app import create_app
 
     started = time.perf_counter_ns()
     config = HarnessConfig(data_dir=root / "api")

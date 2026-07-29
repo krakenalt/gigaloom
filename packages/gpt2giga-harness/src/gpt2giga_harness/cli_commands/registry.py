@@ -20,6 +20,7 @@ _PROVIDER_HANDLERS = frozenset(
         "_handle_provider_test",
     }
 )
+_HARNESS_HANDLERS = frozenset({"_handle_harness_list"})
 _UI_HANDLERS = frozenset(
     {
         "_handle_ui",
@@ -40,6 +41,8 @@ def resolve_handler(name: str) -> CommandHandler:
     """Import and return one registered command handler."""
     if name in _PROVIDER_HANDLERS:
         module_name = "gpt2giga_harness.cli_commands.handlers.provider"
+    elif name in _HARNESS_HANDLERS:
+        module_name = "gpt2giga_harness.cli_commands.handlers.harness"
     elif name in _UI_HANDLERS:
         module_name = "gpt2giga_harness.cli_commands.handlers.ui"
     elif name in _WORKER_HANDLERS:

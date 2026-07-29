@@ -8,19 +8,16 @@ import signal
 import subprocess
 import sys
 import time
-
-import uvicorn
+from typing import Any
 
 from gpt2giga_harness.cli_commands.output import print_json
 from gpt2giga_harness.config import HarnessConfig
 from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
 from gpt2giga_harness.runtime.worker import worker_status
-from gpt2giga_harness.ui.app import create_app, validate_ui_bind
 from gpt2giga_harness.ui.remote_identity import (
     RemoteIdentityStore,
     RemoteOIDCSettings,
 )
-from gpt2giga_harness.ui.security import is_loopback_host
 
 
 UI_WORKER_START_TIMEOUT_SECONDS = 10.0
@@ -29,7 +26,31 @@ UI_GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS = 5
 MAX_UI_WORKER_COUNT = 32
 
 
+class _LazyUvicorn:
+    def run(self, *args: Any, **kwargs: Any) -> Any:
+        import uvicorn as implementation
+
+        return implementation.run(*args, **kwargs)
+
+
+uvicorn = _LazyUvicorn()
+
+
+def create_app(*args: Any, **kwargs: Any) -> Any:
+    from gpt2giga_harness.ui.app import create_app as implementation
+
+    return implementation(*args, **kwargs)
+
+
+def validate_ui_bind(*args: Any, **kwargs: Any) -> Any:
+    from gpt2giga_harness.ui.app import validate_ui_bind as implementation
+
+    return implementation(*args, **kwargs)
+
+
 def _handle_ui(args: argparse.Namespace, config: HarnessConfig) -> int:
+    from gpt2giga_harness.ui.security import is_loopback_host
+
     config = config.with_overrides(ui_host=args.host, ui_port=args.port)
     validate_ui_bind(config, allow_remote=args.allow_remote)
     if not 1 <= args.worker_count <= MAX_UI_WORKER_COUNT:
