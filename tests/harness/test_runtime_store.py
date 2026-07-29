@@ -13,6 +13,7 @@ from gpt2giga_harness.sessions import filesystem as filesystem_sessions
 from gpt2giga_harness.harnesses.codex_cli import CodexCliHarness
 from gpt2giga_harness.harnesses.echo import EchoHarness
 from gpt2giga_harness.runtime.capabilities import negotiate_execution_capabilities
+from gpt2giga_harness.runtime.db import DbProvider, transaction
 from gpt2giga_harness.runtime.models import (
     JobAttemptStatus,
     JobStatus,
@@ -40,6 +41,58 @@ from gpt2giga_harness.sessions.models import (
     run_to_dict,
 )
 from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability
+
+
+def test_db_provider_preserves_sqlite_contract_and_closes_resources(tmp_path):
+    provider = DbProvider(tmp_path / "provider.sqlite3")
+
+    with provider.connect() as connection:
+        assert connection.execute("PRAGMA busy_timeout").fetchone()[0] == 10_000
+        assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        assert connection.execute("PRAGMA synchronous").fetchone()[0] == 2
+        assert connection.row_factory is sqlite3.Row
+
+    with pytest.raises(sqlite3.ProgrammingError):
+        connection.execute("SELECT 1")
+
+    provider.close()
+    provider.close()
+    with pytest.raises(RuntimeError, match="database provider is closed"):
+        with provider.connect():
+            pass
+
+
+def test_db_transaction_instruments_wait_and_preserves_atomicity(tmp_path, monkeypatch):
+    provider = DbProvider(tmp_path / "transaction.sqlite3")
+    measurements: list[tuple[str, float]] = []
+    monkeypatch.setattr(
+        "gpt2giga_harness.runtime.db.transactions.record_duration",
+        lambda name, duration_ms: measurements.append((name, duration_ms)),
+    )
+
+    with provider.connect() as connection:
+        connection.execute("CREATE TABLE records (value TEXT NOT NULL)")
+        with pytest.raises(RuntimeError, match="rollback"):
+            with transaction(connection):
+                connection.execute("INSERT INTO records VALUES ('discarded')")
+                raise RuntimeError("rollback")
+        with transaction(connection):
+            connection.execute("INSERT INTO records VALUES ('committed')")
+        values = connection.execute("SELECT value FROM records").fetchall()
+
+    assert [row[0] for row in values] == ["committed"]
+    assert [name for name, _ in measurements] == ["db_wait_ms", "db_wait_ms"]
+    assert all(duration_ms >= 0 for _, duration_ms in measurements)
+
+
+def test_runtime_store_context_closes_database_provider(tmp_path):
+    with RuntimeCoordinationStore(tmp_path) as store:
+        assert store.schema_version == RUNTIME_SCHEMA_VERSION
+
+    store.close()
+    with pytest.raises(RuntimeError, match="database provider is closed"):
+        _ = store.schema_version
 
 
 def test_runtime_store_uses_wal_hashed_idempotency_and_safe_json_export(tmp_path):
