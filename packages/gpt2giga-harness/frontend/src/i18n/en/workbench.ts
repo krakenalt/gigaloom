@@ -30,6 +30,8 @@ export const enWorkbench = {
   toolCategorySkill: "Skills",
   toolCategoryPlugin: "Plugins",
   boundedPreview: "Bounded preview · open retained evidence for full content",
+  loadEarlierMessages: "Load earlier messages",
+  loadLaterMessages: "Load later messages",
   collapse: "Collapse",
   cancelRun: "Cancel run",
   capability: "Capability",

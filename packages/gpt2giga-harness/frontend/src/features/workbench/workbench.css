@@ -55,6 +55,8 @@
 .confirmation-dialog p strong { color: var(--text); overflow-wrap: anywhere; }
 .confirmation-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
 .message-region { min-height: 0; overflow: auto; padding: 22px clamp(18px, 3vw, 32px) 28px; scrollbar-gutter: stable; }
+.transcript-spacer { width: 1px; min-height: 0; pointer-events: none; }
+.transcript-page-button { display: block; margin: 8px auto; border-color: color-mix(in srgb, var(--accent) 38%, var(--border)); color: var(--accent); }
 .message-entry { width: fit-content; max-width: min(820px, 86%); margin: 8px 0; border: 1px solid var(--border); border-radius: 14px 14px 14px 4px; background: var(--surface-muted); padding: 12px 14px; }
 .message-entry.assistant, .tool-activity-card { width: min(620px, 86%); }
 .message-entry.assistant { margin: 10px 0 22px; border-radius: 10px; background: color-mix(in srgb, var(--surface-muted) 68%, var(--surface)); }

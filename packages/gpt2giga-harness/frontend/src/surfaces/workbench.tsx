@@ -64,6 +64,7 @@ import {
   useRunConfiguration,
 } from "../features/workbench/run-configuration";
 import { createWorkbenchRunStreamSelector } from "../features/workbench/stream-projection";
+import { useTranscriptVirtualWindow, useWindowedTranscript } from "../features/workbench/transcript-pagination";
 import {
   ArchiveSessionIcon,
   DeleteSessionIcon,
@@ -84,7 +85,6 @@ import {
   sessionAttachmentsOptions,
   sessionEventsOptions,
   sessionIndexOptions,
-  sessionMessagesOptions,
   sessionOverviewOptions,
   sessionRunsOptions,
   settingsOptions,
@@ -290,10 +290,7 @@ export function WorkbenchSurface() {
     ...environmentOptions(sessionId ?? "pending"),
     enabled: environmentEnabled,
   });
-  const messages = useQuery({
-    ...sessionMessagesOptions(sessionId ?? "pending"),
-    enabled: sessionId !== undefined,
-  });
+  const messages = useWindowedTranscript(sessionId);
   const runs = useQuery({
     ...sessionRunsOptions(sessionId ?? "pending"),
     enabled: sessionId !== undefined,
@@ -329,9 +326,14 @@ export function WorkbenchSurface() {
     [attachments.data?.attachments, messages.data?.messages],
   );
   const latestUserMessageId = latestEditableUserMessageId(activeMessages);
-  const visibleMessages = useMemo(
+  const timelineMessages = useMemo(
     () => timelineWhileEditing(activeMessages, editingMessageId),
     [activeMessages, editingMessageId],
+  );
+  const transcriptWindow = useTranscriptVirtualWindow(timelineMessages.length, sessionId);
+  const visibleMessages = useMemo(
+    () => timelineMessages.slice(transcriptWindow.window.start, transcriptWindow.window.end),
+    [timelineMessages, transcriptWindow.window.end, transcriptWindow.window.start],
   );
 
   useEffect(() => {
@@ -1133,12 +1135,35 @@ export function WorkbenchSurface() {
               locale={locale}
               pending={environment.isPending}
             />
-            <section className="message-region" aria-label={message(locale, "sessionMessages")}>
+            <section
+              className="message-region"
+              aria-label={message(locale, "sessionMessages")}
+              onScroll={transcriptWindow.onScroll}
+              ref={transcriptWindow.regionRef}
+            >
               {messages.isPending ? <ListSkeleton rows={4} /> : null}
               {messages.isError ? <ReadError locale={locale} /> : null}
-              {messages.data !== undefined && visibleMessages.length === 0 ? (
+              {messages.data !== undefined && timelineMessages.length === 0 ? (
                 <div className="empty-state">{message(locale, "emptyMessages")}</div>
               ) : null}
+              {messages.hasPreviousPage ? (
+                <button
+                  className="transcript-page-button"
+                  disabled={messages.isFetchingPreviousPage}
+                  onClick={() =>
+                    void messages.prependPreviousPage(
+                      transcriptWindow.regionRef.current,
+                    )}
+                  type="button"
+                >
+                  {message(locale, "loadEarlierMessages")}
+                </button>
+              ) : null}
+              <div
+                aria-hidden="true"
+                className="transcript-spacer"
+                style={{ height: transcriptWindow.topSpacer }}
+              />
               {visibleMessages.map((item) => (
                 <Fragment key={item.id}>
                   {(item.role === "assistant" || item.role === "error") && item.run_id
@@ -1190,6 +1215,21 @@ export function WorkbenchSurface() {
                   </article>
                 </Fragment>
               ))}
+              <div
+                aria-hidden="true"
+                className="transcript-spacer"
+                style={{ height: transcriptWindow.bottomSpacer }}
+              />
+              {messages.hasNextPage ? (
+                <button
+                  className="transcript-page-button"
+                  disabled={messages.isFetchingNextPage}
+                  onClick={() => void messages.fetchNextPage()}
+                  type="button"
+                >
+                  {message(locale, "loadLaterMessages")}
+                </button>
+              ) : null}
               {messageAction.isError ? (
                 <span className="error-state" role="alert">
                   {message(locale, "messageActionFailed")}

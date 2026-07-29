@@ -32,6 +32,8 @@ export const ruWorkbench = {
   toolCategorySkill: "Skills",
   toolCategoryPlugin: "Plugins",
   boundedPreview: "Ограниченный preview · полное содержимое доступно в сохранённых evidence",
+  loadEarlierMessages: "Загрузить более ранние сообщения",
+  loadLaterMessages: "Загрузить более поздние сообщения",
   collapse: "Свернуть",
   cancelRun: "Отменить запуск",
   capability: "Capability",
