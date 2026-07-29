@@ -17,7 +17,12 @@ const approvalPreview = readFileSync(
   fileURLToPath(new URL("./inspectors/InspectorFrame.tsx", import.meta.url)),
   "utf8",
 );
-const styles = readFileSync(fileURLToPath(new URL("./styles.css", import.meta.url)), "utf8");
+const styles = readFileSync(
+  fileURLToPath(
+    new URL("./features/workbench/workbench.css", import.meta.url),
+  ),
+  "utf8",
+);
 
 describe("governed Environment commit flow", () => {
   it("keeps preview, approval, and apply on backend-owned routes", () => {
