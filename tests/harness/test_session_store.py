@@ -262,7 +262,7 @@ def test_filesystem_store_filters_by_project_id_without_hiding_legacy(tmp_path):
 def test_filesystem_store_rebuilds_missing_index(tmp_path):
     store = FilesystemHarnessSessionStore(tmp_path)
     session = store.create_session(title="recover me")
-    (tmp_path / "sessions" / "index.json").unlink()
+    (tmp_path / "sessions" / "index.json").unlink(missing_ok=True)
 
     reopened = FilesystemHarnessSessionStore(tmp_path)
 
@@ -275,7 +275,7 @@ def test_filesystem_store_ignores_corrupted_manifest_in_list(tmp_path):
     bad_dir = tmp_path / "sessions" / "2026" / "07" / "bad"
     bad_dir.mkdir(parents=True)
     (bad_dir / "manifest.json").write_text("{bad json", encoding="utf-8")
-    (tmp_path / "sessions" / "index.json").unlink()
+    (tmp_path / "sessions" / "index.json").unlink(missing_ok=True)
 
     assert [session.id for session in store.list_sessions()] == [good.id]
 
@@ -306,14 +306,12 @@ def test_filesystem_store_redacts_secrets_on_disk(tmp_path, monkeypatch):
         payload={"access_token": secret, "text": f"value {secret}"},
     )
 
-    disk_text = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in tmp_path.rglob("*")
-        if path.is_file()
+    disk_bytes = b"\n".join(
+        path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()
     )
 
-    assert secret not in disk_text
-    assert REDACTED in disk_text
+    assert secret.encode() not in disk_bytes
+    assert REDACTED.encode() in disk_bytes
     assert json.loads(
         next(tmp_path.rglob("raw_responses.jsonl")).read_text(encoding="utf-8")
     )

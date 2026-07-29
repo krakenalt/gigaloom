@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import sqlite3
 import threading
-from typing import Iterable, Iterator, Mapping
+from typing import Any, Iterable, Iterator, Mapping
 
 from gpt2giga_harness.sessions.models import session_from_dict
 
@@ -164,7 +164,12 @@ class SessionCatalog:
             self._set_meta(connection, "complete", "1")
             return self._state(connection)
 
-    def upsert(self, entry: SessionCatalogEntry) -> SessionCatalogState:
+    def upsert(
+        self,
+        entry: SessionCatalogEntry,
+        *,
+        watermark: str | None = None,
+    ) -> SessionCatalogState:
         """Record one authoritative manifest without rewriting other rows."""
         relative_path = _normalize_relative_path(entry.relative_path)
         with self._connect() as connection:
@@ -184,17 +189,19 @@ class SessionCatalog:
             self._set_meta(
                 connection,
                 "watermark",
-                _incremental_watermark(
-                    current.watermark,
-                    "upsert",
-                    entry.session_id,
-                    relative_path,
-                    generation,
+                watermark
+                or _incremental_watermark(
+                    current.watermark, "upsert", entry.session_id, relative_path
                 ),
             )
             return self._state(connection)
 
-    def delete(self, session_id: str) -> SessionCatalogState:
+    def delete(
+        self,
+        session_id: str,
+        *,
+        watermark: str | None = None,
+    ) -> SessionCatalogState:
         """Forget one derived entry while preserving the authoritative files."""
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -210,13 +217,8 @@ class SessionCatalog:
             self._set_meta(
                 connection,
                 "watermark",
-                _incremental_watermark(
-                    current.watermark,
-                    "delete",
-                    session_id,
-                    "",
-                    generation,
-                ),
+                watermark
+                or _incremental_watermark(current.watermark, "delete", session_id, ""),
             )
             return self._state(connection)
 
@@ -264,9 +266,20 @@ class SessionCatalog:
 class SessionLocator:
     """Resolve session directories and rebuild a damaged derived catalog."""
 
-    def __init__(self, sessions_dir: str | Path, catalog_path: str | Path) -> None:
+    def __init__(
+        self,
+        sessions_dir: str | Path,
+        catalog_path: str | Path,
+        *,
+        legacy_index_path: str | Path | None = None,
+    ) -> None:
         self.sessions_dir = Path(sessions_dir)
         self.catalog_path = Path(catalog_path)
+        self.legacy_index_path = (
+            Path(legacy_index_path)
+            if legacy_index_path is not None
+            else self.sessions_dir / "index.json"
+        )
         self._catalog_instance: SessionCatalog | None = None
         self._lock = threading.RLock()
 
@@ -291,7 +304,10 @@ class SessionLocator:
                 raise ValueError("session manifest id does not match catalog entry")
             catalog = self._ensure_catalog()
             try:
-                return catalog.upsert(SessionCatalogEntry(session_id, relative_path))
+                return catalog.upsert(
+                    SessionCatalogEntry(session_id, relative_path),
+                    watermark=self._structure_watermark(),
+                )
             except sqlite3.DatabaseError:
                 self._discard_catalog()
                 return self.rebuild()
@@ -302,10 +318,28 @@ class SessionLocator:
             if self._catalog_instance is None and not self.catalog_path.exists():
                 return None
             try:
-                return self._ensure_catalog().delete(session_id)
+                return self._ensure_catalog().delete(
+                    session_id,
+                    watermark=self._structure_watermark(),
+                )
             except sqlite3.DatabaseError:
                 self._discard_catalog()
                 return self.rebuild()
+
+    def entries(self) -> tuple[SessionCatalogEntry, ...]:
+        """Return a reconciled deterministic session mapping snapshot."""
+        with self._lock:
+            self.reconcile()
+            return self._catalog().entries()
+
+    def reconcile(self) -> SessionCatalogState:
+        """Repair catalog drift left by interruption or an older writer."""
+        with self._lock:
+            catalog = self._ensure_catalog()
+            state = catalog.state()
+            if state.watermark != self._structure_watermark():
+                return self.rebuild()
+            return state
 
     def rebuild(self) -> SessionCatalogState:
         """Deterministically rebuild from safe authoritative manifests."""
@@ -347,44 +381,70 @@ class SessionLocator:
             path.unlink(missing_ok=True)
 
     def _scan_entries(self) -> tuple[tuple[SessionCatalogEntry, ...], str]:
-        entries: dict[str, tuple[SessionCatalogEntry, str]] = {}
+        entries: dict[str, SessionCatalogEntry] = {}
         if self.sessions_dir.exists():
-            manifests = sorted(
-                self.sessions_dir.glob(f"*/*/*/{_MANIFEST_FILE}"),
-                key=lambda path: path.as_posix(),
-            )
+            manifests = self._manifest_candidates()
             for manifest in manifests:
-                resolved = self._resolve_existing(
-                    manifest.parent.relative_to(self.sessions_dir)
-                )
+                try:
+                    relative_parent = manifest.parent.resolve().relative_to(
+                        self.sessions_dir.resolve()
+                    )
+                except ValueError:
+                    continue
+                resolved = self._resolve_existing(relative_parent)
                 if resolved is None:
                     continue
                 try:
-                    session_id, manifest_digest = _read_manifest(
-                        resolved / _MANIFEST_FILE
-                    )
+                    session_id, _ = _read_manifest(resolved / _MANIFEST_FILE)
                 except (OSError, ValueError, json.JSONDecodeError, KeyError):
                     continue
                 relative_path = resolved.relative_to(self.sessions_dir.resolve())
                 entries.setdefault(
                     session_id,
-                    (
-                        SessionCatalogEntry(session_id, relative_path),
-                        manifest_digest,
-                    ),
+                    SessionCatalogEntry(session_id, relative_path),
                 )
-        digest = hashlib.sha256()
-        for session_id, (entry, manifest_digest) in sorted(entries.items()):
-            digest.update(session_id.encode("utf-8"))
-            digest.update(b"\0")
-            digest.update(entry.relative_path.as_posix().encode("utf-8"))
-            digest.update(b"\0")
-            digest.update(manifest_digest.encode("ascii"))
-            digest.update(b"\n")
         return (
-            tuple(entry for entry, _ in entries.values()),
-            digest.hexdigest(),
+            tuple(entries.values()),
+            self._structure_watermark(),
         )
+
+    def _manifest_candidates(self) -> tuple[Path, ...]:
+        manifests: set[Path] = set()
+        try:
+            legacy = legacy_index_from_payload(_read_json(self.legacy_index_path))
+        except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError):
+            legacy = {}
+        for relative_path in legacy.values():
+            resolved = self._resolve_existing(relative_path)
+            if resolved is not None:
+                manifests.add(resolved / _MANIFEST_FILE)
+        if self.sessions_dir.exists():
+            manifests.update(self.sessions_dir.glob(f"*/*/*/{_MANIFEST_FILE}"))
+        return tuple(sorted(manifests, key=lambda path: path.as_posix()))
+
+    def _structure_watermark(self) -> str:
+        digest = hashlib.sha256()
+        if self.sessions_dir.exists():
+            first_level = sorted(
+                (
+                    path
+                    for path in self.sessions_dir.iterdir()
+                    if path.is_dir() and not path.is_symlink()
+                ),
+                key=lambda path: path.name,
+            )
+            for directory in first_level:
+                _update_directory_watermark(digest, self.sessions_dir, directory)
+                for child in sorted(
+                    (
+                        path
+                        for path in directory.iterdir()
+                        if path.is_dir() and not path.is_symlink()
+                    ),
+                    key=lambda path: path.name,
+                ):
+                    _update_directory_watermark(digest, self.sessions_dir, child)
+        return digest.hexdigest()
 
     def _resolve_existing(self, relative_path: Path | None) -> Path | None:
         if relative_path is None:
@@ -434,6 +494,13 @@ def _read_manifest(path: Path) -> tuple[str, str]:
     return session.id, hashlib.sha256(raw).hexdigest()
 
 
+def _read_json(path: Path) -> Mapping[str, object]:
+    decoded = json.loads(path.read_bytes())
+    if not isinstance(decoded, Mapping):
+        raise ValueError("legacy session index does not contain a JSON object")
+    return decoded
+
+
 def legacy_index_from_payload(raw: Mapping[str, object]) -> dict[str, Path]:
     """Parse the legacy JSON index used only as migration-compatible state."""
     sessions = raw.get("sessions", [])
@@ -464,10 +531,21 @@ def _incremental_watermark(
     operation: str,
     session_id: str,
     relative_path: str,
-    generation: int,
 ) -> str:
     digest = hashlib.sha256()
-    for item in (previous, operation, session_id, relative_path, str(generation)):
+    for item in (previous, operation, session_id, relative_path):
         digest.update(item.encode("utf-8"))
         digest.update(b"\0")
     return digest.hexdigest()
+
+
+def _update_directory_watermark(
+    digest: Any,
+    sessions_dir: Path,
+    directory: Path,
+) -> None:
+    stat = directory.stat()
+    digest.update(directory.relative_to(sessions_dir).as_posix().encode("utf-8"))
+    digest.update(b"\0")
+    digest.update(str(stat.st_mtime_ns).encode("ascii"))
+    digest.update(b"\n")

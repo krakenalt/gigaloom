@@ -27,10 +27,10 @@ from gpt2giga_harness.attachments.models import (
     attachment_from_dict,
     attachment_to_dict,
 )
+from gpt2giga_harness.sessions import SessionLocator
 from gpt2giga_harness.sessions.redaction import redact_for_storage
 from gpt2giga_harness.sessions.store import new_id, utc_now
 
-SESSIONS_INDEX_FILE = "index.json"
 SESSION_ATTACHMENTS_FILE = "attachments.jsonl"
 ATTACHMENTS_INDEX_FILE = "index.json"
 BLOB_FILE = "original"
@@ -55,6 +55,10 @@ class FilesystemAttachmentStore:
         self.data_dir = Path(data_dir).expanduser()
         self.sessions_dir = self.data_dir / "sessions"
         self.global_attachments_dir = self.data_dir / "attachments"
+        self._session_locator = SessionLocator(
+            self.sessions_dir,
+            self.sessions_dir / "catalog.sqlite3",
+        )
 
     def create_upload(
         self,
@@ -261,29 +265,10 @@ class FilesystemAttachmentStore:
         return self._session_dir(session_id) / SESSION_ATTACHMENTS_FILE
 
     def _session_dir(self, session_id: str) -> Path:
-        index = self._sessions_index()
-        rel_path = index.get(session_id)
-        if rel_path is None:
+        session_dir = self._session_locator.locate(session_id)
+        if session_dir is None:
             raise AttachmentSessionNotFoundError(session_id)
-        return self.sessions_dir / rel_path
-
-    def _sessions_index(self) -> dict[str, Path]:
-        try:
-            data = _read_json(self.sessions_dir / SESSIONS_INDEX_FILE)
-        except FileNotFoundError as exc:
-            raise AttachmentSessionNotFoundError("sessions index is missing") from exc
-        sessions = data.get("sessions", [])
-        if not isinstance(sessions, list):
-            raise AttachmentSessionNotFoundError("sessions index is invalid")
-        index: dict[str, Path] = {}
-        for item in sessions:
-            if not isinstance(item, Mapping):
-                continue
-            session_id = item.get("id")
-            rel_path = item.get("path")
-            if session_id and rel_path:
-                index[str(session_id)] = Path(str(rel_path))
-        return index
+        return session_dir
 
     def _attachment_index(self) -> dict[str, str]:
         try:

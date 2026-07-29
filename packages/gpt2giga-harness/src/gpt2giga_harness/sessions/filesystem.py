@@ -36,7 +36,7 @@ from gpt2giga_harness.sessions.models import (
     session_to_dict,
 )
 from gpt2giga_harness.sessions.storage.filesystem.catalog import (
-    legacy_index_from_payload,
+    SessionLocator,
 )
 from gpt2giga_harness.sessions.locking import exclusive_file_lock
 from gpt2giga_harness.sessions.event_stream import (
@@ -99,6 +99,11 @@ class FilesystemHarnessSessionStore:
     def __init__(self, data_dir: str | Path) -> None:
         self.data_dir = Path(data_dir).expanduser()
         self.sessions_dir = self.data_dir / "sessions"
+        self._session_locator = SessionLocator(
+            self.sessions_dir,
+            self.sessions_dir / "catalog.sqlite3",
+        )
+        self._session_locator.reconcile()
         read_index_path = self.sessions_dir / READ_INDEX_FILE
         self._read_index: SessionReadIndex | None = (
             SessionReadIndex(read_index_path) if read_index_path.exists() else None
@@ -141,7 +146,7 @@ class FilesystemHarnessSessionStore:
         session_dir.mkdir(parents=True, exist_ok=True)
         (session_dir / "artifacts").mkdir(exist_ok=True)
         self._write_session(session, session_dir)
-        self._upsert_index(session.id, session_dir)
+        self._session_locator.record(session.id, session_dir)
         if self._read_index is not None:
             self._read_index.upsert_session(session)
         self.event_broker.publish_runs_center()
@@ -158,9 +163,9 @@ class FilesystemHarnessSessionStore:
         limit: int | None = None,
     ) -> tuple[HarnessSession, ...]:
         sessions: list[HarnessSession] = []
-        for session_id in self._index().keys():
+        for entry in self._session_locator.entries():
             try:
-                session = self.get_session(session_id)
+                session = self.get_session(entry.session_id)
             except (SessionNotFoundError, ValueError, OSError):
                 continue
             if _matches_session(
@@ -185,7 +190,7 @@ class FilesystemHarnessSessionStore:
             data = _read_json(session_dir / MANIFEST_FILE)
             return session_from_dict(data)
         except FileNotFoundError as exc:
-            self._remove_index_entry(session_id)
+            self._session_locator.forget(session_id)
             raise SessionNotFoundError(session_id) from exc
 
     def list_sessions_page(
@@ -339,10 +344,10 @@ class FilesystemHarnessSessionStore:
     def delete_session(self, session_id: str) -> None:
         session_dir = self._session_dir(session_id)
         if not session_dir.exists():
-            self._remove_index_entry(session_id)
+            self._session_locator.forget(session_id)
             raise SessionNotFoundError(session_id)
         shutil.rmtree(session_dir)
-        self._remove_index_entry(session_id)
+        self._session_locator.forget(session_id)
         if self._read_index is not None:
             self._read_index.delete_session(session_id)
         self.event_broker.publish_session(session_id)
@@ -356,7 +361,7 @@ class FilesystemHarnessSessionStore:
         session_dir = self._session_dir(session_id)
         path = session_dir / MANIFEST_FILE
         if not session_dir.exists():
-            self._remove_index_entry(session_id)
+            self._session_locator.forget(session_id)
             raise SessionNotFoundError(session_id)
         with exclusive_file_lock(path):
             session = session_from_dict(_read_json(path))
@@ -364,7 +369,7 @@ class FilesystemHarnessSessionStore:
                 return False
             path.replace(session_dir / ".deleted-session.json")
         shutil.rmtree(session_dir)
-        self._remove_index_entry(session_id)
+        self._session_locator.forget(session_id)
         if self._read_index is not None:
             self._read_index.delete_session(session_id)
         self.event_broker.publish_session(session_id)
@@ -771,9 +776,9 @@ class FilesystemHarnessSessionStore:
         with self._read_index_lock:
             sessions: list[HarnessSession] = []
             runs: list[tuple[HarnessRun, int]] = []
-            for session_id in self._index().keys():
+            for entry in self._session_locator.entries():
                 try:
-                    session_dir = self._session_dir(session_id)
+                    session_dir = self._session_dir(entry.session_id)
                     sessions.append(
                         session_from_dict(_read_json(session_dir / MANIFEST_FILE))
                     )
@@ -796,68 +801,10 @@ class FilesystemHarnessSessionStore:
         return self.sessions_dir / year / month / session.id
 
     def _session_dir(self, session_id: str) -> Path:
-        index = self._index()
-        rel = index.get(session_id)
-        if rel is None:
-            self._rebuild_index()
-            rel = self._index().get(session_id)
-        if rel is None:
+        session_dir = self._session_locator.locate(session_id)
+        if session_dir is None:
             raise SessionNotFoundError(session_id)
-        return self.sessions_dir / rel
-
-    def _index(self) -> dict[str, Path]:
-        try:
-            return legacy_index_from_payload(_read_json(self.sessions_dir / INDEX_FILE))
-        except (FileNotFoundError, ValueError):
-            return self._rebuild_index()
-
-    def _upsert_index(self, session_id: str, session_dir: Path) -> None:
-        path = self.sessions_dir / INDEX_FILE
-        with exclusive_file_lock(path):
-            index = self._read_or_scan_index_unlocked(path)
-            index[session_id] = session_dir.relative_to(self.sessions_dir)
-            self._write_index_unlocked(index)
-
-    def _remove_index_entry(self, session_id: str) -> None:
-        path = self.sessions_dir / INDEX_FILE
-        with exclusive_file_lock(path):
-            index = self._read_or_scan_index_unlocked(path)
-            if session_id in index:
-                index.pop(session_id, None)
-                self._write_index_unlocked(index)
-
-    def _rebuild_index(self) -> dict[str, Path]:
-        path = self.sessions_dir / INDEX_FILE
-        with exclusive_file_lock(path):
-            index = self._scan_index_unlocked()
-            self._write_index_unlocked(index)
-        return index
-
-    def _scan_index_unlocked(self) -> dict[str, Path]:
-        index: dict[str, Path] = {}
-        if self.sessions_dir.exists():
-            for manifest in self.sessions_dir.glob("*/*/*/" + MANIFEST_FILE):
-                try:
-                    session = session_from_dict(_read_json(manifest))
-                except (OSError, ValueError, json.JSONDecodeError, KeyError):
-                    continue
-                index[session.id] = manifest.parent.relative_to(self.sessions_dir)
-        return index
-
-    def _read_or_scan_index_unlocked(self, path: Path) -> dict[str, Path]:
-        try:
-            return legacy_index_from_payload(_read_json(path))
-        except (FileNotFoundError, ValueError, json.JSONDecodeError):
-            return self._scan_index_unlocked()
-
-    def _write_index_unlocked(self, index: Mapping[str, Path]) -> None:
-        sessions = [
-            {"id": session_id, "path": str(path)}
-            for session_id, path in sorted(index.items())
-        ]
-        _write_json_atomic_unlocked(
-            self.sessions_dir / INDEX_FILE, {"sessions": sessions}
-        )
+        return session_dir
 
     def _append_jsonl(self, path: Path, payload: Mapping[str, Any]) -> None:
         _append_jsonl(path, redact_for_storage(dict(payload)))
