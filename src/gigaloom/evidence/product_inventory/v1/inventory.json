@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "7ecf50277705f14f65e1ecea802ec589a6e5e33f900bc1ffd1bd8a5399b309f0",
+  "content_sha256": "1815a1e32a3bf0eead3c5e5e5eeb7c7aa5b2d4024149bd9e0a8cffb6e38d052f",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -1559,6 +1559,11 @@
       },
       {
         "method": "GET",
+        "name": "native_session_context",
+        "path": "/api/operator/sessions/{session_id}/context"
+      },
+      {
+        "method": "GET",
         "name": "policy_profiles",
         "path": "/api/policy/profiles"
       },
@@ -1576,6 +1581,11 @@
         "method": "GET",
         "name": "project_config",
         "path": "/api/project/config"
+      },
+      {
+        "method": "GET",
+        "name": "project_impact",
+        "path": "/api/project/impact"
       },
       {
         "method": "POST",

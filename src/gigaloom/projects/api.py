@@ -108,6 +108,10 @@ if TYPE_CHECKING:
         compile_python_impact_index,
         project_python_impact,
     )
+    from .impact_cache import (
+        PythonImpactIndexCache,
+        StalePythonImpactIndexError,
+    )
     from .state_migration import (
         CANONICAL_STATE_RELATIVE_PATH,
         LEGACY_STATE_RELATIVE_PATH,
@@ -181,6 +185,13 @@ if TYPE_CHECKING:
     )
 
 _LAZY_EXPORT_MODULES = {
+    **dict.fromkeys(
+        {
+            "PythonImpactIndexCache",
+            "StalePythonImpactIndexError",
+        },
+        "impact_cache",
+    ),
     **dict.fromkeys(
         {
             "DEFAULT_MAX_PYTHON_FILE_BYTES",
@@ -451,6 +462,7 @@ __all__ = [
     "ProjectToolProfile",
     "PublicContractMarker",
     "PythonImpactIndex",
+    "PythonImpactIndexCache",
     "PythonImpactResult",
     "RenderedProjectPreset",
     "RunDiffReview",
@@ -460,6 +472,7 @@ __all__ = [
     "StateBackupResult",
     "StateRestoreResult",
     "StateMigrationResult",
+    "StalePythonImpactIndexError",
     "TOOL_PROFILE_NAME_PATTERN",
     "TOOL_PROFILE_RESERVED_KEYS",
     "WorkspaceDiff",

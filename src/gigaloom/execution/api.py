@@ -1,5 +1,12 @@
-"""Public application facade for execution-owned source-to-sink admission."""
+"""Public application facade for execution-owned application contracts."""
 
+from gigaloom.execution.context_projection import (
+    NativeCodexCompactionObservation,
+    NativeCodexContextBinding,
+    NativeCodexContextMode,
+    NativeCodexContextProjection,
+    compile_native_codex_context,
+)
 from gigaloom.execution.trust import SourceToSinkGuard, admit_sink_request
 from gigaloom.execution.trust_adapters import (
     attachment_source_ref,
@@ -35,6 +42,10 @@ __all__ = [
     "ExecutionTrustSnapshot",
     "ExecutionTrustTracker",
     "GuardedSinkResult",
+    "NativeCodexCompactionObservation",
+    "NativeCodexContextBinding",
+    "NativeCodexContextMode",
+    "NativeCodexContextProjection",
     "ProtectedSinkDenied",
     "SourceToSinkGuard",
     "admit_sink_request",
@@ -43,6 +54,7 @@ __all__ = [
     "build_network_sink_request",
     "canonicalize_external_write_destination",
     "canonicalize_network_destination",
+    "compile_native_codex_context",
     "dispatch_guarded_github_issue_write",
     "dispatch_guarded_network_sink",
     "external_write_destination_digest",

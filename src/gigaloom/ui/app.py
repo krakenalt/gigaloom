@@ -57,6 +57,10 @@ from gigaloom.ui.security import (
     HarnessUISecurityMiddleware,
     is_loopback_host,
 )
+from gigaloom.ui.services.context_impact import (
+    ContextProjectionQuery,
+    ImpactProjectionService,
+)
 from gigaloom.ui.services.lifecycle import create_app_lifespan
 from gigaloom.ui.services.operator_workspace import OperatorEvidenceQuery
 from gigaloom.ui.streaming.operator_events import OperatorEventBroker
@@ -81,6 +85,8 @@ def create_app(
     environment_push_service: EnvironmentPushService | None = None,
     environment_pull_request_service: EnvironmentPullRequestService | None = None,
     remote_oidc_client: RemoteOIDCClient | None = None,
+    context_projection_query: ContextProjectionQuery | None = None,
+    impact_projection_service: ImpactProjectionService | None = None,
     operator_evidence_query: OperatorEvidenceQuery | None = None,
     action_inbox_service: ActionInboxService | None = None,
     operator_event_broker: OperatorEventBroker | None = None,
@@ -107,6 +113,8 @@ def create_app(
         environment_push_service=environment_push_service,
         environment_pull_request_service=environment_pull_request_service,
         remote_oidc_client=remote_oidc_client,
+        context_projection_query=context_projection_query,
+        impact_projection_service=impact_projection_service,
         operator_evidence_query=operator_evidence_query,
         action_inbox_service=action_inbox_service,
         operator_event_broker=operator_event_broker,
