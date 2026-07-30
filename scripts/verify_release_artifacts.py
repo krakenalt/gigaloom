@@ -21,6 +21,7 @@ from verify_web_artifact_parity import (
 
 
 SCHEMA_VERSION = "gigaloom-release-candidate-v1"
+UV_OUTPUT_MARKER = ".gitignore"
 EXPECTED_MANIFEST_FIELDS = {
     "git_tag",
     "npm_package",
@@ -214,10 +215,18 @@ def verify_candidate(
         "candidate-manifest.json",
         "SHA256SUMS",
     }
+    uv_output_marker = artifact_dir / UV_OUTPUT_MARKER
+    if uv_output_marker.exists() or uv_output_marker.is_symlink():
+        if (
+            uv_output_marker.is_symlink()
+            or not uv_output_marker.is_file()
+            or uv_output_marker.read_bytes() != b"*"
+        ):
+            raise ReleaseArtifactError("uv output marker is invalid")
     actual_names = {
         path.name
         for path in artifact_dir.iterdir()
-        if path.name not in {"candidate-manifest.json", "SHA256SUMS"}
+        if path.name not in {"candidate-manifest.json", "SHA256SUMS", UV_OUTPUT_MARKER}
     }
     expected_names = allowed_names - {"candidate-manifest.json", "SHA256SUMS"}
     if actual_names != expected_names:

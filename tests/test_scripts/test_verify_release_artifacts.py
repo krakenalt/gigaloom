@@ -206,6 +206,32 @@ def test_candidate_bundle_is_verified_and_manifest_is_deterministic(tmp_path: Pa
     assert len(first["frontend"]["content_sha256"]) == 64
 
 
+def test_candidate_accepts_only_exact_uv_output_marker(tmp_path: Path):
+    module = _module()
+    fixture = _candidate(tmp_path)
+    artifact_dir = fixture["artifact_dir"]
+    assert isinstance(artifact_dir, Path)
+    marker = artifact_dir / ".gitignore"
+    marker.write_bytes(b"*")
+
+    module.verify_candidate(
+        release_path=fixture["release"],
+        artifact_dir=artifact_dir,
+        expected_source_revision=fixture["source_revision"],
+    )
+
+    marker.write_bytes(b"*\n")
+    with pytest.raises(
+        module.ReleaseArtifactError,
+        match="uv output marker is invalid",
+    ):
+        module.verify_candidate(
+            release_path=fixture["release"],
+            artifact_dir=artifact_dir,
+            expected_source_revision=fixture["source_revision"],
+        )
+
+
 def test_candidate_cli_writes_bound_manifest_and_checksums(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],

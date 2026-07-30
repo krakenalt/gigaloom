@@ -1,6 +1,6 @@
 [project]
 name = "gigaloom"
-version = "0.5.1a2"
+version = "0.6.0a1"
 description = "GigaLoom local, provider-neutral control plane for coding agents"
 authors = [{ name = "Ruslan Yakupov", email = "rusyak1999@gmail.com" }]
 requires-python = ">=3.11,<3.15"
