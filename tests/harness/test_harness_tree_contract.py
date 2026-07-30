@@ -30,6 +30,14 @@ LEGACY_ALIASES = {
     "echo": "builtins.echo",
 }
 
+PROVIDER_LEGACY_ALIASES = {
+    "claude_agent_sdk": "harnesses.builtins.claude.sdk",
+    "claude_handoff": "harnesses.builtins.claude.handoff",
+    "claude_plugin_target": "harnesses.builtins.claude.target",
+    "gemini_acp": "harnesses.builtins.gemini.acp",
+    "gemini_extension_target": "harnesses.builtins.gemini.target",
+}
+
 PLUGIN_TARGETS = {
     "direct-chat": "gpt2giga_harness.harnesses.direct_chat:DirectChatHarness",
     "codex-cli": "gpt2giga_harness.harnesses.codex_cli:CodexCliHarness",
@@ -55,6 +63,20 @@ def test_plugin_entry_points_retain_stable_targets() -> None:
     entry_points = metadata["project"]["entry-points"]
     assert entry_points["gpt2giga.harnesses"] == PLUGIN_TARGETS
     assert entry_points["agent_workbench.harness_adapters.v1"] == PLUGIN_TARGETS
+
+
+@pytest.mark.parametrize(
+    ("legacy", "implementation"),
+    PROVIDER_LEGACY_ALIASES.items(),
+)
+def test_provider_specific_legacy_modules_are_exact_aliases(
+    legacy: str,
+    implementation: str,
+) -> None:
+    prefix = "gpt2giga_harness."
+    assert importlib.import_module(prefix + legacy) is importlib.import_module(
+        prefix + implementation
+    )
 
 
 @pytest.mark.parametrize(
@@ -116,3 +138,18 @@ def test_codex_protocol_normalization_is_separate_from_process_lifecycle() -> No
     assert "import subprocess" not in protocol_source
     assert ".process import" not in protocol_source
     assert ".protocol import" not in process_source
+
+
+def test_provider_specific_implementation_modules_respect_size_budget() -> None:
+    provider_modules = (
+        *sorted((HARNESS_ROOT / "builtins" / "claude").glob("*.py")),
+        *sorted((HARNESS_ROOT / "builtins" / "gemini").glob("*.py")),
+    )
+    oversized = {
+        path.relative_to(HARNESS_ROOT).as_posix(): len(
+            path.read_text(encoding="utf-8").splitlines()
+        )
+        for path in provider_modules
+        if len(path.read_text(encoding="utf-8").splitlines()) > 600
+    }
+    assert oversized == {}

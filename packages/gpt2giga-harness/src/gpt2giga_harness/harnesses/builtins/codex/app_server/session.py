@@ -15,7 +15,7 @@ from gpt2giga_harness.managed_mcp import (
     clear_headless_mcp_materialization,
     materialize_headless_mcp_snapshot,
 )
-from gpt2giga_harness.harnesses.ports import RuntimeCoordinationStore, utc_now
+from gpt2giga_harness.harnesses.ports import utc_now
 from gpt2giga_harness.structured_sessions import (
     StructuredSessionConfigSnapshot,
     StructuredSessionCoordinator,
@@ -96,6 +96,8 @@ class CodexAppServerSupervisor:
         *,
         client_factory: Callable[..., AppServerClient] | None = None,
     ) -> None:
+        from gpt2giga_harness.harnesses.ports import RuntimeCoordinationStore
+
         self.data_dir = Path(data_dir).expanduser().resolve()
         self.link_store = CodexAppServerLinkStore(self.data_dir)
         self.structured_link_store = StructuredSessionLinkStore(self.data_dir)
