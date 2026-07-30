@@ -104,6 +104,7 @@ from gigaloom.contracts.serialization import (
 from gigaloom.contracts.trust import (
     DataFlowReceipt,
     InfluenceSet,
+    MAX_INFLUENCE_SOURCES,
     ProvenanceClass,
     Sensitivity,
     SinkDecision,
@@ -174,6 +175,7 @@ __all__ = [
     "HarnessSpec",
     "HeadlessContinuationStrategy",
     "InfluenceSet",
+    "MAX_INFLUENCE_SOURCES",
     "InclusionReason",
     "OmissionReason",
     "ProvenanceClass",

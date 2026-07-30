@@ -195,6 +195,39 @@ def test_session_runner_create_and_run_persists_success():
     assert bundle.raw_requests[0].payload["preflight"]["ok"] is True
 
 
+def test_session_runner_propagates_content_free_trust_context():
+    harness = _TrustEventsHarness()
+    runner = _runner(harness)
+
+    result = runner.create_and_run(
+        {"harness_id": "capture", "prompt": "review the evidence"}
+    )
+
+    assert harness.last_request is not None
+    initial_sources = harness.last_request.extra["trust_context"]["sources"]
+    assert [source["provenance"] for source in initial_sources] == ["user"]
+
+    trust_context = result.run.metadata["trust_context"]
+    provenances = {source["provenance"]: source for source in trust_context["sources"]}
+    assert set(provenances) == {
+        "generated",
+        "mcp",
+        "terminal",
+        "user",
+        "web",
+    }
+    assert provenances["user"]["trust"] == "trusted"
+    assert provenances["web"]["trust"] == "bounded"
+    assert provenances["mcp"]["trust"] == "bounded"
+    assert provenances["terminal"]["trust"] == "untrusted"
+    assert provenances["generated"]["trust"] == "untrusted"
+    serialized = json.dumps(trust_context, sort_keys=True)
+    assert "external page" not in serialized
+    assert "MCP payload" not in serialized
+    assert "terminal bytes" not in serialized
+    assert "final generated answer" not in serialized
+
+
 @pytest.mark.parametrize(
     ("harness_factory", "cancel", "status", "role", "terminal_event"),
     [
@@ -1350,6 +1383,48 @@ class _CaptureHarness(BaseHarness):
             text=f"answer: {request.prompt}",
             raw={"request_id": "ok"},
             command=("capture", request.prompt),
+        )
+
+
+class _TrustEventsHarness(_CaptureHarness):
+    def run(
+        self,
+        request: HarnessRequest,
+        context: HarnessContext,
+    ) -> HarnessResult:
+        del context
+        self.last_request = request
+        events = (
+            HarnessEvent(
+                type="tool_call_finished",
+                message="Web result.",
+                payload={"name": "web_search", "result": "external page"},
+            ),
+            HarnessEvent(
+                type="tool_call_finished",
+                message="MCP result.",
+                payload={
+                    "name": "reviewed_server.lookup",
+                    "result": "MCP payload",
+                },
+            ),
+            HarnessEvent(
+                type="stdout_delta",
+                message="Terminal output.",
+                payload={"delta": "terminal bytes"},
+            ),
+            HarnessEvent(
+                type="message_delta",
+                message="Assistant output.",
+                payload={"delta": "final generated answer"},
+            ),
+        )
+        retained = tuple(event for event in events if not emit_event(request, event))
+        return HarnessResult(
+            ok=True,
+            text="final generated answer",
+            events=retained,
+            command=("capture-trust",),
         )
 
 
