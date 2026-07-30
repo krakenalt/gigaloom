@@ -199,10 +199,7 @@ def test_web_manifest_failure_has_package_recovery_guidance(monkeypatch, tmp_pat
     }
     assert client.get("/legacy", follow_redirects=False).status_code == 404
     saved_link = client.get("/workflows/review-team", follow_redirects=False)
-    assert saved_link.status_code == 307
-    assert saved_link.headers["location"] == (
-        "/web/automation/workflows?selected=review-team"
-    )
+    assert saved_link.status_code == 404
 
 
 def test_web_manifest_is_content_free():

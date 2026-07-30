@@ -298,10 +298,7 @@ def test_old_supported_automation_state_recovers_through_cockpit_contracts(tmp_p
         target.write_text(content, encoding="utf-8")
 
     saved_link = client.get("/workflows/recovered-review", follow_redirects=False)
-    assert saved_link.status_code == 307
-    assert saved_link.headers["location"] == (
-        "/web/automation/workflows?selected=recovered-review"
-    )
+    assert saved_link.status_code == 404
     recovered = client.get(
         "/api/workflows/recovered-review",
         params={"workspace": str(workspace)},

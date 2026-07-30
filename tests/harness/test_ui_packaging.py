@@ -40,6 +40,7 @@ def test_packaged_ui_assets_survive_wheel_install(tmp_path):
         assert any(
             name.endswith("/assets/_build/licenses.json") for name in harness_members
         )
+        assert not any(name.startswith("gpt2giga/") for name in harness_members)
         wheel.extractall(installed_root)
 
     smoke = """
@@ -51,7 +52,6 @@ from gigaloom.ui.web import load_web_manifest, load_web_shell
 
 installed_root = Path(__import__("sys").argv[1]).resolve()
 assert Path(gigaloom.__file__).resolve().is_relative_to(installed_root)
-assert importlib.util.find_spec("gpt2giga") is None
 assert importlib.util.find_spec("gigaloom.ui.static") is None
 manifest = load_web_manifest()
 assert manifest.entry == "index.html"
