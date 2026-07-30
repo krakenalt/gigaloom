@@ -37,6 +37,9 @@ from gigaloom.ui.routers.native_processes import (
 from gigaloom.ui.routers.native_sessions import (
     create_router as create_native_sessions_router,
 )
+from gigaloom.ui.routers.operator_workspace import (
+    create_router as create_operator_workspace_router,
+)
 from gigaloom.ui.routers.project_memory import (
     create_router as create_project_memory_router,
 )
@@ -120,6 +123,7 @@ def install_application_routers(
     app.include_router(handoff_capsules_router)
     app.include_router(schedules_router)
     app.include_router(settings_router)
+    app.include_router(create_operator_workspace_router(services))
     app.include_router(create_file_preview_router(services.config.data_dir))
     app.include_router(create_provider_handoff_router(services.registry))
     # The shell catch-all must remain last so unknown API and asset paths never

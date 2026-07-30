@@ -1,9 +1,15 @@
-"""Authoritative policy classification for unsafe-method Harness UI routes."""
+"""Authoritative policy classification for unsafe-method Harness UI routes.
+
+The route inventory remains the single fail-closed source for mounted mutations.
+Shared enum definitions live in a small dependency-light companion module.
+Route records stay here so policy owners and retained evidence remain adjacent.
+The split ratchets this legacy module without changing its public import facade.
+New routes must still declare exact controls, owners, and conformance evidence.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Iterable, Sequence
 
 from gigaloom.runtime.policy import (
@@ -22,42 +28,13 @@ from gigaloom.environment_push import ENVIRONMENT_PUSH_OWNER
 from gigaloom.environment_pull_requests import (
     ENVIRONMENT_PULL_REQUEST_OWNER,
 )
+from gigaloom.ui.mutation_contract_models import (
+    ConformanceBehavior,
+    EnforcementControl,
+    MutationClass,
+)
 
 UNSAFE_HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
-
-
-class MutationClass(str, Enum):
-    """Semantic effect of an unsafe-method route."""
-
-    READ_ONLY = "read_only"
-    LOCAL_STATE = "local_state_mutation"
-    GOVERNED_EXTERNAL_EFFECT = "governed_external_effect"
-    REVIEWED_PROMOTION = "reviewed_promotion"
-
-
-class EnforcementControl(str, Enum):
-    """Existing component that prevents an unsafe route from bypassing policy."""
-
-    AUTHENTICATED_PROJECTION = "authenticated_projection"
-    AUTHENTICATED_LOCAL_STATE = "authenticated_local_state"
-    OPTIMISTIC_LOCAL_STATE = "optimistic_local_state"
-    EXPLICIT_OPERATOR_ACTION = "explicit_operator_action"
-    SELECTED_PLAN_PREFLIGHT = "selected_plan_preflight"
-    POLICY_ENGINE = "policy_engine"
-    REVIEW_BINDING = "review_binding"
-    BOOTSTRAP_AUTH = "bootstrap_auth"
-    OIDC_AUTH = "oidc_auth"
-
-
-class ConformanceBehavior(str, Enum):
-    """Machine-readable behavior exercised by retained conformance evidence."""
-
-    AUTHENTICATION = "authentication"
-    ALLOW = "allow"
-    ASK = "ask"
-    DENY = "deny"
-    STALE_OR_REBOUND = "stale_or_rebound"
-    REDACTION = "redaction"
 
 
 @dataclass(frozen=True)
@@ -213,6 +190,21 @@ CONFORMANCE_EVIDENCE = {
             test_nodes=(
                 "tests/harness/test_trace_replay.py::test_trace_replay_api_binds_one_axis_to_new_session_and_comparison",
                 "tests/harness/test_trace_replay.py::test_trace_replay_rejects_stale_multi_axis_and_provider_authority",
+            ),
+        ),
+        ConformanceEvidence(
+            id="operator.action_inbox",
+            behaviors=frozenset(
+                {
+                    ConformanceBehavior.ALLOW,
+                    ConformanceBehavior.DENY,
+                    ConformanceBehavior.STALE_OR_REBOUND,
+                    ConformanceBehavior.REDACTION,
+                }
+            ),
+            test_nodes=(
+                "tests/harness/test_operator_workspace_api.py::test_inbox_response_is_conflict_safe_idempotent_and_evented_once",
+                "tests/harness/test_operator_workspace_api.py::test_inbox_response_rejects_stale_cross_scope_and_secret_payloads",
             ),
         ),
         ConformanceEvidence(
@@ -545,6 +537,14 @@ MUTATION_ROUTE_CONTRACTS = (
         EnforcementControl.OPTIMISTIC_LOCAL_STATE,
         "workbench_tasks.exact_owner_lease",
         evidence=_OPTIMISTIC,
+    ),
+    _route(
+        "POST",
+        "/api/operator/inbox/{authority}/{item_id}/responses",
+        MutationClass.GOVERNED_EXTERNAL_EFFECT,
+        EnforcementControl.EXPLICIT_OPERATOR_ACTION,
+        "runtime.action_inbox.owner_dispatch",
+        evidence=(*_AUTH, "operator.action_inbox"),
     ),
     *_many(
         "POST",

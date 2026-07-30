@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "51705770fbcdc4320354e0c08673246ceb19abb909f72c63f5e181351806c983",
+  "content_sha256": "f81f5021a1a7f057543fdd6b9d01b3b71b84795e1db0055217129fce9f0999c9",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -1536,6 +1536,26 @@
         "method": "GET",
         "name": "native_session_preview",
         "path": "/api/native/sessions/{native_ref_id}/preview"
+      },
+      {
+        "method": "GET",
+        "name": "operator_events",
+        "path": "/api/operator/events"
+      },
+      {
+        "method": "GET",
+        "name": "inbox_page",
+        "path": "/api/operator/inbox"
+      },
+      {
+        "method": "POST",
+        "name": "respond_to_inbox",
+        "path": "/api/operator/inbox/{authority}/{item_id}/responses"
+      },
+      {
+        "method": "GET",
+        "name": "run_evidence",
+        "path": "/api/operator/runs/{run_id}/evidence"
       },
       {
         "method": "GET",

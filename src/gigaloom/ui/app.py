@@ -32,6 +32,7 @@ from gigaloom.native.store import (
 from gigaloom.provider_authentication_broker import NativeLoginBroker
 from gigaloom.provider_settings import ProviderSettingsService
 from gigaloom.registry import HarnessRegistry
+from gigaloom.runtime.action_inbox.api import ActionInboxService
 from gigaloom.runtime.store import RuntimeCoordinationStore
 from gigaloom.sessions import (
     HarnessSessionStore,
@@ -57,6 +58,8 @@ from gigaloom.ui.security import (
     is_loopback_host,
 )
 from gigaloom.ui.services.lifecycle import create_app_lifespan
+from gigaloom.ui.services.operator_workspace import OperatorEvidenceQuery
+from gigaloom.ui.streaming.operator_events import OperatorEventBroker
 
 
 def create_app(
@@ -78,6 +81,9 @@ def create_app(
     environment_push_service: EnvironmentPushService | None = None,
     environment_pull_request_service: EnvironmentPullRequestService | None = None,
     remote_oidc_client: RemoteOIDCClient | None = None,
+    operator_evidence_query: OperatorEvidenceQuery | None = None,
+    action_inbox_service: ActionInboxService | None = None,
+    operator_event_broker: OperatorEventBroker | None = None,
 ) -> FastAPI:
     """Create the Unified Harness UI app."""
     config = config or HarnessConfig.from_env()
@@ -101,6 +107,9 @@ def create_app(
         environment_push_service=environment_push_service,
         environment_pull_request_service=environment_pull_request_service,
         remote_oidc_client=remote_oidc_client,
+        operator_evidence_query=operator_evidence_query,
+        action_inbox_service=action_inbox_service,
+        operator_event_broker=operator_event_broker,
     )
     async_diagnostics = services.async_diagnostics
 
