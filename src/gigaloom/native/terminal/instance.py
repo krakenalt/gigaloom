@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 import hashlib
 import os
 from pathlib import Path
 import re
 import stat
+import subprocess
 from typing import TYPE_CHECKING
 
 from gigaloom.native.terminal.contracts import (
@@ -44,6 +45,7 @@ MAX_PRIVATE_SOCKET_PATH_BYTES = 100
 DEFAULT_CAPTURE_LINES = 1000
 MAX_CAPTURE_LINES = 2000
 MAX_CAPTURE_BYTES = 1024 * 1024
+MAX_ATTACHED_CLIENTS = 1000
 _LIVENESS_PATTERN = re.compile(rb"([01])\t(-?[0-9]*)\t([0-9]+)\n?")
 _SCREEN_PATTERN = re.compile(rb"([01])\t([0-9]+)\t([0-9]+)\t([0-9]+)\t([0-9]+)\n?")
 
@@ -105,6 +107,9 @@ class TmuxTerminalKernel:
         capability: TmuxCapability,
         *,
         runner: TmuxCommandRunner | None = None,
+        local_attach_runner: (
+            Callable[[Sequence[str], Mapping[str, str]], int] | None
+        ) = None,
         socket_root: str | Path | None = None,
         scrollback_lines: int = DEFAULT_SCROLLBACK_LINES,
         timeout_seconds: float = DEFAULT_TMUX_COMMAND_TIMEOUT_SECONDS,
@@ -125,6 +130,7 @@ class TmuxTerminalKernel:
         )
         self.capability = capability
         self.runner = runner or SubprocessTmuxCommandRunner()
+        self.local_attach_runner = local_attach_runner or _run_local_attach
         self.scrollback_lines = scrollback_lines
         self.timeout_seconds = float(timeout_seconds)
 
@@ -280,6 +286,52 @@ class TmuxTerminalKernel:
             if result.returncode != 0 and paths.socket_path.exists():
                 raise TmuxInstanceError("private tmux close failed")
         self._remove_known_empty_instance(paths)
+
+    def attach_local(self, terminal_id: str) -> int:
+        """Attach inherited stdio directly to one exact private session."""
+        paths = self._paths(terminal_id)
+        if not paths.socket_path.exists():
+            raise TmuxInstanceError("private tmux terminal is missing")
+        argv = tmux_argv(
+            self.capability,
+            paths.socket_path,
+            "attach-session",
+            "-t",
+            paths.session_name,
+            no_start=True,
+        )
+        try:
+            return self.local_attach_runner(argv, _launch_environment({}))
+        except Exception as exc:
+            raise TmuxInstanceError("private tmux local attach failed") from exc
+
+    def client_count(self, terminal_id: str) -> int:
+        """Return a bounded count of clients on one exact private session."""
+        paths = self._paths(terminal_id)
+        if not paths.socket_path.exists():
+            return 0
+        try:
+            result = self.runner.run(
+                tmux_argv(
+                    self.capability,
+                    paths.socket_path,
+                    "list-clients",
+                    "-t",
+                    paths.session_name,
+                    "-F",
+                    "1",
+                    no_start=True,
+                ),
+                timeout_seconds=self.timeout_seconds,
+            )
+        except Exception as exc:
+            raise TmuxInstanceError("private tmux client count failed") from exc
+        if result.returncode != 0 or result.stdout_truncated:
+            raise TmuxInstanceError("private tmux client count failed")
+        lines = result.stdout.splitlines()
+        if len(lines) > MAX_ATTACHED_CLIENTS or any(line != b"1" for line in lines):
+            raise TmuxInstanceError("private tmux client count is invalid")
+        return len(lines)
 
     def capture_seed(
         self,
@@ -481,3 +533,15 @@ def _default_socket_root() -> Path:
     if os.name != "posix" or not hasattr(os, "getuid"):
         raise TmuxInstanceError("private tmux sockets require POSIX")
     return Path("/tmp") / f"gigaloom-{os.getuid()}" / "tmux"
+
+
+def _run_local_attach(
+    argv: Sequence[str],
+    environment: Mapping[str, str],
+) -> int:
+    completed = subprocess.run(
+        tuple(argv),
+        env=environment,
+        check=False,
+    )
+    return completed.returncode

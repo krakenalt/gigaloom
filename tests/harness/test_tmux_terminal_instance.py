@@ -177,6 +177,83 @@ def test_close_targets_only_private_server_and_removes_known_directory(
     assert not socket_path.parent.exists()
 
 
+def test_local_attach_and_client_count_use_exact_private_targets(
+    tmp_path,
+    short_socket_root,
+):
+    spec = _spec(tmp_path)
+    record = _record(spec)
+    runner = FakeTmuxRunner(liveness=b"0\t\t4242\n", create_socket=True)
+    attach_calls = []
+
+    def attach(argv, environment):
+        attach_calls.append((tuple(argv), dict(environment)))
+        return 23
+
+    kernel = TmuxTerminalKernel(
+        tmp_path,
+        _capability(),
+        runner=runner,
+        local_attach_runner=attach,
+        socket_root=short_socket_root,
+    )
+    kernel.launch(record, spec)
+    launch_argv = runner.calls[0].argv
+    runner.responses.append(TmuxCommandResult(0, stdout=b"1\n1\n"))
+
+    clients = kernel.client_count(record.id)
+    returncode = kernel.attach_local(record.id)
+    kernel.close(record)
+
+    assert clients == 2
+    assert returncode == 23
+    attach_argv, environment = attach_calls[0]
+    new_session_index = launch_argv.index("new-session")
+    session_name = launch_argv[launch_argv.index("-s", new_session_index) + 1]
+    assert attach_argv[-5:] == (
+        "/dev/null",
+        "-N",
+        "attach-session",
+        "-t",
+        session_name,
+    )
+    assert attach_argv[1] == "-S"
+    assert environment.get("TMUX") is None
+    assert environment.get("TMUX_PANE") is None
+    assert "list-clients" in runner.calls[-2].argv
+
+
+@pytest.mark.parametrize(
+    "response",
+    (
+        TmuxCommandResult(0, stdout=b"not-one\n"),
+        TmuxCommandResult(1),
+        TmuxCommandResult(0, stdout=b"1\n", stdout_truncated=True),
+    ),
+)
+def test_client_count_rejects_ambiguous_backend_results(
+    tmp_path,
+    short_socket_root,
+    response,
+):
+    spec = _spec(tmp_path)
+    record = _record(spec)
+    runner = FakeTmuxRunner(liveness=b"0\t\t4242\n", create_socket=True)
+    kernel = TmuxTerminalKernel(
+        tmp_path,
+        _capability(),
+        runner=runner,
+        socket_root=short_socket_root,
+    )
+    kernel.launch(record, spec)
+    runner.responses.append(response)
+
+    with pytest.raises(TmuxInstanceError, match="client count"):
+        kernel.client_count(record.id)
+
+    kernel.close(record)
+
+
 def test_capture_seed_restores_alternate_screen_cursor_and_bytes(
     tmp_path,
     short_socket_root,
@@ -280,6 +357,7 @@ def test_real_private_tmux_retains_immediate_exit_and_closes(
 
     state = kernel.launch(record, spec)
     observed = kernel.liveness(record.id)
+    clients = kernel.client_count(record.id)
     for _ in range(100):
         if observed.kind is TerminalLivenessKind.EXITED:
             break
@@ -288,6 +366,7 @@ def test_real_private_tmux_retains_immediate_exit_and_closes(
     kernel.close(record)
 
     assert state in {TerminalState.RUNNING, TerminalState.EXITED}
+    assert clients == 0
     assert observed.kind is TerminalLivenessKind.EXITED
     assert observed.exit_status == 7
 

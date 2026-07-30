@@ -87,6 +87,7 @@ _ALLOWED_TRANSITIONS: dict[TerminalState, frozenset[TerminalState]] = {
     TerminalState.ORPHANED: frozenset(
         {
             TerminalState.RUNNING,
+            TerminalState.ATTACHED,
             TerminalState.DETACHED,
             TerminalState.EXITED,
             TerminalState.FAILED,
@@ -179,6 +180,22 @@ class ManagedTerminalRegistry:
             )
             return tuple(sorted(records, key=lambda item: (item.created_at, item.id)))
 
+    def restore(self, record: TerminalRecord) -> TerminalRecord:
+        """Restore one exact content-free record after process restart."""
+        key = record.identity.registry_key
+        instance_lock = self._instance_lock(key)
+        with instance_lock:
+            with self._map_lock:
+                existing = self._records.get(record.id)
+                keyed = self._record_for_key_unlocked(key)
+                if existing is not None and existing != record:
+                    raise TerminalConflictError("terminal restore id changed")
+                if keyed is not None and keyed.id != record.id:
+                    raise TerminalConflictError("terminal restore identity changed")
+                self._records[record.id] = record
+                self._terminal_ids_by_key[key] = record.id
+                return record
+
     def get(
         self,
         terminal_id: str,
@@ -212,6 +229,31 @@ class ManagedTerminalRegistry:
                     expected_revision=expected_revision,
                 )
                 updated = self._transition_unlocked(current, state)
+                self._records[terminal_id] = updated
+                return updated
+
+    def observe_liveness(
+        self,
+        terminal_id: str,
+        access: TerminalAccess,
+        state: TerminalState,
+        *,
+        expected_revision: int | None = None,
+    ) -> TerminalRecord:
+        """Record one backend observation and its projected lifecycle state."""
+        instance_lock = self._lock_for_terminal(terminal_id)
+        with instance_lock:
+            with self._map_lock:
+                current = self._resolve_unlocked(
+                    terminal_id,
+                    access,
+                    expected_revision=expected_revision,
+                )
+                updated = self._transition_unlocked(
+                    current,
+                    state,
+                    liveness_observed=True,
+                )
                 self._records[terminal_id] = updated
                 return updated
 
@@ -299,12 +341,17 @@ class ManagedTerminalRegistry:
         self,
         record: TerminalRecord,
         state: TerminalState,
+        *,
+        liveness_observed: bool = False,
     ) -> TerminalRecord:
         if not isinstance(state, TerminalState):
             raise ValueError("terminal state is invalid")
-        if state is record.state:
+        if state is record.state and not liveness_observed:
             return record
-        if state not in _ALLOWED_TRANSITIONS[record.state]:
+        if (
+            state is not record.state
+            and state not in _ALLOWED_TRANSITIONS[record.state]
+        ):
             raise TerminalConflictError(
                 f"invalid terminal transition: {record.state.value} -> {state.value}"
             )
@@ -318,6 +365,9 @@ class ManagedTerminalRegistry:
                 timestamp
                 if state is TerminalState.ATTACHED
                 else record.last_attached_at
+            ),
+            last_liveness_at=(
+                timestamp if liveness_observed else record.last_liveness_at
             ),
         )
 

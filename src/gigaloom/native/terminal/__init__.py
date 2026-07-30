@@ -24,6 +24,17 @@ from gigaloom.native.terminal.liveness import (
     TerminalLiveness,
     TerminalLivenessKind,
 )
+from gigaloom.native.terminal.lifecycle import (
+    TerminalLifecycleAction,
+    TerminalLifecycleOutcome,
+    TerminalLifecycleReceipt,
+    terminal_lifecycle_receipt_to_dict,
+)
+from gigaloom.native.terminal.local_attach import LocalTerminalAttachService
+from gigaloom.native.terminal.recovery import (
+    TerminalMetadataStore,
+    TerminalRecoveryManager,
+)
 from gigaloom.native.terminal.registry import (
     ManagedTerminalRegistry,
     TerminalAccessDeniedError,
@@ -54,6 +65,7 @@ from gigaloom.native.terminal.websocket_protocol import (
 __all__ = [
     "BoundedTerminalOutputQueue",
     "ManagedTerminalRegistry",
+    "LocalTerminalAttachService",
     "TerminalAccess",
     "TerminalAccessDeniedError",
     "TerminalAttachRejectedError",
@@ -66,11 +78,16 @@ __all__ = [
     "TerminalIdentity",
     "TerminalInputFrame",
     "TerminalLaunchError",
+    "TerminalLifecycleAction",
+    "TerminalLifecycleOutcome",
+    "TerminalLifecycleReceipt",
     "TerminalLiveness",
     "TerminalLivenessKind",
     "TerminalNotFoundError",
+    "TerminalMetadataStore",
     "TerminalOriginPolicy",
     "TerminalRecord",
+    "TerminalRecoveryManager",
     "TerminalResizeFrame",
     "TerminalState",
     "TerminalWebSocketCloseCode",
@@ -86,4 +103,5 @@ __all__ = [
     "probe_tmux",
     "terminal_resize_frame_json",
     "terminal_record_to_dict",
+    "terminal_lifecycle_receipt_to_dict",
 ]
