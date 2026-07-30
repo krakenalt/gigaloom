@@ -4,7 +4,7 @@ version = "0.5.1a2"
 description = "GigaLoom local, provider-neutral control plane for coding agents"
 authors = [{ name = "Ruslan Yakupov", email = "rusyak1999@gmail.com" }]
 requires-python = ">=3.11,<3.15"
-readme = "packages/gpt2giga-harness/README.md"
+readme = "README.md"
 license = "MIT"
 dependencies = [
     "anyio>=4.10,<5",
@@ -23,35 +23,33 @@ Homepage = "https://krakenalt.github.io/gigaloom/"
 Repository = "https://github.com/krakenalt/gigaloom"
 Documentation = "https://krakenalt.github.io/gigaloom/"
 Issues = "https://github.com/krakenalt/gigaloom/issues"
-Changelog = "https://github.com/krakenalt/gigaloom/blob/main/packages/gpt2giga-harness/CHANGELOG_en.md"
+Changelog = "https://github.com/krakenalt/gigaloom/blob/main/CHANGELOG_en.md"
 
 [project.scripts]
-gpt2giga-harness = "gpt2giga_harness.entrypoint:main"
-giga = "gpt2giga_harness.entrypoint:main"
-giga-skills-catalog-proxy = "gpt2giga_harness.skills_catalog_proxy:main"
+giga = "gigaloom.entrypoint:main"
 
-[project.entry-points."gpt2giga.harnesses"]
-direct-chat = "gpt2giga_harness.harnesses.direct_chat:DirectChatHarness"
-codex-cli = "gpt2giga_harness.harnesses.codex_cli:CodexCliHarness"
-claude-code = "gpt2giga_harness.harnesses.claude_code:ClaudeCodeHarness"
-gemini-cli = "gpt2giga_harness.harnesses.gemini_cli:GeminiCliHarness"
-echo = "gpt2giga_harness.harnesses.echo:EchoHarness"
+[project.entry-points."gigaloom.harnesses.v1"]
+direct-chat = "gigaloom.harnesses.direct_chat:DirectChatHarness"
+codex-cli = "gigaloom.harnesses.codex_cli:CodexCliHarness"
+claude-code = "gigaloom.harnesses.claude_code:ClaudeCodeHarness"
+gemini-cli = "gigaloom.harnesses.gemini_cli:GeminiCliHarness"
+echo = "gigaloom.harnesses.echo:EchoHarness"
 
-[project.entry-points."agent_workbench.harness_adapters.v1"]
-direct-chat = "gpt2giga_harness.harnesses.direct_chat:DirectChatHarness"
-codex-cli = "gpt2giga_harness.harnesses.codex_cli:CodexCliHarness"
-claude-code = "gpt2giga_harness.harnesses.claude_code:ClaudeCodeHarness"
-gemini-cli = "gpt2giga_harness.harnesses.gemini_cli:GeminiCliHarness"
-echo = "gpt2giga_harness.harnesses.echo:EchoHarness"
+[project.entry-points."gigaloom.harness_adapters.v1"]
+direct-chat = "gigaloom.harnesses.direct_chat:DirectChatHarness"
+codex-cli = "gigaloom.harnesses.codex_cli:CodexCliHarness"
+claude-code = "gigaloom.harnesses.claude_code:ClaudeCodeHarness"
+gemini-cli = "gigaloom.harnesses.gemini_cli:GeminiCliHarness"
+echo = "gigaloom.harnesses.echo:EchoHarness"
 
-[project.entry-points."agent_workbench.provider_adapters.v1"]
-direct-chat-legacy = "gpt2giga_harness.provider_profiles:direct_chat_legacy_compatibility"
-codex-legacy = "gpt2giga_harness.provider_profiles:codex_legacy_compatibility"
-claude-legacy = "gpt2giga_harness.provider_profiles:claude_legacy_compatibility"
-gemini-legacy = "gpt2giga_harness.provider_profiles:gemini_legacy_compatibility"
+[project.entry-points."gigaloom.provider_adapters.v1"]
+direct-chat-legacy = "gigaloom.provider_profiles:direct_chat_legacy_compatibility"
+codex-legacy = "gigaloom.provider_profiles:codex_legacy_compatibility"
+claude-legacy = "gigaloom.provider_profiles:claude_legacy_compatibility"
+gemini-legacy = "gigaloom.provider_profiles:gemini_legacy_compatibility"
 
-[project.entry-points."agent_workbench.environment_providers.v1"]
-git = "gpt2giga_harness.environments:git_environment_provider_plugin"
+[project.entry-points."gigaloom.environment_providers.v1"]
+git = "gigaloom.environments:git_environment_provider_plugin"
 
 [project.optional-dependencies]
 gpt2giga = [
@@ -68,24 +66,24 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build]
 artifacts = [
-    "packages/gpt2giga-harness/src/gpt2giga_harness/evidence/**",
-    "packages/gpt2giga-harness/src/gpt2giga_harness/integration_sdk_preview/**",
-    "packages/gpt2giga-harness/src/gpt2giga_harness/ui/cockpit_v2/assets/**",
+    "src/gigaloom/evidence/**",
+    "src/gigaloom/integration_sdk_preview/**",
+    "src/gigaloom/ui/web/assets/**",
 ]
 
 [tool.hatch.build.hooks.custom]
-path = "packages/gpt2giga-harness/hatch_build.py"
+path = "scripts/hatch_build.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["packages/gpt2giga-harness/src/gpt2giga_harness"]
+packages = ["src/gigaloom"]
 
 [tool.hatch.build.targets.sdist]
 only-include = [
-    "packages/gpt2giga-harness/src",
-    "packages/gpt2giga-harness/asset_contract.py",
-    "packages/gpt2giga-harness/hatch_build.py",
-    "packages/gpt2giga-harness/CHANGELOG.md",
-    "packages/gpt2giga-harness/CHANGELOG_en.md",
+    "src",
+    "scripts/asset_contract.py",
+    "scripts/hatch_build.py",
+    "CHANGELOG.md",
+    "CHANGELOG_en.md",
 ]
 
 [tool.coverage.run]

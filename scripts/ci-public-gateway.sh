@@ -16,7 +16,7 @@ import importlib.metadata
 from pathlib import Path
 import tomllib
 
-from gpt2giga_harness.gpt2giga_preset import require_gpt2giga_preset
+from gigaloom.gpt2giga_preset import require_gpt2giga_preset
 
 repository_root = Path.cwd()
 with (repository_root / "uv.lock").open("rb") as file:

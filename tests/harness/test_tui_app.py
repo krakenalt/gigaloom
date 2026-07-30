@@ -13,18 +13,18 @@ pytest.importorskip("textual")
 from textual import events
 from textual.widgets import Input, ListView
 
-from gpt2giga_harness.terminal_dispatch import TuiLaunchIntent
-from gpt2giga_harness.tui.app import SessionBrowserScreen, TimelinePanel, WorkbenchTui
-from gpt2giga_harness.tui.commands import (
+from gigaloom.terminal_dispatch import TuiLaunchIntent
+from gigaloom.tui.app import SessionBrowserScreen, TimelinePanel, WorkbenchTui
+from gigaloom.tui.commands import (
     COMMAND_REGISTRY,
     command_bindings,
     command_for_slash,
     slash_commands,
 )
-from gpt2giga_harness.tui.i18n import CATALOGS, translator
-from gpt2giga_harness.tui.shell_contract import minimal_shell_contract
-from gpt2giga_harness.tui.widgets.timeline import DEFAULT_VISIBLE_CARDS
-from gpt2giga_harness.tui.client import (
+from gigaloom.tui.i18n import CATALOGS, translator
+from gigaloom.tui.shell_contract import minimal_shell_contract
+from gigaloom.tui.widgets.timeline import DEFAULT_VISIBLE_CARDS
+from gigaloom.tui.client import (
     ApprovalSummary,
     ArtifactSummary,
     AttachmentSummary,
@@ -50,7 +50,7 @@ from gpt2giga_harness.tui.client import (
     SessionPreview,
     TimelineEvent,
 )
-from gpt2giga_harness.workbench_resources import (
+from gigaloom.workbench_resources import (
     InventoryProjection,
     PreferenceSnapshot,
     ProcessProjection,
@@ -592,7 +592,7 @@ class FakeClient:
         return HandoffPreview(
             "web",
             "ready",
-            f"http://127.0.0.1:8091/cockpit-v2/work/{session_id}",
+            f"http://127.0.0.1:8091/web/work/{session_id}",
             "Shared session",
             ("browser rendering is Web-owned",),
             "Open after review.",

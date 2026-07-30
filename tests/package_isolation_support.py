@@ -14,14 +14,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-from gpt2giga_harness.base_install import BASE_DIRECT_DISTRIBUTIONS
+from gigaloom.base_install import BASE_DIRECT_DISTRIBUTIONS
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 GATEWAY_MEMBER = REPO_ROOT / "packages/gpt2giga"
-HARNESS_MEMBER = REPO_ROOT / "packages/gpt2giga-harness"
-HARNESS_SOURCE = HARNESS_MEMBER / "src/gpt2giga_harness"
-NEUTRAL_HARNESS_ENTRY_POINT_GROUP = "agent_workbench.harness_adapters.v1"
+HARNESS_MEMBER = REPO_ROOT
+HARNESS_SOURCE = REPO_ROOT / "src/gigaloom"
+NEUTRAL_HARNESS_ENTRY_POINT_GROUP = "gigaloom.harness_adapters.v1"
 
 
 def _project_metadata(root: Path) -> dict:
@@ -204,7 +204,7 @@ from gpt2giga.app.factory import create_app
 from gpt2giga.models.config import ProxyConfig
 
 assert Path(gpt2giga.__file__).resolve().is_relative_to(installed_root)
-assert importlib.util.find_spec("gpt2giga_harness") is None
+assert importlib.util.find_spec("gigaloom") is None
 distribution = importlib.metadata.distribution("gpt2giga")
 assert distribution.version == os.environ["EXPECTED_GATEWAY_VERSION"]
 scripts = {
@@ -244,27 +244,27 @@ class BlockPresetImports:
 
 sys.meta_path.insert(0, BlockPresetImports())
 
-import gpt2giga_harness
-from gpt2giga_harness.cli import build_parser
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.doctor import write_doctor_support_report
-from gpt2giga_harness.environments import EnvironmentProviderRegistry
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.skills_catalog_proxy import create_skills_catalog_proxy_app
-from gpt2giga_harness.skills_catalog_proxy_client import SkillsCatalogProxyFetcher
-from gpt2giga_harness.state_backup import (
+import gigaloom
+from gigaloom.cli import build_parser
+from gigaloom.config import HarnessConfig
+from gigaloom.doctor import write_doctor_support_report
+from gigaloom.environments import EnvironmentProviderRegistry
+from gigaloom.registry import create_default_registry
+from gigaloom.skills_catalog_proxy import create_skills_catalog_proxy_app
+from gigaloom.skills_catalog_proxy_client import SkillsCatalogProxyFetcher
+from gigaloom.state_backup import (
     create_state_backup,
     restore_state_backup,
     verify_state_backup,
 )
-from gpt2giga_harness.ui.app import create_app
-from gpt2giga_harness.ui.cockpit_v2 import (
-    load_cockpit_v2_manifest,
-    load_cockpit_v2_shell,
+from gigaloom.ui.app import create_app
+from gigaloom.ui.web import (
+    load_web_manifest,
+    load_web_shell,
 )
-from gpt2giga_harness.types import HarnessContext, HarnessRequest
+from gigaloom.types import HarnessContext, HarnessRequest
 
-assert Path(gpt2giga_harness.__file__).resolve().is_relative_to(installed_root)
+assert Path(gigaloom.__file__).resolve().is_relative_to(installed_root)
 assert "gpt2giga" not in sys.modules
 assert "gigachat" not in sys.modules
 harness_distribution = importlib.metadata.distribution("gigaloom")
@@ -297,17 +297,15 @@ scripts = {
     if entry.group == "console_scripts"
 }
 assert scripts == {
-    "giga": "gpt2giga_harness.entrypoint:main",
-    "giga-skills-catalog-proxy": "gpt2giga_harness.skills_catalog_proxy:main",
-    "gpt2giga-harness": "gpt2giga_harness.entrypoint:main",
+    "giga": "gigaloom.entrypoint:main",
 }
 environment_entry_points = {
     entry.name: entry.value
     for entry in harness_distribution.entry_points
-    if entry.group == "agent_workbench.environment_providers.v1"
+    if entry.group == "gigaloom.environment_providers.v1"
 }
 assert environment_entry_points == {
-    "git": "gpt2giga_harness.environments:git_environment_provider_plugin"
+    "git": "gigaloom.environments:git_environment_provider_plugin"
 }
 environment_registry = EnvironmentProviderRegistry.with_builtins()
 environment_registry.load_entry_points()
@@ -324,15 +322,15 @@ harness_entry_points = {
     if entry.name == "echo"
     and entry.group
     in {
-        "agent_workbench.harness_adapters.v1",
-        "gpt2giga.harnesses",
+        "gigaloom.harness_adapters.v1",
+        "gigaloom.harnesses.v1",
     }
 }
 assert harness_entry_points == {
-    "agent_workbench.harness_adapters.v1": (
-        "gpt2giga_harness.harnesses.echo:EchoHarness"
+    "gigaloom.harness_adapters.v1": (
+        "gigaloom.harnesses.echo:EchoHarness"
     ),
-    "gpt2giga.harnesses": "gpt2giga_harness.harnesses.echo:EchoHarness",
+    "gigaloom.harnesses.v1": "gigaloom.harnesses.echo:EchoHarness",
 }
 registry = create_default_registry(include_entry_points=False)
 echo = registry.get("echo").run(
@@ -350,7 +348,7 @@ assert doctor_args.fail_on == "degraded"
 write_doctor_support_report(
     {
         "schema_version": 1,
-        "kind": "gpt2giga_harness_doctor_report",
+        "kind": "gigaloom_doctor_report",
         "summary": {"ready": 1, "degraded": 0, "blocked": 0},
         "checks": [],
     },
@@ -358,9 +356,9 @@ write_doctor_support_report(
 )
 assert json.loads(doctor_output.read_text(encoding="utf-8"))["schema_version"] == 1
 assert stat.S_IMODE(doctor_output.stat().st_mode) == 0o600
-manifest = load_cockpit_v2_manifest()
+manifest = load_web_manifest()
 assert manifest.entry == "index.html"
-assert "<title>GigaLoom</title>" in load_cockpit_v2_shell()
+assert "<title>GigaLoom</title>" in load_web_shell()
 
 data_dir = installed_root.parent / "runtime-smoke-state"
 client = TestClient(
@@ -395,11 +393,11 @@ import os
 from pathlib import Path
 
 import gpt2giga
-import gpt2giga_harness
-from gpt2giga_harness.gpt2giga_preset import require_gpt2giga_preset
+import gigaloom
+from gigaloom.gpt2giga_preset import require_gpt2giga_preset
 
 assert Path(gpt2giga.__file__).resolve().is_relative_to(installed_root)
-assert Path(gpt2giga_harness.__file__).resolve().is_relative_to(installed_root)
+assert Path(gigaloom.__file__).resolve().is_relative_to(installed_root)
 assert importlib.metadata.version("gpt2giga") == os.environ["EXPECTED_GATEWAY_VERSION"]
 runtime = require_gpt2giga_preset()
 assert runtime.client_type.__module__.split(".", 1)[0] == "gigachat"
@@ -410,13 +408,13 @@ assert runtime.load_config.__module__ == "gpt2giga.cli"
 NEUTRAL_PLUGIN_SMOKE = """
 import importlib.metadata
 
-from gpt2giga_harness.registry import create_default_registry
+from gigaloom.registry import create_default_registry
 
 distribution = importlib.metadata.distribution("neutral-harness-plugin")
 entry_points = {
     entry.name: entry.value
     for entry in distribution.entry_points
-    if entry.group == "agent_workbench.harness_adapters.v1"
+    if entry.group == "gigaloom.harness_adapters.v1"
 }
 assert entry_points == {
     "neutral-wheel": "neutral_harness_plugin:NeutralWheelHarness"
@@ -451,8 +449,8 @@ packages = ["src/neutral_harness_plugin"]
         encoding="utf-8",
     )
     (package / "__init__.py").write_text(
-        """from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.types import (
+        """from gigaloom.harnesses.base import BaseHarness
+from gigaloom.types import (
     Availability,
     HarnessCapability,
     HarnessRequest,
@@ -561,12 +559,10 @@ def test_neutral_third_party_wheel_registers_without_core_edits(
 
 def test_editable_workspace_members_resolve_to_member_sources():
     import gpt2giga
-    import gpt2giga_harness
+    import gigaloom
 
     assert Path(gpt2giga.__file__).resolve().is_relative_to(GATEWAY_MEMBER / "src")
-    assert (
-        Path(gpt2giga_harness.__file__).resolve().is_relative_to(HARNESS_MEMBER / "src")
-    )
+    assert Path(gigaloom.__file__).resolve().is_relative_to(HARNESS_MEMBER / "src")
     assert importlib.metadata.version("gpt2giga") == GATEWAY_VERSION
     assert importlib.metadata.version("gigaloom") == HARNESS_VERSION
 
@@ -616,7 +612,7 @@ def _external_import_roots(source_root: Path, own_package: str) -> set[str]:
 def test_harness_imports_only_declared_distributions():
     with (REPO_ROOT / "pyproject.toml").open("rb") as file:
         declared = _all_declared_distribution_names(tomllib.load(file))
-    imported = _external_import_roots(HARNESS_SOURCE, "gpt2giga_harness")
+    imported = _external_import_roots(HARNESS_SOURCE, "gigaloom")
     unknown_roots = imported - IMPORT_DISTRIBUTIONS.keys()
     assert unknown_roots == set()
     assert {IMPORT_DISTRIBUTIONS[root] for root in imported} <= declared
@@ -710,7 +706,7 @@ version = "1.0.0"
 requires-python = ">=3.11"
 dependencies = ["gigaloom=={HARNESS_VERSION}"]
 
-[project.entry-points."gpt2giga.harnesses"]
+[project.entry-points."gigaloom.harnesses.v1"]
 third-party-smoke = "example_harness_plugin:ThirdPartyHarness"
 
 [build-system]
@@ -723,8 +719,8 @@ packages = ["src/example_harness_plugin"]
         encoding="utf-8",
     )
     (package / "__init__.py").write_text(
-        """from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.types import (
+        """from gigaloom.harnesses.base import BaseHarness
+from gigaloom.types import (
     Availability,
     HarnessCapability,
     HarnessResult,
@@ -777,7 +773,7 @@ def test_installed_third_party_plugin_is_discovered(
     _run_clean_python(
         installed,
         """
-from gpt2giga_harness.registry import create_default_registry
+from gigaloom.registry import create_default_registry
 
 registry = create_default_registry()
 assert "third-party-smoke" in registry.ids()
@@ -809,8 +805,8 @@ def _artifact_members(path: Path) -> tuple[str, ...]:
 @pytest.mark.parametrize(
     ("artifact_attribute", "forbidden_package"),
     [
-        ("gateway_wheel", "gpt2giga_harness"),
-        ("gateway_sdist", "gpt2giga_harness"),
+        ("gateway_wheel", "gigaloom"),
+        ("gateway_sdist", "gigaloom"),
         ("harness_wheel", "gpt2giga"),
         ("harness_sdist", "gpt2giga"),
     ],

@@ -1,11 +1,11 @@
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.native.models import HarnessInvocationMode
-from gpt2giga_harness.registry import HarnessRegistry
-from gpt2giga_harness.routing import (
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.native.models import HarnessInvocationMode
+from gigaloom.registry import HarnessRegistry
+from gigaloom.routing import (
     recommend_harness_route,
     route_recommendation_to_dict,
 )
-from gpt2giga_harness.types import (
+from gigaloom.types import (
     AttachmentTransportSupport,
     Availability,
     HarnessCapability,

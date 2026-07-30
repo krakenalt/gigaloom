@@ -1,7 +1,7 @@
 # Релиз
 
 GigaLoom выпускает дистрибутив `gigaloom` по точным тегам
-`gigaloom-vX.Y.Z`.
+`vX.Y.Z`.
 
 ## Checklist maintainer
 

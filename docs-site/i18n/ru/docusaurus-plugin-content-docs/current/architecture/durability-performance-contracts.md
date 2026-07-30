@@ -10,7 +10,7 @@
 Production-поведение принадлежит одному именованному контексту:
 
 ```text
-gpt2giga_harness/
+gigaloom/
   attachments/  automation/  cli/          contracts/   core/
   diagnostics/  execution/   harnesses/    integrations/ native/
   projects/     providers/   review/       runtime/      sessions/
@@ -121,15 +121,15 @@ absolute latency на разных машинах.
 Новый first-party code импортирует публичные границы контекстов, например:
 
 ```python
-from gpt2giga_harness.runtime.api import RuntimeCoordinationStore
-from gpt2giga_harness.projects.api import resolve_project
-from gpt2giga_harness.integrations.api import IntegrationCatalogStore
-from gpt2giga_harness.diagnostics.performance.api import run_performance_baseline
+from gigaloom.runtime.api import RuntimeCoordinationStore
+from gigaloom.projects.api import resolve_project
+from gigaloom.integrations.api import IntegrationCatalogStore
+from gigaloom.diagnostics.performance.api import run_performance_baseline
 ```
 
-Reviewed root paths, например `gpt2giga_harness.doctor`,
-`gpt2giga_harness.product_inventory` и
-`gpt2giga_harness.performance_baseline`, остаются compatibility shims на время
+Reviewed root paths, например `gigaloom.doctor`,
+`gigaloom.product_inventory` и
+`gigaloom.performance_baseline`, остаются compatibility shims на время
 опубликованного migration window. Они не содержат business implementation.
 Удаляйте shim только после доказанной parity в production, tests, examples,
 docs, entry points и installed wheel/sdist; иначе сохраняйте его с явными owner
@@ -137,8 +137,8 @@ docs, entry points и installed wheel/sdist; иначе сохраняйте е�
 
 Исторический combined-prerelease namespace `gpt2giga.harness.*` отличается:
 standalone distribution не восстанавливает его. Out-of-tree adapters должны
-использовать `gpt2giga_harness.*`, публичные SDK/contracts и существующую
-entry-point group `gpt2giga.harnesses`. Проверяйте dynamic imports и entry
+использовать `gigaloom.*`, публичные SDK/contracts и существующую
+entry-point group `gigaloom.harnesses.v1`. Проверяйте dynamic imports и entry
 points из installed artifact, а не только из source checkout.
 
 ## Backup и rollback
@@ -147,9 +147,9 @@ points из installed artifact, а не только из source checkout.
 active runs выбранного data directory:
 
 ```bash
-giga state backup --output ../gpt2giga-harness-state.zip
-giga state verify ../gpt2giga-harness-state.zip --json
-giga state restore ../gpt2giga-harness-state.zip --replace --json
+giga state backup --output ../gigaloom-state.zip
+giga state verify ../gigaloom-state.zip --json
+giga state restore ../gigaloom-state.zip --replace --json
 ```
 
 Создавайте архив вне state directory и храните приватно. Backup versioned и

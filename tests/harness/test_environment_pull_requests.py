@@ -8,15 +8,15 @@ import subprocess
 from fastapi.testclient import TestClient
 import pytest
 
-from gpt2giga_harness import environment_pull_requests
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.environment_pull_requests import (
+from gigaloom import environment_pull_requests
+from gigaloom.config import HarnessConfig
+from gigaloom.environment_pull_requests import (
     EnvironmentPullRequestService,
     _CommandResult,
 )
-from gpt2giga_harness.environments import HostedRepositoryHint
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.environments import HostedRepositoryHint
+from gigaloom.registry import create_default_registry
+from gigaloom.ui.app import create_app
 
 
 PR_CLOCK = datetime(2026, 7, 22, 14, 0, tzinfo=timezone.utc)

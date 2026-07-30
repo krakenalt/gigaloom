@@ -16,7 +16,7 @@ sandbox.
 
 ## Решение
 
-Схемой версии 1 владеет `gpt2giga_harness.runtime.authority`. Она раздельно
+Схемой версии 1 владеет `gigaloom.runtime.authority`. Она раздельно
 моделирует восемь типов target:
 
 - пути файловой системы относительно workspace;
@@ -63,7 +63,7 @@ redirect или retry требуют повторной проверки. Пре
 
 ## Совместимость
 
-`gpt2giga_harness.runtime.policy.PermissionAction` остаётся текущей проекцией
+`gigaloom.runtime.policy.PermissionAction` остаётся текущей проекцией
 enforcement и persistence. G4-01 может отображать authority scopes версии 1 в
 эти действия при создании approval UX и симулятора разрешений. G4-00 не
 мигрирует существующие строки подтверждений и grants.

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.product_capabilities import (
+from gigaloom.product_capabilities import (
     AdmissionStatus,
     AuthorityLevel,
     CapabilityRequest,

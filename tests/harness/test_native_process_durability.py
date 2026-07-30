@@ -4,14 +4,14 @@ import time
 
 import pytest
 
-from gpt2giga_harness.native.base import NativeCommandPlan
-from gpt2giga_harness.native.process import (
+from gigaloom.native.base import NativeCommandPlan
+from gigaloom.native.process import (
     NativeProcessManager,
     NativeProcessStartError,
     NativeProcessStatus,
 )
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.sessions import InMemoryHarnessSessionStore
+from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.sessions import InMemoryHarnessSessionStore
 
 
 def test_native_process_owner_persists_output_and_accepts_foreign_cancel(tmp_path):

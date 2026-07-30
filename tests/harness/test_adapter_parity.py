@@ -2,16 +2,16 @@ from dataclasses import replace
 
 import pytest
 
-from gpt2giga_harness.harnesses.claude_code import ClaudeCodeHarness
-from gpt2giga_harness.harnesses.codex_cli import CodexCliHarness
-from gpt2giga_harness.harnesses.gemini_cli import GeminiCliHarness
-from gpt2giga_harness.native.claude import ClaudeNativeHistoryConnector
-from gpt2giga_harness.native.codex import CodexNativeHistoryConnector
-from gpt2giga_harness.native.gemini import GeminiNativeHistoryConnector
-from gpt2giga_harness.native.models import NativeSessionRef, NativeSessionStatus
-from gpt2giga_harness.native.store import native_session_ref_to_dict
-from gpt2giga_harness.project import project_id_for_root
-from gpt2giga_harness.types import (
+from gigaloom.harnesses.claude_code import ClaudeCodeHarness
+from gigaloom.harnesses.codex_cli import CodexCliHarness
+from gigaloom.harnesses.gemini_cli import GeminiCliHarness
+from gigaloom.native.claude import ClaudeNativeHistoryConnector
+from gigaloom.native.codex import CodexNativeHistoryConnector
+from gigaloom.native.gemini import GeminiNativeHistoryConnector
+from gigaloom.native.models import NativeSessionRef, NativeSessionStatus
+from gigaloom.native.store import native_session_ref_to_dict
+from gigaloom.project import project_id_for_root
+from gigaloom.types import (
     AdapterSupportLevel,
     GigaChatApiMode,
     HarnessChatMessage,

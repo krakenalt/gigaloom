@@ -1,17 +1,17 @@
 from dataclasses import replace
 import json
 
-import gpt2giga_harness.sessions.storage.filesystem.runs as filesystem_runs
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.native import HarnessInvocationMode, NativeSessionStatus
-from gpt2giga_harness.sessions.models import (
+import gigaloom.sessions.storage.filesystem.runs as filesystem_runs
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.native import HarnessInvocationMode, NativeSessionStatus
+from gigaloom.sessions.models import (
     HarnessMessage,
     HarnessNativeLink,
     HarnessStoredEvent,
     bundle_to_dict,
 )
-from gpt2giga_harness.sessions.store import new_id, title_from_prompt, utc_now
-from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability, REDACTED
+from gigaloom.sessions.store import new_id, title_from_prompt, utc_now
+from gigaloom.types import GigaChatApiMode, HarnessCapability, REDACTED
 
 
 def test_filesystem_store_persists_session_messages_runs_and_events(tmp_path):

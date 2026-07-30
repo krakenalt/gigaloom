@@ -5,12 +5,12 @@ import stat
 
 import pytest
 
-from gpt2giga_harness.provider_profiles import (
+from gigaloom.provider_profiles import (
     ModelPurposeDefault,
     ProviderOwnership,
     migrate_legacy_provider_route,
 )
-from gpt2giga_harness.provider_registry import (
+from gigaloom.provider_registry import (
     LayeredProviderRegistry,
     ProviderAuthenticationFailure,
     ProviderCompatibilityFailure,

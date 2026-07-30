@@ -8,13 +8,13 @@ from zipfile import ZIP_STORED, ZipFile, ZipInfo
 
 import pytest
 
-from gpt2giga_harness import cli
-from gpt2giga_harness.runtime.store import (
+from gigaloom import cli
+from gigaloom.runtime.store import (
     RUNTIME_SCHEMA_VERSION,
     RuntimeCoordinationStore,
     _MIGRATIONS,
 )
-from gpt2giga_harness.state_backup import (
+from gigaloom.state_backup import (
     BACKUP_KIND,
     BACKUP_MANIFEST,
     BACKUP_SCHEMA_VERSION,
@@ -92,7 +92,7 @@ def test_state_backup_rejects_unsafe_or_changed_inputs(tmp_path, monkeypatch):
         create_state_backup(data_dir, tmp_path / "symlink.zip")
     symlink.unlink()
 
-    from gpt2giga_harness import state_backup
+    from gigaloom import state_backup
 
     real_fingerprint = state_backup._fingerprint_tree
     calls = 0
@@ -333,7 +333,7 @@ def test_state_restore_rejects_active_or_changing_destination(tmp_path, monkeypa
         restore_state_backup(archive, destination, replace=True)
     active.unlink()
 
-    from gpt2giga_harness import state_backup
+    from gigaloom import state_backup
 
     real_fingerprint = state_backup._fingerprint_tree
     calls = 0

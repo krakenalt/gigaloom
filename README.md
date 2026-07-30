@@ -76,8 +76,8 @@ normalized protocol and compatibility contracts remain owned by the
 ## Development
 
 ```sh
-npm --prefix packages/gpt2giga-harness/frontend ci --ignore-scripts
-npm --prefix packages/gpt2giga-harness/frontend run build
+npm --prefix web ci --ignore-scripts
+npm --prefix web run build
 ./scripts/ci-base.sh sync
 ./scripts/ci-base.sh ruff-check
 ./scripts/ci-base.sh pytest tests/harness -q

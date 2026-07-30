@@ -4,7 +4,7 @@ import stat
 
 import pytest
 
-from gpt2giga_harness.execution import (
+from gigaloom.execution import (
     EMPTY_EXTENSION_SNAPSHOT_HASH,
     ExecutionTransport,
     InteractionMode,
@@ -14,7 +14,7 @@ from gpt2giga_harness.execution import (
     SnapshotEvidenceRef,
     create_execution_snapshot,
 )
-from gpt2giga_harness.structured_sessions import (
+from gigaloom.structured_sessions import (
     AdapterCapabilitySnapshot,
     RecoveryState,
     SessionLinkConflict,

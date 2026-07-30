@@ -8,7 +8,7 @@ import logging
 
 import pytest
 
-from gpt2giga_harness.secrets import (
+from gigaloom.secrets import (
     CompositeSecretResolver,
     EnvironmentSecretResolver,
     KeychainSecretResolver,
@@ -23,7 +23,7 @@ from gpt2giga_harness.secrets import (
     secret_reference_to_dict,
     secret_resolution_evidence_to_dict,
 )
-from gpt2giga_harness.sessions.redaction import redact_for_storage
+from gigaloom.sessions.redaction import redact_for_storage
 
 
 class _Clock:

@@ -6,15 +6,15 @@ from time import perf_counter
 from fastapi.testclient import TestClient
 import pytest
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.ui.app import create_app
-from gpt2giga_harness.ui.async_execution import (
+from gigaloom.config import HarnessConfig
+from gigaloom.registry import create_default_registry
+from gigaloom.ui.app import create_app
+from gigaloom.ui.async_execution import (
     AsyncDiagnosticsMiddleware,
     AsyncExecutionDiagnostics,
     async_handler_contract_errors,
 )
-from gpt2giga_harness.ui.execution_contracts import (
+from gigaloom.ui.execution_contracts import (
     ROUTE_EXECUTION_CONTRACTS,
     CancellationContract,
     ExecutionAdapter,

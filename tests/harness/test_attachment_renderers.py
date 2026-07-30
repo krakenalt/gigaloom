@@ -1,4 +1,4 @@
-from gpt2giga_harness.attachments import (
+from gigaloom.attachments import (
     FilesystemAttachmentStore,
     render_attachments_for_harness,
     render_for_claude_code,
@@ -6,8 +6,8 @@ from gpt2giga_harness.attachments import (
     render_for_direct_chat,
     render_for_gemini_cli,
 )
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.types import REDACTED
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.types import REDACTED
 
 PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
 

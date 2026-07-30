@@ -7,18 +7,18 @@ import threading
 
 import pytest
 
-from gpt2giga_harness.performance_workloads.runtime.fixtures import seed_jobs
-from gpt2giga_harness.performance_workloads.runtime.instrumentation import (
+from gigaloom.performance_workloads.runtime.fixtures import seed_jobs
+from gigaloom.performance_workloads.runtime.instrumentation import (
     TracingRuntimeStore,
 )
-from gpt2giga_harness.runtime.jobs import claims as claims_module
-from gpt2giga_harness.runtime.jobs.claims import (
+from gigaloom.runtime.jobs import claims as claims_module
+from gigaloom.runtime.jobs.claims import (
     CLAIM_CANDIDATE_WINDOW,
     CLAIM_MAX_CAS_RETRIES,
     _candidate_query,
 )
-from gpt2giga_harness.runtime.models import JobAttemptStatus, JobStatus
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
+from gigaloom.runtime.models import JobAttemptStatus, JobStatus
+from gigaloom.runtime.store import RuntimeCoordinationStore
 
 WORKER_FINGERPRINT = {"os": "fixture", "harnesses": {}}
 

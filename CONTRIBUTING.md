@@ -17,8 +17,8 @@ Thank you for helping improve GigaLoom.
 Produce the frontend before the first clean environment sync:
 
 ```bash
-npm --prefix packages/gpt2giga-harness/frontend ci --ignore-scripts
-npm --prefix packages/gpt2giga-harness/frontend run build
+npm --prefix web ci --ignore-scripts
+npm --prefix web run build
 ./scripts/ci-base.sh sync
 ```
 

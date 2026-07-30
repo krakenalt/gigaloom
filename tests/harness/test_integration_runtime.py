@@ -7,7 +7,7 @@ import tomllib
 
 import pytest
 
-from gpt2giga_harness.codex_mcp_target import (
+from gigaloom.codex_mcp_target import (
     CODEX_MCP_TARGET_ID,
     CodexCommandResult,
     CodexMCPRequest,
@@ -15,8 +15,8 @@ from gpt2giga_harness.codex_mcp_target import (
     CodexMCPTargetDriver,
     CodexMCPTransport,
 )
-from gpt2giga_harness.integration_installer import InstallationApproval
-from gpt2giga_harness.integration_packages import (
+from gigaloom.integration_installer import InstallationApproval
+from gigaloom.integration_packages import (
     InstallationScope,
     IntegrationCompatibility,
     IntegrationComponent,
@@ -25,7 +25,7 @@ from gpt2giga_harness.integration_packages import (
     IntegrationSourceType,
     IntegrationUpdatePolicy,
 )
-from gpt2giga_harness.integration_runtime import (
+from gigaloom.integration_runtime import (
     IntegrationRuntimeActivationError,
     IntegrationRuntimeConflictError,
     IntegrationRuntimeProbeResult,

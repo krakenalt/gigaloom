@@ -7,14 +7,14 @@ import subprocess
 from fastapi.testclient import TestClient
 import pytest
 
-from gpt2giga_harness import environment_actions
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.environment_actions import (
+from gigaloom import environment_actions
+from gigaloom.config import HarnessConfig
+from gigaloom.environment_actions import (
     EnvironmentCommitError,
     EnvironmentCommitService,
 )
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.registry import create_default_registry
+from gigaloom.ui.app import create_app
 
 
 COMMIT_CLOCK = datetime(2026, 7, 22, 9, 0, tzinfo=timezone.utc)

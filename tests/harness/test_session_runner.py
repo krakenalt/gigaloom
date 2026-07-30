@@ -8,39 +8,39 @@ from types import SimpleNamespace
 
 import pytest
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.execution.attachments import PreparedAttachments
-from gpt2giga_harness.execution.context import RunExecutionContext
-from gpt2giga_harness.execution.continuation import ContinuationPlan
-from gpt2giga_harness.execution.milestones import PersistenceMilestone
-from gpt2giga_harness.execution.options import RunOptions
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.native import HarnessInvocationMode
-from gpt2giga_harness.preflight import PreflightBlockedError
-from gpt2giga_harness.project import (
+from gigaloom.config import HarnessConfig
+from gigaloom.execution.attachments import PreparedAttachments
+from gigaloom.execution.context import RunExecutionContext
+from gigaloom.execution.continuation import ContinuationPlan
+from gigaloom.execution.milestones import PersistenceMilestone
+from gigaloom.execution.options import RunOptions
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.native import HarnessInvocationMode
+from gigaloom.preflight import PreflightBlockedError
+from gigaloom.project import (
     project_id_for_root,
     resolve_project,
     update_project_state,
 )
-from gpt2giga_harness.project_memory import FilesystemProjectMemoryStore
-from gpt2giga_harness.provider_account_sessions import ProviderAccountSessionError
-from gpt2giga_harness.provider_authentication_broker import (
+from gigaloom.project_memory import FilesystemProjectMemoryStore
+from gigaloom.provider_account_sessions import ProviderAccountSessionError
+from gigaloom.provider_authentication_broker import (
     ProviderAccountSnapshot,
     ProviderAccountStatus,
     ProviderSessionBinding,
 )
-from gpt2giga_harness.registry import HarnessRegistry
-from gpt2giga_harness.session_runner import HarnessSessionRunner
-from gpt2giga_harness.session_titles import title_diagnostics
-from gpt2giga_harness.sessions import (
+from gigaloom.registry import HarnessRegistry
+from gigaloom.session_runner import HarnessSessionRunner
+from gigaloom.session_titles import title_diagnostics
+from gigaloom.sessions import (
     FilesystemHarnessSessionStore,
     InMemoryHarnessSessionStore,
 )
-from gpt2giga_harness.sessions.conversation import active_conversation_messages
-from gpt2giga_harness.sessions.models import HarnessMessage
-from gpt2giga_harness.sessions.store import new_id, utc_now
-from gpt2giga_harness.sessions.write_batch import SessionWriteBatch
-from gpt2giga_harness.types import (
+from gigaloom.sessions.conversation import active_conversation_messages
+from gigaloom.sessions.models import HarnessMessage
+from gigaloom.sessions.store import new_id, utc_now
+from gigaloom.sessions.write_batch import SessionWriteBatch
+from gigaloom.types import (
     Availability,
     GigaChatBuiltinTool,
     HarnessCapability,
@@ -915,9 +915,7 @@ def test_first_ui_run_generates_title_with_lightning_model(monkeypatch):
             },
         }
 
-    monkeypatch.setattr(
-        "gpt2giga_harness.session_runner.proxy.request_json", request_json
-    )
+    monkeypatch.setattr("gigaloom.session_runner.proxy.request_json", request_json)
 
     started_at = time.monotonic()
     result = runner.run_in_session(
@@ -983,9 +981,7 @@ def test_session_title_proxy_failure_publishes_deterministic_fallback(monkeypatc
     def request_json(*args, **kwargs):
         raise OSError("proxy offline")
 
-    monkeypatch.setattr(
-        "gpt2giga_harness.session_runner.proxy.request_json", request_json
-    )
+    monkeypatch.setattr("gigaloom.session_runner.proxy.request_json", request_json)
 
     result = runner.run_in_session(
         session.id,
@@ -1025,9 +1021,7 @@ def test_delayed_session_title_never_overwrites_user_rename(monkeypatch):
         assert release_request.wait(timeout=2)
         return {"choices": [{"message": {"content": "Generated title"}}]}
 
-    monkeypatch.setattr(
-        "gpt2giga_harness.session_runner.proxy.request_json", request_json
-    )
+    monkeypatch.setattr("gigaloom.session_runner.proxy.request_json", request_json)
     runner.run_in_session(
         session.id,
         {
@@ -1064,9 +1058,7 @@ def test_delayed_session_title_does_not_recreate_deleted_session(monkeypatch):
         assert release_request.wait(timeout=2)
         return {"choices": [{"message": {"content": "Generated title"}}]}
 
-    monkeypatch.setattr(
-        "gpt2giga_harness.session_runner.proxy.request_json", request_json
-    )
+    monkeypatch.setattr("gigaloom.session_runner.proxy.request_json", request_json)
     runner.run_in_session(
         session.id,
         {

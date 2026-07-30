@@ -52,7 +52,7 @@ def test_legacy_module_cannot_grow(
     architecture_manifest: dict[str, object],
     tmp_path: Path,
 ) -> None:
-    package_root = tmp_path / "gpt2giga_harness"
+    package_root = tmp_path / "gigaloom"
     package_root.mkdir()
     (package_root / "legacy.py").write_text("one\ntwo\nthree\n", encoding="utf-8")
     manifest = deepcopy(architecture_manifest)
@@ -71,7 +71,7 @@ def test_new_module_obeys_hard_limit(
     architecture_manifest: dict[str, object],
     tmp_path: Path,
 ) -> None:
-    package_root = tmp_path / "gpt2giga_harness"
+    package_root = tmp_path / "gigaloom"
     context = package_root / "sessions"
     context.mkdir(parents=True)
     (context / "new_module.py").write_text("one\ntwo\nthree\n", encoding="utf-8")

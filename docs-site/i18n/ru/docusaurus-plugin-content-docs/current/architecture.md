@@ -8,7 +8,7 @@ GigaLoom — самостоятельный Python-дистрибутив с т�
 
 ## Основные границы
 
-- `gpt2giga_harness.harnesses` владеет встроенными adapters.
+- `gigaloom.harnesses` владеет встроенными adapters.
 - `runtime` и `sessions` владеют jobs, leases, events, policy и persistence.
 - `project`, `workspace` и `worktrees` ограничивают файловые изменения.
 - `ui` проецирует redacted state и не становится вторым источником authority.

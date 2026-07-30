@@ -5,21 +5,21 @@ import stat
 
 import pytest
 
-from gpt2giga_harness import bootstrap, cli
-from gpt2giga_harness.bootstrap import (
+from gigaloom import bootstrap, cli
+from gigaloom.bootstrap import (
     BOOTSTRAP_STEP_MANAGED_STATE,
     BOOTSTRAP_STEP_PROJECT,
     BootstrapConflictError,
     BootstrapService,
 )
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.completion import SHELLS, render_completion
+from gigaloom.config import HarnessConfig
+from gigaloom.completion import SHELLS, render_completion
 
 
 def _doctor_report():
     return {
         "schema_version": 1,
-        "kind": "gpt2giga_harness_doctor_report",
+        "kind": "gigaloom_doctor_report",
         "ok": True,
         "summary": {"ready": 1, "degraded": 0, "blocked": 0},
         "checks": [

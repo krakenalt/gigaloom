@@ -7,31 +7,31 @@ import time
 from fastapi.testclient import TestClient
 import pytest
 
-from gpt2giga_harness import cli
-from gpt2giga_harness.arena import FilesystemHarnessArenaStore, queue_arena
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.project import resolve_project, update_project_state
-from gpt2giga_harness.registry import HarnessRegistry, create_default_registry
-from gpt2giga_harness.runtime.models import (
+from gigaloom import cli
+from gigaloom.arena import FilesystemHarnessArenaStore, queue_arena
+from gigaloom.config import HarnessConfig
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.project import resolve_project, update_project_state
+from gigaloom.registry import HarnessRegistry, create_default_registry
+from gigaloom.runtime.models import (
     JobAttemptStatus,
     JobStatus,
     SideEffectStatus,
 )
-from gpt2giga_harness.runtime.payloads import DurableJobPayloadStore
-from gpt2giga_harness.runtime.side_effects import HarnessSideEffectExecutor
-from gpt2giga_harness.runtime.store import (
+from gigaloom.runtime.payloads import DurableJobPayloadStore
+from gigaloom.runtime.side_effects import HarnessSideEffectExecutor
+from gigaloom.runtime.store import (
     ConcurrentUpdateError,
     RuntimeCoordinationStore,
 )
-from gpt2giga_harness.runtime.worker import (
+from gigaloom.runtime.worker import (
     RECOVERY_MARKER_IDENTITY_FIELD,
     DurableJobDispatcher,
     DurableJobWorker,
     _adaptive_idle_delay,
 )
-from gpt2giga_harness.runtime.wakeup import WorkerWakeReceiver
-from gpt2giga_harness.runtime.workers.scheduler import (
+from gigaloom.runtime.wakeup import WorkerWakeReceiver
+from gigaloom.runtime.workers.scheduler import (
     HEARTBEAT,
     MAINTENANCE_TASKS,
     RECONCILIATION,
@@ -40,9 +40,9 @@ from gpt2giga_harness.runtime.workers.scheduler import (
     SCHEDULES,
     WorkerMaintenanceScheduler,
 )
-from gpt2giga_harness.session_runner import HarnessSessionRunner
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.types import (
+from gigaloom.session_runner import HarnessSessionRunner
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.types import (
     Availability,
     HarnessCapability,
     HarnessContext,
@@ -50,7 +50,7 @@ from gpt2giga_harness.types import (
     HarnessResult,
     HarnessSpec,
 )
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.ui.app import create_app
 
 
 def test_durable_dispatcher_worker_executes_once_and_preserves_logical_message(
@@ -216,7 +216,7 @@ def test_empty_worker_cycle_does_not_repeat_maintenance_queries(tmp_path, monkey
         lambda **kwargs: calls.append("claim"),
     )
     monkeypatch.setattr(
-        "gpt2giga_harness.runtime.reconcile.RuntimeReconciler.reconcile",
+        "gigaloom.runtime.reconcile.RuntimeReconciler.reconcile",
         lambda self: calls.append("reconciliation"),
     )
 
@@ -541,9 +541,7 @@ def test_worker_cancellation_is_persisted_and_cooperative(tmp_path):
 def test_safe_retry_creates_new_attempt_and_run_without_new_user_message(
     tmp_path, monkeypatch
 ):
-    monkeypatch.setattr(
-        "gpt2giga_harness.runtime.worker.DEFAULT_RETRY_BACKOFF_SECONDS", 0.0
-    )
+    monkeypatch.setattr("gigaloom.runtime.worker.DEFAULT_RETRY_BACKOFF_SECONDS", 0.0)
     config = HarnessConfig(data_dir=str(tmp_path))
     registry = HarnessRegistry()
     flaky = _FlakyHarness()

@@ -2,15 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.executables import (
+from gigaloom.executables import (
     ExecutableResolver,
     UserHarnessConfigError,
     load_user_executables,
     set_user_executable,
     unset_user_executable,
 )
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.types import HarnessContext, HarnessRequest
+from gigaloom.registry import create_default_registry
+from gigaloom.types import HarnessContext, HarnessRequest
 
 
 def test_resolver_prefers_user_config_over_path(tmp_path, monkeypatch):

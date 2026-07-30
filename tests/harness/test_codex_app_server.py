@@ -9,7 +9,7 @@ import threading
 import time
 from typing import Any, Mapping
 
-from gpt2giga_harness.codex_app_server import (
+from gigaloom.codex_app_server import (
     CodexAppServerSupervisor,
     _RolloutMultiAgentTail,
     _approval_contract,
@@ -20,16 +20,16 @@ from gpt2giga_harness.codex_app_server import (
     build_execution_snapshot,
     build_structured_execution_snapshot,
 )
-from gpt2giga_harness.executables import ExecutableResolution
-from gpt2giga_harness.runtime.models import ApprovalStatus
-from gpt2giga_harness.runtime.policy import ApprovalDecision, PermissionAction
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.structured_sessions import (
+from gigaloom.executables import ExecutableResolution
+from gigaloom.runtime.models import ApprovalStatus
+from gigaloom.runtime.policy import ApprovalDecision, PermissionAction
+from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.structured_sessions import (
     StructuredSessionLinkStore,
     StructuredTurnInput,
     structured_session_link_from_dict,
 )
-from gpt2giga_harness.types import (
+from gigaloom.types import (
     GigaChatApiMode,
     HarnessContext,
     HarnessRequest,

@@ -1,7 +1,7 @@
 # GigaLoom release recovery
 
 The release workflow is intentionally fail-closed. It accepts only a published
-GitHub release whose exact `gigaloom-v<version>` tag points at a commit
+GitHub release whose exact `v<version>` tag points at a commit
 on target `main` after the history floor in `release-policy.json`. Manual
 dispatch builds and attests the same artifacts but cannot publish them.
 

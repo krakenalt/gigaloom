@@ -1,17 +1,17 @@
 import sys
 from pathlib import Path
 
-from gpt2giga_harness import proxy
-from gpt2giga_harness.cli_capabilities import CliCapabilitySnapshot
-from gpt2giga_harness.harnesses.agent_cli import run_streaming_command
-from gpt2giga_harness.harnesses.codex_cli import (
+from gigaloom import proxy
+from gigaloom.cli_capabilities import CliCapabilitySnapshot
+from gigaloom.harnesses.agent_cli import run_streaming_command
+from gigaloom.harnesses.codex_cli import (
     CodexCliHarness,
     _CodexStreamParser,
     _upload_gigachat_attachments,
     _write_codex_config,
 )
-from gpt2giga_harness.native import HarnessInvocationMode
-from gpt2giga_harness.types import (
+from gigaloom.native import HarnessInvocationMode
+from gigaloom.types import (
     Availability,
     GigaChatApiMode,
     HarnessChatMessage,
@@ -540,7 +540,7 @@ def test_codex_cli_autostart_uses_generated_proxy_key(monkeypatch):
         lambda self: Availability.available("codex available"),
     )
     monkeypatch.setattr(
-        "gpt2giga_harness.harnesses.codex_cli.run_command",
+        "gigaloom.harnesses.codex_cli.run_command",
         fake_run_command,
     )
 
@@ -603,7 +603,7 @@ def test_codex_pdf_turn_uses_ephemeral_exec_instead_of_sticky_app_server(
         return HarnessResult(ok=True, text="ok", command=command)
 
     monkeypatch.setattr(
-        "gpt2giga_harness.harnesses.codex_cli.run_command",
+        "gigaloom.harnesses.codex_cli.run_command",
         fake_run_command,
     )
     request = HarnessRequest(
@@ -675,7 +675,7 @@ def test_codex_image_turn_uses_ephemeral_exec_with_image_flag(monkeypatch):
         return HarnessResult(ok=True, text="ok", command=command)
 
     monkeypatch.setattr(
-        "gpt2giga_harness.harnesses.codex_cli.run_command",
+        "gigaloom.harnesses.codex_cli.run_command",
         fake_run_command,
     )
     request = HarnessRequest(
@@ -730,7 +730,7 @@ def test_codex_cli_stream_run_uses_streaming_runner(monkeypatch):
         return HarnessResult(ok=True, text="streamed", command=kwargs["command"])
 
     monkeypatch.setattr(
-        "gpt2giga_harness.harnesses.codex_cli.run_streaming_command",
+        "gigaloom.harnesses.codex_cli.run_streaming_command",
         fake_streaming_runner,
     )
     request = HarnessRequest(prompt="inspect", stream=True)

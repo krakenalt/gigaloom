@@ -10,17 +10,17 @@ import sys
 
 import pytest
 
-from gpt2giga_harness.cli_capabilities import CliCapabilitySnapshot
-from gpt2giga_harness.harnesses.claude_workbench import (
+from gigaloom.cli_capabilities import CliCapabilitySnapshot
+from gigaloom.harnesses.claude_workbench import (
     ClaudeOneShotEventDecoder,
     admit_claude_workbench,
     claude_contextual_capabilities,
 )
-from gpt2giga_harness.native_cli_contracts import CapabilityState
-from gpt2giga_harness.native_cli_contracts import CapabilityLevel
-from gpt2giga_harness.native_cli_contracts import NativeCommandClass
-from gpt2giga_harness.native_cli_contracts import classify_native_route
-from gpt2giga_harness.terminal_intent import parse_native_tui_launch_intent
+from gigaloom.native_cli_contracts import CapabilityState
+from gigaloom.native_cli_contracts import CapabilityLevel
+from gigaloom.native_cli_contracts import NativeCommandClass
+from gigaloom.native_cli_contracts import classify_native_route
+from gigaloom.terminal_intent import parse_native_tui_launch_intent
 
 
 def _snapshot(
@@ -218,7 +218,7 @@ def test_direct_and_prefixed_claude_l0_match_in_isolated_home(tmp_path, suffix):
         (
             sys.executable,
             "-c",
-            "from gpt2giga_harness.entrypoint import main; raise SystemExit(main())",
+            "from gigaloom.entrypoint import main; raise SystemExit(main())",
             "claude",
             *suffix,
         ),
@@ -244,7 +244,7 @@ def test_prefixed_claude_headless_interruption_reaches_provider(tmp_path):
         (
             sys.executable,
             "-c",
-            "from gpt2giga_harness.entrypoint import main; raise SystemExit(main())",
+            "from gigaloom.entrypoint import main; raise SystemExit(main())",
             "claude",
             "-p",
             "--fixture-wait",

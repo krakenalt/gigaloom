@@ -37,7 +37,7 @@ evidence is blocked. A downgrade is valid only when it is explicit, visible,
 and preserves the requested authority boundary.
 
 The Python authority for these values, their manifest, and admission behavior
-is `gpt2giga_harness.product_capabilities`. UI and documentation projections
+is `gigaloom.product_capabilities`. UI and documentation projections
 must derive from its versioned manifest rather than duplicate provider claims.
 
 ## Compatibility window

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from gpt2giga_harness.base_install import (
+from gigaloom.base_install import (
     BASE_DIRECT_DISTRIBUTIONS,
     MAX_BASE_DISTRIBUTIONS,
     OPTIONAL_INTEGRATION_DISTRIBUTIONS,

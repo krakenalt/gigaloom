@@ -1,9 +1,9 @@
 import pytest
 
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.harnesses.direct_chat import DirectChatHarness
-from gpt2giga_harness import registry as registry_module
-from gpt2giga_harness.registry import (
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.harnesses.direct_chat import DirectChatHarness
+from gigaloom import registry as registry_module
+from gigaloom.registry import (
     HARNESS_ADAPTER_ENTRY_POINTS,
     MAX_DISCOVERY_ERRORS,
     MAX_DISCOVERY_ERROR_CHARS,
@@ -12,8 +12,8 @@ from gpt2giga_harness.registry import (
     UnknownHarnessError,
     create_default_registry,
 )
-from gpt2giga_harness.registries import RegistryCollisionError
-from gpt2giga_harness.types import (
+from gigaloom.registries import RegistryCollisionError
+from gigaloom.types import (
     Availability,
     HarnessCapability,
     HarnessRequest,

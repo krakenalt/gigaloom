@@ -76,7 +76,7 @@ performance slice reviews a measured baseline.
 ## Workload registry
 
 Workload declarations live in
-`gpt2giga_harness.performance_workloads` and are discovered recursively in
+`gigaloom.performance_workloads` and are discovered recursively in
 deterministic family/ID order. Add a cohesive leaf module under the owning
 domain package and expose a tuple named `WORKLOADS`; no central Python
 inventory needs editing.

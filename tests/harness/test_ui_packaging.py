@@ -42,18 +42,18 @@ def test_packaged_ui_assets_survive_wheel_install(tmp_path):
 import importlib.util
 from pathlib import Path
 
-import gpt2giga_harness
-from gpt2giga_harness.ui.cockpit_v2 import load_cockpit_v2_manifest, load_cockpit_v2_shell
+import gigaloom
+from gigaloom.ui.web import load_web_manifest, load_web_shell
 
 installed_root = Path(__import__("sys").argv[1]).resolve()
-assert Path(gpt2giga_harness.__file__).resolve().is_relative_to(installed_root)
+assert Path(gigaloom.__file__).resolve().is_relative_to(installed_root)
 assert importlib.util.find_spec("gpt2giga") is None
-assert importlib.util.find_spec("gpt2giga_harness.ui.static") is None
-manifest = load_cockpit_v2_manifest()
+assert importlib.util.find_spec("gigaloom.ui.static") is None
+manifest = load_web_manifest()
 assert manifest.entry == "index.html"
 assert any(name.startswith("assets/workbench-") for name in manifest.assets)
 assert any(name.startswith("assets/raw-evidence-") for name in manifest.assets)
-assert "<title>GigaLoom</title>" in load_cockpit_v2_shell()
+assert "<title>GigaLoom</title>" in load_web_shell()
 """
     env = os.environ.copy()
     env["PYTHONPATH"] = str(installed_root)
@@ -94,10 +94,8 @@ def test_harness_sdist_seals_assets_and_rebuilds_identical_node_free_wheel(tmp_p
 
     assert not any("/frontend/" in name for name in members)
     assert not any("/ui/assets/" in name for name in members)
-    assert any("/ui/cockpit_v2/assets/manifest.json" in name for name in members)
-    assert any(
-        "/ui/cockpit_v2/assets/_build/provenance.json" in name for name in members
-    )
+    assert any("/ui/web/assets/manifest.json" in name for name in members)
+    assert any("/ui/web/assets/_build/provenance.json" in name for name in members)
     assert any(name.endswith("/asset_contract.py") for name in members)
     assert any(name.endswith("/hatch_build.py") for name in members)
 

@@ -5,22 +5,22 @@ import sys
 
 import pytest
 
-from gpt2giga_harness import cli, proxy
-from gpt2giga_harness import entrypoint
-from gpt2giga_harness.cli_commands.handlers import ui as ui_handlers
-from gpt2giga_harness.codex_mcp_target import CodexMCPTargetDriver
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.harnesses.claude_code import ClaudeCodeHarness
-from gpt2giga_harness.harnesses.codex_cli import CodexCliHarness
-from gpt2giga_harness.harnesses.direct_chat import DirectChatHarness
-from gpt2giga_harness.harnesses.gemini_cli import GeminiCliHarness
-from gpt2giga_harness.native.models import (
+from gigaloom import cli, proxy
+from gigaloom import entrypoint
+from gigaloom.cli_commands.handlers import ui as ui_handlers
+from gigaloom.codex_mcp_target import CodexMCPTargetDriver
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.harnesses.claude_code import ClaudeCodeHarness
+from gigaloom.harnesses.codex_cli import CodexCliHarness
+from gigaloom.harnesses.direct_chat import DirectChatHarness
+from gigaloom.harnesses.gemini_cli import GeminiCliHarness
+from gigaloom.native.models import (
     NativeSessionRef,
     NativeSessionStatus,
     NativeTranscriptMessage,
 )
-from gpt2giga_harness.native.registry import NativeHistoryConnectorRegistry
-from gpt2giga_harness.runtime.policy import (
+from gigaloom.native.registry import NativeHistoryConnectorRegistry
+from gigaloom.runtime.policy import (
     ApprovalDecision,
     PermissionAction,
     PolicyContext,
@@ -28,9 +28,9 @@ from gpt2giga_harness.runtime.policy import (
     REVIEWED_PROMOTION_APPLY_OWNER,
     permission_profile,
 )
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.types import (
+from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.types import (
     Availability,
     GigaChatApiMode,
     HarnessCapability,
@@ -112,11 +112,11 @@ def test_console_completion_preserves_cli_output(shell, capsys):
 def test_console_entrypoint_reports_version_without_importing_full_cli(
     capsys, monkeypatch
 ):
-    monkeypatch.delitem(sys.modules, "gpt2giga_harness.cli", raising=False)
+    monkeypatch.delitem(sys.modules, "gigaloom.cli", raising=False)
 
     assert entrypoint.main(["--version"]) == 0
 
-    assert "gpt2giga_harness.cli" not in sys.modules
+    assert "gigaloom.cli" not in sys.modules
     assert capsys.readouterr().out == f"GigaLoom {version('gigaloom')} (gigaloom)\n"
 
 
@@ -197,7 +197,7 @@ def test_cli_ui_starts_and_stops_worker_when_none_is_online(
     command, options = popen_calls[0]
     assert command[1:] == [
         "-m",
-        "gpt2giga_harness.cli",
+        "gigaloom.cli",
         "worker",
         "start",
     ]
@@ -591,7 +591,7 @@ def test_cli_doctor_exports_support_report_and_fails_ci_threshold(
 ):
     report = {
         "schema_version": 1,
-        "kind": "gpt2giga_harness_doctor_report",
+        "kind": "gigaloom_doctor_report",
         "ok": True,
         "summary": {"ready": 2, "degraded": 1, "blocked": 0},
         "checks": [],
@@ -620,7 +620,7 @@ def test_cli_doctor_exports_support_report_and_fails_ci_threshold(
 def test_cli_doctor_ci_threshold_preserves_default_exit_code(capsys, monkeypatch):
     report = {
         "schema_version": 1,
-        "kind": "gpt2giga_harness_doctor_report",
+        "kind": "gigaloom_doctor_report",
         "ok": False,
         "summary": {"ready": 1, "degraded": 0, "blocked": 1},
         "checks": [],
@@ -1540,7 +1540,7 @@ def test_cli_native_dry_run_prints_command_plan_without_headless_run(
     monkeypatch.setattr(ClaudeCodeHarness, "run", fail_run)
     monkeypatch.setattr(GeminiCliHarness, "run", fail_run)
     monkeypatch.setattr(
-        "gpt2giga_harness.native.gemini._run_capability_probe",
+        "gigaloom.native.gemini._run_capability_probe",
         supported_gemini_prompt_probe,
     )
 

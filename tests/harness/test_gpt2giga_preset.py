@@ -5,15 +5,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.gpt2giga_preset import (
+from gigaloom.config import HarnessConfig
+from gigaloom.gpt2giga_preset import (
     Gpt2GigaPresetUnavailableError,
     gpt2giga_preset_available,
     migrate_legacy_gpt2giga_config,
     missing_gpt2giga_preset_modules,
     require_gpt2giga_preset,
 )
-from gpt2giga_harness.provider_profiles import (
+from gigaloom.provider_profiles import (
     ProviderOwnership,
     provider_profile_to_dict,
     route_profile_to_dict,
@@ -27,9 +27,7 @@ def test_optional_preset_probe_does_not_import_provider_modules(monkeypatch):
         seen.append(name)
         return None if name == "gpt2giga" else SimpleNamespace()
 
-    monkeypatch.setattr(
-        "gpt2giga_harness.gpt2giga_preset.util.find_spec", fake_find_spec
-    )
+    monkeypatch.setattr("gigaloom.gpt2giga_preset.util.find_spec", fake_find_spec)
 
     assert missing_gpt2giga_preset_modules() == ("gpt2giga",)
     assert gpt2giga_preset_available() is False
@@ -38,7 +36,7 @@ def test_optional_preset_probe_does_not_import_provider_modules(monkeypatch):
 
 def test_optional_preset_loader_fails_with_bounded_install_guidance(monkeypatch):
     monkeypatch.setattr(
-        "gpt2giga_harness.gpt2giga_preset.missing_gpt2giga_preset_modules",
+        "gigaloom.gpt2giga_preset.missing_gpt2giga_preset_modules",
         lambda: ("gpt2giga", "gigachat"),
     )
 

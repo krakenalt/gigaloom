@@ -15,7 +15,7 @@ updates:
       prefix: ci
 
   - package-ecosystem: pip
-    directory: "/packages/gpt2giga-harness"
+    directory: "/"
     schedule:
       interval: weekly
       day: monday
@@ -34,7 +34,7 @@ updates:
         dependency-type: development
 
   - package-ecosystem: npm
-    directory: "/packages/gpt2giga-harness/frontend"
+    directory: "/web"
     schedule:
       interval: weekly
       day: monday

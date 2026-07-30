@@ -1,27 +1,27 @@
-from gpt2giga_harness import bootstrap as legacy_bootstrap
-from gpt2giga_harness import editor as legacy_editor
-from gpt2giga_harness import environment_actions as legacy_environment_actions
-from gpt2giga_harness import environment_pull_requests as legacy_pull_requests
-from gpt2giga_harness import environment_push as legacy_environment_push
-from gpt2giga_harness import environments as legacy_environments
-from gpt2giga_harness import github_environments as legacy_github_environments
-from gpt2giga_harness import project as legacy_project
-from gpt2giga_harness import project_memory as legacy_memory
-from gpt2giga_harness import state_backup as legacy_backup
-from gpt2giga_harness import workspace as legacy_workspace
-from gpt2giga_harness import worktrees as legacy_worktrees
-from gpt2giga_harness.projects import api
-from gpt2giga_harness.projects import backup
-from gpt2giga_harness.projects import bootstrap
-from gpt2giga_harness.projects import memory
-from gpt2giga_harness.projects.environment import commit
-from gpt2giga_harness.projects.environment import editor
-from gpt2giga_harness.projects.environment import github
-from gpt2giga_harness.projects.environment import pull_request
-from gpt2giga_harness.projects.environment import push
-from gpt2giga_harness.projects.environment import registry
-from gpt2giga_harness.projects.workspace import api as workspace_api
-from gpt2giga_harness.projects.workspace import worktrees
+from gigaloom import bootstrap as legacy_bootstrap
+from gigaloom import editor as legacy_editor
+from gigaloom import environment_actions as legacy_environment_actions
+from gigaloom import environment_pull_requests as legacy_pull_requests
+from gigaloom import environment_push as legacy_environment_push
+from gigaloom import environments as legacy_environments
+from gigaloom import github_environments as legacy_github_environments
+from gigaloom import project as legacy_project
+from gigaloom import project_memory as legacy_memory
+from gigaloom import state_backup as legacy_backup
+from gigaloom import workspace as legacy_workspace
+from gigaloom import worktrees as legacy_worktrees
+from gigaloom.projects import api
+from gigaloom.projects import backup
+from gigaloom.projects import bootstrap
+from gigaloom.projects import memory
+from gigaloom.projects.environment import commit
+from gigaloom.projects.environment import editor
+from gigaloom.projects.environment import github
+from gigaloom.projects.environment import pull_request
+from gigaloom.projects.environment import push
+from gigaloom.projects.environment import registry
+from gigaloom.projects.workspace import api as workspace_api
+from gigaloom.projects.workspace import worktrees
 
 
 def test_legacy_project_imports_alias_the_bounded_context() -> None:

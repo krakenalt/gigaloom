@@ -38,9 +38,10 @@ uv tool uninstall gpt2giga-harness
 uv tool install --prerelease allow 'gigaloom==0.5.1a2'
 ```
 
-The Python namespace `gpt2giga_harness`, the `giga` and
-`gpt2giga-harness` commands, `~/.gpt2giga/harness`, and `.giga/` remain
-compatible. No dual-published shim is required.
+The standalone distribution exposes the `gigaloom` Python namespace and the
+single public command `giga`. It does not publish a legacy namespace or command
+shim. Existing `~/.gpt2giga/harness` and `.giga/` state remains in place until
+the separately gated state migration.
 
 ## Optional gateway preset
 

@@ -10,18 +10,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-PACKAGE_NAME = "gpt2giga_harness"
+PACKAGE_NAME = "gigaloom"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PACKAGE_ROOT = (
-    REPOSITORY_ROOT / "packages" / "gpt2giga-harness" / "src" / PACKAGE_NAME
-)
-DEFAULT_MANIFEST = (
-    REPOSITORY_ROOT
-    / "packages"
-    / "gpt2giga-harness"
-    / "architecture"
-    / "module-budgets.json"
-)
+DEFAULT_PACKAGE_ROOT = REPOSITORY_ROOT / "src" / PACKAGE_NAME
+DEFAULT_MANIFEST = REPOSITORY_ROOT / "architecture" / "module-budgets.json"
 
 
 @dataclass(frozen=True)

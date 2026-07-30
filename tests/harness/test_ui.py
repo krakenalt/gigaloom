@@ -1,19 +1,19 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness import proxy
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.registry import HarnessRegistry, create_default_registry
-from gpt2giga_harness.types import (
+from gigaloom import proxy
+from gigaloom.config import HarnessConfig
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.registry import HarnessRegistry, create_default_registry
+from gigaloom.types import (
     Availability,
     HarnessCapability,
     HarnessRequest,
     HarnessResult,
     HarnessSpec,
 )
-from gpt2giga_harness.ui.app import create_app, validate_ui_bind
-from gpt2giga_harness.ui.dependencies import app_services
+from gigaloom.ui.app import create_app, validate_ui_bind
+from gigaloom.ui.dependencies import app_services
 
 
 def test_ui_installs_typed_application_service_container(tmp_path):

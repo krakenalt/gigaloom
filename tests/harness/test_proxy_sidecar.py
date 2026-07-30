@@ -4,8 +4,8 @@ from email.parser import BytesParser
 from email.policy import default
 
 import pytest
-from gpt2giga_harness import proxy
-from gpt2giga_harness.types import GigaChatApiMode, HarnessContext
+from gigaloom import proxy
+from gigaloom.types import GigaChatApiMode, HarnessContext
 
 
 def test_upload_file_sends_multipart_to_stable_v1_files_route(monkeypatch):

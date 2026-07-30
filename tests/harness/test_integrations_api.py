@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.integration_flows import IntegrationFlowService
-from gpt2giga_harness.portable_skills import (
+from gigaloom.config import HarnessConfig
+from gigaloom.integration_flows import IntegrationFlowService
+from gigaloom.portable_skills import (
     SkillActivationMode,
     SkillCapabilitySnapshot,
     SkillTargetStatus,
 )
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.registry import create_default_registry
+from gigaloom.ui.app import create_app
 
 
 def test_integration_api_keeps_preview_apply_progress_and_rollback_equivalent(

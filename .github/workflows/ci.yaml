@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "packages/gpt2giga-harness/**"
+      - "src/gigaloom/**"
+      - "web/**"
+      - "architecture/**"
       - "tests/**"
       - "benchmarks/gigaloom_performance/**"
       - "scripts/ci-*.sh"
@@ -42,19 +44,19 @@ jobs:
         with:
           node-version: "22.13.0"
           cache: npm
-          cache-dependency-path: packages/gpt2giga-harness/frontend/package-lock.json
+          cache-dependency-path: web/package-lock.json
 
       - name: Install pinned npm 11.17
         run: npm install --global --ignore-scripts npm@11.17.0
 
       - name: Install pinned frontend dependencies
-        run: npm --prefix packages/gpt2giga-harness/frontend ci --ignore-scripts
+        run: npm --prefix web ci --ignore-scripts
 
       - name: Run typecheck, lint, unit, and determinism gates
-        run: npm --prefix packages/gpt2giga-harness/frontend run check
+        run: npm --prefix web run check
 
       - name: Produce clean commit-bound assets
-        run: npm --prefix packages/gpt2giga-harness/frontend run build:release
+        run: npm --prefix web run build:release
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -69,21 +71,21 @@ jobs:
         run: ./scripts/ci-base.sh sync
 
       - name: Install Chromium
-        run: npm --prefix packages/gpt2giga-harness/frontend exec -- playwright install --with-deps chromium
+        run: npm --prefix web exec -- playwright install --with-deps chromium
 
       - name: Run desktop and 390x844 browser QA
         env:
           CI: "true"
-        run: npm --prefix packages/gpt2giga-harness/frontend run test:e2e
+        run: npm --prefix web run test:e2e
 
       - name: Verify asset provenance, SBOM, and licenses
-        run: .venv/bin/python packages/gpt2giga-harness/asset_contract.py --require-clean
+        run: .venv/bin/python scripts/asset_contract.py --require-clean
 
       - name: Upload commit-bound assets
         uses: actions/upload-artifact@v7
         with:
           name: gigaloom-assets-${{ github.sha }}
-          path: packages/gpt2giga-harness/src/gpt2giga_harness/ui/cockpit_v2/assets
+          path: src/gigaloom/ui/web/assets
           if-no-files-found: error
           retention-days: 7
 
@@ -115,7 +117,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: gigaloom-assets-${{ github.sha }}
-          path: packages/gpt2giga-harness/src/gpt2giga_harness/ui/cockpit_v2/assets
+          path: src/gigaloom/ui/web/assets
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -164,7 +166,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: gigaloom-assets-${{ github.sha }}
-          path: packages/gpt2giga-harness/src/gpt2giga_harness/ui/cockpit_v2/assets
+          path: src/gigaloom/ui/web/assets
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -221,7 +223,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: gigaloom-assets-${{ github.sha }}
-          path: packages/gpt2giga-harness/src/gpt2giga_harness/ui/cockpit_v2/assets
+          path: src/gigaloom/ui/web/assets
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -241,7 +243,7 @@ jobs:
       - name: Smoke terminal dispatch and CLI
         run: |
           uv run --python .venv-terminal --no-project python -I -c "import importlib.metadata as m; assert any(r.casefold().startswith('textual') for r in m.requires('gigaloom')); assert all(x != 'tui' for x in (m.metadata('gigaloom').get_all('Provides-Extra') or ()))"
-          uv run --python .venv-terminal --no-project python -I -c "from gpt2giga_harness.terminal_dispatch import TerminalContext, plan_terminal_dispatch; from gpt2giga_harness.terminal_intent import parse_tui_launch_intent; p=plan_terminal_dispatch(('run','--agent','codex','inspect'), context=TerminalContext(True,True,True,'xterm-256color')); i,_=parse_tui_launch_intent(('run','--agent','codex','inspect')); assert p.initialize_textual and i.harness_id == 'codex-cli' and i.prompt == 'inspect'"
+          uv run --python .venv-terminal --no-project python -I -c "from gigaloom.terminal_dispatch import TerminalContext, plan_terminal_dispatch; from gigaloom.terminal_intent import parse_tui_launch_intent; p=plan_terminal_dispatch(('run','--agent','codex','inspect'), context=TerminalContext(True,True,True,'xterm-256color')); i,_=parse_tui_launch_intent(('run','--agent','codex','inspect')); assert p.initialize_textual and i.harness_id == 'codex-cli' and i.prompt == 'inspect'"
           uv run --python .venv-terminal --no-project giga --help
           uv run --python .venv-terminal --no-project giga --version
           uv run --python .venv-terminal --no-project giga --non-interactive --help
@@ -253,7 +255,7 @@ jobs:
           uv pip install --python .venv-terminal dist/terminal/gigaloom-*.whl
           uv run --python .venv-terminal --no-project giga --version
           uv pip uninstall --python .venv-terminal gigaloom
-          uv run --python .venv-terminal --no-project python -I -c "import importlib.util; assert importlib.util.find_spec('gpt2giga_harness') is None"
+          uv run --python .venv-terminal --no-project python -I -c "import importlib.util; assert importlib.util.find_spec('gigaloom') is None"
 
   performance:
     name: Performance / ci-smoke
@@ -270,7 +272,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: gigaloom-assets-${{ github.sha }}
-          path: packages/gpt2giga-harness/src/gpt2giga_harness/ui/cockpit_v2/assets
+          path: src/gigaloom/ui/web/assets
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -311,7 +313,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: gigaloom-assets-${{ github.sha }}
-          path: packages/gpt2giga-harness/src/gpt2giga_harness/ui/cockpit_v2/assets
+          path: src/gigaloom/ui/web/assets
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7

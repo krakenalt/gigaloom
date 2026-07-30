@@ -1,7 +1,7 @@
 # Release
 
 GigaLoom releases the `gigaloom` distribution from exact tags shaped as
-`gigaloom-vX.Y.Z`.
+`vX.Y.Z`.
 
 ## Maintainer checklist
 

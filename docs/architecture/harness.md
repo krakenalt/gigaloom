@@ -327,8 +327,8 @@ arbitrary edit, shell, filesystem, or network effects retry-safe.
 ## Extending the architecture
 
 Add a new execution backend as a harness adapter under `harnesses/` and register
-it through the provider-neutral `agent_workbench.harness_adapters.v1`
-entry-point group. `gpt2giga.harnesses` remains a compatibility alias. Claim
+it through the provider-neutral `gigaloom.harness_adapters.v1`
+entry-point group. `gigaloom.harnesses.v1` remains a compatibility alias. Claim
 structured or terminal continuity only when the versioned SDK manifest and
 conformance evidence prove the corresponding lifecycle. New API families belong
 in `ui/routers/`; keep `ui/app.py` focused on composition and the core

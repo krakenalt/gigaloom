@@ -7,7 +7,7 @@ import stat
 
 import pytest
 
-from gpt2giga_harness.integration_catalog import (
+from gigaloom.integration_catalog import (
     MAX_CATALOG_SOURCE_ERRORS,
     OFFICIAL_MCP_REGISTRY_SOURCE_ID,
     CatalogConflictError,
@@ -19,7 +19,7 @@ from gpt2giga_harness.integration_catalog import (
     catalog_entry_to_dict,
     sync_official_mcp_registry,
 )
-from gpt2giga_harness.integration_packages import (
+from gigaloom.integration_packages import (
     InstallationScope,
     IntegrationComponent,
     IntegrationComponentType,
@@ -74,7 +74,7 @@ async def test_official_registry_sync_is_paginated_cached_and_offline(tmp_path):
 
     assert [item["server"]["name"] for item in first["servers"]] == ["io.example/alpha"]
     assert [item["server"]["name"] for item in second["servers"]] == ["io.example/beta"]
-    local_meta = first["servers"][0]["_meta"]["agent_workbench.catalog/v1"]
+    local_meta = first["servers"][0]["_meta"]["gigaloom.catalog/v1"]
     assert local_meta["sourceId"] == OFFICIAL_MCP_REGISTRY_SOURCE_ID
     assert local_meta["pinned"] is True
     assert local_meta["sourcePresent"] is True

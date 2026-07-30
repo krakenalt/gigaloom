@@ -5,8 +5,8 @@ import sys
 
 import pytest
 
-from gpt2giga_harness.adapter_scaffold import scaffold_adapter_package
-from gpt2giga_harness.adapter_sdk import (
+from gigaloom.adapter_scaffold import scaffold_adapter_package
+from gigaloom.adapter_sdk import (
     ADAPTER_ENTRY_POINT_GROUP,
     ADAPTER_MANIFEST_SCHEMA_VERSION,
     ADAPTER_SDK_API_VERSION,
@@ -21,8 +21,8 @@ from gpt2giga_harness.adapter_sdk import (
     adapter_manifest_to_dict,
     run_adapter_conformance,
 )
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.types import (
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.types import (
     Availability,
     HarnessCapability,
     HarnessContext,
@@ -78,7 +78,7 @@ def test_conformance_runs_declared_subset_and_marks_every_missing_claim_unsuppor
         fake_provider=fake_provider,
     )
     monkeypatch.setattr(
-        "gpt2giga_harness.adapter_sdk.metadata.distribution",
+        "gigaloom.adapter_sdk.metadata.distribution",
         lambda name: _FakeDistribution(),
     )
 
@@ -194,12 +194,12 @@ def test_out_of_tree_scaffold_installs_and_passes_declared_subset(tmp_path):
     )
     assert install.returncode == 0, install.stderr
     code = """
-from gpt2giga_harness.adapter_sdk import (
+from gigaloom.adapter_sdk import (
     adapter_conformance_report_to_dict,
     load_installed_conformance_subject,
     run_adapter_conformance,
 )
-from gpt2giga_harness.cli import main
+from gigaloom.cli import main
 subject = load_installed_conformance_subject("sample-adapter")
 report = run_adapter_conformance(subject)
 payload = adapter_conformance_report_to_dict(report)

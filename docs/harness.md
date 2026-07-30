@@ -15,17 +15,16 @@ CLI, or a plugin harness; compare the results; inspect what happened; and decide
 which changes are allowed back into your project.
 
 The product name shown by the Web UI, TUI, and human-facing CLI output is
-**GigaLoom**. The distribution is `gigaloom`; the
-`gpt2giga_harness` namespace and the `giga` and `gpt2giga-harness` commands
-remain stable for compatibility.
+**GigaLoom**. The distribution and Python namespace are `gigaloom`; its single
+public console command is `giga`.
 
 ### Visual identity and icon policy
 
 The GigaLoom loom mark is original project artwork and is not copied from or
 derived from GigaChat branding. Its canonical source is
-`packages/gpt2giga-harness/branding/gigaloom-mark.svg`; the repository license
+`web/branding/gigaloom-mark.svg`; the repository license
 governs that source. Run
-`node packages/gpt2giga-harness/branding/generate-assets.mjs` to reproduce its
+`node web/branding/generate-assets.mjs` to reproduce its
 light, dark, mask, favicon, manifest, packaged-UI, and documentation variants.
 
 Skills, Plugins, and MCP use curated local pictograms. Unknown integrations use
@@ -201,9 +200,8 @@ For Direct Chat and the `gpt2giga` provider preset, install the explicit extra:
 uv tool install 'gigaloom[gpt2giga]==0.5.1a2'
 ```
 
-The current `gigaloom==0.5.1a2` distribution provides the `giga` and
-`gpt2giga-harness` commands; its explicit `gpt2giga` extra pins
-`gpt2giga==0.2.6a1`.
+The current `gigaloom==0.5.1a2` distribution provides only the `giga` command;
+its explicit `gpt2giga` extra pins `gpt2giga==0.2.6a1`.
 
 Requirements are Python 3.11–3.14 and `uv`. Direct GigaChat runs also need the
 gateway credentials described in the [gpt2giga quickstart](quickstart.md).
@@ -239,7 +237,7 @@ environment; an environment with an intentionally installed optional provider
 is expected to fail the base-only audit:
 
 ```bash
-python -I -m gpt2giga_harness.base_install --json
+python -I -m gigaloom.base_install --json
 ```
 
 The source-checkout `uv sync --all-extras --dev` command installs
@@ -1216,7 +1214,7 @@ The **Skills**, **Plugins**, and **MCP** pages each expose their matching
 
 ```bash
 export VERCEL_OIDC_TOKEN=<request-scoped-token>
-giga-skills-catalog-proxy
+python -m gigaloom.skills_catalog_proxy
 
 # in the Harness process
 export GIGA_SKILLS_PROXY_ORIGIN=http://127.0.0.1:8092
@@ -1378,7 +1376,7 @@ download, and no operation mutates a real user home by default.
 
 ### Shared Tool And Secret Contracts
 
-The execution-neutral `gpt2giga_harness.tools` package defines the common vocabulary
+The execution-neutral `gigaloom.tools` package defines the common vocabulary
 used by future Harness MCP connections and the proxy Tool Gateway:
 
 - `ToolProvider` and `ToolDescriptor` describe provider-owned tools without
@@ -2075,8 +2073,8 @@ implemented single-issuer OIDC/BFF boundary is documented in the
 [remote UI identity ADR](architecture/remote-ui-identity-adr.md).
 
 Compiled Cockpit bundles are not tracked source. A fresh source checkout must
-run `npm --prefix packages/gpt2giga-harness/frontend ci --ignore-scripts` and
-then `npm --prefix packages/gpt2giga-harness/frontend run build` before the
+run `npm --prefix web ci --ignore-scripts` and
+then `npm --prefix web run build` before the
 first `uv sync` or Harness wheel/sdist build. The producer atomically creates an ignored,
 commit-bound asset tree with integrity metadata, npm SBOM, and license evidence.
 The Python build validates the tree without Node.js or network access and fails
@@ -2324,7 +2322,7 @@ The composer supports:
 
 Uploaded and pasted files are copied into `GPT2GIGA_HARNESS_DATA_DIR`.
 Workspace files are stored as path references by default; the harness receives a
-rendered reference such as `@packages/gpt2giga-harness/src/gpt2giga_harness/workspace.py`, not a copied
+rendered reference such as `@src/gigaloom/workspace.py`, not a copied
 repository file.
 
 The selected harness determines the render plan:
@@ -2354,7 +2352,7 @@ giga harness run codex-cli \
   --mode plan \
   --api-mode v2 \
   --model GigaChat-2-Max \
-  --prompt "Inspect @packages/gpt2giga-harness/src/gpt2giga_harness/workspace.py" \
+  --prompt "Inspect @src/gigaloom/workspace.py" \
   --dry-run \
   --json
 ```
@@ -2745,11 +2743,11 @@ If discovery fails, the UI still accepts manual model input.
 
 ## Add a New Harness
 
-1. Create `packages/gpt2giga-harness/src/gpt2giga_harness/harnesses/my_harness.py`.
+1. Create `src/gigaloom/harnesses/my_harness.py`.
 2. Import and subclass the Harness-owned base class:
 
    ```python
-   from gpt2giga_harness.harnesses.base import BaseHarness
+   from gigaloom.harnesses.base import BaseHarness
    ```
 
 3. Implement `spec()`, `availability()`, and `run()`.
@@ -2757,11 +2755,11 @@ If discovery fails, the UI still accepts manual model input.
    through the versioned provider-neutral group:
 
    ```toml
-   [project.entry-points."agent_workbench.harness_adapters.v1"]
+   [project.entry-points."gigaloom.harness_adapters.v1"]
    my-harness = "my_package.my_harness:MyHarness"
    ```
 
-   Existing packages using `gpt2giga.harnesses` remain discoverable. During
+   Existing packages using `gigaloom.harnesses.v1` remain discoverable. During
    migration a package may publish the same target in both groups; equivalent
    aliases are loaded once and conflicting IDs do not overwrite the first
    adapter.
@@ -2789,10 +2787,10 @@ archive outside the Harness data directory and verify it before changing the
 installed package:
 
 ```bash
-giga state backup --output ../gpt2giga-harness-state.zip
-giga state verify ../gpt2giga-harness-state.zip --json
+giga state backup --output ../gigaloom-state.zip
+giga state verify ../gigaloom-state.zip --json
 # after stopping Harness, restore into an absent directory or confirm replacement
-giga state restore ../gpt2giga-harness-state.zip --replace --json
+giga state restore ../gigaloom-state.zip --replace --json
 ```
 
 The backup schema is versioned and content-addressed. Archive paths are
@@ -2837,14 +2835,12 @@ shim. Update Python imports directly:
 from gpt2giga.harness.harnesses.base import BaseHarness
 
 # After
-from gpt2giga_harness.harnesses.base import BaseHarness
+from gigaloom.harnesses.base import BaseHarness
 ```
 
-The historical plugin entry-point group remains supported as the
-`gpt2giga.harnesses` compatibility alias. New adapters use
-`agent_workbench.harness_adapters.v1`; entry-point targets and Python imports
-continue to live under `gpt2giga_harness.*` until a separately gated namespace
-migration.
+Built-in harnesses are published in `gigaloom.harnesses.v1`. External adapters
+use `gigaloom.harness_adapters.v1`; all entry-point targets and Python imports
+live under `gigaloom.*`.
 
 Remove the old combined wheel before installing the split packages so stale
 `gpt2giga/harness` files cannot mask a migration error:

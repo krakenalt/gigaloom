@@ -1,15 +1,15 @@
-from gpt2giga_harness.native import (
+from gigaloom.native import (
     HarnessInvocationMode,
     NativeExecutionSnapshot,
     NativeSessionRef,
     NativeSessionStatus,
     NativeTranscriptMessage,
 )
-from gpt2giga_harness.native.models import (
+from gigaloom.native.models import (
     execution_snapshot_from_dict,
     execution_snapshot_to_dict,
 )
-from gpt2giga_harness.types import HarnessCapability, HarnessSpec, spec_to_dict
+from gigaloom.types import HarnessCapability, HarnessSpec, spec_to_dict
 
 
 def test_harness_spec_defaults_to_headless_without_native_sessions():

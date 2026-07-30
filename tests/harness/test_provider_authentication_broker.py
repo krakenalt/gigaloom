@@ -5,10 +5,10 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.cli_capabilities import CliCapabilitySnapshot
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.executables import ExecutableResolution
-from gpt2giga_harness.provider_authentication_broker import (
+from gigaloom.cli_capabilities import CliCapabilitySnapshot
+from gigaloom.config import HarnessConfig
+from gigaloom.executables import ExecutableResolution
+from gigaloom.provider_authentication_broker import (
     AuthenticationCommandResult,
     NativeLoginBroker,
     ProviderAccountStatus,
@@ -17,9 +17,9 @@ from gpt2giga_harness.provider_authentication_broker import (
     provider_account_snapshot_to_dict,
     provider_session_binding_to_dict,
 )
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.sessions import InMemoryHarnessSessionStore
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.registry import create_default_registry
+from gigaloom.sessions import InMemoryHarnessSessionStore
+from gigaloom.ui.app import create_app
 
 
 def test_broker_fails_closed_for_missing_cli_and_reviewed_pin_drift(tmp_path):

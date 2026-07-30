@@ -15,7 +15,7 @@ grants, or first-run diagnostics.
 
 ## Decision
 
-Schema version 1 is owned by `gpt2giga_harness.runtime.authority`. It models
+Schema version 1 is owned by `gigaloom.runtime.authority`. It models
 eight target types separately:
 
 - workspace-rooted filesystem paths;
@@ -60,7 +60,7 @@ operation.
 
 ## Compatibility
 
-`gpt2giga_harness.runtime.policy.PermissionAction` remains the current
+`gigaloom.runtime.policy.PermissionAction` remains the current
 enforcement and persistence projection. G4-01 may map version-1 authority
 scopes into those actions while it builds the approval UX and permission
 simulator. Existing approval rows and grants are not migrated by G4-00.

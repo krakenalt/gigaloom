@@ -4,22 +4,22 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness import cli
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.project import resolve_project
-from gpt2giga_harness.runtime.policy import (
+from gigaloom import cli
+from gigaloom.config import HarnessConfig
+from gigaloom.project import resolve_project
+from gigaloom.runtime.policy import (
     SCHEDULE_CREATE_OWNER,
     SCHEDULE_ENABLE_OWNER,
 )
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.runtime.worker import DurableJobWorker
-from gpt2giga_harness.schedules import (
+from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.runtime.worker import DurableJobWorker
+from gigaloom.schedules import (
     ScheduleDefinition,
     build_schedule_definition,
     load_schedule,
     next_occurrences,
 )
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.ui.app import create_app
 
 
 def test_rrule_preview_records_nonexistent_time_and_uses_first_ambiguous_instant():

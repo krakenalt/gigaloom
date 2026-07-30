@@ -1,13 +1,13 @@
 import pytest
 
-from gpt2giga_harness.cli_capabilities import CliCapabilitySnapshot
-from gpt2giga_harness.harnesses.claude_code import ClaudeCodeHarness
-from gpt2giga_harness.harnesses.codex_cli import CodexCliHarness
-from gpt2giga_harness.harnesses.direct_chat import DirectChatHarness
-from gpt2giga_harness.harnesses.echo import EchoHarness
-from gpt2giga_harness.harnesses.gemini_cli import GeminiCliHarness
-from gpt2giga_harness.harnesses.attachment_plan import attachment_capability_error
-from gpt2giga_harness.types import (
+from gigaloom.cli_capabilities import CliCapabilitySnapshot
+from gigaloom.harnesses.claude_code import ClaudeCodeHarness
+from gigaloom.harnesses.codex_cli import CodexCliHarness
+from gigaloom.harnesses.direct_chat import DirectChatHarness
+from gigaloom.harnesses.echo import EchoHarness
+from gigaloom.harnesses.gemini_cli import GeminiCliHarness
+from gigaloom.harnesses.attachment_plan import attachment_capability_error
+from gigaloom.types import (
     Availability,
     HarnessChatMessage,
     HarnessContext,

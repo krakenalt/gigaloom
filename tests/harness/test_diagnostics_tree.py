@@ -8,13 +8,7 @@ from pathlib import Path
 import pytest
 
 
-PACKAGE_ROOT = (
-    Path(__file__).resolve().parents[2]
-    / "packages"
-    / "gpt2giga-harness"
-    / "src"
-    / "gpt2giga_harness"
-)
+PACKAGE_ROOT = Path(__file__).resolve().parents[2] / "src" / "gigaloom"
 
 
 @pytest.mark.parametrize(
@@ -34,7 +28,7 @@ def test_legacy_diagnostic_module_is_bounded_context_alias(
     implementation_name: str,
 ) -> None:
     """Keep root import identity and monkeypatch contracts during migration."""
-    prefix = "gpt2giga_harness."
+    prefix = "gigaloom."
     legacy = importlib.import_module(prefix + legacy_name)
     implementation = importlib.import_module(prefix + implementation_name)
 
@@ -51,9 +45,9 @@ def test_legacy_diagnostic_module_is_bounded_context_alias(
 )
 def test_legacy_performance_workload_is_canonical_alias(suffix: str) -> None:
     """Keep benchmark fixture imports on one canonical module identity."""
-    legacy = importlib.import_module(f"gpt2giga_harness.performance_workloads{suffix}")
+    legacy = importlib.import_module(f"gigaloom.performance_workloads{suffix}")
     implementation = importlib.import_module(
-        f"gpt2giga_harness.diagnostics.performance.workloads{suffix}"
+        f"gigaloom.diagnostics.performance.workloads{suffix}"
     )
 
     assert legacy is implementation
@@ -61,9 +55,9 @@ def test_legacy_performance_workload_is_canonical_alias(suffix: str) -> None:
 
 def test_legacy_performance_workload_facade_reexports_canonical_objects() -> None:
     """Keep public workload contracts identical across the package move."""
-    legacy = importlib.import_module("gpt2giga_harness.performance_workloads")
+    legacy = importlib.import_module("gigaloom.performance_workloads")
     implementation = importlib.import_module(
-        "gpt2giga_harness.diagnostics.performance.workloads"
+        "gigaloom.diagnostics.performance.workloads"
     )
 
     assert legacy.WorkloadSpec is implementation.WorkloadSpec
@@ -102,14 +96,14 @@ def test_diagnostic_implementations_and_shims_fit_structural_limits() -> None:
 def test_canonical_diagnostics_do_not_import_legacy_paths() -> None:
     """Keep root compatibility shims out of the canonical dependency graph."""
     legacy_modules = (
-        "gpt2giga_harness.compatibility_guardian",
-        "gpt2giga_harness.doctor",
-        "gpt2giga_harness.performance_baseline",
-        "gpt2giga_harness.performance_workloads",
-        "gpt2giga_harness.product_capabilities",
-        "gpt2giga_harness.product_inventory",
-        "gpt2giga_harness.runtime_performance_profile",
-        "gpt2giga_harness.tui_performance_profile",
+        "gigaloom.compatibility_guardian",
+        "gigaloom.doctor",
+        "gigaloom.performance_baseline",
+        "gigaloom.performance_workloads",
+        "gigaloom.product_capabilities",
+        "gigaloom.product_inventory",
+        "gigaloom.runtime_performance_profile",
+        "gigaloom.tui_performance_profile",
     )
 
     for path in (PACKAGE_ROOT / "diagnostics").rglob("*.py"):

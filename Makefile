@@ -1,6 +1,6 @@
 .PHONY: frontend-assets sync sync-all-extras lint test build public-gateway
 
-HARNESS_FRONTEND = packages/gpt2giga-harness/frontend
+HARNESS_FRONTEND = web
 UV_CACHE_DIR ?= .cache/uv
 
 frontend-assets:

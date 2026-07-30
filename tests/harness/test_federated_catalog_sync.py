@@ -5,7 +5,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.federated_catalog import (
+from gigaloom.federated_catalog import (
     FEDERATED_TIMEOUT_SECONDS,
     MAX_FEDERATED_RESPONSE_BYTES,
     FederatedCatalogComponent,
@@ -16,23 +16,23 @@ from gpt2giga_harness.federated_catalog import (
     NeuralDeepFederatedCatalogSource,
     SkillsShFederatedCatalogSource,
 )
-from gpt2giga_harness.federated_catalog_sync import (
+from gigaloom.federated_catalog_sync import (
     sync_federated_catalog_source,
     sync_federated_catalog_sources,
 )
-from gpt2giga_harness.integration_catalog import (
+from gigaloom.integration_catalog import (
     CatalogSourceType,
     IntegrationCatalogStore,
     sync_official_mcp_registry,
 )
-from gpt2giga_harness.integration_flows import IntegrationFlowService
-from gpt2giga_harness.integration_packages import IntegrationSourceType
-from gpt2giga_harness.skills_catalog_proxy import (
+from gigaloom.integration_flows import IntegrationFlowService
+from gigaloom.integration_packages import IntegrationSourceType
+from gigaloom.skills_catalog_proxy import (
     SKILLS_PROXY_UPSTREAM_ORIGIN,
     SkillsProxyUpstreamResponse,
     create_skills_catalog_proxy_app,
 )
-from gpt2giga_harness.skills_catalog_proxy_client import SkillsCatalogProxyFetcher
+from gigaloom.skills_catalog_proxy_client import SkillsCatalogProxyFetcher
 
 
 _NOW = datetime(2026, 7, 20, 9, 0, tzinfo=timezone.utc)

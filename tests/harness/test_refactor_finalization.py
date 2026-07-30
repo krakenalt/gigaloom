@@ -12,11 +12,11 @@ import threading
 
 import pytest
 
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.sessions.models import HarnessStoredEvent
-from gpt2giga_harness.sessions.store import utc_now
-from gpt2giga_harness.ui.async_execution import _run_bounded
-from gpt2giga_harness.ui.execution_contracts import WorkloadClass
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.sessions.models import HarnessStoredEvent
+from gigaloom.sessions.store import utc_now
+from gigaloom.ui.async_execution import _run_bounded
+from gigaloom.ui.execution_contracts import WorkloadClass
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -218,7 +218,7 @@ def test_legacy_and_context_imports_resolve_to_same_modules(
     legacy: str,
     context: str,
 ) -> None:
-    prefix = "gpt2giga_harness."
+    prefix = "gigaloom."
     assert importlib.import_module(prefix + legacy) is importlib.import_module(
         prefix + context
     )
@@ -247,7 +247,7 @@ def test_cross_context_facades_resolve_reviewed_exports(
     target_module: str,
     attribute: str,
 ) -> None:
-    prefix = "gpt2giga_harness."
+    prefix = "gigaloom."
     facade = importlib.import_module(prefix + facade_module)
     target = importlib.import_module(prefix + target_module)
 

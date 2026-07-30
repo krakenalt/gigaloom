@@ -19,7 +19,7 @@ copying a blanket internet toggle.
 
 ## Decision
 
-`gpt2giga_harness.runtime.network_access` owns schema version 1 for
+`gigaloom.runtime.network_access` owns schema version 1 for
 Harness-enforced outbound HTTPS. Authorization requires both:
 
 1. an explicitly enabled sandbox network boundary; and

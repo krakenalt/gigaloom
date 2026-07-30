@@ -1,17 +1,17 @@
 import json
 from pathlib import Path
 
-from gpt2giga_harness import cli
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.doctor import build_doctor_report
-from gpt2giga_harness.product_inventory import (
+from gigaloom import cli
+from gigaloom.config import HarnessConfig
+from gigaloom.doctor import build_doctor_report
+from gigaloom.product_inventory import (
     PRODUCT_INVENTORY_KIND,
     build_product_inventory,
     load_product_inventory,
     validate_product_inventory,
 )
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.registry import create_default_registry
+from gigaloom.ui.app import create_app
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
 

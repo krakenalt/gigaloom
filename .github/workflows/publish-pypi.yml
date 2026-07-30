@@ -96,23 +96,23 @@ jobs:
         with:
           node-version: "22.13.0"
           cache: npm
-          cache-dependency-path: packages/gpt2giga-harness/frontend/package-lock.json
+          cache-dependency-path: web/package-lock.json
 
       - name: Install pinned npm 11.17
         run: npm install --global --ignore-scripts npm@11.17.0
 
       - name: Build verified release assets
         run: |
-          npm --prefix packages/gpt2giga-harness/frontend ci --ignore-scripts
-          npm --prefix packages/gpt2giga-harness/frontend run check
-          npm --prefix packages/gpt2giga-harness/frontend run build:release
-          python3 packages/gpt2giga-harness/asset_contract.py --require-clean
+          npm --prefix web ci --ignore-scripts
+          npm --prefix web run check
+          npm --prefix web run build:release
+          python3 scripts/asset_contract.py --require-clean
 
       - name: Upload commit-bound frontend evidence
         uses: actions/upload-artifact@v7
         with:
           name: gigaloom-release-assets-${{ github.sha }}
-          path: packages/gpt2giga-harness/src/gpt2giga_harness/ui/cockpit_v2/assets
+          path: src/gigaloom/ui/web/assets
           if-no-files-found: error
           retention-days: 90
 
@@ -132,7 +132,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: gigaloom-release-assets-${{ github.sha }}
-          path: packages/gpt2giga-harness/src/gpt2giga_harness/ui/cockpit_v2/assets
+          path: src/gigaloom/ui/web/assets
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
@@ -160,9 +160,9 @@ jobs:
           test "$(find dist/gigaloom -maxdepth 1 -type f \( -name '*.whl' -o -name '*.tar.gz' \) | wc -l | tr -d ' ')" = "2"
           test "$(find dist/gigaloom -maxdepth 1 -type f -name "gigaloom-${RELEASE_VERSION}-*.whl" | wc -l | tr -d ' ')" = "1"
           test "$(find dist/gigaloom -maxdepth 1 -type f -name "gigaloom-${RELEASE_VERSION}.tar.gz" | wc -l | tr -d ' ')" = "1"
-          python3 packages/gpt2giga-harness/asset_contract.py --require-clean
-          cp packages/gpt2giga-harness/src/gpt2giga_harness/ui/cockpit_v2/assets/_build/sbom.cdx.json dist/gigaloom/
-          cp packages/gpt2giga-harness/src/gpt2giga_harness/ui/cockpit_v2/assets/_build/licenses.json dist/gigaloom/
+          python3 scripts/asset_contract.py --require-clean
+          cp src/gigaloom/ui/web/assets/_build/sbom.cdx.json dist/gigaloom/
+          cp src/gigaloom/ui/web/assets/_build/licenses.json dist/gigaloom/
           sha256sum dist/gigaloom/* > dist/gigaloom/SHA256SUMS
           cat dist/gigaloom/SHA256SUMS
 

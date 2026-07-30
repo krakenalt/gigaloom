@@ -1,14 +1,14 @@
 import pytest
 
-from gpt2giga_harness.gigachat_compatibility import (
+from gigaloom.gigachat_compatibility import (
     GIGACHAT_COMPATIBILITY_SCHEMA,
     gigachat_compatibility_evidence,
     gigachat_gateway_ready_event,
 )
-from gpt2giga_harness.provenance import build_run_provenance, run_provenance_to_dict
-from gpt2giga_harness.runtime.models import RunStatus
-from gpt2giga_harness.sessions.models import HarnessRun, HarnessStoredEvent
-from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability, HarnessRequest
+from gigaloom.provenance import build_run_provenance, run_provenance_to_dict
+from gigaloom.runtime.models import RunStatus
+from gigaloom.sessions.models import HarnessRun, HarnessStoredEvent
+from gigaloom.types import GigaChatApiMode, HarnessCapability, HarnessRequest
 
 
 def test_route_event_is_content_free_and_bound_to_selected_wire() -> None:
@@ -25,7 +25,7 @@ def test_route_event_is_content_free_and_bound_to_selected_wire() -> None:
 
     assert event.type == "gigachat_gateway_ready"
     assert event.payload == {
-        "schema": "gpt2giga-harness/gigachat-route-ready-v1",
+        "schema": "gigaloom/gigachat-route-ready-v1",
         "gateway": "gpt2giga",
         "harness_id": "claude-code",
         "wire": "anthropic-messages",
@@ -44,7 +44,7 @@ def test_provenance_reports_only_observed_gigachat_semantics() -> None:
             "route",
             "gigachat_gateway_ready",
             {
-                "schema": "gpt2giga-harness/gigachat-route-ready-v1",
+                "schema": "gigaloom/gigachat-route-ready-v1",
                 "gateway": "gpt2giga",
                 "harness_id": "codex-cli",
                 "wire": "openai-responses",
@@ -96,7 +96,7 @@ def test_provenance_reports_only_observed_gigachat_semantics() -> None:
 )
 def test_gigachat_evidence_rejects_rebound_route_identity(changed, message) -> None:
     payload = {
-        "schema": "gpt2giga-harness/gigachat-route-ready-v1",
+        "schema": "gigaloom/gigachat-route-ready-v1",
         "gateway": "gpt2giga",
         "harness_id": "codex-cli",
         "wire": "openai-responses",

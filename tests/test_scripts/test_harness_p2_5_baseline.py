@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
+from gigaloom.sessions import FilesystemHarnessSessionStore
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

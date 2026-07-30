@@ -1,17 +1,17 @@
 import json
 
-from gpt2giga_harness import proxy, readiness
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.execution import ExecutionTransport
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.native.models import HarnessInvocationMode
-from gpt2giga_harness.preflight import (
+from gigaloom import proxy, readiness
+from gigaloom.config import HarnessConfig
+from gigaloom.execution import ExecutionTransport
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.native.models import HarnessInvocationMode
+from gigaloom.preflight import (
     build_preflight_report,
     format_preflight_block_message,
 )
-from gpt2giga_harness.readiness import build_execution_readiness
-from gpt2giga_harness.registry import HarnessRegistry
-from gpt2giga_harness.types import (
+from gigaloom.readiness import build_execution_readiness
+from gigaloom.registry import HarnessRegistry
+from gigaloom.types import (
     Availability,
     GigaChatApiMode,
     HarnessCapability,
@@ -20,7 +20,7 @@ from gpt2giga_harness.types import (
     HarnessResult,
     HarnessSpec,
 )
-from gpt2giga_harness.worktrees import WorkspacePolicy
+from gigaloom.worktrees import WorkspacePolicy
 
 
 def test_echo_readiness_ignores_proxy_and_worker_for_synchronous_run(

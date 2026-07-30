@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.sessions.models import (
+from gigaloom.config import HarnessConfig
+from gigaloom.registry import create_default_registry
+from gigaloom.sessions.models import (
     HarnessMessage,
     bundle_to_dict,
 )
-from gpt2giga_harness.sessions.store import utc_now
-from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability
-from gpt2giga_harness.ui.app import create_app
-from gpt2giga_harness.ui.services.legacy_bundles import (
+from gigaloom.sessions.store import utc_now
+from gigaloom.types import GigaChatApiMode, HarnessCapability
+from gigaloom.ui.app import create_app
+from gigaloom.ui.services.legacy_bundles import (
     LEGACY_FULL_BUNDLE_MARKER,
 )
 

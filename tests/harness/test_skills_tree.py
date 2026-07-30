@@ -26,21 +26,15 @@ def test_legacy_skills_module_is_bounded_context_alias(
     implementation_name: str,
 ) -> None:
     """Keep legacy module identity for imports and monkeypatch contracts."""
-    legacy = importlib.import_module(f"gpt2giga_harness.{legacy_name}")
-    implementation = importlib.import_module(f"gpt2giga_harness.{implementation_name}")
+    legacy = importlib.import_module(f"gigaloom.{legacy_name}")
+    implementation = importlib.import_module(f"gigaloom.{implementation_name}")
 
     assert legacy is implementation
 
 
 def test_skills_implementation_and_shims_fit_structural_limits() -> None:
     """Keep new modules bounded and old root paths implementation-free."""
-    package_root = (
-        Path(__file__).resolve().parents[2]
-        / "packages"
-        / "gpt2giga-harness"
-        / "src"
-        / "gpt2giga_harness"
-    )
+    package_root = Path(__file__).resolve().parents[2] / "src" / "gigaloom"
     implementation_root = package_root / "skills"
 
     assert (
@@ -64,20 +58,15 @@ def test_skills_implementation_and_shims_fit_structural_limits() -> None:
 def test_canonical_skills_modules_do_not_import_legacy_shims() -> None:
     """Keep compatibility aliases out of the canonical implementation graph."""
     legacy_modules = (
-        "gpt2giga_harness.builtin_skills",
-        "gpt2giga_harness.external_skills",
-        "gpt2giga_harness.portable_skills",
-        "gpt2giga_harness.skill_library",
-        "gpt2giga_harness.skills_catalog_proxy",
-        "gpt2giga_harness.skills_catalog_proxy_client",
+        "gigaloom.builtin_skills",
+        "gigaloom.external_skills",
+        "gigaloom.portable_skills",
+        "gigaloom.skill_library",
+        "gigaloom.skills_catalog_proxy",
+        "gigaloom.skills_catalog_proxy_client",
     )
     implementation_root = (
-        Path(__file__).resolve().parents[2]
-        / "packages"
-        / "gpt2giga-harness"
-        / "src"
-        / "gpt2giga_harness"
-        / "skills"
+        Path(__file__).resolve().parents[2] / "src" / "gigaloom" / "skills"
     )
 
     for path in implementation_root.rglob("*.py"):
@@ -90,12 +79,12 @@ def test_canonical_skills_modules_do_not_import_legacy_shims() -> None:
 @pytest.mark.parametrize(
     "modules",
     (
-        ("gpt2giga_harness.skills.api", "gpt2giga_harness.integrations.api"),
-        ("gpt2giga_harness.integrations.api", "gpt2giga_harness.skills.api"),
-        ("gpt2giga_harness.skills.api", "gpt2giga_harness.tools.mcp"),
+        ("gigaloom.skills.api", "gigaloom.integrations.api"),
+        ("gigaloom.integrations.api", "gigaloom.skills.api"),
+        ("gigaloom.skills.api", "gigaloom.tools.mcp"),
         (
-            "gpt2giga_harness.skills_catalog_proxy_client",
-            "gpt2giga_harness.skills_catalog_proxy",
+            "gigaloom.skills_catalog_proxy_client",
+            "gigaloom.skills_catalog_proxy",
         ),
     ),
 )

@@ -9,7 +9,7 @@ from typing import Any, Mapping
 
 import pytest
 
-from gpt2giga_harness.structured_processes import (
+from gigaloom.structured_processes import (
     JsonLineFrameDecoder,
     NormalizedStructuredEvent,
     ProtocolFrameFault,

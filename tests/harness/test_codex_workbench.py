@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from gpt2giga_harness.cli_capabilities import CliCapabilitySnapshot
-from gpt2giga_harness.harnesses.codex_workbench import (
+from gigaloom.cli_capabilities import CliCapabilitySnapshot
+from gigaloom.harnesses.codex_workbench import (
     CodexAppServerEventDecoder,
     admit_codex_workbench,
     codex_contextual_capabilities,
 )
-from gpt2giga_harness.native_cli_contracts import CapabilityState
+from gigaloom.native_cli_contracts import CapabilityState
 
 
 def _snapshot(*, version: str, supported: bool = True, app_server: bool = True):

@@ -10,10 +10,10 @@ import time
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness import github_environments
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.environments import EnvironmentSnapshot, HostedRepositoryHint
-from gpt2giga_harness.github_environments import (
+from gigaloom import github_environments
+from gigaloom.config import HarnessConfig
+from gigaloom.environments import EnvironmentSnapshot, HostedRepositoryHint
+from gigaloom.github_environments import (
     GitHubCountRollup,
     GitHubEnvironmentSnapshot,
     GitHubEnvironmentService,
@@ -22,8 +22,8 @@ from gpt2giga_harness.github_environments import (
     _CommandResult,
     _run_gh_command,
 )
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.registry import create_default_registry
+from gigaloom.ui.app import create_app
 
 
 CHECKED_AT = datetime(2026, 7, 22, 12, 0, tzinfo=timezone.utc)

@@ -3,19 +3,19 @@ from dataclasses import replace
 
 import pytest
 
-import gpt2giga_harness.sessions.storage.filesystem.events as event_storage
-from gpt2giga_harness.sessions import (
+import gigaloom.sessions.storage.filesystem.events as event_storage
+from gigaloom.sessions import (
     EventPersistenceClass,
     FilesystemHarnessSessionStore,
     InMemoryHarnessSessionStore,
     classify_event_persistence,
 )
-from gpt2giga_harness.sessions.event_persistence import (
+from gigaloom.sessions.event_persistence import (
     MAX_EVENT_APPEND_BATCH_RECORDS,
 )
-from gpt2giga_harness.sessions.event_stream import RunEventBroker, StreamSignal
-from gpt2giga_harness.sessions.models import HarnessStoredEvent
-from gpt2giga_harness.sessions.store import utc_now
+from gigaloom.sessions.event_stream import RunEventBroker, StreamSignal
+from gigaloom.sessions.models import HarnessStoredEvent
+from gigaloom.sessions.store import utc_now
 
 
 def _event(event_id: str, *, run_id: str = "run-one") -> HarnessStoredEvent:

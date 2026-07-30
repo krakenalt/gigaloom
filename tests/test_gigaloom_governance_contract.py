@@ -175,7 +175,7 @@ def test_ruleset_checks_match_the_always_running_quality_workflow():
 
     tag_ruleset = policy["rulesets"]["release_tags"]
     assert tag_ruleset["name"] == "protect-gigaloom-release-tags"
-    assert tag_ruleset["target"] == "refs/tags/gigaloom-v*"
+    assert tag_ruleset["target"] == "refs/tags/v*"
     assert tag_ruleset["restrict_creation"] is True
     assert tag_ruleset["restrict_updates"] is True
 
@@ -207,8 +207,8 @@ def test_actions_permissions_and_security_automation_are_specialized():
     }
     assert updates == {
         ("github-actions", "/"),
-        ("pip", "/packages/gpt2giga-harness"),
-        ("npm", "/packages/gpt2giga-harness/frontend"),
+        ("pip", "/"),
+        ("npm", "/web"),
         ("npm", "/docs-site"),
     }
 

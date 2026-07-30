@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.claude_plugin_target import (
+from gigaloom.claude_plugin_target import (
     CLAUDE_PLUGIN_TARGET_ID,
     ClaudePluginApproval,
     ClaudePluginCommandError,
@@ -19,11 +19,11 @@ from gpt2giga_harness.claude_plugin_target import (
     claude_plugin_source_checksum,
     claude_plugin_target_plugin,
 )
-from gpt2giga_harness.integration_installer import (
+from gigaloom.integration_installer import (
     InstallationConflictError,
     InstallationScopeError,
 )
-from gpt2giga_harness.integration_packages import (
+from gigaloom.integration_packages import (
     ExtensionTargetRegistry,
     InstallationScope,
     IntegrationCompatibility,

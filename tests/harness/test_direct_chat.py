@@ -4,11 +4,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from gpt2giga_harness import proxy
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.harnesses import direct_chat as direct_chat_module
-from gpt2giga_harness.harnesses.direct_chat import DirectChatHarness
-from gpt2giga_harness.types import (
+from gigaloom import proxy
+from gigaloom.config import HarnessConfig
+from gigaloom.harnesses import direct_chat as direct_chat_module
+from gigaloom.harnesses.direct_chat import DirectChatHarness
+from gigaloom.types import (
     GigaChatBuiltinTool,
     GigaChatApiMode,
     HarnessChatMessage,
@@ -559,7 +559,7 @@ def test_direct_chat_streams_gigachat_builtin_tool_events(monkeypatch, tmp_path)
 
     monkeypatch.setattr(proxy, "stream_sse_json", fake_stream_sse_json)
     monkeypatch.setattr(
-        "gpt2giga_harness.harnesses.direct_chat._download_gigachat_image",
+        "gigaloom.harnesses.direct_chat._download_gigachat_image",
         lambda file_id: base64.b64encode(b"generated-jpeg").decode("ascii"),
     )
 
@@ -676,7 +676,7 @@ def test_direct_chat_streams_generated_document_from_response_messages(
 
     monkeypatch.setattr(proxy, "stream_sse_json", fake_stream_sse_json)
     monkeypatch.setattr(
-        "gpt2giga_harness.harnesses.direct_chat._download_gigachat_file",
+        "gigaloom.harnesses.direct_chat._download_gigachat_file",
         lambda file_id: document,
     )
 

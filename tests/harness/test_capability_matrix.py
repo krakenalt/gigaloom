@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from gpt2giga_harness.capability_matrix import (
+from gigaloom.capability_matrix import (
     AGENT_SURFACE_MATRIX_SOURCE,
     CAPABILITY_MATRIX_SOURCE,
     build_adapter_capability_matrix,
@@ -8,8 +8,8 @@ from gpt2giga_harness.capability_matrix import (
     render_adapter_capability_matrix_markdown,
     render_agent_surface_capability_matrix_markdown,
 )
-from gpt2giga_harness.registry import HarnessRegistry
-from gpt2giga_harness.types import spec_to_dict
+from gigaloom.registry import HarnessRegistry
+from gigaloom.types import spec_to_dict
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
 

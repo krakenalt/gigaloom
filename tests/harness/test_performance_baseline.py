@@ -9,8 +9,8 @@ import sys
 
 import pytest
 
-from gpt2giga_harness import cli
-from gpt2giga_harness.performance_baseline import (
+from gigaloom import cli
+from gigaloom.performance_baseline import (
     CI_SMOKE_BUDGETS_MS,
     DETAIL_REFERENCE_BUDGETS_MS,
     FIXTURE_SET_VERSION,
@@ -22,18 +22,18 @@ from gpt2giga_harness.performance_baseline import (
     run_performance_baseline,
     write_performance_report,
 )
-from gpt2giga_harness.performance_workloads import (
+from gigaloom.performance_workloads import (
     REQUIRED_WORKLOAD_FAMILIES,
     WorkloadSpec,
     discover_workloads,
     workload_contracts,
 )
-from gpt2giga_harness.performance_workloads.sessions import events
-from gpt2giga_harness.performance_workloads.sessions.profile import (
+from gigaloom.performance_workloads.sessions import events
+from gigaloom.performance_workloads.sessions.profile import (
     _measure_case,
     run_session_storage_scaling_baseline,
 )
-from gpt2giga_harness.performance_workloads.runtime.profile import (
+from gigaloom.performance_workloads.runtime.profile import (
     run_runtime_scaling_baseline,
 )
 
@@ -75,7 +75,7 @@ def test_cli_import_does_not_load_testclient_backend():
                 "import sys, warnings; "
                 "from starlette.exceptions import StarletteDeprecationWarning; "
                 "warnings.simplefilter('error', StarletteDeprecationWarning); "
-                "import gpt2giga_harness.cli; "
+                "import gigaloom.cli; "
                 "assert 'fastapi.testclient' not in sys.modules"
             ),
         ],
@@ -100,7 +100,7 @@ def test_performance_baseline_imports_without_posix_resource_module():
                 "            raise ModuleNotFoundError(fullname)\n"
                 "        return None\n"
                 "sys.meta_path.insert(0, BlockResource()); "
-                "from gpt2giga_harness import performance_baseline as baseline; "
+                "from gigaloom import performance_baseline as baseline; "
                 "sample = baseline._measure(lambda: {}); "
                 "assert sample.rss_bytes == 0; "
                 "assert sample.input_blocks == 0; "
@@ -177,7 +177,7 @@ def test_workload_discovery_accepts_new_module_without_central_inventory(
         (package / filename).write_text(
             "\n".join(
                 (
-                    "from gpt2giga_harness.performance_workloads import WorkloadSpec",
+                    "from gigaloom.performance_workloads import WorkloadSpec",
                     "",
                     "WORKLOADS = (",
                     "    WorkloadSpec(",

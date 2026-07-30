@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from gpt2giga_harness.execution import ExecutionTransport
-from gpt2giga_harness.gemini_compatible import (
+from gigaloom.execution import ExecutionTransport
+from gigaloom.gemini_compatible import (
     GEMINI_GENERATE_CONTENT_DIALECT,
     GEMINI_MODELS_DISCOVERY_STRATEGY,
     GEMINI_PROBE_OWNER,
@@ -28,7 +28,7 @@ from gpt2giga_harness.gemini_compatible import (
     parse_gemini_models_response,
     vertex_ai_gemini_profile,
 )
-from gpt2giga_harness.provider_profiles import (
+from gigaloom.provider_profiles import (
     AuthenticationOwnership,
     ModelPurpose,
     ModelPurposeDefault,
@@ -39,7 +39,7 @@ from gpt2giga_harness.provider_profiles import (
     RouteCompatibilityError,
     provider_profile_to_dict,
 )
-from gpt2giga_harness.provider_registry import (
+from gigaloom.provider_registry import (
     ProviderAuthenticationFailure,
     ProviderCompatibilityFailure,
     ProviderDiscoveryStatus,
@@ -52,7 +52,7 @@ from gpt2giga_harness.provider_registry import (
     ProviderRegistryEntry,
     ProviderTransportFailure,
 )
-from gpt2giga_harness.secrets import (
+from gigaloom.secrets import (
     EnvironmentSecretResolver,
     SecretReference,
     SecretReferenceKind,

@@ -6,9 +6,9 @@ import ast
 from importlib import import_module
 from pathlib import Path
 
-import gpt2giga_harness
-from gpt2giga_harness import contracts
-from gpt2giga_harness.core import instrumentation, paths, redaction
+import gigaloom
+from gigaloom import contracts
+from gigaloom.core import instrumentation, paths, redaction
 
 
 LEGACY_TYPE_EXPORTS = {
@@ -68,32 +68,30 @@ SHIMS = {
 
 
 def test_legacy_shared_exports_resolve_to_canonical_objects() -> None:
-    legacy_types = import_module("gpt2giga_harness.types")
+    legacy_types = import_module("gigaloom.types")
     assert LEGACY_TYPE_EXPORTS <= set(vars(legacy_types))
     assert legacy_types.HarnessRequest is contracts.HarnessRequest
     assert legacy_types.ExecutionTransport is contracts.ExecutionTransport
     assert legacy_types.HarnessInvocationMode is contracts.HarnessInvocationMode
     assert legacy_types.redact_secrets is redaction.redact_secrets
-    assert contracts.HarnessRequest.__module__ == "gpt2giga_harness.types"
-    assert contracts.ExecutionTransport.__module__ == "gpt2giga_harness.execution"
-    assert (
-        contracts.HarnessInvocationMode.__module__ == "gpt2giga_harness.native.models"
-    )
+    assert contracts.HarnessRequest.__module__ == "gigaloom.types"
+    assert contracts.ExecutionTransport.__module__ == "gigaloom.execution"
+    assert contracts.HarnessInvocationMode.__module__ == "gigaloom.native.models"
 
-    legacy_config = import_module("gpt2giga_harness.config")
-    legacy_paths = import_module("gpt2giga_harness.safe_paths")
-    legacy_instrumentation = import_module("gpt2giga_harness.instrumentation")
+    legacy_config = import_module("gigaloom.config")
+    legacy_paths = import_module("gigaloom.safe_paths")
+    legacy_instrumentation = import_module("gigaloom.instrumentation")
     assert legacy_config.HarnessConfig is contracts.HarnessConfig
     assert legacy_paths.resolve_path_within is paths.resolve_path_within
     assert legacy_instrumentation.record_duration is instrumentation.record_duration
 
 
 def test_root_init_exports_are_preserved_and_canonical() -> None:
-    assert set(gpt2giga_harness.__all__) == ROOT_EXPORTS
-    assert gpt2giga_harness.Availability is contracts.Availability
-    assert gpt2giga_harness.GigaChatApiMode is contracts.GigaChatApiMode
-    assert gpt2giga_harness.HarnessRequest is contracts.HarnessRequest
-    assert gpt2giga_harness.emit_event is contracts.emit_event
+    assert set(gigaloom.__all__) == ROOT_EXPORTS
+    assert gigaloom.Availability is contracts.Availability
+    assert gigaloom.GigaChatApiMode is contracts.GigaChatApiMode
+    assert gigaloom.HarnessRequest is contracts.HarnessRequest
+    assert gigaloom.emit_event is contracts.emit_event
 
 
 def test_root_compatibility_shims_are_small_and_logic_free(
@@ -121,7 +119,7 @@ def test_core_and_contract_import_graph_is_acyclic(package_root: Path) -> None:
         for node in tree.body:
             if not isinstance(node, ast.ImportFrom) or node.module is None:
                 continue
-            prefix = "gpt2giga_harness."
+            prefix = "gigaloom."
             if node.module.startswith(prefix):
                 target = node.module.removeprefix(prefix)
                 if target in module_paths:

@@ -1,16 +1,16 @@
 from fastapi import HTTPException
-from gpt2giga_harness.runtime.policy import (
+from gigaloom.runtime.policy import (
     REVIEWED_PROMOTION_APPLY_OWNER,
     PermissionAction,
     PolicyEngine,
 )
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.types import (
+from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.types import (
     GigaChatApiMode,
     HarnessCapability,
 )
-from gpt2giga_harness.ui.services.approvals import ApprovalGateService
+from gigaloom.ui.services.approvals import ApprovalGateService
 
 
 def test_approval_gate_deduplicates_requested_event(tmp_path):

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.gemini_mcp_target import (
+from gigaloom.gemini_mcp_target import (
     GEMINI_MCP_TARGET_ID,
     GeminiCommandResult,
     GeminiMCPRequest,
@@ -16,12 +16,12 @@ from gpt2giga_harness.gemini_mcp_target import (
     GeminiMCPTransport,
     gemini_mcp_target_plugin,
 )
-from gpt2giga_harness.integration_installer import (
+from gigaloom.integration_installer import (
     InstallationApproval,
     InstallationConflictError,
     InstallationScopeError,
 )
-from gpt2giga_harness.integration_packages import (
+from gigaloom.integration_packages import (
     ExtensionTargetRegistry,
     InstallationScope,
     IntegrationCompatibility,

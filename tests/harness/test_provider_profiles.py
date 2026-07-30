@@ -3,13 +3,13 @@ import json
 
 import pytest
 
-from gpt2giga_harness import provider_profiles as provider_module
-from gpt2giga_harness.execution import (
+from gigaloom import provider_profiles as provider_module
+from gigaloom.execution import (
     ExecutionTransport,
     ProviderRef,
     SnapshotEvidenceRef,
 )
-from gpt2giga_harness.provider_profiles import (
+from gigaloom.provider_profiles import (
     NEUTRAL_PROVIDER_ENTRY_POINT_GROUP,
     PROVIDER_ADAPTER_ENTRY_POINTS,
     AdapterProtocolCompatibility,
@@ -29,8 +29,8 @@ from gpt2giga_harness.provider_profiles import (
     route_profile_from_dict,
     route_profile_to_dict,
 )
-from gpt2giga_harness.registries import RegistryCollisionError
-from gpt2giga_harness.secrets import SecretReference, SecretReferenceKind
+from gigaloom.registries import RegistryCollisionError
+from gigaloom.secrets import SecretReference, SecretReferenceKind
 
 
 def test_profiles_round_trip_without_secret_values_and_keep_refs_separate():

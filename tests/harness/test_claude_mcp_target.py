@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.claude_mcp_target import (
+from gigaloom.claude_mcp_target import (
     CLAUDE_MCP_TARGET_ID,
     ClaudeCommandResult,
     ClaudeMCPRequest,
@@ -15,11 +15,11 @@ from gpt2giga_harness.claude_mcp_target import (
     ClaudeMCPTransport,
     claude_mcp_target_plugin,
 )
-from gpt2giga_harness.integration_installer import (
+from gigaloom.integration_installer import (
     InstallationApproval,
     InstallationConflictError,
 )
-from gpt2giga_harness.integration_packages import (
+from gigaloom.integration_packages import (
     ExtensionTargetRegistry,
     InstallationScope,
     IntegrationCompatibility,

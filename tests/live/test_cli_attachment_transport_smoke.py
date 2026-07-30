@@ -6,10 +6,10 @@ import os
 
 import pytest
 
-from gpt2giga_harness.harnesses.claude_code import ClaudeCodeHarness
-from gpt2giga_harness.harnesses.codex_cli import CodexCliHarness
-from gpt2giga_harness.harnesses.gemini_cli import GeminiCliHarness
-from gpt2giga_harness.types import HarnessContext, HarnessRequest
+from gigaloom.harnesses.claude_code import ClaudeCodeHarness
+from gigaloom.harnesses.codex_cli import CodexCliHarness
+from gigaloom.harnesses.gemini_cli import GeminiCliHarness
+from gigaloom.types import HarnessContext, HarnessRequest
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.live_native_cli]

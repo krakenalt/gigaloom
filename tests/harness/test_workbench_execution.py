@@ -1,10 +1,10 @@
 import pytest
 
-from gpt2giga_harness.execution import ExecutionTransport
-from gpt2giga_harness.product_capabilities import ProductCapabilityError
-from gpt2giga_harness.structured_sessions import AdapterCapabilitySnapshot
-from gpt2giga_harness.types import HarnessCapability, HarnessSpec
-from gpt2giga_harness.workbench_execution import (
+from gigaloom.execution import ExecutionTransport
+from gigaloom.product_capabilities import ProductCapabilityError
+from gigaloom.structured_sessions import AdapterCapabilitySnapshot
+from gigaloom.types import HarnessCapability, HarnessSpec
+from gigaloom.workbench_execution import (
     admit_workbench_execution,
     default_workbench_transport,
     effective_workbench_transport,

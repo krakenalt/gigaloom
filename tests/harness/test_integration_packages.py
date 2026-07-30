@@ -4,8 +4,8 @@ from dataclasses import replace
 
 import pytest
 
-import gpt2giga_harness.integration_packages as integration_module
-from gpt2giga_harness.integration_packages import (
+import gigaloom.integration_packages as integration_module
+from gigaloom.integration_packages import (
     EXTENSION_TARGET_ENTRY_POINTS,
     INTEGRATION_PACKAGE_SCHEMA_VERSION,
     NEUTRAL_EXTENSION_TARGET_ENTRY_POINT_GROUP,
@@ -33,7 +33,7 @@ from gpt2giga_harness.integration_packages import (
     integration_package_to_dict,
     integration_trust_assessment_to_dict,
 )
-from gpt2giga_harness.registries import RegistryCollisionError
+from gigaloom.registries import RegistryCollisionError
 
 
 _DIGEST = "sha256:" + "a" * 64

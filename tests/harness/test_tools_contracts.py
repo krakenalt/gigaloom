@@ -7,9 +7,9 @@ import json
 
 import pytest
 
-from gpt2giga_harness.sessions.redaction import redact_for_storage
-from gpt2giga_harness.runtime.policy import PolicyDecision as HarnessPolicyDecision
-from gpt2giga_harness.tools import (
+from gigaloom.sessions.redaction import redact_for_storage
+from gigaloom.runtime.policy import PolicyDecision as HarnessPolicyDecision
+from gigaloom.tools import (
     CompositeSecretResolver,
     EnvironmentSecretResolver,
     PolicyDecision,

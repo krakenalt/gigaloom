@@ -68,11 +68,11 @@ def test_release_policy_freezes_target_identity_and_first_release():
         "distribution": "gigaloom",
         "first_target_release": {
             "history_floor": "b6983b5036a70061a3f436e6a28f9a56fcd64bdc",
-            "tag": "gigaloom-v0.5.1a2",
+            "tag": "v0.5.1a2",
             "version": "0.5.1a2",
         },
         "repository": "krakenalt/gigaloom",
-        "tag_prefix": "gigaloom-v",
+        "tag_prefix": "v",
     }
     assert (REPOSITORY_ROOT / "uv.lock").is_file()
     ignore = (REPOSITORY_ROOT / ".gitignore").read_text(encoding="utf-8")

@@ -2,14 +2,14 @@ from dataclasses import replace
 
 import pytest
 
-from gpt2giga_harness.session_titles import (
+from gigaloom.session_titles import (
     SessionTitleGeneration,
     apply_provider_native_title,
     claim_fallback_title,
     complete_fallback_title,
     title_diagnostics,
 )
-from gpt2giga_harness.sessions import (
+from gigaloom.sessions import (
     FilesystemHarnessSessionStore,
     InMemoryHarnessSessionStore,
 )

@@ -10,9 +10,7 @@ import pytest
 
 
 ROOT = Path(__file__).parents[2]
-HARNESS_ROOT = (
-    ROOT / "packages" / "gpt2giga-harness" / "src" / "gpt2giga_harness" / "harnesses"
-)
+HARNESS_ROOT = ROOT / "src" / "gigaloom" / "harnesses"
 
 LEGACY_ALIASES = {
     "adapter_parity": "sdk.adapter_parity",
@@ -39,11 +37,11 @@ PROVIDER_LEGACY_ALIASES = {
 }
 
 PLUGIN_TARGETS = {
-    "direct-chat": "gpt2giga_harness.harnesses.direct_chat:DirectChatHarness",
-    "codex-cli": "gpt2giga_harness.harnesses.codex_cli:CodexCliHarness",
-    "claude-code": "gpt2giga_harness.harnesses.claude_code:ClaudeCodeHarness",
-    "gemini-cli": "gpt2giga_harness.harnesses.gemini_cli:GeminiCliHarness",
-    "echo": "gpt2giga_harness.harnesses.echo:EchoHarness",
+    "direct-chat": "gigaloom.harnesses.direct_chat:DirectChatHarness",
+    "codex-cli": "gigaloom.harnesses.codex_cli:CodexCliHarness",
+    "claude-code": "gigaloom.harnesses.claude_code:ClaudeCodeHarness",
+    "gemini-cli": "gigaloom.harnesses.gemini_cli:GeminiCliHarness",
+    "echo": "gigaloom.harnesses.echo:EchoHarness",
 }
 
 
@@ -52,7 +50,7 @@ def test_legacy_harness_modules_are_exact_aliases(
     legacy: str,
     implementation: str,
 ) -> None:
-    prefix = "gpt2giga_harness.harnesses."
+    prefix = "gigaloom.harnesses."
     assert importlib.import_module(prefix + legacy) is importlib.import_module(
         prefix + implementation
     )
@@ -61,8 +59,8 @@ def test_legacy_harness_modules_are_exact_aliases(
 def test_plugin_entry_points_retain_stable_targets() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     entry_points = metadata["project"]["entry-points"]
-    assert entry_points["gpt2giga.harnesses"] == PLUGIN_TARGETS
-    assert entry_points["agent_workbench.harness_adapters.v1"] == PLUGIN_TARGETS
+    assert entry_points["gigaloom.harnesses.v1"] == PLUGIN_TARGETS
+    assert entry_points["gigaloom.harness_adapters.v1"] == PLUGIN_TARGETS
 
 
 @pytest.mark.parametrize(
@@ -73,7 +71,7 @@ def test_provider_specific_legacy_modules_are_exact_aliases(
     legacy: str,
     implementation: str,
 ) -> None:
-    prefix = "gpt2giga_harness."
+    prefix = "gigaloom."
     assert importlib.import_module(prefix + legacy) is importlib.import_module(
         prefix + implementation
     )
@@ -120,14 +118,7 @@ def test_legacy_harness_modules_remain_thin(legacy: str) -> None:
 
 
 def test_codex_app_server_compatibility_facade_remains_bounded() -> None:
-    facade = (
-        ROOT
-        / "packages"
-        / "gpt2giga-harness"
-        / "src"
-        / "gpt2giga_harness"
-        / "codex_app_server.py"
-    )
+    facade = ROOT / "src" / "gigaloom" / "codex_app_server.py"
     assert len(facade.read_text(encoding="utf-8").splitlines()) <= 250
 
 

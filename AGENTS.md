@@ -25,8 +25,8 @@ work merely because it is present in the checkout.
 ## Repository contract
 
 - This is a standalone `uv` project. The root `pyproject.toml` owns the
-  `gigaloom` distribution, while `packages/gpt2giga-harness/` owns the
-  `gpt2giga_harness` Python namespace and product sources.
+  `gigaloom` distribution and `src/gigaloom/` owns the Python namespace and
+  product sources. The independently built frontend lives under `web/`.
 - The base distribution must install, test, and build without a gateway source
   checkout.
 - Optional gateway compatibility consumes only the exact public dependency
@@ -83,8 +83,8 @@ When continuing a named local roadmap:
 Produce frontend assets and install standalone development dependencies:
 
 ```bash
-npm --prefix packages/gpt2giga-harness/frontend ci --ignore-scripts
-npm --prefix packages/gpt2giga-harness/frontend run build
+npm --prefix web ci --ignore-scripts
+npm --prefix web run build
 ./scripts/ci-base.sh sync
 ./scripts/ci-base.sh sync-all-extras
 ./scripts/ci-public-gateway.sh

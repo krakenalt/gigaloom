@@ -7,13 +7,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from gpt2giga_harness.integration_flows import IntegrationFlowService
-from gpt2giga_harness.integration_catalog import sync_official_mcp_registry
-from gpt2giga_harness.integration_groups import (
+from gigaloom.integration_flows import IntegrationFlowService
+from gigaloom.integration_catalog import sync_official_mcp_registry
+from gigaloom.integration_groups import (
     GroupedIntegrationService,
     IntegrationGroupConflictError,
 )
-from gpt2giga_harness.portable_skills import (
+from gigaloom.portable_skills import (
     SkillActivationMode,
     SkillCapabilitySnapshot,
     SkillTargetStatus,

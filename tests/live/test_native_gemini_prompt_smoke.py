@@ -8,10 +8,10 @@ import time
 
 import pytest
 
-from gpt2giga_harness.native.gemini import GeminiNativeHistoryConnector
-from gpt2giga_harness.native.process import NativeProcessManager, NativeProcessStatus
-from gpt2giga_harness.sessions import InMemoryHarnessSessionStore
-from gpt2giga_harness.types import GigaChatApiMode, HarnessContext, HarnessRequest
+from gigaloom.native.gemini import GeminiNativeHistoryConnector
+from gigaloom.native.process import NativeProcessManager, NativeProcessStatus
+from gigaloom.sessions import InMemoryHarnessSessionStore
+from gigaloom.types import GigaChatApiMode, HarnessContext, HarnessRequest
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.live_native_cli, pytest.mark.slow]

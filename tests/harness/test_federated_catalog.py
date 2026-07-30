@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from gpt2giga_harness.federated_catalog import (
+from gigaloom.federated_catalog import (
     MAX_FEDERATED_PAGES,
     MAX_FEDERATED_RESPONSE_BYTES,
     NEURALDEEP_ORIGIN,

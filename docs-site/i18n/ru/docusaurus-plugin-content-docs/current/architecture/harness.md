@@ -327,7 +327,7 @@ network effects.
 
 Новый backend выполнения добавляется как адаптер в `harnesses/` и регистрируется
 через provider-neutral entry-point group
-`agent_workbench.harness_adapters.v1`; `gpt2giga.harnesses` остаётся
+`gigaloom.harness_adapters.v1`; `gigaloom.harnesses.v1` остаётся
 compatibility alias. Structured или terminal continuity следует объявлять
 только когда versioned SDK manifest и conformance evidence доказывают нужный
 lifecycle. Новые семейства API должны жить в `ui/routers/`; `ui/app.py` следует

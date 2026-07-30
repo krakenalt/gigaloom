@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.claude_handoff import (
+from gigaloom.claude_handoff import (
     ClaudeHandoffAction,
     ClaudeHandoffError,
     ClaudeHandoffLaunchMode,
@@ -15,7 +15,7 @@ from gpt2giga_harness.claude_handoff import (
     plan_claude_handoff,
     probe_claude_handoff,
 )
-from gpt2giga_harness.cli_capabilities import CliCapabilitySnapshot
+from gigaloom.cli_capabilities import CliCapabilitySnapshot
 
 
 def test_packaged_claude_handoff_evidence_is_strict_and_hashed():

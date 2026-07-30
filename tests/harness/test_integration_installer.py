@@ -9,7 +9,7 @@ import stat
 
 import pytest
 
-from gpt2giga_harness.integration_installer import (
+from gigaloom.integration_installer import (
     FileInstallMutation,
     InstallationApproval,
     InstallationConflictError,
@@ -20,7 +20,7 @@ from gpt2giga_harness.integration_installer import (
     InstallationVerificationError,
     TransactionalIntegrationInstaller,
 )
-from gpt2giga_harness.integration_packages import (
+from gigaloom.integration_packages import (
     InstallationScope,
     IntegrationCompatibility,
     IntegrationComponent,

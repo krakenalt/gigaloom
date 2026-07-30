@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.worktrees import (
+from gigaloom.worktrees import (
     WorktreeConflictError,
     WorktreeError,
     WorkspacePolicy,
@@ -141,7 +141,7 @@ def test_truncated_patch_cannot_be_applied(tmp_path, monkeypatch):
         "changed content that exceeds the test patch limit\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr("gpt2giga_harness.worktrees.MAX_PATCH_CHARS", 20)
+    monkeypatch.setattr("gigaloom.worktrees.MAX_PATCH_CHARS", 20)
     diff = capture_workspace_diff(execution)
     assert diff is not None
     assert diff.truncated is True

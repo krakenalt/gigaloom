@@ -7,9 +7,9 @@ import subprocess
 from fastapi.testclient import TestClient
 import pytest
 
-from gpt2giga_harness import environments as environment_module
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.environments import (
+from gigaloom import environments as environment_module
+from gigaloom.config import HarnessConfig
+from gigaloom.environments import (
     ENVIRONMENT_PROVIDER_ENTRY_POINTS,
     MAX_CHANGED_PATHS,
     NEUTRAL_ENVIRONMENT_ENTRY_POINT_GROUP,
@@ -19,9 +19,9 @@ from gpt2giga_harness.environments import (
     HostedRepositoryHint,
     git_environment_provider_plugin,
 )
-from gpt2giga_harness.registries import RegistryCollisionError
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.registries import RegistryCollisionError
+from gigaloom.registry import create_default_registry
+from gigaloom.ui.app import create_app
 
 
 CAPTURED_AT = datetime(2026, 7, 22, 8, 30, tzinfo=timezone.utc)
@@ -145,7 +145,7 @@ def test_environment_provider_entry_points_use_neutral_registry_kernel(monkeypat
 
     class FakeEntryPoint:
         name = "git"
-        value = "gpt2giga_harness.environments:git_environment_provider_plugin"
+        value = "gigaloom.environments:git_environment_provider_plugin"
 
         def load(self):
             return git_environment_provider_plugin

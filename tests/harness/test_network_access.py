@@ -2,12 +2,12 @@ from dataclasses import replace
 
 import pytest
 
-from gpt2giga_harness.runtime.authority import (
+from gigaloom.runtime.authority import (
     AuthorityGrant,
     AuthorityLifetime,
     ReviewerKind,
 )
-from gpt2giga_harness.runtime.network_access import (
+from gigaloom.runtime.network_access import (
     NetworkAccessDenied,
     ReviewedDomainProxyPolicy,
     ReviewedDomainRule,
@@ -15,7 +15,7 @@ from gpt2giga_harness.runtime.network_access import (
     authorize_scoped_network_access,
     network_access_manifest,
 )
-from gpt2giga_harness.runtime.policy import EnforcementLevel
+from gigaloom.runtime.policy import EnforcementLevel
 
 
 SHA_A = "a" * 64

@@ -48,12 +48,10 @@ def test_gigaloom_base_artifact_runs_without_gateway(
 
 
 def test_editable_gigaloom_member_resolves_to_gigaloom_source():
-    import gpt2giga_harness
+    import gigaloom
     import importlib.metadata
 
-    assert (
-        Path(gpt2giga_harness.__file__).resolve().is_relative_to(HARNESS_MEMBER / "src")
-    )
+    assert Path(gigaloom.__file__).resolve().is_relative_to(HARNESS_MEMBER / "src")
     assert importlib.metadata.version("gigaloom") == HARNESS_VERSION
 
 

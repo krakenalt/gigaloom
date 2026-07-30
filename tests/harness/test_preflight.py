@@ -1,14 +1,14 @@
 from pathlib import Path
 
-from gpt2giga_harness.attachments.models import HarnessAttachment
-from gpt2giga_harness.preflight import (
+from gigaloom.attachments.models import HarnessAttachment
+from gigaloom.preflight import (
     ACTION_CONTINUE,
     ACTION_EXCLUDE_ATTACHMENT,
     build_preflight_report,
     preflight_report_to_dict,
     format_preflight_block_message,
 )
-from gpt2giga_harness.sessions.models import HarnessMessage
+from gigaloom.sessions.models import HarnessMessage
 
 
 def test_preflight_blocks_private_key_prompt_without_echoing_secret():

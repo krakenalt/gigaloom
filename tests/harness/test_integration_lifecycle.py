@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from gpt2giga_harness.integration_catalog import CatalogSourceType
-from gpt2giga_harness.integration_flows import (
+from gigaloom.integration_catalog import CatalogSourceType
+from gigaloom.integration_flows import (
     IntegrationFlowEvent,
     IntegrationFlowRecord,
     IntegrationFlowService,
@@ -13,12 +13,12 @@ from gpt2giga_harness.integration_flows import (
     IntegrationFlowStatus,
     _target,
 )
-from gpt2giga_harness.integration_groups import GroupedIntegrationService
-from gpt2giga_harness.integration_lifecycle import (
+from gigaloom.integration_groups import GroupedIntegrationService
+from gigaloom.integration_lifecycle import (
     IntegrationLifecycleConflictError,
     IntegrationLifecycleService,
 )
-from gpt2giga_harness.integration_packages import (
+from gigaloom.integration_packages import (
     InstallationScope,
     IntegrationCompatibility,
     IntegrationComponent,
@@ -28,11 +28,11 @@ from gpt2giga_harness.integration_packages import (
     IntegrationTargetOverlay,
     IntegrationUpdatePolicy,
 )
-from gpt2giga_harness.integration_runtime import (
+from gigaloom.integration_runtime import (
     IntegrationRuntimeProbeResult,
     IntegrationRuntimeStore,
 )
-from gpt2giga_harness.portable_skills import (
+from gigaloom.portable_skills import (
     SkillActivationMode,
     SkillCapabilitySnapshot,
     SkillTargetStatus,

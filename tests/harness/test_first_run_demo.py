@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.cli import main
+from gigaloom.cli import main
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

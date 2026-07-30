@@ -7,14 +7,14 @@ import stat
 from fastapi.testclient import TestClient
 import pytest
 
-from gpt2giga_harness import cli
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.provider_migration import ProviderMigrationService
-from gpt2giga_harness.provider_settings import ProviderSettingsService
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.sessions import InMemoryHarnessSessionStore
-from gpt2giga_harness.state_backup import restore_state_backup, verify_state_backup
-from gpt2giga_harness.ui.app import create_app
+from gigaloom import cli
+from gigaloom.config import HarnessConfig
+from gigaloom.provider_migration import ProviderMigrationService
+from gigaloom.provider_settings import ProviderSettingsService
+from gigaloom.registry import create_default_registry
+from gigaloom.sessions import InMemoryHarnessSessionStore
+from gigaloom.state_backup import restore_state_backup, verify_state_backup
+from gigaloom.ui.app import create_app
 
 
 NOW = datetime(2026, 7, 19, 12, 0, tzinfo=timezone.utc)
@@ -85,7 +85,7 @@ def test_provider_migration_rejects_source_change_after_verified_backup(
     tmp_path,
     monkeypatch,
 ):
-    from gpt2giga_harness import provider_migration
+    from gigaloom import provider_migration
 
     data_dir = tmp_path / "state"
     _write_defaults(data_dir)

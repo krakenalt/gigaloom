@@ -4,20 +4,20 @@ import stat
 from fastapi.testclient import TestClient
 import pytest
 
-from gpt2giga_harness import proxy
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.provider_profiles import ProviderProtocol
-from gpt2giga_harness.provider_registry import ProviderProbeResponse
-from gpt2giga_harness.provider_settings import ProviderSettingsService
-from gpt2giga_harness.secrets import SecretReference, SecretReferenceKind
-from gpt2giga_harness.sessions import InMemoryHarnessSessionStore
-from gpt2giga_harness.settings import (
+from gigaloom import proxy
+from gigaloom.config import HarnessConfig
+from gigaloom.registry import create_default_registry
+from gigaloom.provider_profiles import ProviderProtocol
+from gigaloom.provider_registry import ProviderProbeResponse
+from gigaloom.provider_settings import ProviderSettingsService
+from gigaloom.secrets import SecretReference, SecretReferenceKind
+from gigaloom.sessions import InMemoryHarnessSessionStore
+from gigaloom.settings import (
     SecretReferenceSettingsStore,
     SettingsConflictError,
 )
-from gpt2giga_harness.ui.app import create_app
-from gpt2giga_harness.ui.routers import settings as settings_router
+from gigaloom.ui.app import create_app
+from gigaloom.ui.routers import settings as settings_router
 
 
 def test_settings_read_model_is_bounded_and_never_exposes_secrets(
@@ -74,7 +74,7 @@ def test_guided_doctor_api_is_content_free_and_offline(
         lambda _context: proxy.SidecarPreflight(ok=True, reason="ready"),
     )
     client = _client(tmp_path)
-    assert client.get("/cockpit-v2/settings").status_code == 200
+    assert client.get("/web/settings").status_code == 200
 
     response = client.get("/api/doctor", params={"workspace": str(tmp_path)})
 
@@ -99,7 +99,7 @@ def test_guided_doctor_api_is_content_free_and_offline(
     }.issubset(by_id)
     serialized = json.dumps(body)
     assert str(tmp_path) not in serialized
-    assert "giga-skills-catalog-proxy" in serialized
+    assert "python -m gigaloom.skills_catalog_proxy" in serialized
     assert "request-scoped OIDC token" in serialized
 
 

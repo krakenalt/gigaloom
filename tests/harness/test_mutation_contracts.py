@@ -1,10 +1,10 @@
 import ast
 from pathlib import Path
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.ui.app import create_app
-from gpt2giga_harness.ui.mutation_contracts import (
+from gigaloom.config import HarnessConfig
+from gigaloom.registry import create_default_registry
+from gigaloom.ui.app import create_app
+from gigaloom.ui.mutation_contracts import (
     CONFORMANCE_EVIDENCE,
     MUTATION_ROUTE_CONTRACTS,
     EnforcementControl,

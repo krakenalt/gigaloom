@@ -11,10 +11,10 @@ from fastapi.testclient import TestClient
 import jwt
 import pytest
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.ui.app import create_app
-from gpt2giga_harness.ui.remote_identity import (
+from gigaloom.config import HarnessConfig
+from gigaloom.registry import create_default_registry
+from gigaloom.ui.app import create_app
+from gigaloom.ui.remote_identity import (
     RemoteActor,
     RemoteIdentityError,
     RemoteIdentityStore,
@@ -160,7 +160,7 @@ def _client(app, *, address: str) -> TestClient:
     )
 
 
-def _login(client: TestClient, issuer: HermeticIssuer, *, path="/cockpit-v2/work"):
+def _login(client: TestClient, issuer: HermeticIssuer, *, path="/web/work"):
     shell = client.get(path, follow_redirects=False)
     assert shell.status_code == 303
     assert shell.headers["location"].startswith("/auth/oidc/login?")
@@ -191,7 +191,7 @@ def _login(client: TestClient, issuer: HermeticIssuer, *, path="/cockpit-v2/work
     assert callback.status_code == 303
     assert callback.headers["location"] == path
     cookie = callback.headers["set-cookie"]
-    assert "gpt2giga_harness_session=" in cookie
+    assert "gigaloom_session=" in cookie
     assert "Secure" in cookie
     assert "HttpOnly" in cookie
     assert "SameSite=strict" in cookie
@@ -219,7 +219,7 @@ def test_remote_oidc_login_enforces_pkce_nonce_roles_and_audit_identity(tmp_path
 
     state_path = tmp_path / "ui_access" / "remote_state.json"
     state_text = state_path.read_text()
-    assert client.cookies["gpt2giga_harness_session"] not in state_text
+    assert client.cookies["gigaloom_session"] not in state_text
     assert "client-secret" not in state_text
     assert issuer.id_token() not in state_text
     assert json.loads(state_text)["transactions"] == []

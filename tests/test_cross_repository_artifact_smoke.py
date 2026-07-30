@@ -34,7 +34,7 @@ def test_locked_public_gateway_restores_optional_runtime():
     if importlib.util.find_spec("gpt2giga") is None:
         pytest.skip("public gateway extra is exercised by the all-extras gate")
 
-    from gpt2giga_harness.gpt2giga_preset import require_gpt2giga_preset
+    from gigaloom.gpt2giga_preset import require_gpt2giga_preset
 
     assert importlib.metadata.version("gpt2giga") == GATEWAY_VERSION
     runtime = require_gpt2giga_preset()

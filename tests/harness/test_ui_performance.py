@@ -1,9 +1,9 @@
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.ui.app import create_app
-from gpt2giga_harness.ui.performance import (
+from gigaloom.config import HarnessConfig
+from gigaloom.registry import create_default_registry
+from gigaloom.ui.app import create_app
+from gigaloom.ui.performance import (
     UI_PERFORMANCE_BUDGETS,
     ui_performance_budgets,
 )

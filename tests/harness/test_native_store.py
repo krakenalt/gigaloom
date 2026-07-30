@@ -1,15 +1,15 @@
 import json
 
-from gpt2giga_harness.native import (
+from gigaloom.native import (
     NativeExecutionSnapshot,
     NativeSessionRef,
     NativeSessionStatus,
 )
-from gpt2giga_harness.native.store import (
+from gigaloom.native.store import (
     FilesystemNativeSessionIndexStore,
     native_session_ref_to_dict,
 )
-from gpt2giga_harness.types import REDACTED
+from gigaloom.types import REDACTED
 
 
 def test_native_session_index_store_upserts_and_filters(tmp_path):

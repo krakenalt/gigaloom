@@ -60,11 +60,11 @@ def release_repository(tmp_path: Path) -> dict[str, str | Path]:
                 "distribution": "gigaloom",
                 "first_target_release": {
                     "history_floor": floor,
-                    "tag": "gigaloom-v0.5.1a1",
+                    "tag": "v0.5.1a1",
                     "version": "0.5.1a1",
                 },
                 "repository": "krakenalt/gigaloom",
-                "tag_prefix": "gigaloom-v",
+                "tag_prefix": "v",
             }
         ),
         encoding="utf-8",
@@ -72,7 +72,7 @@ def release_repository(tmp_path: Path) -> dict[str, str | Path]:
     git(root, "add", "release-policy.json")
     git(root, "commit", "-m", "release policy")
     commit = git(root, "rev-parse", "HEAD")
-    tag = "gigaloom-v0.5.1a1"
+    tag = "v0.5.1a1"
     git(root, "tag", tag)
     return {
         "commit": commit,
@@ -108,7 +108,7 @@ def test_release_guard_accepts_exact_release_and_main_manual_run(tmp_path: Path)
 
     assert validate(module, repository) == {
         "mode": "publish",
-        "tag": "gigaloom-v0.5.1a1",
+        "tag": "v0.5.1a1",
         "version": "0.5.1a1",
     }
     assert (
@@ -128,7 +128,7 @@ def test_release_guard_accepts_exact_release_and_main_manual_run(tmp_path: Path)
     ("overrides", "message"),
     [
         ({"repository": "ai-forever/gpt2giga"}, "is not the target"),
-        ({"release_tag": "v0.5.1a1"}, "must equal"),
+        ({"release_tag": "gigaloom-v0.5.1a1"}, "must equal"),
         ({"release_target": "archive"}, "default branch"),
         (
             {

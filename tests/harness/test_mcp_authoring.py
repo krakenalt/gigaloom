@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from gpt2giga_harness.mcp_authoring import (
+from gigaloom.mcp_authoring import (
     MCPAuthoringTransport,
     mcp_authoring_configuration_from_dict,
 )

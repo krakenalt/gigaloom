@@ -8,26 +8,26 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.integration_flows import IntegrationFlowService
-from gpt2giga_harness.native_cli_contracts import (
+from gigaloom.config import HarnessConfig
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.integration_flows import IntegrationFlowService
+from gigaloom.native_cli_contracts import (
     CapabilityLevel,
     NativeCommandClass,
     RouteReason,
     classify_native_route,
 )
-from gpt2giga_harness.project import init_project_config
-from gpt2giga_harness.registry import HarnessRegistry, create_default_registry
-from gpt2giga_harness.runtime.policy import (
+from gigaloom.project import init_project_config
+from gigaloom.registry import HarnessRegistry, create_default_registry
+from gigaloom.runtime.policy import (
     PermissionAction,
     PolicyContext,
     PolicyDecision,
     PolicyEngine,
     permission_profile,
 )
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.types import (
+from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.types import (
     Availability,
     HarnessCapability,
     HarnessContext,
@@ -35,7 +35,7 @@ from gpt2giga_harness.types import (
     HarnessResult,
     HarnessSpec,
 )
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.ui.app import create_app
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "task_ux_journeys.json"
@@ -300,7 +300,7 @@ def test_old_supported_automation_state_recovers_through_cockpit_contracts(tmp_p
     saved_link = client.get("/workflows/recovered-review", follow_redirects=False)
     assert saved_link.status_code == 307
     assert saved_link.headers["location"] == (
-        "/cockpit-v2/automation/workflows?selected=recovered-review"
+        "/web/automation/workflows?selected=recovered-review"
     )
     recovered = client.get(
         "/api/workflows/recovered-review",

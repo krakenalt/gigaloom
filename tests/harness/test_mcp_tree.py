@@ -25,21 +25,15 @@ def test_legacy_mcp_module_is_bounded_context_alias(
     implementation_name: str,
 ) -> None:
     """Keep legacy module identity for imports and monkeypatch contracts."""
-    legacy = importlib.import_module(f"gpt2giga_harness.{legacy_name}")
-    implementation = importlib.import_module(f"gpt2giga_harness.{implementation_name}")
+    legacy = importlib.import_module(f"gigaloom.{legacy_name}")
+    implementation = importlib.import_module(f"gigaloom.{implementation_name}")
 
     assert legacy is implementation
 
 
 def test_mcp_implementation_and_shims_fit_structural_limits() -> None:
     """Keep new modules bounded and old root paths implementation-free."""
-    package_root = (
-        Path(__file__).resolve().parents[2]
-        / "packages"
-        / ("gpt2giga-harness")
-        / "src"
-        / "gpt2giga_harness"
-    )
+    package_root = Path(__file__).resolve().parents[2] / "src" / "gigaloom"
     implementation_root = package_root / "tools" / "mcp"
 
     assert (
@@ -62,20 +56,14 @@ def test_mcp_implementation_and_shims_fit_structural_limits() -> None:
 def test_canonical_mcp_modules_do_not_import_legacy_shims() -> None:
     """Keep compatibility aliases out of the canonical implementation graph."""
     legacy_modules = (
-        "gpt2giga_harness.external_mcp",
-        "gpt2giga_harness.managed_mcp",
-        "gpt2giga_harness.managed_mcp_inventory",
-        "gpt2giga_harness.mcp",
-        "gpt2giga_harness.mcp_authoring",
+        "gigaloom.external_mcp",
+        "gigaloom.managed_mcp",
+        "gigaloom.managed_mcp_inventory",
+        "gigaloom.mcp",
+        "gigaloom.mcp_authoring",
     )
     implementation_root = (
-        Path(__file__).resolve().parents[2]
-        / "packages"
-        / "gpt2giga-harness"
-        / "src"
-        / "gpt2giga_harness"
-        / "tools"
-        / "mcp"
+        Path(__file__).resolve().parents[2] / "src" / "gigaloom" / "tools" / "mcp"
     )
 
     for path in implementation_root.glob("*.py"):
@@ -88,11 +76,11 @@ def test_canonical_mcp_modules_do_not_import_legacy_shims() -> None:
 @pytest.mark.parametrize(
     "modules",
     (
-        ("gpt2giga_harness.tools.mcp", "gpt2giga_harness.integrations.api"),
-        ("gpt2giga_harness.integrations.api", "gpt2giga_harness.tools.mcp"),
+        ("gigaloom.tools.mcp", "gigaloom.integrations.api"),
+        ("gigaloom.integrations.api", "gigaloom.tools.mcp"),
         (
-            "gpt2giga_harness.managed_mcp_inventory",
-            "gpt2giga_harness.external_mcp",
+            "gigaloom.managed_mcp_inventory",
+            "gigaloom.external_mcp",
         ),
     ),
 )

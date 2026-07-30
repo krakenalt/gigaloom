@@ -42,7 +42,7 @@ case "${command}" in
       sync_args+=(--all-extras)
     fi
     uv sync "${sync_args[@]}"
-    "${python}" packages/gpt2giga-harness/asset_contract.py --require-clean
+    "${python}" scripts/asset_contract.py --require-clean
     require_lock
     ;;
   ruff-check)

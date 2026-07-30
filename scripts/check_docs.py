@@ -136,11 +136,10 @@ def check_locale_coverage(root: Path) -> list[Issue]:
 def check_package_versions(root: Path) -> list[Issue]:
     """Require Harness changelogs to begin with the package metadata version."""
     issues: list[Issue] = []
-    package_root = root / "packages/gpt2giga-harness"
     metadata = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
     version = metadata["project"]["version"]
     for filename in ("CHANGELOG.md", "CHANGELOG_en.md"):
-        path = package_root / filename
+        path = root / filename
         match = CHANGELOG_VERSION_RE.search(path.read_text(encoding="utf-8"))
         if not match or match.group(1) != version:
             actual = match.group(1) if match else "missing"
@@ -167,9 +166,7 @@ def check_standalone_identity(root: Path, files: list[Path]) -> list[Issue]:
         "Repository": TARGET_REPOSITORY,
         "Documentation": TARGET_DOCUMENTATION,
         "Issues": f"{TARGET_REPOSITORY}/issues",
-        "Changelog": (
-            f"{TARGET_REPOSITORY}/blob/main/packages/gpt2giga-harness/CHANGELOG_en.md"
-        ),
+        "Changelog": (f"{TARGET_REPOSITORY}/blob/main/CHANGELOG_en.md"),
     }
     if package.get("urls") != expected_urls:
         issues.append(
