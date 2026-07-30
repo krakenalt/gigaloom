@@ -22,8 +22,36 @@ PolicyDecision: Any
 PolicyResolution: Any
 RUNTIME_DB_NAME: Any
 RuntimeCoordinationStore: Any
+ActionInboxCommand: Any
+ActionInboxConflictError: Any
+ActionInboxForbiddenError: Any
+ActionInboxItem: Any
+ActionInboxKind: Any
+ActionInboxNotFoundError: Any
+ActionInboxOwnerPort: Any
+ActionInboxResponseRequest: Any
+ActionInboxResponseResult: Any
+ActionInboxService: Any
+ActionInboxSnapshot: Any
+ActionInboxStatus: Any
+ActionInboxValidationError: Any
+ActionConsequence: Any
 
 __all__ = [
+    "ActionConsequence",
+    "ActionInboxCommand",
+    "ActionInboxConflictError",
+    "ActionInboxForbiddenError",
+    "ActionInboxItem",
+    "ActionInboxKind",
+    "ActionInboxNotFoundError",
+    "ActionInboxOwnerPort",
+    "ActionInboxResponseRequest",
+    "ActionInboxResponseResult",
+    "ActionInboxService",
+    "ActionInboxSnapshot",
+    "ActionInboxStatus",
+    "ActionInboxValidationError",
     "ApprovalStatus",
     "EnforcementLevel",
     "JobAttemptStatus",
@@ -41,6 +69,62 @@ __all__ = [
 ]
 
 _LAZY_EXPORTS = {
+    "ActionConsequence": (
+        "gigaloom.runtime.action_inbox.api",
+        "ActionConsequence",
+    ),
+    "ActionInboxCommand": (
+        "gigaloom.runtime.action_inbox.api",
+        "ActionInboxCommand",
+    ),
+    "ActionInboxConflictError": (
+        "gigaloom.runtime.action_inbox.api",
+        "ActionInboxConflictError",
+    ),
+    "ActionInboxForbiddenError": (
+        "gigaloom.runtime.action_inbox.api",
+        "ActionInboxForbiddenError",
+    ),
+    "ActionInboxItem": (
+        "gigaloom.runtime.action_inbox.api",
+        "ActionInboxItem",
+    ),
+    "ActionInboxKind": (
+        "gigaloom.runtime.action_inbox.api",
+        "ActionInboxKind",
+    ),
+    "ActionInboxNotFoundError": (
+        "gigaloom.runtime.action_inbox.api",
+        "ActionInboxNotFoundError",
+    ),
+    "ActionInboxOwnerPort": (
+        "gigaloom.runtime.action_inbox.api",
+        "ActionInboxOwnerPort",
+    ),
+    "ActionInboxResponseRequest": (
+        "gigaloom.runtime.action_inbox.api",
+        "ActionInboxResponseRequest",
+    ),
+    "ActionInboxResponseResult": (
+        "gigaloom.runtime.action_inbox.api",
+        "ActionInboxResponseResult",
+    ),
+    "ActionInboxService": (
+        "gigaloom.runtime.action_inbox.api",
+        "ActionInboxService",
+    ),
+    "ActionInboxSnapshot": (
+        "gigaloom.runtime.action_inbox.api",
+        "ActionInboxSnapshot",
+    ),
+    "ActionInboxStatus": (
+        "gigaloom.runtime.action_inbox.api",
+        "ActionInboxStatus",
+    ),
+    "ActionInboxValidationError": (
+        "gigaloom.runtime.action_inbox.api",
+        "ActionInboxValidationError",
+    ),
     "EnforcementLevel": (
         "gigaloom.runtime.policy",
         "EnforcementLevel",
