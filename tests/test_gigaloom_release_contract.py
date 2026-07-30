@@ -66,14 +66,8 @@ def test_release_policy_freezes_target_identity_and_first_release():
     )
     assert policy == {
         "default_branch": "main",
-        "distribution": "gigaloom",
-        "first_target_release": {
-            "history_floor": "b6983b5036a70061a3f436e6a28f9a56fcd64bdc",
-            "tag": "v0.5.1a2",
-            "version": "0.5.1a2",
-        },
+        "history_floor": "5593db1f20839f7bc56d40c880a8d5498a4d3bdc",
         "repository": "krakenalt/gigaloom",
-        "tag_prefix": "v",
     }
     assert (REPOSITORY_ROOT / "uv.lock").is_file()
     ignore = (REPOSITORY_ROOT / ".gitignore").read_text(encoding="utf-8")
@@ -109,10 +103,14 @@ def test_release_recovery_is_fail_closed_and_preserves_immutable_versions():
         encoding="utf-8"
     )
     for contract in (
-        "Manual\ndispatch builds and attests",
-        "pending Trusted Publisher must name",
+        "Candidate builds never publish",
+        "one retained\ncandidate artifact",
+        "standard `v<release>` tag",
+        "protected environments are ready",
         "Published versions are immutable",
-        "do not rerun publication",
+        "npm succeeded but PyPI failed",
+        "PyPI succeeded but npm failed",
+        "never move the tag",
         "previous deployment",
     ):
         assert contract in recovery

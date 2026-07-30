@@ -45,7 +45,9 @@ jobs:
         run: >-
           python3 scripts/release_guard.py
           --policy .github/release-policy.json
-          --metadata pyproject.toml
+          --release-manifest release/release.json
+          --python-metadata pyproject.toml
+          --npm-metadata web/package.json
           --event-name "${GITHUB_EVENT_NAME}"
           --repository "${GITHUB_REPOSITORY}"
           --ref "${GITHUB_REF}"
