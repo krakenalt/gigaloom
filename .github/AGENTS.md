@@ -17,9 +17,11 @@ their behavior deliberately and verify claims against the YAML itself.
 - Keep public registry/all-extras readiness bound to the committed target lock.
   The exact gateway extra must resolve from the public registry without a
   candidate URL, temporary index, sibling checkout, or source override.
-- Keep release publication restricted to the exact published-release path and
-  target policy. Manual dispatch may build and attest but must not reach a
-  publish step. Trusted Publisher registration remains an external S5-04 gate.
+- Keep release publication restricted to the exact protected environment and
+  target policy. The candidate workflow may build and attest but must not
+  publish. The protected publish workflow may only consume an exact retained
+  candidate after registry-state verification. Trusted Publisher registration
+  remains an external S5-04 gate.
 - Minimize `permissions:`; never expose secrets to untrusted pull-request code
   or print secret values.
 - Keep action versions explicit. Review third-party actions and permission
@@ -29,8 +31,9 @@ their behavior deliberately and verify claims against the YAML itself.
 
 - Keep `ci.yaml`, `nightly-smoke.yaml`, `scripts/ci-*.sh`, and their stable
   check and artifact names aligned.
-- Keep `publish-pypi.yml`, `release-policy.json`, `RELEASE_RECOVERY.md`, and
-  `scripts/release_guard.py` aligned.
+- Keep `publish-pypi.yml`, `release-publish.yml`, `release-policy.json`,
+  `repository-policy.json`, `RELEASE_RECOVERY.md`, `scripts/release_guard.py`,
+  and `scripts/release_registry_guard.py` aligned.
 - Keep `docs-pages.yaml`, `docs-site/package-lock.json`, and Docusaurus
   commands aligned.
 - Keep English and Russian PR/issue templates structurally aligned.

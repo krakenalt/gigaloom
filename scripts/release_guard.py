@@ -203,7 +203,7 @@ def validate_release(
         if _git(root, "rev-parse", f"{main_ref}^{{commit}}") != commit:
             raise ReleaseGuardError("candidate build must use the current main tip")
         mode = "candidate"
-    elif event_name == "release":
+    elif event_name in {"publish", "release"}:
         if release_tag.startswith(LEGACY_TAG_PREFIXES):
             raise ReleaseGuardError("legacy release tag prefixes are forbidden")
         if release_tag != expected_tag:
@@ -217,7 +217,7 @@ def validate_release(
         tag_commit = _git(root, "rev-parse", f"refs/tags/{expected_tag}^{{commit}}")
         if tag_commit != commit:
             raise ReleaseGuardError("release tag and checked-out commit do not agree")
-        mode = "tagged"
+        mode = "publish" if event_name == "publish" else "tagged"
     else:
         raise ReleaseGuardError(f"unsupported event {event_name!r}")
 

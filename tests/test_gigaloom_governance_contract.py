@@ -193,6 +193,12 @@ def test_actions_permissions_and_security_automation_are_specialized():
             "workflow": ".github/workflows/publish-pypi.yml",
         },
         {
+            "job": "Release publish / protected registries",
+            "permissions": ["actions:read", "contents:write", "id-token:write"],
+            "purpose": "Protected OIDC publication from one retained candidate bundle",
+            "workflow": ".github/workflows/release-publish.yml",
+        },
+        {
             "job": "Deploy docs",
             "permissions": ["id-token:write", "pages:write"],
             "purpose": "GitHub Pages deployment",

@@ -75,6 +75,8 @@ release:
           - ".github/release-policy.json"
           - ".github/repository-policy.json"
           - ".github/workflows/publish-pypi.yml"
+          - ".github/workflows/release-publish.yml"
+          - "scripts/release_registry_guard.py"
           - "CHANGELOG*.md"
           - "pyproject.toml"
 
