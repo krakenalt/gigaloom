@@ -131,8 +131,8 @@
         ]
       },
       {
-        "owner": "T15/T00",
-        "removal_gate": "T15-PHASE-B",
+        "owner": "T15/T20",
+        "removal_gate": "G-FINAL",
         "paths": [
           "config.py",
           "instrumentation.py",
@@ -554,10 +554,6 @@
       {
         "path": "tui/i18n.py",
         "max_lines": 625
-      },
-      {
-        "path": "types.py",
-        "max_lines": 699
       },
       {
         "path": "ui/app.py",

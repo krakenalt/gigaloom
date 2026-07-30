@@ -10,12 +10,7 @@ import json
 from typing import Any, Mapping
 import uuid
 
-
-class HarnessInvocationMode(str, Enum):
-    """Describe how a harness should be invoked."""
-
-    HEADLESS = "headless"
-    NATIVE = "native"
+from gpt2giga_harness.contracts.execution import HarnessInvocationMode
 
 
 def parse_invocation_mode(

@@ -9,19 +9,13 @@ import json
 import re
 from typing import Any, Mapping
 
+from gpt2giga_harness.contracts.execution import ExecutionTransport
+
 
 EXECUTION_SNAPSHOT_SCHEMA_VERSION = 1
 EMPTY_EXTENSION_SNAPSHOT_HASH = hashlib.sha256(b'{"extensions":[]}').hexdigest()
 _HASH_RE = re.compile(r"[0-9a-f]{64}\Z")
 _IDENTITY_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+~-]{0,255}\Z")
-
-
-class ExecutionTransport(str, Enum):
-    """Describe the effective transport used for one execution."""
-
-    NATIVE_STRUCTURED = "native_structured"
-    NATIVE_TERMINAL = "native_terminal"
-    ONE_SHOT = "one_shot"
 
 
 class InteractionMode(str, Enum):

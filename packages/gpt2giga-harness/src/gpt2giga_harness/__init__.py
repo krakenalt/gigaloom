@@ -30,15 +30,27 @@ _LAZY_EXPORTS = {
         "gpt2giga_harness.registry",
         "create_default_registry",
     ),
-    "Availability": ("gpt2giga_harness.types", "Availability"),
-    "AvailabilityStatus": ("gpt2giga_harness.types", "AvailabilityStatus"),
-    "GigaChatApiMode": ("gpt2giga_harness.types", "GigaChatApiMode"),
-    "HarnessCapability": ("gpt2giga_harness.types", "HarnessCapability"),
-    "HarnessChatMessage": ("gpt2giga_harness.types", "HarnessChatMessage"),
-    "HarnessRequest": ("gpt2giga_harness.types", "HarnessRequest"),
-    "HarnessResult": ("gpt2giga_harness.types", "HarnessResult"),
-    "HarnessSpec": ("gpt2giga_harness.types", "HarnessSpec"),
-    "emit_event": ("gpt2giga_harness.types", "emit_event"),
+    "Availability": ("gpt2giga_harness.contracts.harness", "Availability"),
+    "AvailabilityStatus": (
+        "gpt2giga_harness.contracts.harness",
+        "AvailabilityStatus",
+    ),
+    "GigaChatApiMode": (
+        "gpt2giga_harness.contracts.providers",
+        "GigaChatApiMode",
+    ),
+    "HarnessCapability": (
+        "gpt2giga_harness.contracts.harness",
+        "HarnessCapability",
+    ),
+    "HarnessChatMessage": (
+        "gpt2giga_harness.contracts.harness",
+        "HarnessChatMessage",
+    ),
+    "HarnessRequest": ("gpt2giga_harness.contracts.harness", "HarnessRequest"),
+    "HarnessResult": ("gpt2giga_harness.contracts.harness", "HarnessResult"),
+    "HarnessSpec": ("gpt2giga_harness.contracts.harness", "HarnessSpec"),
+    "emit_event": ("gpt2giga_harness.contracts.events", "emit_event"),
 }
 
 
