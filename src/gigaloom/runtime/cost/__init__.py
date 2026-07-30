@@ -13,6 +13,8 @@ from gigaloom.runtime.cost.models import (
     ChildLeaseRequest,
     CostBudgetError,
     CostObservationConflictError,
+    CostReceiptConflictError,
+    CostReceiptRecord,
 )
 from gigaloom.runtime.cost.repository import (
     COST_DB_NAME,
@@ -35,5 +37,7 @@ __all__ = [
     "ChildLeaseRequest",
     "CostBudgetError",
     "CostObservationConflictError",
+    "CostReceiptConflictError",
+    "CostReceiptRecord",
     "evaluate_budget_admission",
 ]

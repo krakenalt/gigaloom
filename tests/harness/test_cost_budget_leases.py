@@ -318,7 +318,7 @@ def test_idempotent_retries_preserve_server_issued_timestamps(tmp_path) -> None:
 
 def test_cost_storage_is_isolated_from_general_runtime_database(tmp_path) -> None:
     with _store(tmp_path) as store:
-        assert store.schema_version == 1
+        assert store.schema_version == 2
         assert store.path == tmp_path / "cost.sqlite3"
 
     assert (tmp_path / "cost.sqlite3").is_file()

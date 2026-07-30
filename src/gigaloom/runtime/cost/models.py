@@ -10,6 +10,7 @@ from gigaloom.contracts.cost import (
     BudgetAdmission,
     BudgetLease,
     BudgetPolicyKind,
+    CostReceipt,
 )
 
 
@@ -52,6 +53,10 @@ class CostObservationConflictError(CostBudgetError):
     """Raised when cumulative monetary evidence is inconsistent with a lease."""
 
 
+class CostReceiptConflictError(CostBudgetError):
+    """Raised when receipt finalization conflicts with durable lease evidence."""
+
+
 @dataclass(frozen=True)
 class ChildLeaseRequest:
     """One admitted child reservation in an atomic fan-out batch."""
@@ -87,6 +92,15 @@ class BudgetLeaseBalance:
         return self.lease.limit.amount - self.spent_amount - self.reserved_amount
 
 
+@dataclass(frozen=True)
+class CostReceiptRecord:
+    """One immutable receipt plus conservative finite-budget accounting."""
+
+    receipt: CostReceipt
+    accounted_currency: str | None
+    accounted_amount: Decimal | None
+
+
 __all__ = [
     "AdmissionDeniedError",
     "BudgetHeadroomExceededError",
@@ -99,4 +113,6 @@ __all__ = [
     "ChildLeaseRequest",
     "CostBudgetError",
     "CostObservationConflictError",
+    "CostReceiptConflictError",
+    "CostReceiptRecord",
 ]

@@ -18,6 +18,7 @@ from gigaloom.contracts.cost import (
     BudgetPolicyKind,
     CostConfidence,
     CostObservation,
+    CostReceiptOutcome,
 )
 from gigaloom.contracts.cost_serialization import (
     budget_admission_from_dict,
@@ -34,12 +35,15 @@ from gigaloom.runtime.cost.models import (
     BudgetLeaseStatus,
     ChildLeaseRequest,
     CostObservationConflictError,
+    CostReceiptRecord,
 )
 from gigaloom.runtime.db import DbProvider, transaction
-
-
-COST_DB_NAME = "cost.sqlite3"
-COST_DB_SCHEMA_VERSION = 1
+from gigaloom.runtime.cost.receipts import CostReceiptRepository
+from gigaloom.runtime.cost.schema import (
+    COST_DB_NAME,
+    COST_DB_SCHEMA_VERSION,
+    migrate_cost_database,
+)
 
 
 class BudgetLeaseStore:
@@ -58,7 +62,8 @@ class BudgetLeaseStore:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self._db = DbProvider(self.path, timeout_seconds=timeout_seconds)
         self._clock = clock or (lambda: datetime.now(timezone.utc))
-        self._migrate()
+        migrate_cost_database(self._db)
+        self._receipts = CostReceiptRepository(self._db, clock=self._clock)
 
     def __enter__(self) -> Self:
         """Return this store as a managed resource."""
@@ -272,62 +277,27 @@ class BudgetLeaseStore:
             ).fetchall()
         return tuple(_balance_from_row(row) for row in rows)
 
-    def _migrate(self) -> None:
-        with self._db.connect() as connection, transaction(connection):
-            current = int(connection.execute("PRAGMA user_version").fetchone()[0])
-            if current == COST_DB_SCHEMA_VERSION:
-                return
-            if current != 0:
-                raise RuntimeError(
-                    f"unsupported cost database schema version {current}"
-                )
-            connection.execute(
-                """
-                CREATE TABLE cost_budget_leases (
-                    id TEXT PRIMARY KEY,
-                    admission_id TEXT NOT NULL UNIQUE,
-                    admission_json TEXT NOT NULL,
-                    parent_lease_id TEXT
-                        REFERENCES cost_budget_leases(id) ON DELETE RESTRICT,
-                    limit_kind TEXT NOT NULL
-                        CHECK (limit_kind IN ('unlimited', 'finite')),
-                    currency TEXT,
-                    limit_amount TEXT,
-                    spent_amount TEXT,
-                    reserved_amount TEXT,
-                    status TEXT NOT NULL
-                        CHECK (status IN ('active', 'closed')),
-                    issued_at TEXT NOT NULL,
-                    expires_at TEXT NOT NULL,
-                    closed_at TEXT,
-                    version INTEGER NOT NULL DEFAULT 0 CHECK (version >= 0),
-                    CHECK (
-                        (
-                            limit_kind = 'unlimited'
-                            AND currency IS NULL
-                            AND limit_amount IS NULL
-                            AND spent_amount IS NULL
-                            AND reserved_amount IS NULL
-                        )
-                        OR
-                        (
-                            limit_kind = 'finite'
-                            AND currency IS NOT NULL
-                            AND limit_amount IS NOT NULL
-                            AND spent_amount IS NOT NULL
-                            AND reserved_amount IS NOT NULL
-                        )
-                    )
-                )
-                """
-            )
-            connection.execute(
-                """
-                CREATE INDEX cost_budget_leases_parent_idx
-                ON cost_budget_leases(parent_lease_id, status, issued_at)
-                """
-            )
-            connection.execute(f"PRAGMA user_version = {COST_DB_SCHEMA_VERSION}")
+    def finalize_receipt(
+        self,
+        *,
+        receipt_id: str,
+        lease_id: str,
+        outcome: CostReceiptOutcome,
+        final_cost: CostObservation,
+        reason_code: str,
+    ) -> CostReceiptRecord:
+        """Close one lease with immutable final cost evidence."""
+        return self._receipts.finalize(
+            receipt_id=receipt_id,
+            lease_id=lease_id,
+            outcome=outcome,
+            final_cost=final_cost,
+            reason_code=reason_code,
+        )
+
+    def get_receipt(self, lease_id: str) -> CostReceiptRecord:
+        """Return one immutable receipt by lease identity."""
+        return self._receipts.get_for_lease(lease_id)
 
     def _insert_lease(
         self,

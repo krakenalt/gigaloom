@@ -27,6 +27,8 @@ BudgetLeaseStore: Any
 ChildLeaseRequest: Any
 CostBudgetError: Any
 CostObservationConflictError: Any
+CostReceiptConflictError: Any
+CostReceiptRecord: Any
 NativeProcessRecordNotFoundError: Any
 PermissionAction: Any
 PolicyContext: Any
@@ -50,6 +52,8 @@ __all__ = [
     "ChildLeaseRequest",
     "CostBudgetError",
     "CostObservationConflictError",
+    "CostReceiptConflictError",
+    "CostReceiptRecord",
     "EnforcementLevel",
     "JobAttemptStatus",
     "NativeProcessOutputRecord",
@@ -114,6 +118,14 @@ _LAZY_EXPORTS = {
     "CostObservationConflictError": (
         "gigaloom.runtime.cost",
         "CostObservationConflictError",
+    ),
+    "CostReceiptConflictError": (
+        "gigaloom.runtime.cost",
+        "CostReceiptConflictError",
+    ),
+    "CostReceiptRecord": (
+        "gigaloom.runtime.cost",
+        "CostReceiptRecord",
     ),
     "EnforcementLevel": (
         "gigaloom.runtime.policy",
