@@ -28,6 +28,10 @@ def test_packaged_ui_assets_survive_wheel_install(tmp_path):
     with zipfile.ZipFile(harness_wheel_path) as wheel:
         harness_members = set(wheel.namelist())
         assert any(
+            name.endswith("/assets/_build/content-manifest.json")
+            for name in harness_members
+        )
+        assert any(
             name.endswith("/assets/_build/provenance.json") for name in harness_members
         )
         assert any(
@@ -95,6 +99,9 @@ def test_harness_sdist_seals_assets_and_rebuilds_identical_node_free_wheel(tmp_p
     assert not any("/frontend/" in name for name in members)
     assert not any("/ui/assets/" in name for name in members)
     assert any("/ui/web/assets/manifest.json" in name for name in members)
+    assert any(
+        "/ui/web/assets/_build/content-manifest.json" in name for name in members
+    )
     assert any("/ui/web/assets/_build/provenance.json" in name for name in members)
     assert any(name.endswith("/asset_contract.py") for name in members)
     assert any(name.endswith("/hatch_build.py") for name in members)

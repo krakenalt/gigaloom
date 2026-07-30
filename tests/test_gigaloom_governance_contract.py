@@ -187,9 +187,9 @@ def test_actions_permissions_and_security_automation_are_specialized():
     assert actions["can_approve_pull_request_reviews"] is False
     assert actions["elevated_jobs"] == [
         {
-            "job": "Release / attest and trusted publish",
+            "job": "Release candidate / attest immutable bundle",
             "permissions": ["attestations:write", "id-token:write"],
-            "purpose": "PyPI trusted publishing and artifact attestations",
+            "purpose": "Candidate artifact attestations without registry publication",
             "workflow": ".github/workflows/publish-pypi.yml",
         },
         {

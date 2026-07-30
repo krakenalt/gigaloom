@@ -13,51 +13,45 @@ def _workflow(name: str) -> dict:
         return yaml.load(file, Loader=yaml.BaseLoader)
 
 
-def test_release_workflow_is_target_only_and_manual_runs_cannot_publish():
+def test_release_candidate_workflow_builds_and_attests_without_publishing():
     workflow = _workflow("publish-pypi.yml")
-    assert workflow["on"] == {
-        "release": {"types": ["published"]},
-        "workflow_dispatch": "",
-    }
+    assert workflow["on"] == {"workflow_dispatch": ""}
     assert workflow["permissions"] == {"contents": "read"}
-    assert set(workflow["jobs"]) == {
-        "assets",
-        "build",
-        "metadata",
-        "release-assets",
-        "trusted-publish",
-    }
+    assert set(workflow["jobs"]) == {"attest", "candidate"}
 
     jobs = workflow["jobs"]
-    assert jobs["trusted-publish"]["environment"] == "pypi-harness"
-    assert jobs["trusted-publish"]["permissions"] == {
+    assert jobs["candidate"].get("environment") is None
+    assert jobs["candidate"].get("permissions", {}).get("id-token") is None
+    assert jobs["attest"].get("environment") is None
+    assert jobs["attest"]["permissions"] == {
         "attestations": "write",
         "contents": "read",
         "id-token": "write",
     }
-    for name, job in jobs.items():
-        if name != "trusted-publish":
-            assert job.get("permissions", {}).get("id-token") is None
 
     text = (REPOSITORY_ROOT / ".github/workflows/publish-pypi.yml").read_text(
         encoding="utf-8"
     )
     assert "uv build --wheel --sdist --no-sources" in text
-    assert "uv build --package gpt2giga " not in text
-    legacy_tag_prefix = "gpt2giga-harness-" + "v"
-    assert legacy_tag_prefix not in text
-    assert "https://pypi.org/pypi/gigaloom/" in text
-    assert 'name "gigaloom-${RELEASE_VERSION}-*.whl"' in text
+    assert "npm pack ./web --ignore-scripts --pack-destination" in text
+    assert "scripts/verify_release_artifacts.py" in text
+    assert text.count("npm --prefix web run build:npm:release") == 1
+    assert "--wheel dist/release-candidate/*.whl" in text
+    assert "--sdist dist/release-candidate/*.tar.gz" in text
+    assert "--npm-tarball dist/release-candidate/*.tgz" in text
+    assert "candidate-manifest.json" in text
+    assert "SHA256SUMS" in text
     assert "actions/attest-build-provenance@v4" in text
-    assert "uv publish --trusted-publishing always" in text
-    assert "assets/_build/licenses.json dist/gigaloom/" in text
-    assert "THIRD_PARTY_LICENSES.txt" not in text
     assert "./scripts/ci-base.sh sync-all-extras" in text
     assert "./scripts/ci-public-gateway.sh" in text
-    assert text.count("if: github.event_name == 'release'") >= 4
-    assert text.index("Fail closed if the public version already exists") < text.index(
-        "Upload commit-bound frontend evidence"
-    )
+    for forbidden in (
+        "gh release",
+        "npm publish",
+        "uv publish",
+        "https://pypi.org/",
+        "registry.npmjs.org",
+    ):
+        assert forbidden not in text
 
 
 def test_release_policy_freezes_target_identity_and_first_release():
@@ -66,14 +60,8 @@ def test_release_policy_freezes_target_identity_and_first_release():
     )
     assert policy == {
         "default_branch": "main",
-        "distribution": "gigaloom",
-        "first_target_release": {
-            "history_floor": "b6983b5036a70061a3f436e6a28f9a56fcd64bdc",
-            "tag": "v0.5.1a2",
-            "version": "0.5.1a2",
-        },
+        "history_floor": "5593db1f20839f7bc56d40c880a8d5498a4d3bdc",
         "repository": "krakenalt/gigaloom",
-        "tag_prefix": "v",
     }
     assert (REPOSITORY_ROOT / "uv.lock").is_file()
     ignore = (REPOSITORY_ROOT / ".gitignore").read_text(encoding="utf-8")
@@ -109,10 +97,14 @@ def test_release_recovery_is_fail_closed_and_preserves_immutable_versions():
         encoding="utf-8"
     )
     for contract in (
-        "Manual\ndispatch builds and attests",
-        "pending Trusted Publisher must name",
+        "Candidate builds never publish",
+        "one retained\ncandidate artifact",
+        "standard `v<release>` tag",
+        "protected environments are ready",
         "Published versions are immutable",
-        "do not rerun publication",
+        "npm succeeded but PyPI failed",
+        "PyPI succeeded but npm failed",
+        "never move the tag",
         "previous deployment",
     ):
         assert contract in recovery

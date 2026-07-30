@@ -8,6 +8,7 @@ export const frontendRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 export const repositoryRoot = resolve(frontendRoot, "..");
 export const canonicalBrandPath = join(frontendRoot, "branding", "gigaloom-mark.svg");
 export const lockfilePath = join(frontendRoot, "package-lock.json");
+export const releaseManifestPath = join(repositoryRoot, "release", "release.json");
 export const outputRoot = resolve(
   process.env.GIGALOOM_WEB_OUTPUT
     ?? join(repositoryRoot, "src", "gigaloom", "ui", "web", "assets"),
@@ -62,6 +63,7 @@ export async function frontendInputFiles() {
     join(frontendRoot, "package.json"),
     join(frontendRoot, "tsconfig.json"),
     join(frontendRoot, "vite.config.ts"),
+    releaseManifestPath,
     ...(await walkFiles(join(frontendRoot, "scripts"))),
     ...(await walkFiles(join(frontendRoot, "src"))),
     ...(await walkFiles(join(frontendRoot, "public"), {

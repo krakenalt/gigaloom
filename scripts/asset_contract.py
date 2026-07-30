@@ -14,12 +14,14 @@ from typing import Any, Mapping, Sequence
 
 ASSET_FORMAT_VERSION = "gigaloom-web-assets-v1"
 PROVENANCE_FORMAT_VERSION = "gigaloom-web-assets-provenance-v1"
+CONTENT_FORMAT_VERSION = "gigaloom-web-content-manifest-v1"
 SBOM_FORMAT_VERSION = "gigaloom-web-sbom-v1"
 LICENSE_FORMAT_VERSION = "gigaloom-web-licenses-v1"
 RECOVERY_COMMAND = "npm --prefix web run build"
 ASSET_RELATIVE_ROOT = Path("src/gigaloom/ui/web/assets")
+RELEASE_MANIFEST_RELATIVE_PATH = Path("release/release.json")
 _DIGEST = re.compile(r"[0-9a-f]{64}")
-_REVISION = re.compile(r"[0-9a-f]{40,64}")
+_REVISION = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 _MAX_FILES = 512
 _MAX_BYTES = 32 * 1024 * 1024
 
@@ -108,6 +110,7 @@ def _frontend_inputs(project_root: Path) -> list[Path]:
         frontend / "package.json",
         frontend / "tsconfig.json",
         frontend / "vite.config.ts",
+        project_root / RELEASE_MANIFEST_RELATIVE_PATH,
         project_root / "web/branding/generate-assets.mjs",
         project_root / "web/branding/gigaloom-mark.svg",
     ]
@@ -193,6 +196,7 @@ def verify_asset_tree(project_root: Path) -> Mapping[str, Any]:
 
     expected = {
         "manifest.json",
+        "_build/content-manifest.json",
         "_build/provenance.json",
         "_build/sbom.cdx.json",
         "_build/licenses.json",
@@ -251,6 +255,12 @@ def verify_asset_tree(project_root: Path) -> Mapping[str, Any]:
         relative_name="_build/provenance.json",
         asset_root=asset_root,
     )
+    content_manifest_path = _evidence_record(
+        manifest,
+        key="content",
+        relative_name="_build/content-manifest.json",
+        asset_root=asset_root,
+    )
     sbom_path = _evidence_record(
         manifest,
         key="sbom",
@@ -264,6 +274,10 @@ def verify_asset_tree(project_root: Path) -> Mapping[str, Any]:
         asset_root=asset_root,
     )
     provenance = _json_object(provenance_path, label="provenance")
+    content_manifest = _json_object(
+        content_manifest_path,
+        label="content manifest",
+    )
     sbom = _json_object(sbom_path, label="SBOM")
     licenses = _json_object(licenses_path, label="license evidence")
 
@@ -277,6 +291,7 @@ def verify_asset_tree(project_root: Path) -> Mapping[str, Any]:
         "output_sha256",
         "sbom_sha256",
         "licenses_sha256",
+        "release_manifest_sha256",
     )
     if (
         not isinstance(source_revision, str)
@@ -295,6 +310,47 @@ def verify_asset_tree(project_root: Path) -> Mapping[str, Any]:
         or provenance["licenses_sha256"] != _digest_file(licenses_path)
     ):
         _fail("Cockpit provenance evidence binding is invalid")
+    if content_manifest.get("format_version") != CONTENT_FORMAT_VERSION:
+        _fail("Cockpit content manifest version is unsupported")
+    if (
+        content_manifest.get("source_revision") != source_revision
+        or content_manifest.get("output_sha256") != output_digest
+        or content_manifest.get("release_manifest_sha256")
+        != provenance["release_manifest_sha256"]
+    ):
+        _fail("Cockpit content manifest identity binding is invalid")
+    raw_content_files = content_manifest.get("files")
+    described_paths = [
+        *runtime_files,
+        licenses_path,
+        provenance_path,
+        sbom_path,
+    ]
+    described = {
+        path.relative_to(asset_root).as_posix(): path for path in described_paths
+    }
+    if not isinstance(raw_content_files, Mapping) or set(raw_content_files) != set(
+        described
+    ):
+        _fail("Cockpit content manifest file inventory is invalid")
+    for name, path in described.items():
+        record = raw_content_files.get(name)
+        content = path.read_bytes()
+        if (
+            not isinstance(record, Mapping)
+            or record.get("bytes") != len(content)
+            or record.get("sha256") != _digest_bytes(content)
+        ):
+            _fail(f"Cockpit content manifest record is invalid: {name}")
+    content_digest = _named_digest(
+        asset_root,
+        sorted(
+            described_paths,
+            key=lambda path: path.relative_to(asset_root).as_posix(),
+        ),
+    )
+    if content_manifest.get("content_sha256") != content_digest:
+        _fail("Cockpit content manifest aggregate digest is invalid")
     sbom_metadata = sbom.get("metadata")
     sbom_properties = (
         sbom_metadata.get("properties") if isinstance(sbom_metadata, Mapping) else None
@@ -338,12 +394,17 @@ def verify_asset_tree(project_root: Path) -> Mapping[str, Any]:
         current_revision = _current_revision(project_root)
         if current_revision is not None and current_revision != source_revision:
             _fail("Cockpit injected assets belong to a different source revision")
+        release_manifest_path = project_root / RELEASE_MANIFEST_RELATIVE_PATH
+        if provenance["release_manifest_sha256"] != _digest_file(release_manifest_path):
+            _fail("Cockpit release manifest digest is stale")
 
     return {
         "asset_count": len(raw_assets),
+        "content_sha256": content_digest,
         "frontend_input_sha256": provenance["frontend_input_sha256"],
         "licenses_sha256": provenance["licenses_sha256"],
         "output_sha256": output_digest,
+        "release_manifest_sha256": provenance["release_manifest_sha256"],
         "sbom_sha256": provenance["sbom_sha256"],
         "source_dirty": provenance["source_dirty"],
         "source_revision": source_revision,

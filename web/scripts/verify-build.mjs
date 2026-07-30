@@ -33,7 +33,7 @@ for (const [name, record] of Object.entries(manifest.assets)) {
 if (
   typeof manifest.build !== "object"
   || typeof manifest.build.output_sha256 !== "string"
-  || !["licenses", "provenance", "sbom"].every((name) => (
+  || !["content", "licenses", "provenance", "sbom"].every((name) => (
     typeof manifest.build[name]?.path === "string"
     && typeof manifest.build[name]?.sha256 === "string"
   ))
