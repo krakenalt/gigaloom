@@ -1,6 +1,15 @@
 import type { enOperator } from "../en/operator";
 
 export const ruOperator = {
+  actionInbox: "Action inbox",
+  actionInboxDetail:
+    "Действия владельцев из approvals, automation, MCP, provider login и durable-запусков.",
+  actionInboxResnapshot: "Действие изменилось. Обновите snapshot перед ответом.",
+  actionKind: "Тип действия",
+  actionOrigin: "Источник",
+  actionResponseFailed: "Авторитетный владелец отклонил ответ.",
+  actionResponsePlaceholder: "Введите ограниченный ответ",
+  allActions: "Все действия",
   availableEvidence: "Доступные evidence",
   baseDigest: "Digest базы",
   boundedResults: "Результаты ограничены проекцией владельца.",
@@ -11,6 +20,8 @@ export const ruOperator = {
   freshness: "Актуальность",
   impact: "Влияние",
   actionNoExpiry: "Без срока",
+  loadMoreActions: "Загрузить ещё действия",
+  noPendingActions: "Нет ожидающих действий оператора.",
   omittedEvidence: "Пропущенные evidence",
   operatorEvidenceEyebrow: "Ограниченная проекция владельцев",
   operatorEvidenceSections: "Разделы evidence workspace",
@@ -18,6 +29,7 @@ export const ruOperator = {
   operatorEvidenceUnavailable: "Operator evidence недоступны",
   operatorEvidenceUnavailableDetail:
     "Авторитетную проекцию не удалось загрузить. UI не восстанавливает evidence из локального состояния.",
+  operatorInboxUnavailable: "Action Inbox недоступен.",
   patchDigest: "Digest patch",
   projectionDigest: "Digest проекции",
   resource: "Ресурс",

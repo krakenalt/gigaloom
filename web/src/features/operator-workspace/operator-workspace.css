@@ -35,6 +35,18 @@
 .operator-next-actions article > div { display: grid; gap: 3px; }
 .operator-next-actions article span { color: var(--muted); font-size: 10px; }
 .operator-next-actions code { font-size: 10px; }
+.operator-inbox-drawer { width: min(600px, calc(100vw - 24px)); }
+.operator-inbox-detail { margin: 0 0 10px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.operator-inbox-filter { margin-top: 0; }
+.operator-inbox-list { overflow: auto; padding-bottom: 24px; }
+.operator-inbox-item { content-visibility: auto; contain-intrinsic-size: 330px; }
+.operator-inbox-item .inbox-item-heading > div { display: grid; gap: 3px; }
+.operator-inbox-item .inbox-item-heading > div span { color: var(--muted); font-size: 10px; }
+.operator-inbox-bindings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.operator-inbox-bindings dd { overflow-wrap: anywhere; font-family: "SFMono-Regular", Consolas, monospace; font-size: 10px; }
+.operator-inbox-links { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 10px; }
+.operator-inbox-links a { color: var(--accent); font-weight: 700; }
+.operator-inbox-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--warning); border-radius: 8px; padding: 12px; }
 
 @media (max-width: 760px) {
   .operator-summary-metrics, .operator-binding-grid, .operator-reference > dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }

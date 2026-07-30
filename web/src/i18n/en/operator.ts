@@ -1,4 +1,13 @@
 export const enOperator = {
+  actionInbox: "Action inbox",
+  actionInboxDetail:
+    "Owner-backed actions from approvals, automation, MCP, provider login, and durable runs.",
+  actionInboxResnapshot: "This action changed. Resnapshot before responding.",
+  actionKind: "Action kind",
+  actionOrigin: "Origin",
+  actionResponseFailed: "The authoritative owner rejected the response.",
+  actionResponsePlaceholder: "Enter the bounded response",
+  allActions: "All actions",
   availableEvidence: "Available evidence",
   baseDigest: "Base digest",
   boundedResults: "Results are bounded by the owner projection.",
@@ -9,6 +18,8 @@ export const enOperator = {
   freshness: "Freshness",
   impact: "Impact",
   actionNoExpiry: "No expiry",
+  loadMoreActions: "Load more actions",
+  noPendingActions: "No pending operator actions.",
   omittedEvidence: "Omitted evidence",
   operatorEvidenceEyebrow: "Bounded owner-backed projection",
   operatorEvidenceSections: "Evidence workspace sections",
@@ -16,6 +27,7 @@ export const enOperator = {
   operatorEvidenceUnavailable: "Operator evidence is unavailable",
   operatorEvidenceUnavailableDetail:
     "The authoritative projection could not be loaded. No evidence was reconstructed from UI state.",
+  operatorInboxUnavailable: "The Action Inbox is unavailable.",
   patchDigest: "Patch digest",
   projectionDigest: "Projection digest",
   resource: "Resource",

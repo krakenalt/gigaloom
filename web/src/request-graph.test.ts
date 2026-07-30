@@ -5,6 +5,7 @@ import type { SessionOverviewResponse } from "./api";
 import {
   cancelRequestScope,
   operatorEvidenceOptions,
+  operatorInboxOptions,
   refreshSessionAfterRunStart,
   refreshSessionRevision,
   requestKeys,
@@ -46,6 +47,11 @@ describe("Cockpit request graph", () => {
       harnesses: requestKeys.harnesses(),
       models: requestKeys.models("v2"),
       operatorEvidence: requestKeys.operatorEvidence("run-one", "workspace-one"),
+      operatorInbox: requestKeys.operatorInbox(
+        "workspace-one",
+        "approval,run_input",
+      ),
+      operatorInboxScope: requestKeys.operatorInboxScope("workspace-one"),
       providerAccounts: requestKeys.providerAccounts(),
       providers: requestKeys.providers(),
       runCenterSummary: requestKeys.runCenterSummary("run-one"),
@@ -74,6 +80,13 @@ describe("Cockpit request graph", () => {
         "operator-evidence",
         "workspace-one",
       ],
+      operatorInbox: [
+        "cockpit",
+        "operator-inbox",
+        "workspace-one",
+        "approval,run_input",
+      ],
+      operatorInboxScope: ["cockpit", "operator-inbox", "workspace-one"],
       providerAccounts: ["cockpit", "provider-accounts"],
       providers: ["cockpit", "providers"],
       runCenterSummary: ["cockpit", "run", "run-one", "center-summary"],
@@ -134,6 +147,30 @@ describe("Cockpit request graph", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/operator/runs/run%2Fone/evidence?workspace_id=workspace+one",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
+  });
+
+  it("uses bounded snapshot cursors for the typed Action Inbox", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({
+        has_more: false,
+        items: [],
+        next_cursor: null,
+        resnapshot_required: false,
+        snapshot_sha256: "a".repeat(64),
+      })),
+    );
+    const client = queryClient();
+
+    await client.fetchInfiniteQuery(
+      operatorInboxOptions("workspace-one", ["run_input", "approval"]),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/operator/inbox?workspace_id=workspace-one&limit=50&kind=approval%2Crun_input",
       expect.objectContaining({
         headers: { Accept: "application/json" },
       }),

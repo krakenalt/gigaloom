@@ -37,4 +37,8 @@ export const requestKeys = {
     [...requestKeys.runScope(runId), projection] as const,
   operatorEvidence: (runId: string, workspaceId: string) =>
     [...requestKeys.runScope(runId), "operator-evidence", workspaceId] as const,
+  operatorInboxScope: (workspaceId: string) =>
+    [...rootKey, "operator-inbox", workspaceId] as const,
+  operatorInbox: (workspaceId: string, kindFilter: string) =>
+    [...requestKeys.operatorInboxScope(workspaceId), kindFilter] as const,
 };
