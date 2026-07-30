@@ -66,6 +66,14 @@ class TokenEstimateConfidence(str, Enum):
     UNKNOWN = "unknown"
 
 
+class ContextFreshness(str, Enum):
+    """Freshness of an observable source at manifest compilation time."""
+
+    CURRENT = "current"
+    STALE = "stale"
+    UNKNOWN = "unknown"
+
+
 @dataclass(frozen=True)
 class ContextEntry:
     """One observable, content-free context inclusion."""
@@ -77,6 +85,7 @@ class ContextEntry:
     relative_path: str | None = None
     symbol: str | None = None
     size_bytes: int | None = None
+    freshness: ContextFreshness = ContextFreshness.UNKNOWN
 
     def __post_init__(self) -> None:
         _validate_identifier(self.entry_id, "entry_id")
@@ -96,6 +105,7 @@ class ContextEntry:
             "relative_path": self.relative_path,
             "symbol": self.symbol,
             "size_bytes": self.size_bytes,
+            "freshness": self.freshness.value,
         }
 
 
@@ -342,6 +352,7 @@ def context_manifest_schema() -> dict[str, Any]:
         "omission_reasons": [item.value for item in OmissionReason],
         "token_estimate_methods": [item.value for item in TokenEstimateMethod],
         "token_estimate_confidence": [item.value for item in TokenEstimateConfidence],
+        "freshness": [item.value for item in ContextFreshness],
     }
 
 
@@ -405,6 +416,7 @@ __all__ = [
     "CompactionBoundary",
     "ContextEntry",
     "ContextEntryKind",
+    "ContextFreshness",
     "ContextManifest",
     "ContextOmission",
     "ContextOverride",

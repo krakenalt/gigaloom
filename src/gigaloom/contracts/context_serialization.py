@@ -9,6 +9,7 @@ from gigaloom.contracts.context import (
     CompactionBoundary,
     ContextEntry,
     ContextEntryKind,
+    ContextFreshness,
     ContextManifest,
     ContextOmission,
     ContextOverride,
@@ -80,6 +81,7 @@ def _entry_from_dict(data: Mapping[str, Any]) -> ContextEntry:
             "relative_path",
             "symbol",
             "size_bytes",
+            "freshness",
         },
         "ContextEntry",
     )
@@ -98,6 +100,7 @@ def _entry_from_dict(data: Mapping[str, Any]) -> ContextEntry:
         relative_path=_optional_string(data["relative_path"], "relative_path"),
         symbol=_optional_string(data["symbol"], "symbol"),
         size_bytes=size_bytes,
+        freshness=_enum_value(ContextFreshness, data["freshness"], "freshness"),
     )
 
 

@@ -206,3 +206,4 @@ def test_schema_declares_digest_and_cache_binding_contracts() -> None:
     assert schema["digest"] == "sha256-canonical-json-v1"
     assert schema["cache_binding"] == ["source_revision", "config_digest"]
     assert schema["content_free"] is True
+    assert schema["freshness"] == ["current", "stale", "unknown"]

@@ -7,6 +7,7 @@ from gigaloom.contracts.context import (
     CompactionBoundary,
     ContextEntry,
     ContextEntryKind,
+    ContextFreshness,
     ContextManifest,
     ContextOmission,
     ContextOverride,
@@ -22,6 +23,14 @@ from gigaloom.contracts.context import (
 from gigaloom.contracts.context_cache import (
     ContextManifestCache,
     StaleContextManifestError,
+)
+from gigaloom.contracts.context_lens import (
+    ContextDisposition,
+    ContextLensProjection,
+    ContextLensTokenSummary,
+    ContextSourceDescriptor,
+    ProtectedContextSourceError,
+    compile_context_lens,
 )
 from gigaloom.contracts.context_serialization import context_manifest_from_dict
 from gigaloom.contracts.events import (
@@ -74,10 +83,15 @@ __all__ = [
     "CompactionBoundary",
     "ContextEntry",
     "ContextEntryKind",
+    "ContextFreshness",
+    "ContextDisposition",
+    "ContextLensProjection",
+    "ContextLensTokenSummary",
     "ContextManifest",
     "ContextManifestCache",
     "ContextOmission",
     "ContextOverride",
+    "ContextSourceDescriptor",
     "ExecutionTransport",
     "GIGACHAT_BUILTIN_TOOLS",
     "GigaChatApiMode",
@@ -96,12 +110,14 @@ __all__ = [
     "InclusionReason",
     "OmissionReason",
     "ProviderManagedUnknown",
+    "ProtectedContextSourceError",
     "StaleContextManifestError",
     "TokenEstimate",
     "TokenEstimateConfidence",
     "TokenEstimateMethod",
     "availability_to_dict",
     "build_context_manifest",
+    "compile_context_lens",
     "context_manifest_from_dict",
     "context_manifest_schema",
     "emit_event",
