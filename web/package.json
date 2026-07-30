@@ -1,8 +1,27 @@
 {
   "name": "@gigaloom/web",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.6.0-alpha.1",
+  "description": "Verified static Web operator assets for GigaLoom",
+  "license": "MIT",
+  "private": false,
   "type": "module",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/krakenalt/gigaloom.git",
+    "directory": "web"
+  },
+  "homepage": "https://github.com/krakenalt/gigaloom#readme",
+  "bugs": {
+    "url": "https://github.com/krakenalt/gigaloom/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=22.13.0",
     "npm": ">=11.0.0"
@@ -11,13 +30,17 @@
     "build": "node scripts/produce-assets.mjs",
     "build:release": "node scripts/produce-assets.mjs --require-clean",
     "build:bundle": "vite build",
+    "build:npm": "node scripts/prepare-package.mjs",
+    "build:npm:release": "node scripts/prepare-package.mjs --require-clean",
     "build:package": "node scripts/package-assets.mjs",
     "build:verify": "node scripts/verify-build.mjs",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run check:determinism",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run test:package && npm run check:determinism",
     "check:determinism": "node scripts/check-determinism.mjs",
     "generate:brand": "node branding/generate-assets.mjs --frontend-only",
     "lint": "eslint .",
+    "pack:verify": "node scripts/verify-package.mjs",
     "test:e2e": "playwright test",
+    "test:package": "node --test scripts/package-contract.unit.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

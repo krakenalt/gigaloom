@@ -187,6 +187,7 @@ cython_debug/
 
 
 node_modules/
+web/.web-assets-build-*/
 playwright-report/
 test-results/
 web/public/brand/

@@ -1,0 +1,80 @@
+import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
+import test from "node:test";
+
+import {
+  assertPackageMetadata,
+  assertPackedFileSet,
+  assertPublishedContentIsPrivacySafe,
+} from "./package-contract.mjs";
+
+const validMetadata = {
+  files: ["dist", "LICENSE", "README.md"],
+  license: "MIT",
+  name: "@gigaloom/web",
+  private: false,
+  publishConfig: { access: "public" },
+  version: "0.6.0-alpha.1",
+};
+
+test("accepts the frozen public package metadata", () => {
+  assert.doesNotThrow(() => assertPackageMetadata(validMetadata));
+});
+
+test("rejects private metadata and an expanded file set", () => {
+  assert.throws(
+    () => assertPackageMetadata({ ...validMetadata, private: true }),
+    /must be public/u,
+  );
+  assert.throws(
+    () => assertPackageMetadata({
+      ...validMetadata,
+      files: [...validMetadata.files, "src"],
+    }),
+    /files allowlist/u,
+  );
+});
+
+test("requires the exact dist inventory and evidence", () => {
+  const distPaths = [
+    "_build/licenses.json",
+    "_build/provenance.json",
+    "_build/sbom.cdx.json",
+    "assets/index-deadbeef.js",
+    "index.html",
+    "manifest.json",
+  ];
+  const packedPaths = [
+    "LICENSE",
+    "README.md",
+    "package.json",
+    ...distPaths.map((path) => `dist/${path}`),
+  ];
+  assert.doesNotThrow(() => assertPackedFileSet(packedPaths, distPaths));
+  assert.throws(
+    () => assertPackedFileSet([...packedPaths, "src/main.tsx"], distPaths),
+    /unexpected=\[src\/main\.tsx\]/u,
+  );
+});
+
+test("rejects source maps and local absolute paths", () => {
+  assert.throws(
+    () => assertPublishedContentIsPrivacySafe("dist/assets/app.js.map", Buffer.from("{}")),
+    /Source map/u,
+  );
+  assert.throws(
+    () => assertPublishedContentIsPrivacySafe(
+      "dist/assets/app.js",
+      Buffer.from('const root = "/Users/operator/work/gigaloom";'),
+    ),
+    /macOS user path/u,
+  );
+  assert.throws(
+    () => assertPublishedContentIsPrivacySafe(
+      "dist/manifest.json",
+      Buffer.from('{"root":"/workspace/gigaloom"}'),
+      ["/workspace/gigaloom"],
+    ),
+    /Local checkout path/u,
+  );
+});

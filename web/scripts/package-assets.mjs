@@ -7,6 +7,7 @@ import process from "node:process";
 import {
   canonicalBrandPath,
   canonicalJson,
+  frontendRoot,
   frontendInputFiles,
   lockfilePath,
   namedFilesDigest,
@@ -72,7 +73,7 @@ function integrityHash(integrity) {
   };
 }
 
-function supplyChainEvidence(lockfile) {
+function supplyChainEvidence(lockfile, packageMetadata) {
   const componentsByPurl = new Map();
   for (const [path, record] of Object.entries(lockfile.packages ?? {})) {
     if (path === "" || typeof record !== "object" || record === null) continue;
@@ -115,11 +116,11 @@ function supplyChainEvidence(lockfile) {
       components,
       metadata: {
         component: {
-          "bom-ref": "pkg:npm/%40gigaloom/web@0.0.1",
-          name: "@gigaloom/web",
-          purl: "pkg:npm/%40gigaloom/web@0.0.1",
+          "bom-ref": packageUrl(packageMetadata.name, packageMetadata.version),
+          name: packageMetadata.name,
+          purl: packageUrl(packageMetadata.name, packageMetadata.version),
           type: "application",
-          version: "0.0.1",
+          version: packageMetadata.version,
         },
         properties: [
           { name: "gigaloom:format-version", value: sbomFormatVersion },
@@ -167,7 +168,10 @@ const retainedRuntimeFiles = runtimeFiles.filter(
 );
 const outputSha256 = await treeDigest(outputRoot, retainedRuntimeFiles);
 const lockfile = JSON.parse(await readFile(lockfilePath, "utf8"));
-const evidence = supplyChainEvidence(lockfile);
+const packageMetadata = JSON.parse(
+  await readFile(join(frontendRoot, "package.json"), "utf8"),
+);
+const evidence = supplyChainEvidence(lockfile, packageMetadata);
 const buildDirectory = join(outputRoot, "_build");
 await mkdir(buildDirectory, { recursive: true });
 const sbomContent = canonicalJson(evidence.sbom);

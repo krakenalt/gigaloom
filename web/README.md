@@ -1,43 +1,54 @@
-# Harness Cockpit V2 frontend
+# `@gigaloom/web`
 
-This package-local React/TypeScript/Vite project owns only the browser shell
-introduced by roadmap slice P2.5-02. FastAPI, the Harness runtime, policy,
-approvals, redaction, durable state, and SSE semantics remain authoritative.
+`@gigaloom/web` contains the verified, production-built browser assets for the
+GigaLoom operator interface. It is a static asset package, not a React
+component library, and it does not include the Python server or runtime.
 
-From this directory, run:
+## Install and serve
 
-```bash
-npm ci --ignore-scripts
-npm run check
-```
-
-`npm run check` runs type checking, lint, unit tests, two deterministic
-production builds, manifest validation, compression, and initial bundle
-budgets. The one production producer command is:
+Install the exact release alongside the service that will host the assets:
 
 ```bash
-npm --prefix web run build
+npm install --save-exact @gigaloom/web@0.6.0-alpha.1
 ```
 
-Run it from the repository root before a local Harness build. It atomically
-refreshes the ignored `src/gigaloom/ui/web/assets/` staging tree
-and writes the runtime manifest, source/commit provenance, npm SBOM, and license
-evidence. The Python-only Hatch consumer rejects a missing, substituted, or
-stale tree. Node.js and npm are producer/CI inputs only; installed Harness
-wheels and wheels rebuilt from the sealed sdist do not need them.
+Mount the package's `dist/` directory at `/web/assets/`, preserving filenames,
+and serve `dist/index.html` for the operator route. The bundle uses hashed asset
+names and an absolute `/web/assets/` base. Do not rewrite individual asset
+filenames.
 
-The GigaLoom vector master lives in `../branding/gigaloom-mark.svg`.
-`npm run generate:brand` deterministically refreshes the ignored local light,
-dark, mask, and Web manifest copies. The normal production build runs that step
-before Vite so a stale generated mark cannot enter the packaged asset graph.
+The package includes:
 
-CI and release run `npm run build:release` on pinned Node.js 22.13.0 and npm
-11.17.0 with clean authored inputs, upload the commit-bound tree, and inject it
-into the Python artifact job. Rollback checks out the prior release and reruns
-the producer, or restores that release's exact asset artifact, before rebuilding
-the wheel and sdist.
+- `dist/index.html` and the production assets;
+- `dist/manifest.json`, the integrity and media-type manifest;
+- `dist/_build/provenance.json`;
+- `dist/_build/sbom.cdx.json`;
+- `dist/_build/licenses.json`.
 
-Cockpit V2 is the only packaged UI at `/` and `/web/**`. Saved links
-from the previous UI continue to redirect to canonical Cockpit routes. If the
-verified Cockpit asset artifact is missing, repair or reinstall the package.
-Do not move backend ownership or surface migration into this frontend package.
+The manifest and evidence files describe this exact bundle. Consumers should
+reject missing files or digest mismatches instead of rebuilding or silently
+substituting assets.
+
+## Build and verify
+
+From the repository root:
+
+```bash
+npm --prefix web ci --ignore-scripts
+npm --prefix web run check
+npm --prefix web run build:npm
+npm --prefix web run pack:verify
+```
+
+`build:npm` writes the ignored `web/dist/` staging tree. `pack:verify` runs
+`npm pack --dry-run --json`, compares the complete package inventory with the
+declared allowlist, and rejects source maps or embedded local absolute paths.
+Neither command publishes the package.
+
+The Python wheel uses a separately staged copy of the same Web build. Release
+automation is responsible for proving byte-for-byte parity before either
+artifact is eligible for publication. Node.js and npm are build inputs only;
+installed GigaLoom wheels do not require them.
+
+The GigaLoom vector master lives in `branding/gigaloom-mark.svg`.
+`npm run generate:brand` refreshes the ignored generated Web copies.
