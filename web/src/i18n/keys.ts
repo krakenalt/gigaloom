@@ -6,6 +6,7 @@ import type { enIntegrations } from "./en/integrations";
 import type { enAutomation } from "./en/automation";
 import type { enEvaluation } from "./en/evaluation";
 import type { enArena } from "./en/arena";
+import type { enOperator } from "./en/operator";
 
 export type MessageKey =
   | keyof typeof enCommon
@@ -15,6 +16,7 @@ export type MessageKey =
   | keyof typeof enIntegrations
   | keyof typeof enAutomation
   | keyof typeof enEvaluation
-  | keyof typeof enArena;
+  | keyof typeof enArena
+  | keyof typeof enOperator;
 
 export type MessageCatalog = Readonly<Record<MessageKey, string>>;

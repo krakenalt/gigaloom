@@ -6,6 +6,7 @@ import { enIntegrations } from "./en/integrations";
 import { enAutomation } from "./en/automation";
 import { enEvaluation } from "./en/evaluation";
 import { enArena } from "./en/arena";
+import { enOperator } from "./en/operator";
 import { ruCommon } from "./ru/common";
 import { ruWorkbench } from "./ru/workbench";
 import { ruRuns } from "./ru/runs";
@@ -14,6 +15,7 @@ import { ruIntegrations } from "./ru/integrations";
 import { ruAutomation } from "./ru/automation";
 import { ruEvaluation } from "./ru/evaluation";
 import { ruArena } from "./ru/arena";
+import { ruOperator } from "./ru/operator";
 
 import type { MessageCatalog } from "./keys";
 
@@ -26,6 +28,7 @@ export const enFeatureCatalogs = {
   automation: enAutomation,
   evaluation: enEvaluation,
   arena: enArena,
+  operator: enOperator,
 } as const;
 
 export const ruFeatureCatalogs = {
@@ -37,6 +40,7 @@ export const ruFeatureCatalogs = {
   automation: ruAutomation,
   evaluation: ruEvaluation,
   arena: ruArena,
+  operator: ruOperator,
 } as const;
 
 export const catalogs = {
@@ -49,6 +53,7 @@ export const catalogs = {
     ...enAutomation,
     ...enEvaluation,
     ...enArena,
+    ...enOperator,
   },
   ru: {
     ...ruCommon,
@@ -59,5 +64,6 @@ export const catalogs = {
     ...ruAutomation,
     ...ruEvaluation,
     ...ruArena,
+    ...ruOperator,
   },
 } as const satisfies Record<"en" | "ru", MessageCatalog>;

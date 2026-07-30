@@ -20,6 +20,7 @@ const featureStylePaths = [
   "../operations/operations.css",
   "../integrations/integrations.css",
   "../arena/arena.css",
+  "../operator-workspace/operator-workspace.css",
 ] as const;
 
 function selectors(source: string): Set<string> {

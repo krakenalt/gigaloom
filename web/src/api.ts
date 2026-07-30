@@ -3,6 +3,7 @@ export * from "./api/arena";
 export * from "./api/core";
 export * from "./api/environment";
 export * from "./api/integrations";
+export * from "./api/operator";
 export * from "./api/providers";
 export * from "./api/runs";
 export * from "./api/sessions";

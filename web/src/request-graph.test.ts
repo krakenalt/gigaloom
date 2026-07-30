@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SessionOverviewResponse } from "./api";
 import {
   cancelRequestScope,
+  operatorEvidenceOptions,
   refreshSessionAfterRunStart,
   refreshSessionRevision,
   requestKeys,
@@ -44,6 +45,7 @@ describe("Cockpit request graph", () => {
       environment: requestKeys.environment("session-one"),
       harnesses: requestKeys.harnesses(),
       models: requestKeys.models("v2"),
+      operatorEvidence: requestKeys.operatorEvidence("run-one", "workspace-one"),
       providerAccounts: requestKeys.providerAccounts(),
       providers: requestKeys.providers(),
       runCenterSummary: requestKeys.runCenterSummary("run-one"),
@@ -65,6 +67,13 @@ describe("Cockpit request graph", () => {
       environment: ["cockpit", "session", "session-one", "environment"],
       harnesses: ["cockpit", "harnesses"],
       models: ["cockpit", "models", "v2"],
+      operatorEvidence: [
+        "cockpit",
+        "run",
+        "run-one",
+        "operator-evidence",
+        "workspace-one",
+      ],
       providerAccounts: ["cockpit", "provider-accounts"],
       providers: ["cockpit", "providers"],
       runCenterSummary: ["cockpit", "run", "run-one", "center-summary"],
@@ -113,6 +122,22 @@ describe("Cockpit request graph", () => {
       }),
     );
     await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+  });
+
+  it("binds operator evidence reads to the selected run and workspace", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ evidence: { projection_sha256: "a".repeat(64) } })),
+    );
+    const client = queryClient();
+
+    await client.fetchQuery(operatorEvidenceOptions("run/one", "workspace one"));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/operator/runs/run%2Fone/evidence?workspace_id=workspace+one",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
   });
 
   it("forwards cancellation to fetch when a route scope becomes stale", async () => {

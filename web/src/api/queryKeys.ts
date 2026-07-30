@@ -35,4 +35,6 @@ export const requestKeys = {
     [...requestKeys.runScope(runId), "trace"] as const,
   runProjection: (runId: string, projection: RunProjection) =>
     [...requestKeys.runScope(runId), projection] as const,
+  operatorEvidence: (runId: string, workspaceId: string) =>
+    [...requestKeys.runScope(runId), "operator-evidence", workspaceId] as const,
 };

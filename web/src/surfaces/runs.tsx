@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import {
   fetchCockpit,
@@ -19,10 +19,10 @@ import {
   harnessesOptions,
   requestKeys,
   runCenterSummaryOptions,
-  runOverviewOptions,
   runProjectionOptions,
   runsCenterOptions,
   runTraceOptions,
+  settingsOptions,
 } from "../request-graph";
 import {
   formatDuration,
@@ -38,6 +38,10 @@ import {
 } from "../trace-replay-model";
 
 type RunTab = "timeline" | "evidence" | "review" | "reuse";
+
+const OperatorEvidenceWorkspace = lazy(
+  () => import("../features/operator-workspace/OperatorEvidenceWorkspace"),
+);
 
 interface DiffProjection {
   patch: TextProjection;
@@ -72,15 +76,12 @@ export function RunsSurface() {
   const [streamReset, setStreamReset] = useState(0);
 
   const runs = useQuery(runsCenterOptions());
+  const settings = useQuery(settingsOptions());
   const selectedRunId = routeRunId ?? runs.data?.runs[0]?.run_id;
   const selectedListItem =
     runs.data?.runs.find((item) => item.run_id === selectedRunId) ?? null;
   const summary = useQuery({
     ...runCenterSummaryOptions(selectedRunId ?? "pending"),
-    enabled: selectedRunId !== undefined,
-  });
-  const cockpitOverview = useQuery({
-    ...runOverviewOptions(selectedRunId ?? "pending"),
     enabled: selectedRunId !== undefined,
   });
   const trace = useQuery({
@@ -90,10 +91,6 @@ export function RunsSurface() {
   const diff = useQuery({
     ...runProjectionOptions(selectedRunId ?? "pending", "diff"),
     enabled: selectedRunId !== undefined && tab === "review",
-  });
-  const report = useQuery({
-    ...runProjectionOptions(selectedRunId ?? "pending", "report"),
-    enabled: selectedRunId !== undefined && tab === "evidence",
   });
   const stream = useRunEventStream(selectedRunId, streamReset);
   const selected = summary.data?.run ?? selectedListItem;
@@ -274,12 +271,17 @@ export function RunsSurface() {
                   />
                 ) : null}
                 {tab === "evidence" ? (
-                  <EvidencePanel
-                    artifacts={cockpitOverview.data?.run.artifacts ?? []}
-                    loading={cockpitOverview.isPending || report.isPending}
-                    locale={locale}
-                    report={report.data}
-                  />
+                  settings.data === undefined ? (
+                    <ListSkeleton rows={4} />
+                  ) : (
+                    <Suspense fallback={<ListSkeleton rows={4} />}>
+                      <OperatorEvidenceWorkspace
+                        locale={locale}
+                        runId={selectedRunId}
+                        workspaceId={settings.data.workspace.project_id}
+                      />
+                    </Suspense>
+                  )
                 ) : null}
                 {tab === "review" ? (
                   <ReviewPanel
@@ -652,32 +654,6 @@ function TimelinePanel({
   );
 }
 
-function EvidencePanel({
-  artifacts,
-  loading,
-  locale,
-  report,
-}: {
-  artifacts: Array<{ type: string; byte_count?: number | null }>;
-  loading: boolean;
-  locale: "en" | "ru";
-  report: Record<string, unknown> | undefined;
-}) {
-  if (loading) return <ListSkeleton rows={4} />;
-  return (
-    <div className="evidence-panel">
-      {artifacts.length === 0 ? <div className="empty-state">{message(locale, "noRetainedArtifacts")}</div> : null}
-      {artifacts.map((artifact) => (
-        <article className="artifact-row" key={artifact.type}>
-          <strong>{artifact.type}</strong>
-          <span>{artifact.byte_count === null || artifact.byte_count === undefined ? message(locale, "available") : `${artifact.byte_count.toLocaleString()} ${message(locale, "bytes")}`}</span>
-        </article>
-      ))}
-      {report === undefined ? null : <pre className="retained-preview">{projectedText(report.report)}</pre>}
-    </div>
-  );
-}
-
 function ReviewPanel({
   approval,
   approvalPending,
@@ -787,13 +763,6 @@ function ListSkeleton({ rows }: { rows: number }) {
 
 function ReadError({ locale }: { locale: "en" | "ru" }) {
   return <div className="error-state" role="alert">{message(locale, "boundedDataUnavailable")}</div>;
-}
-
-function projectedText(value: unknown): string {
-  if (value !== null && typeof value === "object" && "text" in value) {
-    return String((value as { text?: unknown }).text ?? "");
-  }
-  return JSON.stringify(value ?? {}, null, 2);
 }
 
 function openInbox(kind: "approvals" | "attention") {
