@@ -14,6 +14,31 @@ giga tui
 The browser UI binds to `127.0.0.1:8091` by default. Do not expose it on an
 untrusted network without the explicitly documented remote identity profile.
 
+## Managed terminal prerequisites
+
+Provider-native passthrough remains available anywhere the provider CLI itself
+can run. The managed terminal kernel is a separate capability:
+
+- Linux and macOS require `tmux` on `PATH` and a parseable `tmux -V` result;
+- Windows reports managed tmux as unsupported and keeps native passthrough;
+- local attach requires an interactive terminal;
+- each managed terminal uses a private, owner-bound tmux instance rather than
+  the user's default tmux server.
+
+Check both the provider CLI and terminal capability before starting a managed
+session:
+
+```sh
+tmux -V
+giga doctor
+```
+
+If tmux is missing, invalid, or later disabled, GigaLoom must report that
+capability honestly. It does not restore an emulated Textual provider terminal
+or claim structured resume. Existing content-free terminal lifecycle records
+remain readable; cleanup and recovery stay scoped to the exact managed
+instance.
+
 ## Backup and recovery
 
 Stop active GigaLoom processes before copying state. Back up the complete
@@ -29,10 +54,17 @@ evidence and the verified private backup are stored separately under
 not state contents. `giga state rollback` restores that backup to the legacy
 root and deliberately leaves the canonical root in place for diagnosis.
 
+Run state rollback with the 0.6 executable before reinstalling an older
+package. Never make an older executable read `~/.gigaloom` as a substitute for
+restoring the verified historical root. See
+[Installation](installation.md#roll-back-an-upgrade) for the exact order.
+
 ## Troubleshooting
 
 - Missing provider: install its native CLI and use its native login/status
   command.
+- Missing managed terminal: install tmux on a POSIX host or use the
+  provider-native passthrough that `giga doctor` reports.
 - Refused action: review the requested scope; do not bypass a failed approval
   or policy check.
 - Stale browser assets: reinstall the released package. Source contributors

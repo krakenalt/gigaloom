@@ -5,6 +5,42 @@ All notable changes to GigaLoom are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0a1] - 2026-07-31
+
+### Added
+
+- **Native operator foundation**: private tmux instances, a bounded binary
+  control bridge, local attach, scoped recovery, version-probed native
+  provider contracts, Source-to-Sink receipts, Context/Impact evidence,
+  budget leases, and isolated evidence workspaces provide a verifiable base
+  for operator workflows.
+- **One multi-registry candidate**: the wheel, sdist, and public
+  `@gigaloom/web@0.6.0-alpha.1` package share one release manifest, source SHA,
+  content digest, SBOM, license evidence, checksums, and attestation.
+- **Protected publication**: a separate protected-environment workflow
+  publishes only the retained candidate through PyPI/npm Trusted Publishing,
+  verifies public registry digests, and supports fail-closed partial
+  publication recovery without rebuilding.
+
+### Changed
+
+- **Breaking alpha clean cut**: the canonical distribution, Python namespace,
+  command, entry-point groups, Web routes, environment names, npm package, and
+  release tags now use only the GigaLoom identity. Old runtime aliases are not
+  published.
+- **State migration**: default state moves backup-first from
+  `~/.gpt2giga/harness` to `~/.gigaloom` through an idempotent journal,
+  checksums, and atomic promotion; a two-root conflict blocks mutation.
+- **Release tags**: new releases use only the standard `v<release>` shape;
+  published versions, artifacts, and tags are immutable.
+
+### Security
+
+- Release, terminal, evidence, and registry boundaries fail closed on identity,
+  SHA, digest, owner/workspace binding, capability, or authority drift.
+  Candidate builds do not publish, and recovery never overwrites a registry
+  that already succeeded.
+
 ## [0.5.1a2] - 2026-07-29
 
 ### Fixed
@@ -212,6 +248,7 @@ considered stable.
 
 ---
 
+[0.6.0a1]: https://github.com/krakenalt/gigaloom/compare/gigaloom-v0.5.1a2...v0.6.0-alpha.1
 [0.5.1a2]: https://github.com/krakenalt/gigaloom/compare/gigaloom-v0.5.1a1...gigaloom-v0.5.1a2
 [0.5.1a1]: https://github.com/krakenalt/gigaloom/compare/gpt2giga-harness-v0.5.0a1...gigaloom-v0.5.1a1
 [0.5.0a1]: https://github.com/ai-forever/gpt2giga/compare/gpt2giga-harness-v0.4.0a1...gpt2giga-harness-v0.5.0a1

@@ -5,6 +5,42 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 и проект придерживается [Семантического версионирования](https://semver.org/lang/ru/).
 
+## [0.6.0a1] - 2026-07-31
+
+### Добавлено
+
+- **Native operator foundation**: private tmux instances, bounded binary
+  control bridge, local attach, scoped recovery, version-probed native
+  provider contracts, Source-to-Sink receipts, Context/Impact evidence,
+  budget leases и isolated evidence workspaces формируют проверяемую основу
+  operator workflows.
+- **Единый multi-registry candidate**: wheel, sdist и public
+  `@gigaloom/web@0.6.0-alpha.1` связаны одним release manifest, source SHA,
+  content digest, SBOM, license evidence, checksums и attestation.
+- **Protected publication**: отдельный protected-environment workflow
+  публикует только retained candidate через PyPI/npm Trusted Publishing,
+  проверяет public registry digests и поддерживает fail-closed recovery
+  частичной публикации без пересборки.
+
+### Изменено
+
+- **Breaking alpha clean cut**: canonical distribution, Python namespace,
+  command, entry-point groups, Web routes, environment names, npm package и
+  release tags теперь используют только identity GigaLoom. Старые runtime
+  aliases не публикуются.
+- **Миграция состояния**: default state переносится backup-first из
+  `~/.gpt2giga/harness` в `~/.gigaloom` через idempotent journal, checksums и
+  atomic promotion; конфликт двух roots останавливает mutation.
+- **Release tags**: новые релизы используют только standard `v<release>`;
+  опубликованные versions, artifacts и tags неизменяемы.
+
+### Безопасность
+
+- Release, terminal, evidence и registry boundaries fail closed при drift
+  identity, SHA, digest, owner/workspace binding, capability или authority.
+  Candidate builds не публикуют, а recovery не перезаписывает уже успешный
+  registry.
+
 ## [0.5.1a2] - 2026-07-29
 
 ### Исправлено
@@ -211,6 +247,7 @@
 - **Диагностика и документация**: добавлены `giga doctor`, inspect/config/session/native команды, alpha quickstart, migration guide и описание ограничений первого релиза.
 ---
 
+[0.6.0a1]: https://github.com/krakenalt/gigaloom/compare/gigaloom-v0.5.1a2...v0.6.0-alpha.1
 [0.5.1a2]: https://github.com/krakenalt/gigaloom/compare/gigaloom-v0.5.1a1...gigaloom-v0.5.1a2
 [0.5.1a1]: https://github.com/krakenalt/gigaloom/compare/gpt2giga-harness-v0.5.0a1...gigaloom-v0.5.1a1
 [0.5.0a1]: https://github.com/ai-forever/gpt2giga/compare/gpt2giga-harness-v0.4.0a1...gpt2giga-harness-v0.5.0a1
