@@ -24,6 +24,9 @@ from gigaloom.contracts.context import (
 )
 
 
+MAX_CONTEXT_SOURCES = 5_000
+
+
 class ContextDisposition(str, Enum):
     """Requested treatment of an observable context source."""
 
@@ -167,6 +170,8 @@ def compile_context_lens(
 ) -> ContextLensProjection:
     """Compile owner-supplied descriptors into one deterministic Lens."""
     source_items = tuple(sources)
+    if len(source_items) > MAX_CONTEXT_SOURCES:
+        raise ValueError(f"context sources exceed the {MAX_CONTEXT_SOURCES} item limit")
     _require_unique_source_ids(source_items)
 
     entries = tuple(
@@ -229,6 +234,7 @@ __all__ = [
     "ContextLensProjection",
     "ContextLensTokenSummary",
     "ContextSourceDescriptor",
+    "MAX_CONTEXT_SOURCES",
     "ProtectedContextSourceError",
     "compile_context_lens",
 ]

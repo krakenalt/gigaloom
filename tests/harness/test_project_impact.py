@@ -8,6 +8,10 @@ import time
 import pytest
 
 from gigaloom.projects import api
+from gigaloom.projects.api import (
+    PythonImpactIndexCache,
+    StalePythonImpactIndexError,
+)
 
 
 def test_python_impact_reports_imports_symbols_tests_contracts_and_owners(
@@ -116,6 +120,42 @@ def test_same_git_visible_sources_compile_to_the_same_index_digest(
     assert first.index_digest != changed.index_digest
 
 
+def test_impact_cache_is_bounded_and_exact_snapshot_bound(tmp_path: Path) -> None:
+    first_repo = _repository(tmp_path / "first")
+    second_repo = _repository(tmp_path / "second")
+    _write(first_repo / "src/example/service.py", "VALUE = 1\n")
+    _write(second_repo / "src/example/service.py", "VALUE = 2\n")
+    _commit_all(first_repo)
+    _commit_all(second_repo)
+    first = api.compile_python_impact_index(first_repo)
+    second = api.compile_python_impact_index(second_repo)
+    cache = PythonImpactIndexCache(max_entries=1)
+
+    cache.put(first_repo, first)
+    assert (
+        cache.get(
+            first_repo,
+            index_digest=first.index_digest,
+            source_revision=first.source_revision,
+        )
+        is first
+    )
+    cache.put(second_repo, second)
+
+    with pytest.raises(StalePythonImpactIndexError, match="resnapshot"):
+        cache.get(
+            first_repo,
+            index_digest=first.index_digest,
+            source_revision=first.source_revision,
+        )
+    with pytest.raises(StalePythonImpactIndexError, match="source revision"):
+        cache.get(
+            second_repo,
+            index_digest=second.index_digest,
+            source_revision="stale-revision",
+        )
+
+
 def test_5k_file_cold_compile_and_warm_projection_budgets(
     tmp_path: Path,
 ) -> None:
@@ -127,9 +167,16 @@ def test_5k_file_cold_compile_and_warm_projection_budgets(
     cold_started = time.perf_counter()
     impact_index = api.compile_python_impact_index(repo)
     cold_seconds = time.perf_counter() - cold_started
+    cache = PythonImpactIndexCache(max_entries=1)
+    cache.put(repo, impact_index)
     warm_started = time.perf_counter()
+    retained = cache.get(
+        repo,
+        index_digest=impact_index.index_digest,
+        source_revision=impact_index.source_revision,
+    )
     result = api.project_python_impact(
-        impact_index,
+        retained,
         ("src/example/module_0000.py",),
     )
     warm_seconds = time.perf_counter() - warm_started
@@ -145,7 +192,7 @@ def _repository(tmp_path: Path) -> Path:
     if git is None:
         pytest.skip("git is required")
     repo = tmp_path / "repo"
-    repo.mkdir()
+    repo.mkdir(parents=True)
     subprocess.run((git, "init", "-q", "-b", "main"), cwd=repo, check=True)
     _write(repo / "src/example/__init__.py", "")
     return repo

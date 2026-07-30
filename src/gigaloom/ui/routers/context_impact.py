@@ -5,9 +5,9 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from gigaloom.execution.api import NativeCodexContextProjection
+from gigaloom.projects.api import StalePythonImpactIndexError
 from gigaloom.ui.async_execution import ContractAPIRouter
 from gigaloom.ui.container import AppServices
-from gigaloom.ui.services.context_impact import compile_project_impact
 from gigaloom.ui.services.operator_workspace import operator_scope
 
 
@@ -72,8 +72,17 @@ def create_router(services: AppServices) -> APIRouter:
     def project_impact(
         workspace: str = Query(..., min_length=1, max_length=4096),
         changed_path: list[str] = Query(...),
+        index_digest: str | None = Query(
+            default=None,
+            min_length=64,
+            max_length=64,
+            pattern="[0-9a-f]{64}",
+        ),
+        source_revision: str | None = Query(default=None, min_length=1, max_length=256),
     ) -> dict[str, object]:
-        if not 1 <= len(changed_path) <= MAX_IMPACT_CHANGED_PATHS:
+        if not 1 <= len(changed_path) <= MAX_IMPACT_CHANGED_PATHS or any(
+            not path or len(path) > 4096 for path in changed_path
+        ):
             raise HTTPException(
                 status_code=422,
                 detail=_detail(
@@ -82,16 +91,26 @@ def create_router(services: AppServices) -> APIRouter:
                 ),
             )
         try:
-            projection = compile_project_impact(
+            outcome = services.impact_projection_service.project(
                 workspace=workspace,
                 changed_paths=changed_path,
+                expected_index_digest=index_digest,
+                expected_source_revision=source_revision,
             )
+        except StalePythonImpactIndexError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail=_detail("resnapshot_required", str(exc)),
+            ) from exc
         except ValueError as exc:
             raise HTTPException(
                 status_code=422,
                 detail=_detail("invalid_impact_request", str(exc)),
             ) from exc
-        return {"impact": projection.to_dict()}
+        return {
+            "impact": outcome.projection.to_dict(),
+            "cache_hit": outcome.cache_hit,
+        }
 
     return router
 

@@ -67,7 +67,10 @@ from gigaloom.ui.remote_identity import RemoteOIDCClient
 from gigaloom.ui.security import HarnessUISecurity
 from gigaloom.ui.services import ActiveHeadlessRun
 from gigaloom.ui.services.approvals import ApprovalGateService
-from gigaloom.ui.services.context_impact import ContextProjectionQuery
+from gigaloom.ui.services.context_impact import (
+    ContextProjectionQuery,
+    ImpactProjectionService,
+)
 from gigaloom.ui.services.legacy_bundles import (
     LegacyFullBundleCompatibility,
 )
@@ -127,6 +130,7 @@ class AppServices:
         GovernedEnvironmentPullRequestService | None
     )
     context_projection_query: ContextProjectionQuery | None
+    impact_projection_service: ImpactProjectionService
     operator_evidence_query: OperatorEvidenceQuery | None
     action_inbox_service: ActionInboxService
     operator_event_broker: OperatorEventBroker
@@ -210,6 +214,7 @@ def build_app_services(
     environment_pull_request_service: EnvironmentPullRequestService | None = None,
     remote_oidc_client: RemoteOIDCClient | None = None,
     context_projection_query: ContextProjectionQuery | None = None,
+    impact_projection_service: ImpactProjectionService | None = None,
     operator_evidence_query: OperatorEvidenceQuery | None = None,
     action_inbox_service: ActionInboxService | None = None,
     operator_event_broker: OperatorEventBroker | None = None,
@@ -407,6 +412,9 @@ def build_app_services(
             else None
         ),
         context_projection_query=context_projection_query,
+        impact_projection_service=(
+            impact_projection_service or ImpactProjectionService()
+        ),
         operator_evidence_query=operator_evidence_query,
         action_inbox_service=action_inbox_service or ActionInboxService(()),
         operator_event_broker=operator_event_broker or OperatorEventBroker(),

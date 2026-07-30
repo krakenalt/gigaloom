@@ -13,6 +13,12 @@ from typing import Any, Iterable, Mapping, TypeVar
 
 CONTEXT_MANIFEST_SCHEMA_VERSION = 1
 CONTEXT_MANIFEST_FORMAT = "gigaloom.context-manifest.v1"
+MAX_CONTEXT_ENTRIES = 5_000
+MAX_CONTEXT_OMISSIONS = 5_000
+MAX_CONTEXT_OVERRIDES = 256
+MAX_CONTEXT_COMPACTION_BOUNDARIES = 256
+MAX_CONTEXT_TOKEN_ESTIMATES = 5_000
+MAX_PROVIDER_MANAGED_UNKNOWNS = 64
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 _T = TypeVar("_T")
 
@@ -303,12 +309,36 @@ def build_context_manifest(
     provider_managed_unknowns: Iterable[ProviderManagedUnknown] = (),
 ) -> ContextManifest:
     """Build a deterministically ordered and digested manifest."""
-    normalized_entries = _sorted_tuple(entries)
-    normalized_omissions = _sorted_tuple(omissions)
-    normalized_overrides = _sorted_tuple(overrides)
-    normalized_boundaries = _sorted_tuple(compaction_boundaries)
-    normalized_estimates = _sorted_tuple(token_estimates)
-    normalized_unknowns = _sorted_tuple(provider_managed_unknowns)
+    normalized_entries = _bounded_sorted_tuple(
+        entries,
+        max_items=MAX_CONTEXT_ENTRIES,
+        field_name="entries",
+    )
+    normalized_omissions = _bounded_sorted_tuple(
+        omissions,
+        max_items=MAX_CONTEXT_OMISSIONS,
+        field_name="omissions",
+    )
+    normalized_overrides = _bounded_sorted_tuple(
+        overrides,
+        max_items=MAX_CONTEXT_OVERRIDES,
+        field_name="overrides",
+    )
+    normalized_boundaries = _bounded_sorted_tuple(
+        compaction_boundaries,
+        max_items=MAX_CONTEXT_COMPACTION_BOUNDARIES,
+        field_name="compaction_boundaries",
+    )
+    normalized_estimates = _bounded_sorted_tuple(
+        token_estimates,
+        max_items=MAX_CONTEXT_TOKEN_ESTIMATES,
+        field_name="token_estimates",
+    )
+    normalized_unknowns = _bounded_sorted_tuple(
+        provider_managed_unknowns,
+        max_items=MAX_PROVIDER_MANAGED_UNKNOWNS,
+        field_name="provider_managed_unknowns",
+    )
     digest = _manifest_digest(
         {
             "schema_version": CONTEXT_MANIFEST_SCHEMA_VERSION,
@@ -353,6 +383,14 @@ def context_manifest_schema() -> dict[str, Any]:
         "token_estimate_methods": [item.value for item in TokenEstimateMethod],
         "token_estimate_confidence": [item.value for item in TokenEstimateConfidence],
         "freshness": [item.value for item in ContextFreshness],
+        "limits": {
+            "entries": MAX_CONTEXT_ENTRIES,
+            "omissions": MAX_CONTEXT_OMISSIONS,
+            "overrides": MAX_CONTEXT_OVERRIDES,
+            "compaction_boundaries": MAX_CONTEXT_COMPACTION_BOUNDARIES,
+            "token_estimates": MAX_CONTEXT_TOKEN_ESTIMATES,
+            "provider_managed_unknowns": MAX_PROVIDER_MANAGED_UNKNOWNS,
+        },
     }
 
 
@@ -384,6 +422,18 @@ def _sorted_tuple(items: Iterable[_T]) -> tuple[_T, ...]:
     )
 
 
+def _bounded_sorted_tuple(
+    items: Iterable[_T],
+    *,
+    max_items: int,
+    field_name: str,
+) -> tuple[_T, ...]:
+    materialized = tuple(items)
+    if len(materialized) > max_items:
+        raise ValueError(f"{field_name} exceeds the {max_items} item limit")
+    return _sorted_tuple(materialized)
+
+
 def _validate_identifier(value: str, field_name: str) -> None:
     if not isinstance(value, str) or not value or len(value) > 256:
         raise ValueError(f"{field_name} must be 1..256 characters")
@@ -413,6 +463,12 @@ def _validate_relative_path(value: str | None) -> None:
 __all__ = [
     "CONTEXT_MANIFEST_FORMAT",
     "CONTEXT_MANIFEST_SCHEMA_VERSION",
+    "MAX_CONTEXT_COMPACTION_BOUNDARIES",
+    "MAX_CONTEXT_ENTRIES",
+    "MAX_CONTEXT_OMISSIONS",
+    "MAX_CONTEXT_OVERRIDES",
+    "MAX_CONTEXT_TOKEN_ESTIMATES",
+    "MAX_PROVIDER_MANAGED_UNKNOWNS",
     "CompactionBoundary",
     "ContextEntry",
     "ContextEntryKind",

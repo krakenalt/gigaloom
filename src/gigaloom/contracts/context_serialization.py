@@ -6,6 +6,12 @@ from typing import Any, Mapping, TypeVar
 
 from gigaloom.contracts.context import (
     CONTEXT_MANIFEST_SCHEMA_VERSION,
+    MAX_CONTEXT_COMPACTION_BOUNDARIES,
+    MAX_CONTEXT_ENTRIES,
+    MAX_CONTEXT_OMISSIONS,
+    MAX_CONTEXT_OVERRIDES,
+    MAX_CONTEXT_TOKEN_ESTIMATES,
+    MAX_PROVIDER_MANAGED_UNKNOWNS,
     CompactionBoundary,
     ContextEntry,
     ContextEntryKind,
@@ -50,21 +56,41 @@ def context_manifest_from_dict(data: Mapping[str, Any]) -> ContextManifest:
         schema_version=CONTEXT_MANIFEST_SCHEMA_VERSION,
         source_revision=_required_text(data["source_revision"], "source_revision"),
         config_digest=_required_text(data["config_digest"], "config_digest"),
-        entries=_parse_items(data["entries"], _entry_from_dict, "entries"),
-        omissions=_parse_items(data["omissions"], _omission_from_dict, "omissions"),
-        overrides=_parse_items(data["overrides"], _override_from_dict, "overrides"),
+        entries=_parse_items(
+            data["entries"],
+            _entry_from_dict,
+            "entries",
+            max_items=MAX_CONTEXT_ENTRIES,
+        ),
+        omissions=_parse_items(
+            data["omissions"],
+            _omission_from_dict,
+            "omissions",
+            max_items=MAX_CONTEXT_OMISSIONS,
+        ),
+        overrides=_parse_items(
+            data["overrides"],
+            _override_from_dict,
+            "overrides",
+            max_items=MAX_CONTEXT_OVERRIDES,
+        ),
         compaction_boundaries=_parse_items(
             data["compaction_boundaries"],
             _compaction_from_dict,
             "compaction_boundaries",
+            max_items=MAX_CONTEXT_COMPACTION_BOUNDARIES,
         ),
         token_estimates=_parse_items(
-            data["token_estimates"], _token_estimate_from_dict, "token_estimates"
+            data["token_estimates"],
+            _token_estimate_from_dict,
+            "token_estimates",
+            max_items=MAX_CONTEXT_TOKEN_ESTIMATES,
         ),
         provider_managed_unknowns=_parse_items(
             data["provider_managed_unknowns"],
             _provider_unknown_from_dict,
             "provider_managed_unknowns",
+            max_items=MAX_PROVIDER_MANAGED_UNKNOWNS,
         ),
         manifest_digest=_required_text(data["manifest_digest"], "manifest_digest"),
     )
@@ -183,9 +209,13 @@ def _parse_items(
     value: Any,
     parser: Any,
     field_name: str,
+    *,
+    max_items: int,
 ) -> tuple[Any, ...]:
     if not isinstance(value, list):
         raise ValueError(f"{field_name} must be a list")
+    if len(value) > max_items:
+        raise ValueError(f"{field_name} exceeds the {max_items} item limit")
     parsed = tuple(parser(_required_mapping(item, field_name)) for item in value)
     return _sorted_tuple(parsed)
 

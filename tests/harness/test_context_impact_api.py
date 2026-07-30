@@ -128,7 +128,9 @@ def test_impact_api_projects_advisory_python_relationships(tmp_path: Path) -> No
     )
 
     assert response.status_code == 200
-    impact = response.json()["impact"]
+    body = response.json()
+    impact = body["impact"]
+    assert body["cache_hit"] is False
     assert impact["advisory_only"] is True
     assert impact["changed_paths"] == ["src/example/service.py"]
     assert [item["relative_path"] for item in impact["affected_files"]] == [
@@ -136,6 +138,39 @@ def test_impact_api_projects_advisory_python_relationships(tmp_path: Path) -> No
         "tests/test_service.py",
     ]
     assert impact["nearest_tests"] == ["tests/test_service.py"]
+
+    warm = _client(tmp_path).get(
+        "/api/project/impact",
+        params={
+            "workspace": str(repo),
+            "changed_path": "src/example/service.py",
+            "index_digest": impact["index_digest"],
+            "source_revision": impact["source_revision"],
+        },
+    )
+    assert warm.status_code == 409
+
+    client = _client(tmp_path)
+    cold = client.get(
+        "/api/project/impact",
+        params={
+            "workspace": str(repo),
+            "changed_path": "src/example/service.py",
+        },
+    )
+    cold_impact = cold.json()["impact"]
+    warm = client.get(
+        "/api/project/impact",
+        params={
+            "workspace": str(repo),
+            "changed_path": "src/example/service.py",
+            "index_digest": cold_impact["index_digest"],
+            "source_revision": cold_impact["source_revision"],
+        },
+    )
+    assert warm.status_code == 200
+    assert warm.json()["cache_hit"] is True
+    assert warm.json()["impact"] == cold_impact
 
 
 def test_impact_api_rejects_unbounded_or_escaping_requests(tmp_path: Path) -> None:
@@ -159,6 +194,16 @@ def test_impact_api_rejects_unbounded_or_escaping_requests(tmp_path: Path) -> No
     assert escaping.status_code == 422
     assert escaping.json()["detail"]["code"] == "invalid_impact_request"
     assert unbounded.status_code == 422
+
+    partial_binding = client.get(
+        "/api/project/impact",
+        params={
+            "workspace": str(repo),
+            "changed_path": "src/example/service.py",
+            "index_digest": "a" * 64,
+        },
+    )
+    assert partial_binding.status_code == 422
 
 
 def _repository(tmp_path: Path) -> Path:

@@ -7,12 +7,17 @@ import pytest
 
 from gigaloom.contracts import (
     CompactionBoundary,
+    ContextDisposition,
     ContextEntry,
     ContextEntryKind,
+    ContextFreshness,
     ContextManifestCache,
     ContextOmission,
     ContextOverride,
+    ContextSourceDescriptor,
     InclusionReason,
+    MAX_CONTEXT_ENTRIES,
+    MAX_CONTEXT_SOURCES,
     OmissionReason,
     ProviderManagedUnknown,
     StaleContextManifestError,
@@ -20,6 +25,7 @@ from gigaloom.contracts import (
     TokenEstimateConfidence,
     TokenEstimateMethod,
     build_context_manifest,
+    compile_context_lens,
     context_manifest_from_dict,
     context_manifest_schema,
 )
@@ -142,6 +148,15 @@ def test_source_and_configuration_bind_the_manifest_and_cache() -> None:
             source_revision=changed_source.source_revision,
             config_digest=original.config_digest,
         )
+    assert (
+        cache.get(
+            "workspace_1",
+            source_revision=original.source_revision,
+            config_digest=original.config_digest,
+        )
+        is None
+    )
+    cache.put("workspace_1", original)
     with pytest.raises(StaleContextManifestError, match="configuration digest"):
         cache.get(
             "workspace_1",
@@ -207,3 +222,35 @@ def test_schema_declares_digest_and_cache_binding_contracts() -> None:
     assert schema["cache_binding"] == ["source_revision", "config_digest"]
     assert schema["content_free"] is True
     assert schema["freshness"] == ["current", "stale", "unknown"]
+    assert schema["limits"]["entries"] == MAX_CONTEXT_ENTRIES
+
+
+def test_manifest_and_lens_reject_unbounded_source_collections() -> None:
+    entry = _manifest().entries[0]
+    with pytest.raises(ValueError, match="entries exceeds"):
+        build_context_manifest(
+            source_revision="1" * 40,
+            config_digest=SHA_A,
+            entries=(entry,) * (MAX_CONTEXT_ENTRIES + 1),
+        )
+
+    payload = _manifest().to_dict()
+    payload["entries"] = [entry.to_dict()] * (MAX_CONTEXT_ENTRIES + 1)
+    with pytest.raises(ValueError, match="entries exceeds"):
+        context_manifest_from_dict(payload)
+
+    source = ContextSourceDescriptor(
+        source_id="instruction.repository",
+        kind=ContextEntryKind.INSTRUCTION,
+        source_digest=SHA_A,
+        disposition=ContextDisposition.INCLUDE,
+        freshness=ContextFreshness.CURRENT,
+        inclusion_reason=InclusionReason.MANDATORY_INSTRUCTION,
+        protected=True,
+    )
+    with pytest.raises(ValueError, match="context sources exceed"):
+        compile_context_lens(
+            source_revision="1" * 40,
+            config_digest=SHA_A,
+            sources=(source,) * (MAX_CONTEXT_SOURCES + 1),
+        )
