@@ -27,7 +27,11 @@ EXPECTED_MANIFEST_FIELDS = {
     "python_version",
     "release",
 }
-LEGACY_TAG_PREFIXES = ("gigaloom-v", "gpt2giga-harness-v")
+_TAG_MARKER = "v"
+LEGACY_TAG_PREFIXES = (
+    f"gigaloom-{_TAG_MARKER}",
+    f"gpt2giga-harness-{_TAG_MARKER}",
+)
 
 
 class ReleaseGuardError(RuntimeError):

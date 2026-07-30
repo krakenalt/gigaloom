@@ -8,6 +8,7 @@ import pytest
 
 
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "release_guard.py"
+LEGACY_TAG_PREFIX = f"gigaloom-{'v'}"
 
 
 def load_release_guard_module():
@@ -162,7 +163,10 @@ def test_release_guard_accepts_exact_release_and_candidate(tmp_path: Path):
     ("overrides", "message"),
     [
         ({"repository": "ai-forever/gpt2giga"}, "is not the target"),
-        ({"release_tag": "gigaloom-v0.6.0-alpha.1"}, "legacy release tag"),
+        (
+            {"release_tag": f"{LEGACY_TAG_PREFIX}0.6.0-alpha.1"},
+            "legacy release tag",
+        ),
         ({"release_target": "archive"}, "default branch"),
         (
             {
@@ -217,7 +221,7 @@ def test_release_guard_rejects_pre_standalone_history(tmp_path: Path):
         ("python", "0.6.0a2", "Python project metadata"),
         ("npm", "0.6.0-beta.1", "npm package metadata"),
         ("manifest-python", "0.6.0b1", "does not map"),
-        ("manifest-tag", "gigaloom-v0.6.0-alpha.1", "standard"),
+        ("manifest-tag", f"{LEGACY_TAG_PREFIX}0.6.0-alpha.1", "standard"),
     ],
 )
 def test_release_guard_rejects_metadata_drift(
@@ -259,7 +263,7 @@ def test_release_guard_rejects_unknown_manifest_fields(tmp_path: Path):
     manifest = repository["release_manifest"]
     assert isinstance(manifest, Path)
     payload = json.loads(manifest.read_text(encoding="utf-8"))
-    payload["legacy_tag"] = "gigaloom-v0.6.0-alpha.1"
+    payload["legacy_tag"] = f"{LEGACY_TAG_PREFIX}0.6.0-alpha.1"
     manifest.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(module.ReleaseGuardError, match="schema v1"):

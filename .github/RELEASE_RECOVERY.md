@@ -16,11 +16,13 @@ The committed target lock resolves the optional gateway dependency from the
 public package index. Do not add a token secret, temporary index, local source
 override, publisher bypass, or hand-built replacement artifact.
 
-The primary release and recovery owner is `@krakenalt`. The named backup
-GitHub, PyPI, and npm owner roles, their distinct-account and 2FA criteria, and
-the unavailable-owner boundary are defined in
+The primary release and recovery owner is `@krakenalt`. The named
+`backup-github-maintainer` and `backup-pypi-owner` roles, plus any admitted npm
+backup owner, their distinct-account and 2FA criteria, and the
+unavailable-owner boundary are defined in
 [`GOVERNANCE.md`](../GOVERNANCE.md). Release and public cutover remain blocked
-until the required registry identities and protected environments are ready.
+while either recorded role is `blocked_pending_acceptance` or until the
+required registry identities and protected environments are ready.
 
 ## Failure handling
 

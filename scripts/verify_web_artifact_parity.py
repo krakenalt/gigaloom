@@ -158,6 +158,16 @@ def _npm_tree(path: Path) -> dict[str, bytes]:
     return _bounded(files, label="npm Web tree")
 
 
+def read_wheel_web_tree(path: Path) -> Mapping[str, bytes]:
+    """Return one bounded, validated wheel Web tree."""
+    return _wheel_tree(path)
+
+
+def read_npm_web_tree(path: Path) -> Mapping[str, bytes]:
+    """Return one bounded, validated npm Web tree."""
+    return _npm_tree(path)
+
+
 def _json_object(content: bytes, *, label: str) -> Mapping[str, Any]:
     try:
         payload = json.loads(content)

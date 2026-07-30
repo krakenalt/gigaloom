@@ -1,97 +1,38 @@
-name: GigaLoom release
+name: GigaLoom release candidate
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: gigaloom-release-${{ github.event.release.tag_name || github.ref }}
+  group: gigaloom-release-candidate-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
-  metadata:
-    name: Release / identity and registry guard
+  candidate:
+    name: Release candidate / build immutable bundle
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      mode: ${{ steps.guard.outputs.mode }}
-      tag: ${{ steps.guard.outputs.tag }}
-      version: ${{ steps.guard.outputs.version }}
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout exact release source
+      - name: Checkout exact candidate source
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ github.event.release.tag_name || github.sha }}
+          ref: ${{ github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
-      - name: Fetch target main for ancestry proof
-        run: git fetch --no-tags origin main:refs/remotes/origin/main
-
-      - name: Verify repository, tag, version, commit, and ancestry
-        id: guard
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_TARGET: ${{ github.event.release.target_commitish }}
-        run: >-
-          python3 scripts/release_guard.py
-          --policy .github/release-policy.json
-          --release-manifest release/release.json
-          --python-metadata pyproject.toml
-          --npm-metadata web/package.json
-          --event-name "${GITHUB_EVENT_NAME}"
-          --repository "${GITHUB_REPOSITORY}"
-          --ref "${GITHUB_REF}"
-          --commit "${GITHUB_SHA}"
-          --release-tag "${RELEASE_TAG}"
-          --release-target "${RELEASE_TARGET}"
-          --main-ref origin/main
-          --github-output "${GITHUB_OUTPUT}"
-
-      - name: Fail closed if the public version already exists
-        if: github.event_name == 'release'
-        env:
-          RELEASE_VERSION: ${{ steps.guard.outputs.version }}
-        run: |
-          set -euo pipefail
-          status="$(
-            curl --proto '=https' --tlsv1.2 \
-              --output /dev/null --silent --show-error \
-              --write-out '%{http_code}' \
-              "https://pypi.org/pypi/gigaloom/${RELEASE_VERSION}/json"
-          )"
-          case "${status}" in
-            404) ;;
-            200)
-              echo "gigaloom ${RELEASE_VERSION} already exists on PyPI" >&2
-              exit 1
-              ;;
-            *)
-              echo "PyPI existence check returned HTTP ${status}" >&2
-              exit 1
-              ;;
-          esac
-
-  assets:
-    name: Release / frontend evidence
-    needs: metadata
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Checkout exact source
-        uses: actions/checkout@v7
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
         with:
-          ref: ${{ github.sha }}
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
       - name: Set up Node.js 22.13
         uses: actions/setup-node@v7
@@ -103,137 +44,98 @@ jobs:
       - name: Install pinned npm 11.17
         run: npm install --global --ignore-scripts npm@11.17.0
 
-      - name: Build verified release assets
+      - name: Fetch target main for ancestry proof
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+
+      - name: Verify candidate repository, identity, commit, and ancestry
+        id: guard
+        run: >-
+          python3 scripts/release_guard.py
+          --policy .github/release-policy.json
+          --release-manifest release/release.json
+          --python-metadata pyproject.toml
+          --npm-metadata web/package.json
+          --event-name "${GITHUB_EVENT_NAME}"
+          --repository "${GITHUB_REPOSITORY}"
+          --ref "${GITHUB_REF}"
+          --commit "${GITHUB_SHA}"
+          --main-ref origin/main
+          --github-output "${GITHUB_OUTPUT}"
+
+      - name: Install standalone build dependencies
         run: |
           npm --prefix web ci --ignore-scripts
-          npm --prefix web run check
-          npm --prefix web run build:release
-          python3 scripts/asset_contract.py --require-clean
-
-      - name: Upload commit-bound frontend evidence
-        uses: actions/upload-artifact@v7
-        with:
-          name: gigaloom-release-assets-${{ github.sha }}
-          path: src/gigaloom/ui/web/assets
-          if-no-files-found: error
-          retention-days: 90
-
-  build:
-    name: Release / package and hashes
-    needs: [metadata, assets]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout exact source
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-
-      - name: Download verified frontend evidence
-        uses: actions/download-artifact@v7
-        with:
-          name: gigaloom-release-assets-${{ github.sha }}
-          path: src/gigaloom/ui/web/assets
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-
-      - name: Verify locked public gateway readiness
-        env:
-          GIGALOOM_PYTHON: "3.13"
-        run: |
           ./scripts/ci-base.sh sync-all-extras
-          ./scripts/ci-public-gateway.sh
 
-      - name: Build target-only wheel and sdist
-        run: >-
-          uv build --wheel --sdist --no-sources
-          --out-dir dist/gigaloom
-
-      - name: Verify artifacts, assets, SBOM, licenses, and hashes
-        env:
-          RELEASE_VERSION: ${{ needs.metadata.outputs.version }}
+      - name: Run release-facing non-live checks
         run: |
-          set -euo pipefail
-          test "$(find dist/gigaloom -maxdepth 1 -type f \( -name '*.whl' -o -name '*.tar.gz' \) | wc -l | tr -d ' ')" = "2"
-          test "$(find dist/gigaloom -maxdepth 1 -type f -name "gigaloom-${RELEASE_VERSION}-*.whl" | wc -l | tr -d ' ')" = "1"
-          test "$(find dist/gigaloom -maxdepth 1 -type f -name "gigaloom-${RELEASE_VERSION}.tar.gz" | wc -l | tr -d ' ')" = "1"
-          python3 scripts/asset_contract.py --require-clean
-          cp src/gigaloom/ui/web/assets/_build/sbom.cdx.json dist/gigaloom/
-          cp src/gigaloom/ui/web/assets/_build/licenses.json dist/gigaloom/
-          sha256sum dist/gigaloom/* > dist/gigaloom/SHA256SUMS
-          cat dist/gigaloom/SHA256SUMS
+          npm --prefix web run check
+          ./scripts/ci-public-gateway.sh
+          python3 scripts/check_legacy_identifiers.py --source-root .
 
-      - name: Upload immutable release bundle
+      - name: Build canonical Web assets once
+        env:
+          GIGALOOM_SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          npm --prefix web run build:npm:release
+          npm --prefix web run pack:verify
+          python3 scripts/asset_contract.py --require-clean
+
+      - name: Build Python and npm candidate artifacts
+        run: |
+          mkdir -p dist/release-candidate
+          uv build --wheel --sdist --no-sources --out-dir dist/release-candidate
+          npm pack ./web --ignore-scripts --pack-destination dist/release-candidate
+          cp release/release.json dist/release-candidate/release.json
+          cp src/gigaloom/ui/web/assets/_build/licenses.json dist/release-candidate/licenses.json
+          cp src/gigaloom/ui/web/assets/_build/provenance.json dist/release-candidate/web-provenance.json
+          cp src/gigaloom/ui/web/assets/_build/sbom.cdx.json dist/release-candidate/sbom.cdx.json
+
+      - name: Verify immutable multi-registry candidate
+        run: |
+          python3 scripts/verify_release_artifacts.py \
+            --release release/release.json \
+            --artifact-dir dist/release-candidate \
+            --source-revision "${GITHUB_SHA}" \
+            --output dist/release-candidate/candidate-manifest.json \
+            --checksums dist/release-candidate/SHA256SUMS
+          python3 scripts/check_legacy_identifiers.py \
+            --wheel dist/release-candidate/*.whl \
+            --sdist dist/release-candidate/*.tar.gz \
+            --npm-tarball dist/release-candidate/*.tgz
+          (cd dist/release-candidate && sha256sum --check SHA256SUMS)
+
+      - name: Upload immutable candidate bundle
         uses: actions/upload-artifact@v7
         with:
-          name: gigaloom-release-${{ needs.metadata.outputs.version }}
-          path: dist/gigaloom/*
+          name: gigaloom-release-candidate-${{ github.sha }}
+          path: dist/release-candidate/*
           if-no-files-found: error
           retention-days: 90
 
-  release-assets:
-    name: Release / attach verified bundle
-    if: github.event_name == 'release'
-    needs: [metadata, build]
+  attest:
+    name: Release candidate / attest immutable bundle
+    needs: candidate
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download immutable release bundle
-        uses: actions/download-artifact@v7
-        with:
-          name: gigaloom-release-${{ needs.metadata.outputs.version }}
-          path: dist/gigaloom
-
-      - name: Attach bundle to the exact published release
-        env:
-          GH_REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
-        run: gh release upload "${RELEASE_TAG}" dist/gigaloom/*
-
-  trusted-publish:
-    name: Release / attest and trusted publish
-    if: >-
-      always() &&
-      needs.metadata.result == 'success' &&
-      needs.build.result == 'success' &&
-      (github.event_name == 'workflow_dispatch' ||
-       needs.release-assets.result == 'success')
-    needs: [metadata, build, release-assets]
-    runs-on: ubuntu-latest
-    environment: pypi-harness
-    timeout-minutes: 15
     permissions:
       attestations: write
       contents: read
       id-token: write
 
     steps:
-      - name: Download immutable release bundle
+      - name: Download immutable candidate bundle
         uses: actions/download-artifact@v7
         with:
-          name: gigaloom-release-${{ needs.metadata.outputs.version }}
-          path: dist/gigaloom
+          name: gigaloom-release-candidate-${{ github.sha }}
+          path: dist/release-candidate
 
-      - name: Attest distributions and retained evidence
+      - name: Verify retained candidate checksums
+        run: |
+          cd dist/release-candidate
+          sha256sum --check SHA256SUMS
+
+      - name: Attest candidate bundle
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: dist/gigaloom/*
-
-      - name: Set up uv for trusted publishing
-        if: github.event_name == 'release'
-        uses: astral-sh/setup-uv@v7
-
-      - name: Publish immutable Python distributions
-        if: github.event_name == 'release'
-        run: >-
-          uv publish --trusted-publishing always
-          dist/gigaloom/*.whl dist/gigaloom/*.tar.gz
+          subject-path: dist/release-candidate/*
