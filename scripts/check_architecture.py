@@ -43,14 +43,24 @@ def load_manifest(path: Path) -> dict[str, Any]:
     return manifest
 
 
-def _grouped_paths(groups: list[dict[str, Any]]) -> set[str]:
+def _grouped_paths(
+    groups: list[dict[str, Any]],
+    *,
+    required_metadata: tuple[str, ...] = (),
+) -> set[str]:
     paths: set[str] = set()
     for group in groups:
         if not group.get("owner") or not group.get("removal_gate"):
-            raise ValueError("temporary allowlist groups need owner and removal_gate")
+            raise ValueError("root namespace groups need owner and removal_gate")
+        missing_metadata = [
+            field for field in required_metadata if not group.get(field)
+        ]
+        if missing_metadata:
+            joined = ", ".join(missing_metadata)
+            raise ValueError(f"root namespace groups need {joined}")
         for path in group.get("paths", []):
             if path in paths:
-                raise ValueError(f"duplicate temporary allowlist path: {path}")
+                raise ValueError(f"duplicate root namespace path: {path}")
             paths.add(path)
     return paths
 
@@ -62,12 +72,26 @@ def check_root_namespace(
     """Reject new root modules or contexts outside the frozen target tree."""
     policy = manifest["root_namespace"]
     permanent_modules = set(policy["permanent_modules"])
-    temporary_modules = _grouped_paths(policy["temporary_module_groups"])
-    allowed_modules = permanent_modules | temporary_modules
+    compatibility_modules = _grouped_paths(
+        policy["compatibility_module_groups"],
+        required_metadata=("compatibility_contract",),
+    )
+    deviation_modules = _grouped_paths(
+        policy["target_deviation_module_groups"],
+        required_metadata=("adr", "reason"),
+    )
+    allowed_modules = permanent_modules | compatibility_modules | deviation_modules
 
     permanent_contexts = set(policy["target_contexts"])
-    temporary_contexts = _grouped_paths(policy["temporary_context_groups"])
-    allowed_contexts = permanent_contexts | temporary_contexts
+    compatibility_contexts = _grouped_paths(
+        policy["compatibility_context_groups"],
+        required_metadata=("compatibility_contract",),
+    )
+    deviation_contexts = _grouped_paths(
+        policy["target_deviation_context_groups"],
+        required_metadata=("adr", "reason"),
+    )
+    allowed_contexts = permanent_contexts | compatibility_contexts | deviation_contexts
 
     actual_modules = {
         path.name
@@ -110,8 +134,10 @@ def check_module_budgets(
         legacy_budgets[path] = int(entry["max_lines"])
 
     violations: list[str] = []
+    actual_modules: set[str] = set()
     for path in sorted(package_root.rglob("*.py")):
         relative = path.relative_to(package_root).as_posix()
+        actual_modules.add(relative)
         line_count = _line_count(path)
         limit = legacy_budgets.get(relative, hard_limit)
         if line_count > limit:
@@ -121,6 +147,10 @@ def check_module_budgets(
             violations.append(
                 f"{relative}: {line_count} lines exceeds {budget_kind} {limit}"
             )
+    violations.extend(
+        f"stale legacy module budget: {relative}"
+        for relative in sorted(set(legacy_budgets) - actual_modules)
+    )
     return violations
 
 

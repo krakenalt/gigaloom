@@ -39,17 +39,24 @@ contract.
 
 | Path under `src/gpt2giga_harness/` | Responsibility |
 |---|---|
-| `cli.py`, `doctor.py`, `config.py` | CLI, diagnostics, Harness configuration |
-| `harnesses/`, `native/` | Built-in adapters and native session connectors |
-| `runtime/`, `sessions/` | Durable jobs, policy, leases, attempts, stored events |
-| `ui/` | FastAPI control plane, routers, security, packaged static UI |
-| `tools/`, `mcp.py`, `managed_mcp.py` | Tool contracts, policy, managed secrets/config |
-| `project*.py`, `workspace.py`, `worktrees.py` | Project state, bounded filesystem access, edit isolation |
-| `workflows.py`, `schedules.py`, `evals.py`, `agents.py` | Higher-level orchestration and authoring |
+| `core/`, `contracts/` | Dependency-light primitives and public contracts |
+| `sessions/`, `runtime/`, `execution/` | Durable state, jobs, policy, leases, and execution orchestration |
+| `providers/`, `harnesses/`, `native/` | Provider protocols, built-in adapters, and native connectors |
+| `integrations/`, `tools/`, `skills/` | Extension packages, tool policy, and portable skills |
+| `projects/`, `attachments/` | Project state, bounded filesystems, worktrees, and attachments |
+| `automation/`, `review/` | Workflows, schedules, evaluations, evidence, and review flows |
+| `diagnostics/` | Doctor, compatibility, inventory, and benchmark implementation |
+| `tui/`, `ui/` | Textual and FastAPI/Cockpit application surfaces |
 
 Keep `ui/app.py` as composition; add cohesive API families to `ui/routers/`
 instead of expanding the composition module. Use temporary data dirs and repos
 in tests; never exercise real user state.
+
+Root modules listed in `architecture/module-budgets.json` are either external
+compatibility facades or ADR-recorded target-tree deviations. Do not add new
+callers to them. Cross-context imports use the owning context's `api.py` or
+documented public package facade; internal modules of another context are not a
+supported boundary.
 
 ## Validation
 

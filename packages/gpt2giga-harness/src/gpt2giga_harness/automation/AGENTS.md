@@ -1,0 +1,31 @@
+# Scope
+
+Workflows, schedules, evaluations, agents, arena, and authoring.
+
+# Public API
+
+Use package exports; add a narrow API before exposing internals cross-context.
+
+# Allowed imports
+
+Public execution, runtime, and sessions APIs plus contracts/core.
+
+# Forbidden imports
+
+No application-surface or concrete repository deep imports.
+
+# Persistence/security invariants
+
+Preserve approval, provenance, retry, and redaction guarantees.
+
+# Performance budgets
+
+Keep planning/evaluation bounded and new modules below 600 lines.
+
+# Focused validation commands
+
+`uv run pytest tests/harness -k 'workflow or schedule or eval or arena' -n 0`
+
+# Owner thread/CODEOWNERS
+
+T18/T20; `@krakenalt`.
