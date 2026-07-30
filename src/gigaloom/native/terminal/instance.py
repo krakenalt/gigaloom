@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import stat
+from typing import TYPE_CHECKING
 
 from gigaloom.native.terminal.contracts import (
     TerminalIdentity,
@@ -24,8 +25,12 @@ from gigaloom.native.terminal.tmux import (
     SubprocessTmuxCommandRunner,
     TmuxCapability,
     TmuxCommandRunner,
+    decode_tmux_escaped_bytes,
     tmux_argv,
 )
+
+if TYPE_CHECKING:
+    from gigaloom.native.terminal.control_bridge import TerminalControlClient
 
 
 MIN_TERMINAL_ROWS = 2
@@ -36,7 +41,11 @@ MIN_SCROLLBACK_LINES = 100
 MAX_SCROLLBACK_LINES = 100_000
 DEFAULT_SCROLLBACK_LINES = 10_000
 MAX_PRIVATE_SOCKET_PATH_BYTES = 100
+DEFAULT_CAPTURE_LINES = 1000
+MAX_CAPTURE_LINES = 2000
+MAX_CAPTURE_BYTES = 1024 * 1024
 _LIVENESS_PATTERN = re.compile(rb"([01])\t(-?[0-9]*)\t([0-9]+)\n?")
+_SCREEN_PATTERN = re.compile(rb"([01])\t([0-9]+)\t([0-9]+)\t([0-9]+)\t([0-9]+)\n?")
 
 
 class TmuxInstanceError(RuntimeError):
@@ -271,6 +280,98 @@ class TmuxTerminalKernel:
             if result.returncode != 0 and paths.socket_path.exists():
                 raise TmuxInstanceError("private tmux close failed")
         self._remove_known_empty_instance(paths)
+
+    def capture_seed(
+        self,
+        terminal_id: str,
+        *,
+        lines: int = DEFAULT_CAPTURE_LINES,
+    ) -> bytes:
+        """Capture one bounded screen/history seed with cursor restoration."""
+        if (
+            isinstance(lines, bool)
+            or not isinstance(lines, int)
+            or not 1 <= lines <= MAX_CAPTURE_LINES
+        ):
+            raise ValueError("terminal capture line limit is invalid")
+        paths = self._paths(terminal_id)
+        if not paths.socket_path.exists():
+            raise TmuxInstanceError("private tmux terminal is missing")
+        screen = self.runner.run(
+            tmux_argv(
+                self.capability,
+                paths.socket_path,
+                "display-message",
+                "-p",
+                "-t",
+                paths.pane_target,
+                "#{alternate_on}\t#{cursor_x}\t#{cursor_y}\t#{pane_width}\t#{pane_height}",
+                no_start=True,
+            ),
+            timeout_seconds=self.timeout_seconds,
+        )
+        match = _SCREEN_PATTERN.fullmatch(screen.stdout)
+        if screen.returncode != 0 or screen.stdout_truncated or match is None:
+            raise TmuxInstanceError("private tmux screen metadata is invalid")
+        alternate = match.group(1) == b"1"
+        cursor_x = int(match.group(2))
+        cursor_y = int(match.group(3))
+        capture_args = [
+            "capture-pane",
+            "-p",
+            "-e",
+            "-C",
+            "-N",
+            "-t",
+            paths.pane_target,
+        ]
+        if alternate:
+            capture_args.append("-a")
+        else:
+            capture_args.extend(("-J", "-S", f"-{lines}"))
+        capture = self.runner.run(
+            tmux_argv(
+                self.capability,
+                paths.socket_path,
+                *capture_args,
+                no_start=True,
+            ),
+            timeout_seconds=self.timeout_seconds,
+            max_output_bytes=MAX_CAPTURE_BYTES,
+        )
+        if capture.returncode != 0 or capture.stdout_truncated:
+            raise TmuxInstanceError("private tmux screen capture failed")
+        content = decode_tmux_escaped_bytes(capture.stdout)
+        screen_mode = b"\x1b[?1049h" if alternate else b"\x1b[?1049l"
+        cursor = f"\x1b[{cursor_y + 1};{cursor_x + 1}H".encode("ascii")
+        seed = screen_mode + b"\x1b[2J\x1b[H" + content + cursor
+        if len(seed) > MAX_CAPTURE_BYTES:
+            raise TmuxInstanceError("private tmux screen seed is too large")
+        return seed
+
+    def open_control_mode(self, terminal_id: str) -> TerminalControlClient:
+        """Attach a bounded tmux control client to one private session."""
+        paths = self._paths(terminal_id)
+        if not paths.socket_path.exists():
+            raise TmuxInstanceError("private tmux terminal is missing")
+        from gigaloom.native.terminal.control_bridge import (
+            SubprocessTmuxControlClient,
+        )
+
+        return SubprocessTmuxControlClient(
+            tmux_argv(
+                self.capability,
+                paths.socket_path,
+                "attach-session",
+                "-t",
+                paths.session_name,
+                no_start=True,
+                control_mode=True,
+            ),
+            pane_target=paths.pane_target,
+            session_target=paths.session_name,
+            env=_launch_environment({}),
+        )
 
     def _paths(self, terminal_id: str) -> _TmuxInstancePaths:
         digest = hashlib.sha256(terminal_id.encode("utf-8")).hexdigest()

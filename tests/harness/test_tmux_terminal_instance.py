@@ -177,6 +177,33 @@ def test_close_targets_only_private_server_and_removes_known_directory(
     assert not socket_path.parent.exists()
 
 
+def test_capture_seed_restores_alternate_screen_cursor_and_bytes(
+    tmp_path,
+    short_socket_root,
+):
+    spec = _spec(tmp_path)
+    record = _record(spec)
+    runner = FakeTmuxRunner(liveness=b"0\t\t4242\n", create_socket=True)
+    kernel = TmuxTerminalKernel(
+        tmp_path,
+        _capability(),
+        runner=runner,
+        socket_root=short_socket_root,
+    )
+    kernel.launch(record, spec)
+    runner.responses.extend(
+        (
+            TmuxCommandResult(0, stdout=b"1\t4\t2\t80\t24\n"),
+            TmuxCommandResult(0, stdout=b"hello\\012\\377"),
+        )
+    )
+
+    seed = kernel.capture_seed(record.id)
+    kernel.close(record)
+
+    assert seed == b"\x1b[?1049h\x1b[2J\x1b[Hhello\n\xff\x1b[3;5H"
+
+
 def test_launch_binding_fails_before_tmux_on_changed_command(tmp_path):
     spec = _spec(tmp_path)
     record = _record(spec)
@@ -284,8 +311,15 @@ class FakeTmuxRunner:
         self.create_socket = create_socket
         self.calls = []
 
-    def run(self, argv, *, env=None, timeout_seconds=5.0):
-        del timeout_seconds
+    def run(
+        self,
+        argv,
+        *,
+        env=None,
+        timeout_seconds=5.0,
+        max_output_bytes=4096,
+    ):
+        del timeout_seconds, max_output_bytes
         call = Call(argv, env)
         self.calls.append(call)
         if self.responses:
@@ -304,8 +338,15 @@ class FakeTmuxRunner:
 
 
 class TimeoutRunner:
-    def run(self, argv, *, env=None, timeout_seconds=5.0):
-        del argv, env, timeout_seconds
+    def run(
+        self,
+        argv,
+        *,
+        env=None,
+        timeout_seconds=5.0,
+        max_output_bytes=4096,
+    ):
+        del argv, env, timeout_seconds, max_output_bytes
         raise TmuxCommandTimeoutError("timeout")
 
 

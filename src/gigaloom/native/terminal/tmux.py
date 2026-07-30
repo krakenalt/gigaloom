@@ -49,6 +49,8 @@ class TmuxCommandResult:
     returncode: int
     stdout: bytes = b""
     stderr: bytes = b""
+    stdout_truncated: bool = False
+    stderr_truncated: bool = False
 
 
 class TmuxCommandTimeoutError(TimeoutError):
@@ -64,6 +66,7 @@ class TmuxCommandRunner(Protocol):
         *,
         env: Mapping[str, str] | None = None,
         timeout_seconds: float = DEFAULT_TMUX_COMMAND_TIMEOUT_SECONDS,
+        max_output_bytes: int = MAX_TMUX_OUTPUT_BYTES,
     ) -> TmuxCommandResult:
         """Run one command and return bounded output."""
 
@@ -77,8 +80,11 @@ class SubprocessTmuxCommandRunner:
         *,
         env: Mapping[str, str] | None = None,
         timeout_seconds: float = DEFAULT_TMUX_COMMAND_TIMEOUT_SECONDS,
+        max_output_bytes: int = MAX_TMUX_OUTPUT_BYTES,
     ) -> TmuxCommandResult:
         """Run one tmux command with no stdin and bounded retained output."""
+        if max_output_bytes < 1:
+            raise ValueError("tmux output limit must be positive")
         try:
             completed = subprocess.run(
                 tuple(argv),
@@ -91,10 +97,20 @@ class SubprocessTmuxCommandRunner:
             )
         except subprocess.TimeoutExpired as exc:
             raise TmuxCommandTimeoutError("tmux command timed out") from exc
+        stdout, stdout_truncated = _bounded_bytes(
+            completed.stdout,
+            max_output_bytes=max_output_bytes,
+        )
+        stderr, stderr_truncated = _bounded_bytes(
+            completed.stderr,
+            max_output_bytes=max_output_bytes,
+        )
         return TmuxCommandResult(
             returncode=completed.returncode,
-            stdout=_bounded_bytes(completed.stdout),
-            stderr=_bounded_bytes(completed.stderr),
+            stdout=stdout,
+            stderr=stderr,
+            stdout_truncated=stdout_truncated,
+            stderr_truncated=stderr_truncated,
         )
 
 
@@ -165,6 +181,7 @@ def tmux_argv(
     socket_path: Path,
     *commands: str,
     no_start: bool = False,
+    control_mode: bool = False,
 ) -> tuple[str, ...]:
     """Build an argv-only command against one exact private socket."""
     if not capability.available or capability.executable_path is None:
@@ -178,11 +195,36 @@ def tmux_argv(
     ]
     if no_start:
         argv.append("-N")
+    if control_mode:
+        argv.append("-C")
     argv.extend(commands)
     return tuple(argv)
 
 
-def _bounded_bytes(value: bytes) -> bytes:
-    if len(value) <= MAX_TMUX_OUTPUT_BYTES:
-        return value
-    return value[:MAX_TMUX_OUTPUT_BYTES]
+def _bounded_bytes(
+    value: bytes,
+    *,
+    max_output_bytes: int,
+) -> tuple[bytes, bool]:
+    if len(value) <= max_output_bytes:
+        return value, False
+    return value[:max_output_bytes], True
+
+
+def decode_tmux_escaped_bytes(value: bytes) -> bytes:
+    """Decode tmux control/capture octal escapes without UTF-8 assumptions."""
+    decoded = bytearray()
+    index = 0
+    while index < len(value):
+        if value[index] != 0x5C:
+            decoded.append(value[index])
+            index += 1
+            continue
+        if index + 3 >= len(value):
+            raise ValueError("tmux octal escape is truncated")
+        octal = value[index + 1 : index + 4]
+        if any(character < 0x30 or character > 0x37 for character in octal):
+            raise ValueError("tmux octal escape is invalid")
+        decoded.append(int(octal, 8))
+        index += 4
+    return bytes(decoded)
