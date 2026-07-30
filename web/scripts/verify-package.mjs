@@ -7,7 +7,9 @@ import process from "node:process";
 import {
   frontendRoot,
   normalizePath,
+  releaseManifestPath,
   repositoryRoot,
+  sha256,
   walkFiles,
 } from "./asset-contract.mjs";
 import {
@@ -82,6 +84,15 @@ if (
   || sbom.metadata?.component?.version !== packageJson.version
 ) {
   throw new Error("Published SBOM component does not match package.json");
+}
+const contentManifest = JSON.parse(
+  await readFile(join(distRoot, "_build", "content-manifest.json"), "utf8"),
+);
+if (
+  contentManifest.release_manifest_sha256
+  !== sha256(await readFile(releaseManifestPath))
+) {
+  throw new Error("Published content manifest is not bound to release/release.json");
 }
 
 const localCheckoutPaths = [frontendRoot, repositoryRoot];

@@ -45,9 +45,11 @@ def test_injected_cockpit_asset_tree_is_source_and_supply_chain_bound():
 
     assert evidence["asset_count"] >= 40
     assert len(evidence["output_sha256"]) == 64
+    assert len(evidence["content_sha256"]) == 64
     assert len(evidence["frontend_input_sha256"]) == 64
     assert len(evidence["sbom_sha256"]) == 64
     assert len(evidence["licenses_sha256"]) == 64
+    assert len(evidence["release_manifest_sha256"]) == 64
     assert len(evidence["source_revision"]) in {40, 64}
 
 

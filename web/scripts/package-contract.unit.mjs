@@ -37,6 +37,7 @@ test("rejects private metadata and an expanded file set", () => {
 
 test("requires the exact dist inventory and evidence", () => {
   const distPaths = [
+    "_build/content-manifest.json",
     "_build/licenses.json",
     "_build/provenance.json",
     "_build/sbom.cdx.json",

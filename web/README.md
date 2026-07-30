@@ -21,6 +21,7 @@ The package includes:
 
 - `dist/index.html` and the production assets;
 - `dist/manifest.json`, the integrity and media-type manifest;
+- `dist/_build/content-manifest.json`, shared with the Python embedding;
 - `dist/_build/provenance.json`;
 - `dist/_build/sbom.cdx.json`;
 - `dist/_build/licenses.json`.
@@ -40,7 +41,9 @@ npm --prefix web run build:npm
 npm --prefix web run pack:verify
 ```
 
-`build:npm` writes the ignored `web/dist/` staging tree. `pack:verify` runs
+`build:npm` performs one verified production build, writes the canonical
+ignored Python asset tree, and copies those exact bytes into the ignored
+`web/dist/` staging tree. `pack:verify` runs
 `npm pack --dry-run --json`, compares the complete package inventory with the
 declared allowlist, and rejects source maps or embedded local absolute paths.
 Neither command publishes the package.

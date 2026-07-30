@@ -6,6 +6,7 @@ const requiredPublishedFiles = new Set([
   "LICENSE",
   "README.md",
   "package.json",
+  "dist/_build/content-manifest.json",
   "dist/index.html",
   "dist/manifest.json",
   "dist/_build/licenses.json",

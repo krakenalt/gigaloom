@@ -13,6 +13,7 @@ import {
   namedFilesDigest,
   normalizePath,
   outputRoot,
+  releaseManifestPath,
   repositoryRoot,
   sha256,
   treeDigest,
@@ -22,6 +23,7 @@ import {
 const viteManifestPath = join(outputRoot, ".vite", "manifest.json");
 const formatVersion = "gigaloom-web-assets-v1";
 const provenanceFormatVersion = "gigaloom-web-assets-provenance-v1";
+const contentFormatVersion = "gigaloom-web-content-manifest-v1";
 const sbomFormatVersion = "gigaloom-web-sbom-v1";
 const licenseFormatVersion = "gigaloom-web-licenses-v1";
 
@@ -168,6 +170,8 @@ const retainedRuntimeFiles = runtimeFiles.filter(
 );
 const outputSha256 = await treeDigest(outputRoot, retainedRuntimeFiles);
 const lockfile = JSON.parse(await readFile(lockfilePath, "utf8"));
+const releaseManifestContent = await readFile(releaseManifestPath);
+const releaseManifestSha256 = sha256(releaseManifestContent);
 const packageMetadata = JSON.parse(
   await readFile(join(frontendRoot, "package.json"), "utf8"),
 );
@@ -188,7 +192,14 @@ const sourceRevision = (
   ?? git(["rev-parse", "HEAD"])
 ).toLowerCase();
 const sourceStatus = git(
-  ["status", "--porcelain", "--untracked-files=all", "--", "web"],
+  [
+    "status",
+    "--porcelain",
+    "--untracked-files=all",
+    "--",
+    "web",
+    "release/release.json",
+  ],
   "",
 );
 const provenance = {
@@ -201,6 +212,7 @@ const provenance = {
   node_version: process.version,
   npm_version: process.env.GIGALOOM_NPM_VERSION ?? "unknown",
   output_sha256: outputSha256,
+  release_manifest_sha256: releaseManifestSha256,
   sbom_sha256: sha256(sbomContent),
   source_dirty: sourceStatus !== "",
   source_revision: sourceRevision,
@@ -221,6 +233,7 @@ async function record(path, relativeName) {
 const manifest = {
   assets,
   build: {
+    content: null,
     licenses: await record(licensesPath, "_build/licenses.json"),
     output_sha256: outputSha256,
     provenance: await record(provenancePath, "_build/provenance.json"),
@@ -230,6 +243,38 @@ const manifest = {
   format_version: formatVersion,
   initial: [...initial].sort(),
 };
+const describedFiles = [
+  ...retainedRuntimeFiles,
+  licensesPath,
+  provenancePath,
+  sbomPath,
+].sort((left, right) => (
+  normalizePath(relative(outputRoot, left))
+    .localeCompare(normalizePath(relative(outputRoot, right)))
+));
+const contentFiles = {};
+for (const path of describedFiles) {
+  const name = normalizePath(relative(outputRoot, path));
+  const content = await readFile(path);
+  contentFiles[name] = {
+    bytes: content.byteLength,
+    sha256: sha256(content),
+  };
+}
+const contentManifest = {
+  content_sha256: await treeDigest(outputRoot, describedFiles),
+  files: contentFiles,
+  format_version: contentFormatVersion,
+  output_sha256: outputSha256,
+  release_manifest_sha256: releaseManifestSha256,
+  source_revision: sourceRevision,
+};
+const contentManifestPath = join(buildDirectory, "content-manifest.json");
+await writeFile(contentManifestPath, canonicalJson(contentManifest));
+manifest.build.content = await record(
+  contentManifestPath,
+  "_build/content-manifest.json",
+);
 await writeFile(join(outputRoot, "manifest.json"), canonicalJson(manifest));
 await rm(join(outputRoot, ".vite"), { recursive: true, force: true });
 
