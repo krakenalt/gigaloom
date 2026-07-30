@@ -10,6 +10,7 @@ on:
       - "tests/**"
       - "benchmarks/gigaloom_performance/**"
       - "scripts/ci-*.sh"
+      - "scripts/check_legacy_identifiers.py"
       - "pyproject.toml"
       - "uv.lock"
       - ".github/workflows/ci.yaml"
@@ -175,6 +176,16 @@ jobs:
           cache-dependency-glob: |
             uv.lock
 
+      - name: Set up Node.js 22.13
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.13.0"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install pinned npm 11.17
+        run: npm install --global --ignore-scripts npm@11.17.0
+
       - name: Install artifact-test environment
         env:
           GIGALOOM_PYTHON: "3.13"
@@ -182,6 +193,19 @@ jobs:
 
       - name: Build standalone wheel and sdist
         run: uv build --wheel --sdist --no-sources --out-dir dist/gigaloom
+
+      - name: Pack the Web npm artifact
+        run: |
+          mkdir -p dist/web
+          npm pack ./web --ignore-scripts --pack-destination dist/web
+
+      - name: Verify the legacy identifier denylist
+        run: >-
+          .venv/bin/python scripts/check_legacy_identifiers.py
+          --source-root .
+          --wheel dist/gigaloom/gigaloom-*.whl
+          --sdist dist/gigaloom/gigaloom-*.tar.gz
+          --npm-tarball dist/web/gigaloom-web-*.tgz
 
       - name: Verify base isolation and installed artifact evidence
         run: >-

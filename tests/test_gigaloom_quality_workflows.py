@@ -54,6 +54,8 @@ def test_required_quality_jobs_are_independent_and_standalone():
     assert "cache-dependency-glob: uv.lock" in text
     assert "benchmark performance --profile ci-smoke" in text
     assert "test-results/browser-qa" in text
+    assert "scripts/check_legacy_identifiers.py" in text
+    assert "--npm-tarball dist/web/gigaloom-web-*.tgz" in text
 
 
 def test_browser_gate_covers_required_viewports_console_and_overflow():

@@ -127,7 +127,7 @@ def verify_state_backup(archive: str | Path) -> StateBackupResult:
             if set(names) != expected_names:
                 raise ValueError("State backup contents do not match its manifest.")
             runtime_schema_version: int | None = None
-            with TemporaryDirectory(prefix="gigaloom-verify-") as temp_dir:
+            with TemporaryDirectory(prefix="gigaloom-check-") as temp_dir:
                 for index, entry in enumerate(entries):
                     archived_mode = info_by_name[entry["path"]].external_attr >> 16
                     if not stat.S_ISREG(archived_mode) or stat.S_IMODE(

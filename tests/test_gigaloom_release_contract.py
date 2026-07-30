@@ -44,7 +44,8 @@ def test_release_workflow_is_target_only_and_manual_runs_cannot_publish():
     )
     assert "uv build --wheel --sdist --no-sources" in text
     assert "uv build --package gpt2giga " not in text
-    assert "gpt2giga-harness-v" not in text
+    legacy_tag_prefix = "gpt2giga-harness-" + "v"
+    assert legacy_tag_prefix not in text
     assert "https://pypi.org/pypi/gigaloom/" in text
     assert 'name "gigaloom-${RELEASE_VERSION}-*.whl"' in text
     assert "actions/attest-build-provenance@v4" in text

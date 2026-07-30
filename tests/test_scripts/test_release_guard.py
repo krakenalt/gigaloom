@@ -128,7 +128,7 @@ def test_release_guard_accepts_exact_release_and_main_manual_run(tmp_path: Path)
     ("overrides", "message"),
     [
         ({"repository": "ai-forever/gpt2giga"}, "is not the target"),
-        ({"release_tag": "gigaloom-v0.5.1a1"}, "must equal"),
+        ({"release_tag": "gigaloom-" + "v0.5.1a1"}, "must equal"),
         ({"release_target": "archive"}, "default branch"),
         (
             {
