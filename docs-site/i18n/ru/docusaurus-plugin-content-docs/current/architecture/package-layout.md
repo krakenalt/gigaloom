@@ -1,7 +1,7 @@
 # ADR: Структура пакета по ограниченным контекстам
 
 Статус: принято как архитектурная передача T15 Phase A для gate `G-ARCH`
-2026-07-29.
+2026-07-29 и финализировано как package contract T20 2026-07-30.
 
 ## Контекст
 
@@ -74,10 +74,10 @@ skills/       tools/       tui/          ui/
 | `tui` | Textual state, clients, controllers, projections, widgets, screens и rendering | Application client protocols; не владеет storage |
 | `ui` | FastAPI composition, dependencies, routers, projections, streaming и доставка Cockpit | Application services и transport schemas; не владеет storage |
 
-Текущие директории `application`, `evidence`, `integration_sdk_preview` и
-`protocols` являются временными отклонениями. Их точные владельцы и removal
-gates записаны в manifest. Временное имя не разрешает создавать рядом ещё один
-пакет.
+На время опубликованного migration window root files или directories вне
+контекстов выше являются compatibility shims, а не владельцами реализации. Их
+точные paths, owners и removal gates записаны в manifest. Временное имя не
+разрешает добавлять business behavior или создавать рядом ещё один package.
 
 ### Целевая форма backend
 

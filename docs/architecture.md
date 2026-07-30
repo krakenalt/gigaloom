@@ -24,6 +24,8 @@ authority. Sensitive values are redacted before persistence and serialization.
 ## Detailed decisions
 
 - [Harness component architecture](architecture/harness.md)
+- [Bounded-context package layout](architecture/package-layout.md)
+- [Durability, recovery, and performance contracts](architecture/durability-performance-contracts.md)
 - [Authority and approval schema](architecture/authority-approval-schema-adr.md)
 - [Scoped network access](architecture/scoped-network-access-adr.md)
 - [GitHub capability grants](architecture/github-capability-grants-adr.md)

@@ -23,6 +23,8 @@ Approval связывается с проверенными scope и preview. П
 ## Подробные решения
 
 - [Архитектура компонентов](architecture/harness.md)
+- [Структура пакета по bounded contexts](architecture/package-layout.md)
+- [Контракты durability, recovery и производительности](architecture/durability-performance-contracts.md)
 - [Схема authority и approval](architecture/authority-approval-schema-adr.md)
 - [Ограниченный сетевой доступ](architecture/scoped-network-access-adr.md)
 - [GitHub capability grants](architecture/github-capability-grants-adr.md)

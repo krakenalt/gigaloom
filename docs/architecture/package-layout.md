@@ -1,7 +1,7 @@
 # ADR: Bounded-context package layout
 
 Status: accepted as the T15 Phase A architecture handoff for gate `G-ARCH` on
-2026-07-29.
+2026-07-29 and finalized as the T20 package contract on 2026-07-30.
 
 ## Context
 
@@ -75,10 +75,10 @@ tree.
 | `tui` | Textual state, clients, controllers, projections, widgets, screens, and rendering | Application client protocols; no storage ownership |
 | `ui` | FastAPI composition, dependencies, routers, projections, streaming, and packaged Cockpit delivery | Application services and transport schemas; no storage ownership |
 
-The current `application`, `evidence`, `integration_sdk_preview`, and
-`protocols` directories are temporary deviations. Their exact owners and
-removal gates are recorded in the manifest. A temporary name is not permission
-to create another package beside it.
+During the published migration window, root files or directories outside the
+contexts above are compatibility shims, not implementation owners. Their exact
+paths, owners, and removal gates are recorded in the manifest. A temporary name
+is not permission to add business behavior or create another sibling package.
 
 ### Backend target shape
 
