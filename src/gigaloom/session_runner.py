@@ -17,7 +17,11 @@ from gigaloom.attachments import (
 from gigaloom.config import HarnessConfig
 from gigaloom.execution import ExecutionTransport
 from gigaloom.execution.admission import RunAdmissionService
-from gigaloom.execution.attachments import PreparedAttachments
+from gigaloom.execution.attachments import (
+    PreparedAttachments,
+    message_attachment_metadata,
+    run_attachment_metadata,
+)
 from gigaloom.execution.continuation import (
     build_continuation_plan,
 )
@@ -31,6 +35,7 @@ from gigaloom.execution.milestones import PersistenceMilestone
 from gigaloom.execution.options import RunOptions
 from gigaloom.execution.persistence import RunPersistenceService
 from gigaloom.execution.preparation import RunPreparationService
+from gigaloom.execution.trust_context import ExecutionTrustTracker
 from gigaloom.managed_mcp import HeadlessManagedMCPSnapshotStore
 from gigaloom.mcp import build_mcp_inventory
 from gigaloom.native.models import parse_invocation_mode
@@ -350,11 +355,14 @@ class HarnessSessionRunner:
         prepared_attachments = PreparedAttachments(
             attachments=attachments,
             metadata=tuple(
-                _run_attachment_metadata(attachment) for attachment in attachments
+                run_attachment_metadata(attachment) for attachment in attachments
             ),
         )
         attachment_payloads = prepared_attachments.metadata
         managed_mcp_snapshot = self._prepare_managed_mcp_snapshot(options)
+        trust_tracker = ExecutionTrustTracker.from_execution_options(
+            options, attachments
+        )
         _validate_continuation_identity(session, options)
         message_id = new_id("msg")
         run = self.store.create_run(
@@ -378,12 +386,13 @@ class HarnessSessionRunner:
                 ),
                 "preflight": preflight_report_to_dict(report),
                 "durable": True,
-                **_message_attachment_metadata(attachment_payloads),
+                **message_attachment_metadata(attachment_payloads),
                 **(
                     {"managed_mcp_snapshot": managed_mcp_snapshot}
                     if managed_mcp_snapshot is not None
                     else {}
                 ),
+                "trust_context": trust_tracker.snapshot().to_dict(),
                 **edited_message_metadata(_edit_message_id(options)),
                 **_agent_metadata(options),
                 **_workbench_admission_metadata(options),
@@ -406,7 +415,7 @@ class HarnessSessionRunner:
                 model=options["model"],
                 api_mode=options["api_mode"],
                 metadata={
-                    **_message_attachment_metadata(attachment_payloads),
+                    **message_attachment_metadata(attachment_payloads),
                     **edited_message_metadata(_edit_message_id(options)),
                 },
             )
@@ -461,7 +470,7 @@ class HarnessSessionRunner:
         prepared_attachments = self.preparation_service.prepare_attachments(
             self,
             execution_context,
-            metadata_factory=_run_attachment_metadata,
+            metadata_factory=run_attachment_metadata,
         )
         attachments = prepared_attachments.attachments
         attachment_payloads = prepared_attachments.metadata
@@ -510,6 +519,9 @@ class HarnessSessionRunner:
         if preflight.hard_block:
             raise PreflightBlockedError(preflight)
         managed_mcp_snapshot = self._prepare_managed_mcp_snapshot(options)
+        trust_tracker = ExecutionTrustTracker.from_execution_options(
+            options, attachments
+        )
         self.admission_service.validate_continuation_identity(execution_context)
         preflight_payload = preflight_report_to_dict(preflight)
         effective_prompt = _prompt_with_project_memory(
@@ -530,6 +542,7 @@ class HarnessSessionRunner:
                 if managed_mcp_snapshot is not None
                 else {}
             ),
+            "trust_context": trust_tracker.snapshot().to_dict(),
             **_agent_metadata(options),
             **_workbench_admission_metadata(options),
             **(
@@ -614,7 +627,7 @@ class HarnessSessionRunner:
                     model=options["model"],
                     api_mode=options["api_mode"],
                     metadata={
-                        **_message_attachment_metadata(attachment_payloads),
+                        **message_attachment_metadata(attachment_payloads),
                         **edited_message_metadata(edit_message_id),
                     },
                 ),
@@ -676,7 +689,9 @@ class HarnessSessionRunner:
         if project_memory_payload:
             request_extra["project_memory"] = project_memory_payload
         request_extra["preflight"] = preflight_payload
-        invocation = InvocationAccumulator()
+        # Provider invocation receives only the labels known before execution.
+        request_extra["trust_context"] = trust_tracker.snapshot().to_dict()
+        invocation = InvocationAccumulator(source_observer=trust_tracker.observe_event)
 
         def append_streamed_event(event: HarnessEvent) -> None:
             self._append_event(
@@ -840,6 +855,8 @@ class HarnessSessionRunner:
                 event_to_dict(event)["payload"],
             )
             invocation.observe(event)
+        if result.ok:
+            trust_tracker.observe_generated_output(result.text)
 
         latest_usage = invocation.latest_usage
         terminal = self.finalization_service.resolve(
@@ -873,6 +890,8 @@ class HarnessSessionRunner:
         )
         terminal_events = [terminal_event]
         metadata = dict(run_metadata)
+        # The terminal run record receives the final observed influence snapshot.
+        metadata["trust_context"] = trust_tracker.snapshot().to_dict()
         app_server_thread = _mapping(result.raw).get("app_server_thread")
         structured_session_link = _mapping(result.raw).get("structured_session_link")
         if isinstance(app_server_thread, Mapping) and app_server_thread:
@@ -1775,25 +1794,6 @@ def _permission_actions(value: Any) -> tuple[PermissionAction, ...]:
     if len(set(parsed)) != len(parsed):
         raise ValueError("required_permission_actions contains duplicates")
     return tuple(sorted(parsed, key=lambda item: item.value))
-
-
-def _run_attachment_metadata(
-    attachment: HarnessAttachment,
-) -> dict[str, Any]:
-    payload = attachment_to_dict(attachment)
-    payload.pop("storage_path", None)
-    return payload
-
-
-def _message_attachment_metadata(
-    attachments: tuple[Mapping[str, Any], ...],
-) -> dict[str, Any]:
-    if not attachments:
-        return {}
-    return {
-        "attachment_ids": [str(attachment["id"]) for attachment in attachments],
-        "attachments": [dict(attachment) for attachment in attachments],
-    }
 
 
 def _agent_metadata(options: Mapping[str, Any]) -> dict[str, Any]:

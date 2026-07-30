@@ -18,8 +18,16 @@ from gigaloom.execution.trust_adapters import (
     user_source_ref,
     web_source_ref,
 )
+from gigaloom.execution.trust_context import (
+    EXECUTION_TRUST_CONTEXT_SCHEMA_VERSION,
+    ExecutionTrustSnapshot,
+    ExecutionTrustTracker,
+)
 
 __all__ = [
+    "EXECUTION_TRUST_CONTEXT_SCHEMA_VERSION",
+    "ExecutionTrustSnapshot",
+    "ExecutionTrustTracker",
     "SourceToSinkGuard",
     "admit_sink_request",
     "attachment_source_ref",

@@ -25,6 +25,7 @@ class InvocationAccumulator:
 
     emitted_event_counts: Counter[str] = field(default_factory=Counter)
     latest_usage: dict[str, Any] = field(default_factory=dict)
+    source_observer: Callable[[HarnessEvent], None] | None = None
     reasoning_parts: dict[str, list[str]] = field(
         default_factory=lambda: {"summary": [], "text": [], "model": []}
     )
@@ -52,6 +53,8 @@ class InvocationAccumulator:
 
     def observe(self, event: HarnessEvent) -> None:
         """Merge usage and reasoning from one normalized event."""
+        if self.source_observer is not None:
+            self.source_observer(event)
         usage = _usage_from_event(event)
         if usage is not None:
             _merge_usage(self.latest_usage, usage)
