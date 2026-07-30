@@ -460,7 +460,7 @@ jobs and update their transparent parent JSON records as attempts finish.
 Use `giga worker status` to inspect registered workers, or run a temporary
 worker with `giga worker stop-on-idle --idle-seconds 30`. Workers deliberately
 do not auto-start a proxy: start `gpt2giga` yourself and configure
-`GPT2GIGA_HARNESS_API_KEY` when a harness needs the proxy. This avoids treating
+`GIGALOOM_API_KEY` when a harness needs the proxy. This avoids treating
 the UI process's temporary sidecar key cache as durable worker state.
 
 An empty worker now backs off from 250 ms to a bounded 1 second idle wait.
@@ -616,24 +616,24 @@ Do not expose or tunnel the loopback listener as a multi-user workaround.
 CLI flags override environment variables. Useful variables:
 
 ```bash
-GPT2GIGA_HARNESS_PROXY_URL=http://127.0.0.1:8090
-GPT2GIGA_HARNESS_API_KEY=<local-proxy-api-key>
+GIGALOOM_PROXY_URL=http://127.0.0.1:8090
+GIGALOOM_API_KEY=<local-proxy-api-key>
 # Required only when Harness uses an externally managed proxy:
-GPT2GIGA_HARNESS_MODEL_KEY=<shared-model-signing-secret>
-GPT2GIGA_HARNESS_DEFAULT_MODEL=GigaChat-2-Max
-GPT2GIGA_HARNESS_DEFAULT_API_MODE=v2
-GPT2GIGA_HARNESS_UI_HOST=127.0.0.1
-GPT2GIGA_HARNESS_UI_PORT=8091
+GIGALOOM_MODEL_KEY=<shared-model-signing-secret>
+GIGALOOM_DEFAULT_MODEL=GigaChat-2-Max
+GIGALOOM_DEFAULT_API_MODE=v2
+GIGALOOM_UI_HOST=127.0.0.1
+GIGALOOM_UI_PORT=8091
 # Remote deployment only; keep the secret in deployment-owned secret storage:
-GPT2GIGA_HARNESS_UI_OIDC_ISSUER=https://issuer.example
-GPT2GIGA_HARNESS_UI_OIDC_CLIENT_ID=gigaloom
-GPT2GIGA_HARNESS_UI_OIDC_CLIENT_SECRET=<deployment-secret>
-GPT2GIGA_HARNESS_UI_OIDC_PUBLIC_ORIGIN=https://harness.example
-GPT2GIGA_HARNESS_UI_OIDC_ROLE_MAP='{"subject-1":"viewer","subject-2":"operator"}'
-GPT2GIGA_HARNESS_UI_TRUSTED_PROXIES=10.0.0.2
-GPT2GIGA_HARNESS_AUTO_START_PROXY=True
-GPT2GIGA_HARNESS_PROXY_START_TIMEOUT_SECONDS=15
-GPT2GIGA_HARNESS_TIMEOUT_SECONDS=3600
+GIGALOOM_UI_OIDC_ISSUER=https://issuer.example
+GIGALOOM_UI_OIDC_CLIENT_ID=gigaloom
+GIGALOOM_UI_OIDC_CLIENT_SECRET=<deployment-secret>
+GIGALOOM_UI_OIDC_PUBLIC_ORIGIN=https://harness.example
+GIGALOOM_UI_OIDC_ROLE_MAP='{"subject-1":"viewer","subject-2":"operator"}'
+GIGALOOM_UI_TRUSTED_PROXIES=10.0.0.2
+GIGALOOM_AUTO_START_PROXY=True
+GIGALOOM_PROXY_START_TIMEOUT_SECONDS=15
+GIGALOOM_TIMEOUT_SECONDS=3600
 GIGALOOM_DATA_DIR=~/.gigaloom
 ```
 
@@ -642,10 +642,10 @@ session titles. Use **Discover models** and select both values from the models
 reported by the active API route. The choices are stored in
 `settings/defaults.json` under the Harness data directory and apply to new
 runs; when the title model is cleared, title generation uses the selected chat
-model. `GPT2GIGA_HARNESS_DEFAULT_MODEL` or `GIGACHAT_MODEL` continues to lock
+model. `GIGALOOM_DEFAULT_MODEL` or `GIGACHAT_MODEL` continues to lock
 the chat default when it is environment-owned.
 
-If `GPT2GIGA_HARNESS_API_KEY` is not set, the harness falls back to
+If `GIGALOOM_API_KEY` is not set, the harness falls back to
 `GPT2GIGA_API_KEY` for calls to the local proxy. It never passes
 `GIGACHAT_CREDENTIALS`, OAuth tokens, certificates, or `.env` contents to
 external agent CLIs.
@@ -655,7 +655,7 @@ Auto-start is local-only. It supports `http://127.0.0.1:<port>`,
 does not create fake upstream credentials, and starts the child proxy with a
 generated local `GPT2GIGA_API_KEY` plus a separate model-signing key. For an
 externally managed proxy, configure the same strong
-`GPT2GIGA_HARNESS_MODEL_KEY` in the Harness and proxy environments; never send
+`GIGALOOM_MODEL_KEY` in the Harness and proxy environments; never send
 it to agent CLIs or expose it as an HTTP API key.
 
 External agent harnesses run the same proxy preflight before launching Codex,
@@ -2669,7 +2669,7 @@ Managed Codex, Claude Code, and Gemini native start and resume now run a
 route-aware proxy preflight before spawning the CLI. The Harness first checks
 proxy health, then requires the exact selected `GET /v1/models` or
 `GET /v2/models` route to accept the configured local proxy key. An
-auth-enabled existing proxy without `GPT2GIGA_HARNESS_API_KEY`, an unreachable
+auth-enabled existing proxy without `GIGALOOM_API_KEY`, an unreachable
 route, or a disallowed remote auto-start fails before spawn. A newly auto-started
 loopback sidecar is marked as Harness-owned in redaction-safe plan evidence and
 is stopped if native process startup fails before handoff; an existing proxy is
@@ -2879,10 +2879,10 @@ giga doctor . --json
 
 Common checks:
 
-- proxy is reachable at `GPT2GIGA_HARNESS_PROXY_URL` or
+- proxy is reachable at `GIGALOOM_PROXY_URL` or
   `http://127.0.0.1:8090`;
 - if relying on auto-start, `giga doctor` reports `Proxy / Auto-start: ready`;
-- `GPT2GIGA_API_KEY` or `GPT2GIGA_HARNESS_API_KEY` matches the proxy when API-key
+- `GPT2GIGA_API_KEY` or `GIGALOOM_API_KEY` matches the proxy when API-key
   auth is enabled;
 - `GIGACHAT_CREDENTIALS` is present for real upstream calls;
 - the selected mode uses the intended explicit route: `/v1/chat/completions` or

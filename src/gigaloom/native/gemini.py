@@ -1077,8 +1077,8 @@ def _gemini_env(
         "GOOGLE_GEMINI_BASE_URL": context.api_base_url(api_mode),
         "GEMINI_API_KEY": context.api_key or "0",
         "GEMINI_CLI_TRUST_WORKSPACE": "true",
-        "GPT2GIGA_HARNESS_PROXY_URL": context.proxy_url,
-        "GPT2GIGA_HARNESS_API_MODE": api_mode.value,
+        "GIGALOOM_PROXY_URL": context.proxy_url,
+        "GIGALOOM_API_MODE": api_mode.value,
     }
     if model is not None:
         extra["GEMINI_MODEL"] = model

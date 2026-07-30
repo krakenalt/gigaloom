@@ -218,17 +218,17 @@ def test_local_access_logout_rotate_recovery_and_csrf(tmp_path):
 def test_ui_security_config_loads_token_and_host_allowlist_without_api_exposure(
     monkeypatch,
 ):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_UI_BOOTSTRAP_TOKEN", "secret-token")
+    monkeypatch.setenv("GIGALOOM_UI_BOOTSTRAP_TOKEN", "secret-token")
     monkeypatch.setenv(
-        "GPT2GIGA_HARNESS_UI_ALLOWED_HOSTS",
+        "GIGALOOM_UI_ALLOWED_HOSTS",
         " harness.example, 10.0.0.7 ",
     )
     monkeypatch.setenv(
-        "GPT2GIGA_HARNESS_UI_OIDC_CLIENT_SECRET",
+        "GIGALOOM_UI_OIDC_CLIENT_SECRET",
         "oidc-client-secret",
     )
     monkeypatch.setenv(
-        "GPT2GIGA_HARNESS_UI_OIDC_ROLE_MAP",
+        "GIGALOOM_UI_OIDC_ROLE_MAP",
         '{"subject-1":"viewer","subject-2":"operator"}',
     )
     config = HarnessConfig.from_env()

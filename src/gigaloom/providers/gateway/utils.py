@@ -32,7 +32,7 @@ def _sidecar_env(
             "GPT2GIGA_PORT": str(port),
             "GPT2GIGA_ENABLE_API_KEY_AUTH": "True",
             "GPT2GIGA_API_KEY": api_key,
-            "GPT2GIGA_HARNESS_MODEL_KEY": harness_model_key,
+            "GIGALOOM_MODEL_KEY": harness_model_key,
             "GPT2GIGA_GIGACHAT_API_MODE": api_mode.value,
             "GPT2GIGA_PASS_MODEL": "False",
             "GPT2GIGA_DISABLE_REASONING": "True",

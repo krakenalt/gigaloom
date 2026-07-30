@@ -197,7 +197,7 @@ def ensure_proxy_route_available(
         if exc.status_code in {401, 403}:
             error = (
                 f"proxy route {route_path} rejected authentication; configure "
-                "GPT2GIGA_HARNESS_API_KEY for an existing auth-enabled proxy"
+                "GIGALOOM_API_KEY for an existing auth-enabled proxy"
             )
         else:
             error = f"proxy compatibility route {route_path} is unavailable: {exc}"

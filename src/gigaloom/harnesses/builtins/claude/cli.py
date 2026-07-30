@@ -230,8 +230,8 @@ class ClaudeCodeHarness(BaseHarness):
                     context,
                     model,
                 ),
-                "GPT2GIGA_HARNESS_PROXY_URL": context.proxy_url,
-                "GPT2GIGA_HARNESS_API_MODE": request.api_mode.value,
+                "GIGALOOM_PROXY_URL": context.proxy_url,
+                "GIGALOOM_API_MODE": request.api_mode.value,
             },
         )
 

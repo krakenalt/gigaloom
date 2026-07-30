@@ -283,14 +283,12 @@ class SecretReferenceSettingsStore:
 
 def _environment_owned_fields() -> set[str]:
     locked: set[str] = set()
-    if any(
-        os.getenv(name) for name in ("GPT2GIGA_HARNESS_DEFAULT_MODEL", "GIGACHAT_MODEL")
-    ):
+    if any(os.getenv(name) for name in ("GIGALOOM_DEFAULT_MODEL", "GIGACHAT_MODEL")):
         locked.add("default_model")
     if any(
         os.getenv(name)
         for name in (
-            "GPT2GIGA_HARNESS_DEFAULT_API_MODE",
+            "GIGALOOM_DEFAULT_API_MODE",
             "GPT2GIGA_GIGACHAT_API_MODE",
         )
     ):

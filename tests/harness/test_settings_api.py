@@ -419,7 +419,7 @@ def test_settings_reject_invalid_title_model_before_persistence(tmp_path):
 
 
 def test_settings_do_not_persist_environment_owned_defaults(tmp_path, monkeypatch):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DEFAULT_MODEL", "EnvironmentModel")
+    monkeypatch.setenv("GIGALOOM_DEFAULT_MODEL", "EnvironmentModel")
     client = _client(tmp_path, default_model="EnvironmentModel")
 
     response = client.patch(

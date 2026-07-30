@@ -40,7 +40,7 @@ def test_claude_code_sanitizes_env(monkeypatch):
         "X-GigaLoom-Model-Signature:"
         "v1:233a3bf9982a21ae07d6571616b23a8e5290922d69a92794a77997489676efe7"
     )
-    assert env["GPT2GIGA_HARNESS_API_MODE"] == "v1"
+    assert env["GIGALOOM_API_MODE"] == "v1"
 
 
 def test_claude_code_preserves_custom_headers_and_encodes_pinned_model():

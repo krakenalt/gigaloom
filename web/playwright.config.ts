@@ -40,7 +40,7 @@ export default defineConfig({
   ],
   webServer: {
     command: [
-      `GPT2GIGA_HARNESS_DATA_DIR="${qaDataDirectory}"`,
+      `GIGALOOM_DATA_DIR="${qaDataDirectory}"`,
       `"${path.join(repositoryRoot, ".venv", "bin", "giga")}"`,
       "ui --no-start-worker --host 127.0.0.1 --port 8091",
     ].join(" "),

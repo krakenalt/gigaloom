@@ -65,7 +65,7 @@ def migrate_legacy_provider_route(
     dialect = f"gpt2giga-{normalized_mode}"
     reference = secret_reference or SecretReference(
         kind=SecretReferenceKind.ENVIRONMENT,
-        name="GPT2GIGA_HARNESS_API_KEY",
+        name="GIGALOOM_API_KEY",
     )
     semantic = {
         "proxy_url": base_url,

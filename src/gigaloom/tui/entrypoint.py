@@ -44,7 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--attach", default=None, metavar="URL")
     parser.add_argument(
         "--bootstrap-token-env",
-        default="GPT2GIGA_HARNESS_UI_BOOTSTRAP_TOKEN",
+        default="GIGALOOM_UI_BOOTSTRAP_TOKEN",
         metavar="NAME",
         help="Environment variable containing the explicit attach bootstrap token.",
     )

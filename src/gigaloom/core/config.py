@@ -99,13 +99,9 @@ def parse_oidc_role_map(value: str | None) -> tuple[tuple[str, str], ...]:
     try:
         payload = json.loads(value)
     except json.JSONDecodeError as exc:
-        raise ValueError(
-            "GPT2GIGA_HARNESS_UI_OIDC_ROLE_MAP must be a JSON object"
-        ) from exc
+        raise ValueError("GIGALOOM_UI_OIDC_ROLE_MAP must be a JSON object") from exc
     if not isinstance(payload, dict) or not payload:
-        raise ValueError(
-            "GPT2GIGA_HARNESS_UI_OIDC_ROLE_MAP must be a non-empty JSON object"
-        )
+        raise ValueError("GIGALOOM_UI_OIDC_ROLE_MAP must be a non-empty JSON object")
     normalized: list[tuple[str, str]] = []
     for subject, role in payload.items():
         if (

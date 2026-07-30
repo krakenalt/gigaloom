@@ -496,22 +496,22 @@ Secret refs разрешаются только на границе создан
 CLI flags имеют приоритет над environment variables. Основные переменные:
 
 ```bash
-GPT2GIGA_HARNESS_PROXY_URL=http://127.0.0.1:8090
-GPT2GIGA_HARNESS_API_KEY=<local-proxy-api-key>
-GPT2GIGA_HARNESS_DEFAULT_MODEL=GigaChat-2-Max
-GPT2GIGA_HARNESS_DEFAULT_API_MODE=v2
-GPT2GIGA_HARNESS_UI_HOST=127.0.0.1
-GPT2GIGA_HARNESS_UI_PORT=8091
+GIGALOOM_PROXY_URL=http://127.0.0.1:8090
+GIGALOOM_API_KEY=<local-proxy-api-key>
+GIGALOOM_DEFAULT_MODEL=GigaChat-2-Max
+GIGALOOM_DEFAULT_API_MODE=v2
+GIGALOOM_UI_HOST=127.0.0.1
+GIGALOOM_UI_PORT=8091
 # Только remote deployment; secret хранится в deployment-owned secret storage:
-GPT2GIGA_HARNESS_UI_OIDC_ISSUER=https://issuer.example
-GPT2GIGA_HARNESS_UI_OIDC_CLIENT_ID=gigaloom
-GPT2GIGA_HARNESS_UI_OIDC_CLIENT_SECRET=<deployment-secret>
-GPT2GIGA_HARNESS_UI_OIDC_PUBLIC_ORIGIN=https://harness.example
-GPT2GIGA_HARNESS_UI_OIDC_ROLE_MAP='{"subject-1":"viewer","subject-2":"operator"}'
-GPT2GIGA_HARNESS_UI_TRUSTED_PROXIES=10.0.0.2
-GPT2GIGA_HARNESS_AUTO_START_PROXY=True
-GPT2GIGA_HARNESS_PROXY_START_TIMEOUT_SECONDS=15
-GPT2GIGA_HARNESS_TIMEOUT_SECONDS=3600
+GIGALOOM_UI_OIDC_ISSUER=https://issuer.example
+GIGALOOM_UI_OIDC_CLIENT_ID=gigaloom
+GIGALOOM_UI_OIDC_CLIENT_SECRET=<deployment-secret>
+GIGALOOM_UI_OIDC_PUBLIC_ORIGIN=https://harness.example
+GIGALOOM_UI_OIDC_ROLE_MAP='{"subject-1":"viewer","subject-2":"operator"}'
+GIGALOOM_UI_TRUSTED_PROXIES=10.0.0.2
+GIGALOOM_AUTO_START_PROXY=True
+GIGALOOM_PROXY_START_TIMEOUT_SECONDS=15
+GIGALOOM_TIMEOUT_SECONDS=3600
 GIGALOOM_DATA_DIR=~/.gigaloom
 ```
 
@@ -520,10 +520,10 @@ GIGALOOM_DATA_DIR=~/.gigaloom
 списка, который вернул активный API route. Настройки сохраняются в
 `settings/defaults.json` внутри Harness data directory и применяются к новым
 запускам; если модель заголовков очищена, используется выбранная модель чатов.
-`GPT2GIGA_HARNESS_DEFAULT_MODEL` или `GIGACHAT_MODEL` по-прежнему блокирует
+`GIGALOOM_DEFAULT_MODEL` или `GIGACHAT_MODEL` по-прежнему блокирует
 изменение модели чатов, если значение принадлежит окружению.
 
-Если `GPT2GIGA_HARNESS_API_KEY` не задан, Harness использует
+Если `GIGALOOM_API_KEY` не задан, Harness использует
 `GPT2GIGA_API_KEY` для локального proxy. GigaChat credentials, OAuth tokens,
 certificates и содержимое `.env` не передаются внешнему agent CLI.
 
@@ -1425,7 +1425,7 @@ execution snapshot.
 route-aware proxy preflight до spawn CLI. Harness сначала проверяет health, затем
 требует, чтобы точный выбранный route `GET /v1/models` или `GET /v2/models`
 принял настроенный локальный proxy key. Недоступный route, auth-enabled внешний
-proxy без `GPT2GIGA_HARNESS_API_KEY` и запрещённый remote auto-start завершаются
+proxy без `GIGALOOM_API_KEY` и запрещённый remote auto-start завершаются
 явной ошибкой до spawn. Новый loopback sidecar помечается как Harness-owned в
 безопасном plan evidence и останавливается при ошибке native startup до handoff;
 существующий proxy помечается external и никогда не останавливается. Созданный
@@ -1501,8 +1501,8 @@ UI, Smart Router и render-plan показывают это как `reference-on
 
 Проверьте:
 
-- доступен ли proxy по `GPT2GIGA_HARNESS_PROXY_URL`;
-- совпадает ли `GPT2GIGA_HARNESS_API_KEY` с ключом gateway;
+- доступен ли proxy по `GIGALOOM_PROXY_URL`;
+- совпадает ли `GIGALOOM_API_KEY` с ключом gateway;
 - есть ли GigaChat credentials для реального запроса;
 - находится ли нужный внешний CLI в `PATH`;
 - выбран ли ожидаемый backend route `v1` или `v2`;

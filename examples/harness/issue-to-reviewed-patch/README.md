@@ -19,7 +19,7 @@ git config user.email "harness-example@example.invalid"
 git config user.name "Harness Example"
 git add .
 git commit -m "test: seed reviewed patch example"
-export GPT2GIGA_HARNESS_DATA_DIR="$PWD/.local/harness"
+export GIGALOOM_DATA_DIR="$PWD/.local/harness"
 ```
 
 The initial focused suite has one expected failure at the equality boundary:

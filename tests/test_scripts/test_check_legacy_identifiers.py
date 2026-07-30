@@ -50,7 +50,9 @@ def _write_tar(path: Path, member_name: str, payload: bytes) -> None:
 def test_policy_contains_the_exact_roadmap_minimum():
     checker = load_checker_module()
 
-    assert checker.DENIED_IDENTIFIERS == _roadmap_identifiers()
+    assert set(_roadmap_identifiers()).issubset(checker.DENIED_IDENTIFIERS)
+    assert "GPT2GIGA_" + "HARNESS_" in checker.DENIED_IDENTIFIERS
+    assert "gpt2giga." + "harnesses" in checker.DENIED_IDENTIFIERS
 
 
 def test_entry_scan_detects_path_text_and_python_imports():
@@ -118,6 +120,28 @@ def test_historical_allowlist_is_exact_and_runtime_source_is_not_allowed():
 
     assert checker._allowed_source_violation(historical) is True
     assert checker._allowed_source_violation(runtime) is False
+
+
+def test_one_way_migration_can_name_the_removed_data_dir_override():
+    checker = load_checker_module()
+    identifier = "GPT2GIGA_" + "HARNESS_"
+    migration = checker.Violation(
+        scope="wheel",
+        path="gigaloom/projects/state_migration.py",
+        identifier=identifier,
+        kind="text",
+        line=1,
+    )
+    runtime = checker.Violation(
+        scope="wheel",
+        path="gigaloom/contracts/config.py",
+        identifier=identifier,
+        kind="text",
+        line=1,
+    )
+
+    assert checker._allowed_artifact_violation(migration) is True
+    assert checker._allowed_artifact_violation(runtime) is False
 
 
 def test_current_tracked_source_passes_the_policy():

@@ -29,6 +29,8 @@ DENIED_IDENTIFIERS = (
     "agent_workbench.",
     "gpt2giga-harness-v",
     "gigaloom-v",
+    "GPT2GIGA_HARNESS_",
+    "gpt2giga.harnesses",
 )
 _POLICY_PATH = "scripts/check_legacy_identifiers.py"
 _HISTORICAL_PATHS = frozenset(
@@ -36,10 +38,30 @@ _HISTORICAL_PATHS = frozenset(
         "CHANGELOG.md",
         "CHANGELOG_en.md",
         "release/0.6-native-operator-baseline.md",
+        "release/adr/2026-07-30-clean-namespace-path-cutover.md",
         "release/adr/2026-07-30-multi-registry-release-identity.md",
     }
 )
-_SOURCE_ALLOWLIST = frozenset({_POLICY_PATH, *_HISTORICAL_PATHS})
+_MIGRATION_SOURCE_PATHS = frozenset(
+    {
+        "docs/installation.md",
+        "docs-site/i18n/ru/docusaurus-plugin-content-docs/current/installation.md",
+        "src/gigaloom/projects/state_migration.py",
+        "tests/conftest.py",
+        "tests/migrations/test_state_cutover.py",
+    }
+)
+_SOURCE_ALLOWLIST = frozenset(
+    {_POLICY_PATH, *_HISTORICAL_PATHS, *_MIGRATION_SOURCE_PATHS}
+)
+_ARTIFACT_ALLOWLIST = frozenset(
+    {
+        _POLICY_PATH,
+        *_HISTORICAL_PATHS,
+        "gigaloom/projects/state_migration.py",
+        "src/gigaloom/projects/state_migration.py",
+    }
+)
 _MAX_ENTRY_BYTES = 32 * 1024 * 1024
 _MAX_ARCHIVE_BYTES = 256 * 1024 * 1024
 ArtifactKind = Literal["wheel", "sdist", "npm"]
@@ -197,6 +219,10 @@ def _allowed_source_violation(violation: Violation) -> bool:
     return violation.path in _SOURCE_ALLOWLIST
 
 
+def _allowed_artifact_violation(violation: Violation) -> bool:
+    return violation.path in _ARTIFACT_ALLOWLIST
+
+
 def check_source_tree(root: Path) -> tuple[Violation, ...]:
     """Scan all Git-tracked source paths with exact historical exceptions."""
     root = root.resolve()
@@ -253,7 +279,7 @@ def _check_zip(path: Path, kind: ArtifactKind) -> tuple[Violation, ...]:
         sorted(
             violation
             for violation in violations
-            if not _allowed_source_violation(violation)
+            if not _allowed_artifact_violation(violation)
         )
     )
 
@@ -289,7 +315,7 @@ def _check_tar(path: Path, kind: ArtifactKind) -> tuple[Violation, ...]:
         sorted(
             violation
             for violation in violations
-            if not _allowed_source_violation(violation)
+            if not _allowed_artifact_violation(violation)
         )
     )
 

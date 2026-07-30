@@ -341,7 +341,7 @@ def test_route_preflight_reports_missing_existing_proxy_auth(monkeypatch):
 
     assert result.ok is False
     assert result.status_code == 401
-    assert "GPT2GIGA_HARNESS_API_KEY" in str(result.error)
+    assert "GIGALOOM_API_KEY" in str(result.error)
 
 
 def test_route_preflight_evidence_removes_proxy_url_userinfo():

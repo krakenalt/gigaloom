@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import re
-from urllib.parse import parse_qs, quote, urlparse
+from urllib.parse import parse_qs
 
 import anyio
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -28,9 +28,6 @@ from gigaloom.ui.web import (
     load_web_shell,
 )
 
-_SPA_PATH = re.compile(
-    r"(?:(?:work|runs|workflows|scheduled)(?:/[^/]+)?|arena|agents|approvals|tools|evaluate)/?"
-)
 _COCKPIT_V2_PATH = re.compile(
     r"(?:work(?:/[^/]+)?|runs(?:/[^/]+)?|"
     r"automation(?:/(?:agents|workflows|schedules))?|"
@@ -77,15 +74,6 @@ _LOCAL_ACCESS_HTML = """<!doctype html>
 </html>
 """
 
-_LEGACY_ROUTE_REDIRECTS = {
-    "": "/web/work",
-    "agents": "/web/automation/agents",
-    "approvals": "/web/runs",
-    "arena": "/web/evaluation/arena",
-    "evaluate": "/web/evaluation/evals",
-    "tools": "/web/plugins/mcp",
-}
-
 
 def _accepted_encoding(value: str | None) -> str:
     """Select supported on-demand gzip while honoring explicit q=0."""
@@ -117,39 +105,6 @@ def _cockpit_unavailable(exc: CockpitV2UnavailableError) -> HTTPException:
             "gigaloom package or restore its verified build artifact."
         ),
     )
-
-
-def _default_cockpit_path(spa_path: str) -> str:
-    """Map the retired default shell routes onto canonical Cockpit V2 URLs."""
-    normalized = spa_path.strip("/")
-    static_redirect = _LEGACY_ROUTE_REDIRECTS.get(normalized)
-    if static_redirect is not None:
-        return static_redirect
-    route, _, selected_id = normalized.partition("/")
-    if route in {"work", "runs"}:
-        return f"/web/{normalized}"
-    if route == "workflows":
-        target = "/web/automation/workflows"
-    elif route == "scheduled":
-        target = "/web/automation/schedules"
-    else:  # pragma: no cover - guarded by _SPA_PATH before this helper is called
-        raise ValueError(f"unsupported legacy route: {normalized}")
-    if not selected_id:
-        return target
-    return f"{target}?selected={quote(selected_id, safe='')}"
-
-
-def _validated_local_redirect(target: str) -> str:
-    """Require a relative Cockpit V2 redirect with no browser authority."""
-    parsed = urlparse(target)
-    if (
-        parsed.scheme
-        or parsed.netloc
-        or "\\" in target
-        or not parsed.path.startswith("/web/")
-    ):
-        raise ValueError("redirect target must stay within Cockpit V2")
-    return target
 
 
 def _utc_timestamp(value: float | None) -> str | None:
@@ -402,16 +357,10 @@ def create_shell_router(security: HarnessUISecurity) -> APIRouter:
             raise _cockpit_unavailable(exc) from exc
         return HTMLResponse(content, headers=_COCKPIT_V2_SHELL_HEADERS)
 
-    @router.fs_read.get(
-        "/{spa_path:path}", response_class=RedirectResponse, include_in_schema=False
-    )
-    def spa_shell(spa_path: str) -> RedirectResponse:
-        normalized = spa_path.strip("/")
-        if normalized and _SPA_PATH.fullmatch(normalized) is None:
-            raise HTTPException(status_code=404, detail="Not found")
-        target = _validated_local_redirect(_default_cockpit_path(normalized))
+    @router.fs_read.get("/", response_class=RedirectResponse, include_in_schema=False)
+    def default_shell() -> RedirectResponse:
         return RedirectResponse(
-            target,
+            "/web/work",
             status_code=307,
             headers={"Cache-Control": "no-cache"},
         )

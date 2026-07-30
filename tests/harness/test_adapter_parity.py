@@ -175,7 +175,7 @@ def test_headless_request_field_consumption_is_explicit(
     assert ("prior request" in command_text) is history_consumed
     assert mode_value in command
     assert stream_value in command
-    assert env["GPT2GIGA_HARNESS_API_MODE"] == "v1"
+    assert env["GIGALOOM_API_MODE"] == "v1"
 
     without_unconsumed_fields = replace(
         request,
