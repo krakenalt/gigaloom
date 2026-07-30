@@ -45,6 +45,7 @@ from gigaloom.provider_settings import ProviderSettingsService
 from gigaloom.registry import HarnessRegistry, create_default_registry
 from gigaloom.runtime.payloads import DurableJobPayloadStore
 from gigaloom.runtime.policy import PolicyEngine
+from gigaloom.runtime.action_inbox.api import ActionInboxService
 from gigaloom.runtime.reconcile import (
     RuntimeReconciler,
     RuntimeReconciliationReport,
@@ -69,6 +70,8 @@ from gigaloom.ui.services.approvals import ApprovalGateService
 from gigaloom.ui.services.legacy_bundles import (
     LegacyFullBundleCompatibility,
 )
+from gigaloom.ui.services.operator_workspace import OperatorEvidenceQuery
+from gigaloom.ui.streaming.operator_events import OperatorEventBroker
 from gigaloom.workbench_protocol import WorkbenchBackbone
 from gigaloom.workbench_resources import (
     WorkbenchPreferenceStore,
@@ -122,6 +125,9 @@ class AppServices:
     governed_environment_pull_request_service: (
         GovernedEnvironmentPullRequestService | None
     )
+    operator_evidence_query: OperatorEvidenceQuery | None
+    action_inbox_service: ActionInboxService
+    operator_event_broker: OperatorEventBroker
     active_headless_runs: dict[str, ActiveHeadlessRun] = field(default_factory=dict)
     session_navigation_mutations: dict[str, dict[str, Any]] = field(
         default_factory=dict
@@ -201,6 +207,9 @@ def build_app_services(
     environment_push_service: EnvironmentPushService | None = None,
     environment_pull_request_service: EnvironmentPullRequestService | None = None,
     remote_oidc_client: RemoteOIDCClient | None = None,
+    operator_evidence_query: OperatorEvidenceQuery | None = None,
+    action_inbox_service: ActionInboxService | None = None,
+    operator_event_broker: OperatorEventBroker | None = None,
 ) -> AppServices:
     """Construct the application service graph without creating the ASGI app."""
     registry = registry or create_default_registry()
@@ -394,6 +403,9 @@ def build_app_services(
             and environment_pull_request_service is not None
             else None
         ),
+        operator_evidence_query=operator_evidence_query,
+        action_inbox_service=action_inbox_service or ActionInboxService(()),
+        operator_event_broker=operator_event_broker or OperatorEventBroker(),
     )
 
 
