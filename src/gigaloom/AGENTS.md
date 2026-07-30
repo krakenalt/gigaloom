@@ -16,9 +16,10 @@ These rules apply to `src/gigaloom/**` in addition to the root contract.
 
 ## Runtime invariants
 
-- Preserve backward-compatible user state under `~/.gpt2giga/harness` and
-  project `.giga/`: SQLite migrations, JSON/JSONL records, session metadata,
-  worktrees, managed homes, approvals, and provenance.
+- Use only canonical user state under `~/.gigaloom` (or
+  `GIGALOOM_DATA_DIR`) and project `.giga/`. The separate one-way migrator
+  preserves a verified legacy backup; normal runtime must not dual-read or
+  dual-write the old root.
 - Redact before persistence and before API/UI serialization. Secret resolution
   may cross an explicit execution boundary but secret values must not appear in
   previews, records, logs, traces, diffs, or errors.

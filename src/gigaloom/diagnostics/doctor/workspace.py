@@ -316,7 +316,7 @@ def _managed_homes_check(config: HarnessConfig) -> dict[str, Any]:
             else (
                 _remedy(
                     "Choose a writable Harness data directory.",
-                    "export GPT2GIGA_HARNESS_DATA_DIR=/path/to/writable/state",
+                    "export GIGALOOM_DATA_DIR=/path/to/writable/state",
                 ),
             )
         ),

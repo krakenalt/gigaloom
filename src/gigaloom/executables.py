@@ -15,7 +15,7 @@ from typing import Any, Mapping
 from gigaloom.types import redact_secrets
 
 
-USER_CONFIG_RELATIVE_PATH = Path(".gpt2giga") / "harness" / "config.toml"
+USER_CONFIG_RELATIVE_PATH = Path(".gigaloom") / "config.toml"
 _EXECUTABLES_TABLE = "executables"
 _HARNESS_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 _TABLE_PATTERN = re.compile(r"^\s*\[([^]]+)]\s*(?:#.*)?$")
@@ -220,6 +220,9 @@ class ExecutableResolver:
 
 def user_config_path() -> Path:
     """Return the fixed user-owned Unified Harness config path."""
+    configured = os.getenv("GIGALOOM_DATA_DIR", "").strip()
+    if configured:
+        return Path(configured).expanduser() / "config.toml"
     return Path.home() / USER_CONFIG_RELATIVE_PATH
 
 

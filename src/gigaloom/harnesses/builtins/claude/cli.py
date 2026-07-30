@@ -144,7 +144,7 @@ class ClaudeCodeHarness(BaseHarness):
             self.capability_probe(),
             install_hint=(
                 "Install Claude Code on PATH or configure executables.claude-code "
-                "in ~/.gpt2giga/harness/config.toml."
+                "in ~/.gigaloom/config.toml."
             ),
         )
 

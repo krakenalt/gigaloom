@@ -137,7 +137,7 @@ uv tool uninstall gigaloom
 uv tool install 'gigaloom==0.5.1a2'
 ```
 
-Uninstalling the package does not delete `~/.gpt2giga/harness`, project
+Uninstalling the package does not delete `~/.gigaloom`, project
 `.giga/`, or native provider homes. Harness never reverse-migrates provider
 configuration or installs/authenticates a provider runtime.
 
@@ -154,7 +154,7 @@ or a security boundary around arbitrary behavior inside third-party CLIs.
 
 During the prerelease:
 
-- read release notes before upgrading and back up `~/.gpt2giga/harness` plus
+- read release notes before upgrading and back up `~/.gigaloom` plus
   important project `.giga/` definitions;
 - expect optional features to depend on the exact Codex, Claude, or Gemini CLI
   installed on the workstation;
@@ -634,7 +634,7 @@ GPT2GIGA_HARNESS_UI_TRUSTED_PROXIES=10.0.0.2
 GPT2GIGA_HARNESS_AUTO_START_PROXY=True
 GPT2GIGA_HARNESS_PROXY_START_TIMEOUT_SECONDS=15
 GPT2GIGA_HARNESS_TIMEOUT_SECONDS=3600
-GPT2GIGA_HARNESS_DATA_DIR=~/.gpt2giga/harness
+GIGALOOM_DATA_DIR=~/.gigaloom
 ```
 
 Cockpit Settings exposes separate defaults for chat requests and generated
@@ -1185,7 +1185,7 @@ An MCP probe performs only `initialize`, `tools/list`, `resources/list`, and
 `prompts/list`. Starting an untrusted stdio server or connecting to a new HTTP
 origin creates a project-scoped Approval Center request. After approval, retry
 the probe. Results are appended as redacted JSONL under
-`GPT2GIGA_HARNESS_DATA_DIR/tools/probe_history.jsonl`:
+`GIGALOOM_DATA_DIR/tools/probe_history.jsonl`:
 
 ```text
 GET  /api/tool-servers?workspace=...
@@ -1683,7 +1683,7 @@ POST /api/editor/open-terminal
 ```
 
 `open-file` rejects paths outside the selected workspace. `open-diff` writes the
-stored run patch to `GPT2GIGA_HARNESS_DATA_DIR/editor/diffs/<run_id>.diff` before
+stored run patch to `GIGALOOM_DATA_DIR/editor/diffs/<run_id>.diff` before
 launching the editor. `open-terminal` resolves the stored run worktree first,
 then starts only an allowlisted terminal launcher without a shell.
 
@@ -1730,7 +1730,7 @@ giga session turn <session-id> \
 ```
 
 External CLI executables are resolved from the fixed user-owned config
-`~/.gpt2giga/harness/config.toml` first, then from the Harness process `PATH`:
+`~/.gigaloom/config.toml` first, then from the Harness process `PATH`:
 
 ```toml
 [executables]
@@ -2236,7 +2236,7 @@ POST /api/arena/runs/{arena_id}/verdict
 Arena parent records live under:
 
 ```text
-GPT2GIGA_HARNESS_DATA_DIR/arenas/<arena_id>.json
+GIGALOOM_DATA_DIR/arenas/<arena_id>.json
 ```
 
 Each child is still a regular `HarnessRun`, with raw request/response records,
@@ -2274,7 +2274,7 @@ The workspace policy selector supports:
 Worktrees live under:
 
 ```text
-GPT2GIGA_HARNESS_DATA_DIR/worktrees/<session_id>/<run_id>/
+GIGALOOM_DATA_DIR/worktrees/<session_id>/<run_id>/
 ```
 
 After an edit run, the Diff inspector shows the workspace policy, base branch,
@@ -2320,7 +2320,7 @@ The composer supports:
 - pasted images from the clipboard;
 - `@path` search for safe files under the current workspace.
 
-Uploaded and pasted files are copied into `GPT2GIGA_HARNESS_DATA_DIR`.
+Uploaded and pasted files are copied into `GIGALOOM_DATA_DIR`.
 Workspace files are stored as path references by default; the harness receives a
 rendered reference such as `@src/gigaloom/workspace.py`, not a copied
 repository file.
@@ -2401,13 +2401,13 @@ Gemini CLI with @file:
 By default session data is stored under:
 
 ```text
-~/.gpt2giga/harness
+~/.gigaloom
 ```
 
 Override it with:
 
 ```bash
-export GPT2GIGA_HARNESS_DATA_DIR=/path/to/harness-data
+export GIGALOOM_DATA_DIR=/path/to/harness-data
 ```
 
 The store uses transparent JSON and JSONL files:
@@ -2492,10 +2492,10 @@ Delete history from the UI with the session delete button, or remove the data
 directory manually when the UI is stopped:
 
 ```bash
-rm -rf ~/.gpt2giga/harness
+rm -rf ~/.gigaloom
 ```
 
-Do not set `GPT2GIGA_HARNESS_DATA_DIR` to the repository working tree unless you
+Do not set `GIGALOOM_DATA_DIR` to the repository working tree unless you
 intentionally want local audit files there.
 
 ## Manual QA Checklist
@@ -2596,7 +2596,7 @@ Native sessions sit beside normalized sessions:
 
 - normalized gpt2giga sessions are the stable project cockpit history;
 - managed native sessions are created by gpt2giga in managed homes under
-  `GPT2GIGA_HARNESS_DATA_DIR/native/`;
+  `GIGALOOM_DATA_DIR/native/`;
 - external native sessions are discovered from existing Codex, Claude Code, or
   Gemini CLI history only when the user asks to sync or include that history;
 - imported native transcripts are copied into normalized sessions after
@@ -2631,7 +2631,7 @@ Security posture:
   session data;
 - gpt2giga must not rewrite `~/.codex/config.toml`,
   `~/.claude/settings.json`, or `~/.gemini/settings.json`;
-- managed native homes live under `GPT2GIGA_HARNESS_DATA_DIR/native/`;
+- managed native homes live under `GIGALOOM_DATA_DIR/native/`;
 - upstream GigaChat credentials, OAuth tokens, cookies, certificates, private
   keys, and `.env` contents are not passed to external CLIs;
 - child processes receive only local proxy configuration and the local proxy API
@@ -2810,7 +2810,7 @@ giga runtime export --output /tmp/harness-runtime.json
 ```
 
 `giga state backup` covers the configured Harness user data directory
-(`GPT2GIGA_HARNESS_DATA_DIR`, normally `~/.gpt2giga/harness`). Project-local
+(`GIGALOOM_DATA_DIR`, normally `~/.gigaloom`). Project-local
 `.giga/` directories remain outside that archive and belong in the project's
 own backup or version-control policy.
 
@@ -2862,9 +2862,11 @@ uv tool install 'gigaloom==0.5.1a2'
 The current `gigaloom==0.5.1a2` metadata keeps
 `gpt2giga==0.2.6a1` in the explicit `gpt2giga` optional extra.
 
-This package migration does not move or rewrite Harness state. Existing
-`~/.gpt2giga/harness` data and project-local `.giga/` directories remain in
-place. Do not delete them as part of uninstall/reinstall.
+Package uninstall/reinstall does not move or rewrite Harness state. Preserve
+legacy `~/.gpt2giga/harness` data until `giga state migrate` has created and
+verified its backup and canonical `~/.gigaloom` copy. Project-local `.giga/`
+directories remain outside this cutover. Do not delete either kind of state as
+part of uninstall/reinstall.
 
 ## Troubleshooting
 
@@ -2886,7 +2888,7 @@ Common checks:
 - the selected mode uses the intended explicit route: `/v1/chat/completions` or
   `/v2/chat/completions`;
 - external CLI harnesses report `missing` until the matching executable is on
-  `PATH` or configured in `~/.gpt2giga/harness/config.toml`; invalid configured
+  `PATH` or configured in `~/.gigaloom/config.toml`; invalid configured
   paths and startup errors from broken CLI installations are reported by
   `giga harness inspect <id>` and the run result;
 - real external CLI harness runs perform proxy preflight before launching the

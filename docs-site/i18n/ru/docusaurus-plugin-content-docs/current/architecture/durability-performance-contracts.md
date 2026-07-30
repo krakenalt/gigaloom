@@ -33,8 +33,8 @@ manifest — источник истины для каждого оставше�
 | Browser/TUI query caches, SSE pending queues, generated frontend assets и benchmark reports | Derived или exported artifacts | Повторно загрузить, сгенерировать или создать; это не recovery source |
 | Project configuration и project-local `.giga/` state | Файлы project workspace | Сохранять или version-control отдельно от Harness user-data archive |
 
-Настроенный user-data directory обычно равен `~/.gpt2giga/harness` и
-переопределяется через `GPT2GIGA_HARNESS_DATA_DIR`. Redaction выполняется до
+Настроенный user-data directory обычно равен `~/.gigaloom` и
+переопределяется через `GIGALOOM_DATA_DIR`. Redaction выполняется до
 authoritative persistence и до API/UI serialization. Support export не
 содержит content; state backup является приватными user data и не redacted.
 

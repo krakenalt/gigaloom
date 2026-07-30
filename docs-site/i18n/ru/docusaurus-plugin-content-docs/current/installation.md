@@ -40,8 +40,25 @@ uv tool install --prerelease allow 'gigaloom==0.5.1a2'
 
 Standalone-дистрибутив предоставляет Python namespace `gigaloom` и единственную
 публичную команду `giga`. Legacy namespace и command shim не публикуются.
-Существующие `~/.gpt2giga/harness` и `.giga/` остаются на месте до отдельно
-контролируемой миграции state.
+
+Перед первым запуском 0.6 остановите существующие Harness-процессы, уберите
+устаревший override `GPT2GIGA_HARNESS_DATA_DIR` и выполните:
+
+```sh
+giga state migrate --json
+```
+
+Тот же preflight автоматически запускается перед обычными командами с default
+root. Old-only state сначала сохраняется в проверенный backup под
+`~/.gigaloom-migration`, затем переносится через staging и атомарно публикуется
+в `~/.gigaloom`. Legacy root и все project `.giga/` остаются нетронутыми. Если
+оба root уже существуют без завершённого migration journal, GigaLoom
+останавливается и печатает явные команды `mv`, не выбирая authoritative root
+самостоятельно. `giga state rollback` восстанавливает проверенный backup в
+legacy root и сохраняет `~/.gigaloom` для диагностики.
+
+Для собственного canonical root задайте `GIGALOOM_DATA_DIR`. При таком
+override default roots автоматически не мигрируются.
 
 ## Необязательный gateway preset
 
@@ -64,4 +81,4 @@ uv tool uninstall gigaloom
 ```
 
 Удаление пакета не удаляет пользовательское состояние в
-`~/.gpt2giga/harness`. Сначала прочитайте [Операции](operations.md).
+`~/.gigaloom`. Сначала прочитайте [Операции](operations.md).

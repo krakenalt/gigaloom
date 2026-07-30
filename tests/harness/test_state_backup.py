@@ -195,7 +195,7 @@ def test_state_backup_cli_creates_and_verifies_json(tmp_path, monkeypatch, capsy
     data_dir.mkdir()
     (data_dir / "state.json").write_text("{}\n", encoding="utf-8")
     archive = tmp_path / "state.zip"
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(data_dir))
 
     assert cli.main(["state", "backup", "--output", str(archive), "--json"]) == 0
     created = json.loads(capsys.readouterr().out)

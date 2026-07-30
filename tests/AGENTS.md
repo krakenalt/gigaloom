@@ -21,7 +21,7 @@ from an old directory inventory.
   app-wide behavior. Avoid ambient env and singleton state.
 - Use `tmp_path`, isolated Git repositories, temporary homes, and a temporary
   Harness data dir. Never read or mutate real `.giga/`,
-  `~/.gpt2giga/harness`, or native agent state.
+  `~/.gigaloom`, or native agent state.
 - Assert redaction whenever request bodies, tool arguments, credentials,
   environment values, stored events, previews, or provenance are involved.
 - Change golden fixtures only for an intentional client-visible wire contract;

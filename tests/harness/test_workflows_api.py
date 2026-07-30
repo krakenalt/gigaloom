@@ -31,7 +31,7 @@ def test_workflow_api_lists_validates_runs_status_and_cancels(
         proxy_url="http://127.0.0.1:9",
         auto_start_proxy=False,
     )
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", config.data_dir)
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", config.data_dir)
     monkeypatch.setenv("GPT2GIGA_HARNESS_PROXY_URL", config.proxy_url)
     monkeypatch.setenv("GPT2GIGA_HARNESS_AUTO_START_PROXY", "false")
 

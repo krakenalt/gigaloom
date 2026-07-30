@@ -17,6 +17,8 @@ Standalone-дистрибутив использует только Python names
 зависимости от source checkout.
 
 Для миграции удалите старый `gpt2giga-harness`, установите standalone
-`gigaloom` и сохраните backup `~/.gpt2giga/harness`. См.
+`gigaloom` и сохраняйте legacy state `~/.gpt2giga/harness`, пока
+`giga state migrate` не проверит отдельный backup и каноническую копию
+`~/.gigaloom`. См.
 [справочник Harness](harness.md), раздел «Миграция со старого combined
 prerelease».

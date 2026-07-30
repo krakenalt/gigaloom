@@ -163,7 +163,7 @@ def test_cli_ui_starts_and_stops_worker_when_none_is_online(
     monkeypatch,
     tmp_path,
 ):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path))
     process = _FakeWorkerProcess()
     popen_calls = []
     status_calls = 0
@@ -201,7 +201,7 @@ def test_cli_ui_starts_and_stops_worker_when_none_is_online(
         "worker",
         "start",
     ]
-    assert options["env"]["GPT2GIGA_HARNESS_DATA_DIR"] == str(tmp_path)
+    assert options["env"]["GIGALOOM_DATA_DIR"] == str(tmp_path)
     assert options["env"]["GPT2GIGA_HARNESS_AUTO_START_PROXY"] == "false"
     assert uvicorn_calls == [
         (
@@ -223,7 +223,7 @@ def test_cli_ui_reuses_online_worker_or_allows_autostart_opt_out(
     monkeypatch,
     tmp_path,
 ):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(
         ui_handlers,
         "worker_status",
@@ -252,7 +252,7 @@ def test_cli_ui_starts_missing_workers_to_reach_target_pool(
     monkeypatch,
     tmp_path,
 ):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path))
     processes: list[_FakeWorkerProcess] = []
 
     def fake_worker_status(_store):
@@ -293,7 +293,7 @@ def test_cli_remote_ui_identity_validate_and_revoke_all(
     monkeypatch,
     tmp_path,
 ):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path))
     monkeypatch.setenv(
         "GPT2GIGA_HARNESS_UI_OIDC_ISSUER",
         "https://issuer.example",
@@ -367,7 +367,7 @@ def test_cli_session_application_flow_create_turn_events_and_approve(
     monkeypatch,
     tmp_path,
 ):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
 
     assert cli.main(["session", "create", "--harness", "echo", "--json"]) == 0
     session = json.loads(capsys.readouterr().out)["session"]
@@ -451,7 +451,7 @@ def test_cli_integration_flow_matches_api_preview_status_and_native_apply(
     monkeypatch,
     tmp_path,
 ):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(
         CodexMCPTargetDriver,
         "_native_get",
@@ -544,7 +544,7 @@ def test_cli_extension_pack_preview_uses_shared_group_authority(
                 },
             }
 
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(cli, "GroupedIntegrationService", FakeGroups)
 
     assert (
@@ -741,7 +741,7 @@ def test_cli_provider_commands_share_authoritative_reference_only_registry(
     capsys,
     tmp_path,
 ):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
     assert (
         cli.main(
             [
@@ -889,7 +889,7 @@ def test_cli_init_alias_writes_project_config(capsys, tmp_path):
 
 
 def test_cli_agent_list_show_validate_and_run(capsys, tmp_path, monkeypatch):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
     assert cli.main(["init", "--workspace", str(tmp_path), "--json"]) == 0
     capsys.readouterr()
 
@@ -929,7 +929,7 @@ def test_cli_agent_list_show_validate_and_run(capsys, tmp_path, monkeypatch):
 
 
 def test_cli_preset_list_and_run_dry_run_json(capsys, tmp_path, monkeypatch):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
     config_path = tmp_path / ".giga" / "harness.toml"
     config_path.parent.mkdir()
     config_path.write_text(
@@ -975,7 +975,7 @@ prompt = "Ask {{project_name}}: {{user_prompt}}"
 
 
 def test_cli_memory_add_list_disable_delete_json(capsys, tmp_path, monkeypatch):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
 
     add_code = cli.main(
         [
@@ -1019,7 +1019,7 @@ def test_cli_memory_add_list_disable_delete_json(capsys, tmp_path, monkeypatch):
 
 
 def test_cli_eval_list_and_run_json(capsys, tmp_path, monkeypatch):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
     eval_path = tmp_path / ".giga" / "evals" / "smoke.yaml"
     eval_path.parent.mkdir(parents=True)
     eval_path.write_text(
@@ -1063,7 +1063,7 @@ cases:
 
 
 def test_cli_run_pr_summary_and_patch(capsys, tmp_path, monkeypatch):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
     store = FilesystemHarnessSessionStore(tmp_path / "data")
     session = store.create_session(title="PR demo")
     run = store.create_run(
@@ -1115,7 +1115,7 @@ def test_cli_open_file_session_and_run_diff_dry_run_json(
         '[editor]\ncommand = "code --reuse-window"\nterminal_command = "wezterm"\n',
         encoding="utf-8",
     )
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(data_dir))
     store = FilesystemHarnessSessionStore(data_dir)
     session = store.create_session(title="Editor demo", workspace=str(workspace))
     run = store.create_run(
@@ -1191,7 +1191,7 @@ def test_cli_open_file_session_and_run_diff_dry_run_json(
 
 
 def test_cli_run_provenance_and_replay(capsys, tmp_path, monkeypatch):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
     store = FilesystemHarnessSessionStore(tmp_path / "data")
     session = store.create_session(title="Replay demo")
     run = store.create_run(
@@ -1254,7 +1254,7 @@ def test_cli_run_provenance_and_replay(capsys, tmp_path, monkeypatch):
 
 def test_cli_chat_passes_api_mode_and_model(monkeypatch, capsys, tmp_path):
     captured = {}
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(cli, "build_execution_readiness", _ready_execution_readiness)
 
     def fake_run(self, request, context):
@@ -1384,7 +1384,7 @@ def test_cli_agent_aliases_include_claude_and_gemini(monkeypatch, capsys):
 
 
 def test_cli_session_list_json_uses_configured_data_dir(monkeypatch, capsys, tmp_path):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path))
     store = FilesystemHarnessSessionStore(tmp_path)
     session = store.create_session(title="CLI session", default_harness_id="echo")
 
@@ -1397,7 +1397,7 @@ def test_cli_session_list_json_uses_configured_data_dir(monkeypatch, capsys, tmp
 
 
 def test_cli_session_show_json(monkeypatch, capsys, tmp_path):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path))
     store = FilesystemHarnessSessionStore(tmp_path)
     session = store.create_session(title="CLI session", default_harness_id="echo")
 
@@ -1440,7 +1440,7 @@ def test_cli_native_sync_list_and_import_json(monkeypatch, capsys, tmp_path):
             ),
         )
     )
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(data_dir))
     monkeypatch.setattr(
         cli,
         "create_default_native_registry",
@@ -1534,7 +1534,7 @@ def test_cli_native_dry_run_prints_command_plan_without_headless_run(
     def fail_run(self, request, context):
         raise AssertionError("headless run should not be called for native dry-run")
 
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("GPT2GIGA_HARNESS_API_KEY", secret)
     monkeypatch.setattr(CodexCliHarness, "run", fail_run)
     monkeypatch.setattr(ClaudeCodeHarness, "run", fail_run)

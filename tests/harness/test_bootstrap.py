@@ -179,7 +179,7 @@ def test_bootstrap_cli_preview_apply_status_and_rollback(
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     data_root = tmp_path / "state"
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(data_root))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(data_root))
     monkeypatch.setattr(
         bootstrap,
         "build_doctor_report",

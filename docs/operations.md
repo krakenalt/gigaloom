@@ -1,6 +1,6 @@
 # Operations
 
-GigaLoom is local-first. Runtime state lives under `~/.gpt2giga/harness`, while
+GigaLoom is local-first. Runtime state lives under `~/.gigaloom`, while
 project-scoped state lives under `.giga/` in a registered project.
 
 ## Start and inspect
@@ -17,11 +17,17 @@ untrusted network without the explicitly documented remote identity profile.
 ## Backup and recovery
 
 Stop active GigaLoom processes before copying state. Back up the complete
-`~/.gpt2giga/harness` directory and any project `.giga/` directories so SQLite
+`~/.gigaloom` directory and any project `.giga/` directories so SQLite
 files, JSON/JSONL records, evidence, and metadata remain consistent.
 
 Package uninstall does not remove user state. Restore into the same paths only
 while GigaLoom is stopped, then run `giga doctor`.
+
+For the one-way 0.6 root cutover, use `giga state migrate --json`. Migration
+evidence and the verified private backup are stored separately under
+`~/.gigaloom-migration`; reports contain counts, schema versions, and digests,
+not state contents. `giga state rollback` restores that backup to the legacy
+root and deliberately leaves the canonical root in place for diagnosis.
 
 ## Troubleshooting
 

@@ -1,7 +1,7 @@
 # Операции
 
 GigaLoom работает local-first. Runtime state хранится в
-`~/.gpt2giga/harness`, project-scoped state — в `.giga/` зарегистрированного
+`~/.gigaloom`, project-scoped state — в `.giga/` зарегистрированного
 проекта.
 
 ## Запуск и проверка
@@ -17,12 +17,18 @@ Browser UI по умолчанию слушает `127.0.0.1:8091`. Не отк�
 
 ## Резервное копирование
 
-Остановите процессы GigaLoom и скопируйте целиком `~/.gpt2giga/harness` и
+Остановите процессы GigaLoom и скопируйте целиком `~/.gigaloom` и
 нужные project `.giga/`, чтобы SQLite, JSON/JSONL, evidence и metadata остались
 согласованными.
 
 Удаление пакета не удаляет состояние. Восстанавливайте его в те же пути только
 при остановленном GigaLoom, затем запустите `giga doctor`.
+
+Для одностороннего cutover root в 0.6 используйте
+`giga state migrate --json`. Migration evidence и проверенный private backup
+хранятся отдельно в `~/.gigaloom-migration`; отчёт содержит counts, версии схем
+и digests, но не содержимое state. `giga state rollback` восстанавливает этот
+backup в legacy root и намеренно оставляет canonical root для диагностики.
 
 ## Диагностика
 

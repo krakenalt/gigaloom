@@ -18,5 +18,6 @@ ownership or a source checkout dependency.
 
 For migration from the old combined prerelease package, uninstall
 `gpt2giga-harness`, install the standalone `gigaloom` distribution, and retain
-the backed-up `~/.gpt2giga/harness` state. See the detailed
+the legacy `~/.gpt2giga/harness` state until `giga state migrate` has verified
+its separate backup and canonical `~/.gigaloom` copy. See the detailed
 [Harness migration section](harness.md#migration-from-the-combined-prerelease).

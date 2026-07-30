@@ -258,7 +258,7 @@ def _project_provenance(
         try:
             project = resolve_project(
                 run.workspace,
-                data_dir=data_dir or "~/.gpt2giga/harness",
+                data_dir=data_dir or "~/.gigaloom",
                 load_config_name=False,
             )
             return project_to_dict(project)

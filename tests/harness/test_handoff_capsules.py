@@ -141,7 +141,7 @@ def test_handoff_capsule_api_and_cli_are_content_free_and_truthful(
     )
     assert same.status_code == 409
 
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(data_dir))
     assert (
         cli.main(
             [

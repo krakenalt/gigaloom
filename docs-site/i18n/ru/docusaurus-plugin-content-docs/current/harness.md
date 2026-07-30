@@ -137,7 +137,7 @@ uv tool uninstall gigaloom
 uv tool install 'gigaloom==0.5.1a2'
 ```
 
-Удаление пакета не удаляет `~/.gpt2giga/harness`, проектные `.giga/` или
+Удаление пакета не удаляет `~/.gigaloom`, проектные `.giga/` или
 нативные provider homes. Harness не делает reverse migration provider config,
 не устанавливает provider runtime и не выполняет authentication.
 
@@ -156,7 +156,7 @@ uv tool install 'gigaloom==0.5.1a2'
 Во время prerelease:
 
 - перед обновлением читайте release notes и делайте резервную копию
-  `~/.gpt2giga/harness` и важных определений из `.giga/`;
+  `~/.gigaloom` и важных определений из `.giga/`;
 - учитывайте, что интеграции зависят от конкретной версии Codex, Claude или
   Gemini CLI на машине;
 - оставляйте UI на loopback-адресе по умолчанию, если намеренно не настроили
@@ -512,7 +512,7 @@ GPT2GIGA_HARNESS_UI_TRUSTED_PROXIES=10.0.0.2
 GPT2GIGA_HARNESS_AUTO_START_PROXY=True
 GPT2GIGA_HARNESS_PROXY_START_TIMEOUT_SECONDS=15
 GPT2GIGA_HARNESS_TIMEOUT_SECONDS=3600
-GPT2GIGA_HARNESS_DATA_DIR=~/.gpt2giga/harness
+GIGALOOM_DATA_DIR=~/.gigaloom
 ```
 
 В Cockpit Settings модели по умолчанию для чатов и генерации заголовков
@@ -528,7 +528,7 @@ GPT2GIGA_HARNESS_DATA_DIR=~/.gpt2giga/harness
 certificates и содержимое `.env` не передаются внешнему agent CLI.
 
 Пути к нестандартно установленным CLI храните в пользовательском
-`~/.gpt2giga/harness/config.toml`, а не в проекте:
+`~/.gigaloom/config.toml`, а не в проекте:
 
 ```toml
 [executables]
@@ -1224,7 +1224,7 @@ Harness не включает скрытый auto-apply, push или merge. Ст
 
 | Путь | Содержимое |
 | --- | --- |
-| `~/.gpt2giga/harness` | Runtime SQLite, sessions, attempts, redacted logs, managed native homes, worktrees и локальное UI state. |
+| `~/.gigaloom` | Runtime SQLite, sessions, attempts, redacted logs, managed native homes, worktrees и локальное UI state. |
 | `.giga/` в проекте | Non-secret project config, prompts, agents, workflows, evals и schedules. |
 
 При uninstall/reinstall не удаляйте эти каталоги автоматически. Сначала
@@ -1320,7 +1320,7 @@ home. Они не читают пользовательские history/config �
 найденный, но несовместимый binary получает явный compatibility warning в
 doctor, worker fingerprint, `giga harness inspect --json`, `/api/harnesses` и
 cockpit. Для Gemini wrapper можно задать безопасный TOML-массив argv в
-`~/.gpt2giga/harness/config.toml`; элементы передаются напрямую без `shell=True`.
+`~/.gigaloom/config.toml`; элементы передаются напрямую без `shell=True`.
 Парсеры допускают неизвестные добавочные поля из versioned fixtures, но поток
 без единого распознанного обязательного event contract завершается ошибкой.
 
@@ -1676,7 +1676,7 @@ giga runtime export --output /tmp/harness-runtime.json
 ```
 
 `giga state backup` охватывает настроенный Harness user data directory
-(`GPT2GIGA_HARNESS_DATA_DIR`, обычно `~/.gpt2giga/harness`). Project-local
+(`GIGALOOM_DATA_DIR`, обычно `~/.gigaloom`). Project-local
 `.giga/` остаётся вне архива и должно входить в backup/version-control policy
 самого проекта.
 
@@ -1707,7 +1707,7 @@ giga doctor
 `gpt2giga==0.2.6a1` в явном optional extra `gpt2giga`. Старый import
 `gpt2giga.harness` больше не является
 публичным; используйте `gigaloom`. Миграция package не переносит и не
-перезаписывает `~/.gpt2giga/harness`, `.giga/` или vendor-owned CLI homes.
+перезаписывает `~/.gigaloom`, `.giga/` или vendor-owned CLI homes.
 
 ## Ручной QA checklist
 

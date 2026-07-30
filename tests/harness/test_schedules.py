@@ -198,7 +198,7 @@ def test_schedule_cli_crud_and_preview(tmp_path, monkeypatch, capsys):
     workspace.mkdir()
     _write_echo_project(workspace)
     data_dir = tmp_path / "data"
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(data_dir))
     source = tmp_path / "schedule.yaml"
     source.write_text(
         "\n".join(

@@ -946,7 +946,7 @@ def test_filesystem_ui_cancels_queued_job_before_worker_claim(tmp_path):
 
 
 def test_worker_cli_status_and_once_are_json_inspectable(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path))
 
     assert cli.main(["worker", "start", "--once"]) == 0
     assert capsys.readouterr().out.strip() == "idle"

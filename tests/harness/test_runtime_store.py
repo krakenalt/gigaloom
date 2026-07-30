@@ -944,7 +944,7 @@ def test_legacy_run_statuses_and_optional_trace_fields_round_trip(tmp_path):
 
 def test_runtime_cli_inspect_and_export_json(tmp_path, monkeypatch, capsys):
     data_dir = tmp_path / "data"
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(data_dir))
 
     inspect_code = cli.main(["runtime", "inspect", "--json"])
     inspected = json.loads(capsys.readouterr().out)

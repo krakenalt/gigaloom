@@ -97,7 +97,7 @@ def test_console_provider_command_does_not_import_cli_ui_or_tui(tmp_path):
         import os
         import sys
 
-        os.environ["GPT2GIGA_HARNESS_DATA_DIR"] = {str(tmp_path)!r}
+        os.environ["GIGALOOM_DATA_DIR"] = {str(tmp_path)!r}
 
         from gigaloom.entrypoint import main
 
@@ -121,7 +121,7 @@ def test_console_harness_list_does_not_import_cli_ui_or_tui(tmp_path):
         import os
         import sys
 
-        os.environ["GPT2GIGA_HARNESS_DATA_DIR"] = {str(tmp_path)!r}
+        os.environ["GIGALOOM_DATA_DIR"] = {str(tmp_path)!r}
 
         from gigaloom.entrypoint import main
 
@@ -248,7 +248,7 @@ def test_representative_non_ui_commands_defer_ui_frameworks(tmp_path):
         import os
         import sys
 
-        os.environ["GPT2GIGA_HARNESS_DATA_DIR"] = {str(tmp_path)!r}
+        os.environ["GIGALOOM_DATA_DIR"] = {str(tmp_path)!r}
 
         from gigaloom.entrypoint import main
 

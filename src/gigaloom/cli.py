@@ -181,11 +181,6 @@ from gigaloom.sessions.models import (
 from gigaloom.sessions.redaction import redact_for_storage
 from gigaloom.sessions.store import new_id, utc_now
 from gigaloom.session_titles import provider_native_title_metadata
-from gigaloom.state_backup import (
-    create_state_backup,
-    restore_state_backup,
-    verify_state_backup,
-)
 from gigaloom.settings import HarnessSettingsStore
 from gigaloom.types import (
     HarnessCapability,
@@ -1189,45 +1184,6 @@ def _handle_runtime_export(args: argparse.Namespace, config: HarnessConfig) -> i
     )
     temp.replace(output)
     print(f"Exported runtime coordination state to {output}")
-    return 0
-
-
-def _handle_state_backup(args: argparse.Namespace, config: HarnessConfig) -> int:
-    result = create_state_backup(config.data_dir, args.output)
-    if args.json:
-        _print_json(result.to_dict())
-    else:
-        print(f"Backed up Harness state to {Path(args.output).expanduser()}")
-        print(f"SHA-256: {result.sha256}")
-        print(f"Files: {result.file_count}; bytes: {result.total_bytes}")
-    return 0
-
-
-def _handle_state_verify(args: argparse.Namespace, config: HarnessConfig) -> int:
-    del config
-    result = verify_state_backup(args.archive)
-    if args.json:
-        _print_json(result.to_dict())
-    else:
-        print(f"Verified Harness state backup: {Path(args.archive).expanduser()}")
-        print(f"SHA-256: {result.sha256}")
-        print(f"Files: {result.file_count}; bytes: {result.total_bytes}")
-    return 0
-
-
-def _handle_state_restore(args: argparse.Namespace, config: HarnessConfig) -> int:
-    destination = args.destination or config.data_dir
-    result = restore_state_backup(
-        args.archive,
-        destination,
-        replace=args.replace,
-    )
-    if args.json:
-        _print_json(result.to_dict())
-    else:
-        print(f"Restored Harness state to {Path(destination).expanduser()}")
-        print(f"SHA-256: {result.backup.sha256}")
-        print(f"Files: {result.backup.file_count}; bytes: {result.backup.total_bytes}")
     return 0
 
 

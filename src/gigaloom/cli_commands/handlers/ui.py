@@ -148,7 +148,7 @@ def _start_ui_workers(
     environment = os.environ.copy()
     environment.update(
         {
-            "GPT2GIGA_HARNESS_DATA_DIR": config.data_dir,
+            "GIGALOOM_DATA_DIR": config.data_dir,
             "GPT2GIGA_HARNESS_PROXY_URL": config.proxy_url,
             "GPT2GIGA_HARNESS_DEFAULT_API_MODE": config.default_api_mode.value,
             "GPT2GIGA_HARNESS_TIMEOUT_SECONDS": str(config.timeout_seconds),

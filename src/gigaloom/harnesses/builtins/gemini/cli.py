@@ -147,7 +147,7 @@ class GeminiCliHarness(BaseHarness):
             self.capability_probe(),
             install_hint=(
                 "Install Gemini CLI on PATH or configure executables.gemini-cli "
-                "in ~/.gpt2giga/harness/config.toml."
+                "in ~/.gigaloom/config.toml."
             ),
         )
 

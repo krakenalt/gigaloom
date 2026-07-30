@@ -34,8 +34,8 @@ source of truth for every remaining shim, owner, and removal gate.
 | Project configuration and project-local `.giga/` state | Files in the project workspace | Back up or version separately from the Harness user-data archive |
 
 The configured user-data directory is normally
-`~/.gpt2giga/harness` and can be changed with
-`GPT2GIGA_HARNESS_DATA_DIR`. Redaction happens before authoritative
+`~/.gigaloom` and can be changed with
+`GIGALOOM_DATA_DIR`. Redaction happens before authoritative
 persistence and before API/UI serialization. A support export is content-free;
 a state backup is private user data and is not redacted.
 

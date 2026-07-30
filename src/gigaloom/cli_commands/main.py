@@ -9,6 +9,13 @@ from gigaloom.cli_commands.errors import format_cli_error
 from gigaloom.cli_commands.parser import build_parser
 from gigaloom.cli_commands.registry import resolve_handler
 from gigaloom.config import HarnessConfig
+from gigaloom.projects.api import (
+    prepare_runtime_state,
+    reject_legacy_state_override,
+)
+
+
+_STATE_CUTOVER_HANDLERS = frozenset({"_handle_state_migrate", "_handle_state_rollback"})
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -18,8 +25,8 @@ def main(argv: list[str] | None = None) -> int:
     if not hasattr(args, "handler"):
         parser.print_help()
         return 2
-    config = _config_from_args(args)
     try:
+        config = _config_from_args(args)
         handler = resolve_handler(args.handler)
         return handler(args, config)
     except Exception as exc:
@@ -31,6 +38,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _config_from_args(args: argparse.Namespace) -> HarnessConfig:
+    reject_legacy_state_override()
+    if args.handler not in _STATE_CUTOVER_HANDLERS:
+        prepare_runtime_state()
     config = HarnessConfig.from_env()
     return config.with_overrides(
         proxy_url=getattr(args, "proxy_url", None),

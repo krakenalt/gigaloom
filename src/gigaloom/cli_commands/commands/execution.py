@@ -128,6 +128,15 @@ def register(
     state_restore.add_argument("--replace", action="store_true")
     state_restore.add_argument("--json", action="store_true")
     state_restore.set_defaults(handler="_handle_state_restore")
+
+    state_migrate = state_subparsers.add_parser("migrate")
+    state_migrate.add_argument("--json", action="store_true")
+    state_migrate.set_defaults(handler="_handle_state_migrate")
+
+    state_rollback = state_subparsers.add_parser("rollback")
+    state_rollback.add_argument("--json", action="store_true")
+    state_rollback.set_defaults(handler="_handle_state_rollback")
+
     state_migrate_providers = state_subparsers.add_parser("migrate-providers")
     state_migrate_providers.add_argument("--backup", default=None)
     state_migrate_providers.add_argument("--dry-run", action="store_true")

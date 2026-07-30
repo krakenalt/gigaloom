@@ -331,7 +331,7 @@
       },
       {
         "path": "cli.py",
-        "max_lines": 2458,
+        "max_lines": 2414,
         "owner": "T08/T20",
         "removal_gate": "cli-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."

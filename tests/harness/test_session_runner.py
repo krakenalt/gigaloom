@@ -1267,7 +1267,7 @@ def _runner(
         registry=registry,
         config=HarnessConfig(
             default_model="ConfiguredModel",
-            data_dir=str(data_dir) if data_dir is not None else "~/.gpt2giga/harness",
+            data_dir=str(data_dir) if data_dir is not None else "~/.gigaloom",
         ),
         store=store or InMemoryHarnessSessionStore(),
         memory_store=memory_store,

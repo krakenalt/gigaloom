@@ -35,6 +35,15 @@ _WORKER_HANDLERS = frozenset(
         "_handle_worker_stop_on_idle",
     }
 )
+_STATE_HANDLERS = frozenset(
+    {
+        "_handle_state_backup",
+        "_handle_state_migrate",
+        "_handle_state_restore",
+        "_handle_state_rollback",
+        "_handle_state_verify",
+    }
+)
 
 
 def resolve_handler(name: str) -> CommandHandler:
@@ -47,6 +56,8 @@ def resolve_handler(name: str) -> CommandHandler:
         module_name = "gigaloom.cli_commands.handlers.ui"
     elif name in _WORKER_HANDLERS:
         module_name = "gigaloom.cli_commands.handlers.worker"
+    elif name in _STATE_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.state"
     else:
         module_name = "gigaloom.cli"
     handler = getattr(import_module(module_name), name)

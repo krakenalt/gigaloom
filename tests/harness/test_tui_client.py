@@ -1532,7 +1532,7 @@ def test_tui_run_scopes_accessibility_environment_and_restores_it(
         def run(self, **kwargs):
             calls.append((kwargs, dict(os.environ)))
 
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path))
     monkeypatch.delenv("NO_COLOR", raising=False)
     monkeypatch.setenv("TEXTUAL_ANIMATIONS", "basic")
     monkeypatch.delenv("TEXTUAL_SMOOTH_SCROLL", raising=False)

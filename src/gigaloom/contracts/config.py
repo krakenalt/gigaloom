@@ -29,6 +29,10 @@ from gigaloom.core.config import (
 )
 
 
+def _default_data_dir() -> str:
+    return _env_first("GIGALOOM_DATA_DIR") or DEFAULT_HARNESS_DATA_DIR
+
+
 @dataclass(frozen=True)
 class HarnessConfig:
     """Runtime config for Unified Harness commands."""
@@ -53,7 +57,7 @@ class HarnessConfig:
     timeout_seconds: float = DEFAULT_HARNESS_TIMEOUT_SECONDS
     auto_start_proxy: bool = True
     proxy_start_timeout_seconds: float = DEFAULT_PROXY_START_TIMEOUT_SECONDS
-    data_dir: str = DEFAULT_HARNESS_DATA_DIR
+    data_dir: str = field(default_factory=_default_data_dir)
 
     @classmethod
     def from_env(cls) -> HarnessConfig:
@@ -105,7 +109,7 @@ class HarnessConfig:
             _env_first("GPT2GIGA_HARNESS_PROXY_START_TIMEOUT_SECONDS"),
             DEFAULT_PROXY_START_TIMEOUT_SECONDS,
         )
-        data_dir = _env_first("GPT2GIGA_HARNESS_DATA_DIR") or DEFAULT_HARNESS_DATA_DIR
+        data_dir = _default_data_dir()
         return cls(
             proxy_url=_normalize_proxy_url(proxy_url),
             api_key=api_key,

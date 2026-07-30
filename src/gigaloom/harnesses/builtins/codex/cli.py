@@ -145,7 +145,7 @@ class CodexCliHarness(BaseHarness):
             self.capability_probe(),
             install_hint=(
                 "Install OpenAI Codex CLI on PATH or configure "
-                "executables.codex-cli in ~/.gpt2giga/harness/config.toml."
+                "executables.codex-cli in ~/.gigaloom/config.toml."
             ),
         )
 
