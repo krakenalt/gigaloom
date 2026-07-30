@@ -138,6 +138,10 @@ jobs:
           ./scripts/ci-base.sh ruff-check .
           ./scripts/ci-base.sh ruff-format-check .
 
+      - name: Run ty
+        if: matrix.python-version == '3.13'
+        run: ./scripts/ci-base.sh type-check
+
       - name: Run Harness tests
         run: >-
           ./scripts/ci-base.sh pytest tests/harness -n 4

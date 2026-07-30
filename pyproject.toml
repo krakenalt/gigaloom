@@ -109,6 +109,28 @@ exclude_lines = [
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod"
 ]
+
+[tool.ty.environment]
+python-version = "3.13"
+
+[tool.ty.src]
+include = [
+    "src/gigaloom/application",
+    "src/gigaloom/attachments",
+    "src/gigaloom/contracts",
+    "src/gigaloom/core",
+    "src/gigaloom/evidence",
+    "src/gigaloom/execution",
+    "src/gigaloom/native",
+    "src/gigaloom/protocols",
+    "src/gigaloom/projects/backup_contracts.py",
+    "src/gigaloom/projects/backup.py",
+    "src/gigaloom/projects/backup_io.py",
+    "src/gigaloom/projects/state_migration.py",
+    "src/gigaloom/projects/state_migration_io.py",
+    "src/gigaloom/review",
+]
+
 [dependency-groups]
 dev = [
     "black (>=26.3.1,<27.0.0)",
@@ -118,6 +140,7 @@ dev = [
     "pytest-mock (>=3.15.1,<4.0.0)",
     "pytest-xdist (>=3.8.0,<4.0.0)",
     "ruff (>=0.15,<0.16)",
+    "ty==0.0.18",
     "pytest-cov (>=7.0.0,<8.0.0)",
     "pre-commit (>=4.3.0,<5.0.0)",
 ]

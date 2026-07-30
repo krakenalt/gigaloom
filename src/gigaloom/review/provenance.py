@@ -7,18 +7,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
-from gigaloom.gigachat_compatibility import (
-    gigachat_compatibility_evidence,
-)
 from gigaloom.projects.api import project_to_dict, resolve_project
 from gigaloom.review.evidence import reviewed_evidence_manifest
-from gigaloom.review.ports import PolicyAuditEvent
 from gigaloom.review.ports import (
     HarnessRawRecord,
     HarnessRun,
     HarnessSession,
     HarnessStoredEvent,
+    PolicyAuditEvent,
     event_to_dict,
+    gigachat_compatibility_evidence,
     raw_record_to_dict,
 )
 from gigaloom.review.ports import redact_for_storage

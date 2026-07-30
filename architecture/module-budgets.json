@@ -387,7 +387,7 @@
       },
       {
         "path": "native/process.py",
-        "max_lines": 1329,
+        "max_lines": 1319,
         "owner": "T17/T20",
         "removal_gate": "native-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."

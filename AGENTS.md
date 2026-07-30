@@ -99,6 +99,7 @@ Repository quality gate:
 ```bash
 ./scripts/ci-base.sh ruff-check
 ./scripts/ci-base.sh ruff-format-check
+./scripts/ci-base.sh type-check
 ./scripts/ci-base.sh pytest tests/ --cov=. --cov-report=term --cov-fail-under=80
 ```
 

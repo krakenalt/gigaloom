@@ -12,6 +12,7 @@ from gigaloom.protocols.normalized import (
     NormalizedMessage,
     NormalizedResponse,
     NormalizedStreamEvent,
+    NormalizedStreamEventType,
     NormalizedToolCall,
     NormalizedUsage,
 )
@@ -234,7 +235,11 @@ class OpenAIChatCompletionStreamAccumulator:
                 )
         return index, started
 
-    def _event(self, event_type: str, **kwargs: Any) -> NormalizedStreamEvent:
+    def _event(
+        self,
+        event_type: NormalizedStreamEventType,
+        **kwargs: Any,
+    ) -> NormalizedStreamEvent:
         event = NormalizedStreamEvent(
             type=event_type,
             id=self.response_id,

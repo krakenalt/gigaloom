@@ -121,7 +121,8 @@ def verify_state_backup(archive: str | Path) -> StateBackupResult:
                 raise ValueError(
                     "State backup manifest is missing or invalid."
                 ) from exc
-            entries = _validate_manifest(manifest)
+            validated_manifest = _validate_manifest(manifest)
+            entries = validated_manifest["entries"]
             info_by_name = {info.filename: info for info in infos}
             expected_names = {BACKUP_MANIFEST, *(entry["path"] for entry in entries)}
             if set(names) != expected_names:
@@ -159,7 +160,7 @@ def verify_state_backup(archive: str | Path) -> StateBackupResult:
             _verify_component_metadata(bundle, manifest)
     except BadZipFile as exc:
         raise ValueError("State backup is not a valid ZIP archive.") from exc
-    return _result_for_archive(path, manifest, runtime_schema_version)
+    return _result_for_archive(path, validated_manifest, runtime_schema_version)
 
 
 def restore_state_backup(

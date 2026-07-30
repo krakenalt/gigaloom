@@ -11,7 +11,7 @@ import shutil
 import sqlite3
 import stat
 from tempfile import mkdtemp
-from typing import BinaryIO, Mapping
+from typing import BinaryIO, Literal, Mapping, NotRequired, TypedDict
 from zipfile import ZIP_STORED, BadZipFile, ZipFile, ZipInfo
 
 from .backup_contracts import (
@@ -27,6 +27,25 @@ from .backup_contracts import (
     _SUPPORTED_COMPONENT_SCHEMA_VERSIONS,
     _TRANSIENT_SUFFIXES,
 )
+
+
+class _ValidatedBackupEntry(TypedDict):
+    kind: Literal["file", "sqlite"]
+    mode: int
+    path: str
+    sha256: str
+    size: int
+    sqlite_user_version: NotRequired[int]
+
+
+class _ValidatedBackupManifest(TypedDict):
+    schema_version: int
+    harness_version: str
+    state_layout_version: int | None
+    component_schema_versions: dict[str, int]
+    minimum_reader_schema_version: int | None
+    migration_journal_sha256: str | None
+    entries: list[_ValidatedBackupEntry]
 
 
 def _json_schema_version(payload: bytes, component: str) -> int:
@@ -159,7 +178,8 @@ def _extract_archive(archive: Path, destination: Path) -> None:
     try:
         with ZipFile(archive, "r") as bundle:
             manifest = json.loads(bundle.read(BACKUP_MANIFEST))
-            entries = _validate_manifest(manifest)
+            validated_manifest = _validate_manifest(manifest)
+            entries = validated_manifest["entries"]
             for entry in entries:
                 relative = PurePosixPath(str(entry["path"]))
                 target = destination.joinpath(*relative.parts)
@@ -295,11 +315,35 @@ def _hash_zip_entry(bundle: ZipFile, name: str) -> tuple[str, int]:
     return digest.hexdigest(), size
 
 
-def _validate_manifest(manifest: object) -> list[dict[str, object]]:
-    if not isinstance(manifest, dict):
-        raise ValueError("State backup manifest must be an object.")
+def _validate_manifest(manifest: object) -> _ValidatedBackupManifest:
+    return _validate_manifest_dict(
+        _string_keyed_object(
+            manifest,
+            error="State backup manifest must be an object.",
+        )
+    )
+
+
+def _string_keyed_object(value: object, *, error: str) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise ValueError(error)
+    normalized: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            raise ValueError(error)
+        normalized[key] = item
+    return normalized
+
+
+def _validate_manifest_dict(
+    manifest: dict[str, object],
+) -> _ValidatedBackupManifest:
     schema_version = manifest.get("schema_version")
-    if schema_version not in {LEGACY_BACKUP_SCHEMA_VERSION, BACKUP_SCHEMA_VERSION}:
+    if (
+        isinstance(schema_version, bool)
+        or not isinstance(schema_version, int)
+        or schema_version not in {LEGACY_BACKUP_SCHEMA_VERSION, BACKUP_SCHEMA_VERSION}
+    ):
         raise ValueError("State backup schema version is unsupported.")
     if manifest.get("kind") != BACKUP_KIND:
         raise ValueError("State backup kind is unsupported.")
@@ -310,9 +354,14 @@ def _validate_manifest(manifest: object) -> list[dict[str, object]]:
     harness_version = manifest.get("harness_version")
     if not isinstance(harness_version, str) or not harness_version:
         raise ValueError("State backup Harness version is invalid.")
+    state_layout_version: int | None = None
+    validated_components: dict[str, int] = {}
+    minimum_reader_schema_version: int | None = None
+    validated_journal_hash: str | None = None
     if schema_version == BACKUP_SCHEMA_VERSION:
         if manifest.get("state_layout_version") != STATE_LAYOUT_VERSION:
             raise ValueError("State backup layout version is unsupported.")
+        state_layout_version = STATE_LAYOUT_VERSION
         minimum_reader = manifest.get("minimum_reader_schema_version")
         if (
             isinstance(minimum_reader, bool)
@@ -320,17 +369,20 @@ def _validate_manifest(manifest: object) -> list[dict[str, object]]:
             or minimum_reader < 1
         ):
             raise ValueError("State backup minimum reader is invalid.")
+        minimum_reader_schema_version = minimum_reader
         components = manifest.get("component_schema_versions")
         if not isinstance(components, dict):
             raise ValueError("State backup component schemas are invalid.")
         for component, version_value in components.items():
             if (
-                component not in _SUPPORTED_COMPONENT_SCHEMA_VERSIONS
+                not isinstance(component, str)
+                or component not in _SUPPORTED_COMPONENT_SCHEMA_VERSIONS
                 or isinstance(version_value, bool)
                 or not isinstance(version_value, int)
                 or version_value < 1
             ):
                 raise ValueError("State backup component schema is invalid.")
+            validated_components[component] = version_value
         journal_hash = manifest.get("migration_journal_sha256")
         if journal_hash is not None and (
             not isinstance(journal_hash, str)
@@ -338,14 +390,17 @@ def _validate_manifest(manifest: object) -> list[dict[str, object]]:
             or any(character not in "0123456789abcdef" for character in journal_hash)
         ):
             raise ValueError("State backup migration journal digest is invalid.")
+        validated_journal_hash = journal_hash
     entries = manifest.get("entries")
     if not isinstance(entries, list):
         raise ValueError("State backup manifest entries are invalid.")
-    validated: list[dict[str, object]] = []
+    validated: list[_ValidatedBackupEntry] = []
     seen: set[str] = set()
-    for entry in entries:
-        if not isinstance(entry, dict):
-            raise ValueError("State backup manifest entry is invalid.")
+    for raw_entry in entries:
+        entry = _string_keyed_object(
+            raw_entry,
+            error="State backup manifest entry is invalid.",
+        )
         path = entry.get("path")
         digest = entry.get("sha256")
         size = entry.get("size")
@@ -365,7 +420,11 @@ def _validate_manifest(manifest: object) -> list[dict[str, object]]:
             raise ValueError("State backup manifest digest is invalid.")
         if not isinstance(size, int) or isinstance(size, bool) or size < 0:
             raise ValueError("State backup manifest size is invalid.")
-        if kind not in {"file", "sqlite"}:
+        if kind == "file":
+            validated_kind: Literal["file", "sqlite"] = "file"
+        elif kind == "sqlite":
+            validated_kind = "sqlite"
+        else:
             raise ValueError("State backup manifest entry kind is invalid.")
         if sqlite_user_version is not None and (
             kind != "sqlite"
@@ -381,8 +440,25 @@ def _validate_manifest(manifest: object) -> list[dict[str, object]]:
         ):
             raise ValueError("State backup manifest mode is invalid.")
         seen.add(path)
-        validated.append(entry)
-    return validated
+        validated_entry = _ValidatedBackupEntry(
+            kind=validated_kind,
+            mode=mode,
+            path=path,
+            sha256=digest,
+            size=size,
+        )
+        if sqlite_user_version is not None:
+            validated_entry["sqlite_user_version"] = sqlite_user_version
+        validated.append(validated_entry)
+    return _ValidatedBackupManifest(
+        schema_version=schema_version,
+        harness_version=harness_version,
+        state_layout_version=state_layout_version,
+        component_schema_versions=validated_components,
+        minimum_reader_schema_version=minimum_reader_schema_version,
+        migration_journal_sha256=validated_journal_hash,
+        entries=validated,
+    )
 
 
 def _validate_archive_path(value: str) -> None:
@@ -399,32 +475,27 @@ def _validate_archive_path(value: str) -> None:
 
 def _result_for_archive(
     path: Path,
-    manifest: dict[str, object],
+    manifest: _ValidatedBackupManifest,
     runtime_schema_version: int | None,
 ) -> StateBackupResult:
-    entries = _validate_manifest(manifest)
-    schema_version = int(manifest.get("schema_version") or 0)
-    raw_components = manifest.get("component_schema_versions")
-    components = (
-        {str(key): int(value) for key, value in raw_components.items()}
-        if isinstance(raw_components, dict)
-        else {}
-    )
-    minimum_reader = manifest.get("minimum_reader_schema_version")
+    entries = manifest["entries"]
+    schema_version = manifest["schema_version"]
+    components = manifest["component_schema_versions"]
+    minimum_reader = manifest["minimum_reader_schema_version"]
     components_compatible = all(
         version_value <= _SUPPORTED_COMPONENT_SCHEMA_VERSIONS.get(component, -1)
         for component, version_value in components.items()
     )
     return StateBackupResult(
         schema_version=schema_version,
-        harness_version=str(manifest.get("harness_version") or "unknown"),
+        harness_version=manifest["harness_version"],
         file_count=len(entries),
-        total_bytes=sum(int(entry["size"]) for entry in entries),
+        total_bytes=sum(entry["size"] for entry in entries),
         sha256=_hash_file(path)[0],
         runtime_schema_version=runtime_schema_version,
         max_supported_runtime_schema_version=RUNTIME_SCHEMA_VERSION,
         state_layout_version=(
-            int(manifest["state_layout_version"])
+            manifest["state_layout_version"]
             if schema_version == BACKUP_SCHEMA_VERSION
             else None
         ),
@@ -432,11 +503,7 @@ def _result_for_archive(
         minimum_reader_schema_version=(
             int(minimum_reader) if isinstance(minimum_reader, int) else None
         ),
-        migration_journal_sha256=(
-            str(manifest["migration_journal_sha256"])
-            if manifest.get("migration_journal_sha256") is not None
-            else None
-        ),
+        migration_journal_sha256=manifest["migration_journal_sha256"],
         restore_compatible=(
             (
                 runtime_schema_version is None

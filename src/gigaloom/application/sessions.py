@@ -301,7 +301,11 @@ class SessionApplicationService:
         )
 
     def _append_decision_event(self, approval: ApprovalRequest) -> None:
-        if not approval.session_id or not hasattr(self.store, "append_event"):
+        if (
+            not approval.session_id
+            or not approval.run_id
+            or not hasattr(self.store, "append_event")
+        ):
             return
         self.store.append_event(
             HarnessStoredEvent(

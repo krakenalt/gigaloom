@@ -20,6 +20,10 @@ _EXPORTS = {
         "gigaloom.environments",
         "GitEnvironmentProvider",
     ),
+    "HeadlessManagedMCPSnapshotStore": (
+        "gigaloom.tools.mcp.api",
+        "HeadlessManagedMCPSnapshotStore",
+    ),
     "HarnessMessage": ("gigaloom.sessions.models", "HarnessMessage"),
     "HarnessRawRecord": ("gigaloom.sessions.models", "HarnessRawRecord"),
     "HarnessRun": ("gigaloom.sessions.models", "HarnessRun"),
@@ -52,6 +56,10 @@ _EXPORTS = {
         "eval_spec_from_mapping",
     ),
     "event_to_dict": ("gigaloom.sessions.models", "event_to_dict"),
+    "gigachat_compatibility_evidence": (
+        "gigaloom.providers.protocols.gigachat",
+        "gigachat_compatibility_evidence",
+    ),
     "parse_agent_profile": ("gigaloom.agents", "parse_agent_profile"),
     "parse_workflow_definition": (
         "gigaloom.workflows",

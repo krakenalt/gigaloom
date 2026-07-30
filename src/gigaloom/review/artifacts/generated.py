@@ -95,10 +95,10 @@ def persist_generated_file(
     filename = f"{file_key}{extension}"
     directory = generated_files_root(data_dir) / run_key
     directory.mkdir(parents=True, exist_ok=True)
-    target = directory / filename
-    temporary = target.with_suffix(f"{target.suffix}.tmp")
+    target_path = directory / filename
+    temporary = target_path.with_suffix(f"{target_path.suffix}.tmp")
     temporary.write_bytes(content)
-    temporary.replace(target)
+    temporary.replace(target_path)
     display_filename = f"generated-{file_key[:12]}{extension}"
     file_url = f"/api/files/generated/{run_key}/{filename}"
     result = {

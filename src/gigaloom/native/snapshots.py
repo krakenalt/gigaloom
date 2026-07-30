@@ -76,11 +76,11 @@ class NativeExecutionSnapshotStore:
         harness_id: str,
     ) -> tuple[NativeSessionRef, ...]:
         refs_list = list(refs)
-        records = [
-            item
-            for item in self._read_records()
-            if _snapshot(item) is not None and _snapshot(item).harness_id == harness_id
-        ]
+        records = []
+        for item in self._read_records():
+            snapshot = _snapshot(item)
+            if snapshot is not None and snapshot.harness_id == harness_id:
+                records.append(item)
         attached: dict[str, NativeExecutionSnapshot] = {}
         changed = False
 

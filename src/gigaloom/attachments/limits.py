@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 import subprocess
 from typing import Any
 
-from gigaloom.project import DEFAULT_ATTACHMENT_IGNORE
+from gigaloom.projects.api import DEFAULT_ATTACHMENT_IGNORE
 from gigaloom.safe_paths import (
     PathBoundaryError,
     resolve_operator_path,

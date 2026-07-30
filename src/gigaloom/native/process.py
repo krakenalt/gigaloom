@@ -21,6 +21,7 @@ from gigaloom.native.base import (
     native_command_plan_to_dict,
     native_prompt_delivery_to_dict,
 )
+from gigaloom.native.posix_compat import fcntl, pty_module, termios
 from gigaloom.runtime.api import (
     NativeProcessOutputRecord,
     NativeProcessRecord,
@@ -35,19 +36,6 @@ from gigaloom.types import (
     SECRET_KEY_PARTS,
     redact_secrets,
 )
-
-try:  # pragma: no cover - import availability is platform-specific.
-    import pty as pty_module
-except ImportError:  # pragma: no cover - Windows fallback.
-    pty_module = None
-
-try:  # pragma: no cover - import availability is platform-specific.
-    import fcntl
-    import termios
-except ImportError:  # pragma: no cover - Windows fallback.
-    fcntl = None
-    termios = None
-
 
 MIN_TERMINAL_ROWS = 2
 MAX_TERMINAL_ROWS = 200
@@ -544,7 +532,9 @@ class NativeProcessManager:
         transport: str,
     ) -> tuple[subprocess.Popen, int | None, IO[bytes] | None]:
         if transport == "pty":
-            master_fd, slave_fd = pty_module.openpty()  # type: ignore[union-attr]
+            if pty_module is None:
+                raise NativeProcessStartError("PTY transport is unavailable")
+            master_fd, slave_fd = pty_module.openpty()
             try:
                 try:
                     process = subprocess.Popen(

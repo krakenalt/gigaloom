@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 from typing import Any, Mapping
-from gigaloom.review.ports import ExecutionTransport
-from gigaloom.managed_mcp import HeadlessManagedMCPSnapshotStore
+
 from gigaloom.projects.api import resolve_project
-from gigaloom.review.ports import DurableJobDispatcher
-from gigaloom.session_runner import HarnessSessionRunner
-from gigaloom.review.ports import HarnessRun
 from gigaloom.review.ports import (
+    DurableJobDispatcher,
+    ExecutionTransport,
+    HarnessRun,
     HarnessSessionStore,
+    HeadlessManagedMCPSnapshotStore,
     title_from_prompt,
     utc_now,
 )
+from gigaloom.session_runner import HarnessSessionRunner
+
 from .codec import _mapping, _required_hash, _required_target, _trace_replay_axis
 from .dimensions import _extension_source_reference, extension_target_reference
 from .evidence import _latest_raw_request, _run_messages

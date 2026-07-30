@@ -1,6 +1,7 @@
 """Standalone GigaLoom quality-workflow contracts."""
 
 from pathlib import Path
+import tomllib
 
 import yaml
 
@@ -56,6 +57,38 @@ def test_required_quality_jobs_are_independent_and_standalone():
     assert "test-results/browser-qa" in text
     assert "scripts/check_legacy_identifiers.py" in text
     assert "--npm-tarball dist/web/gigaloom-web-*.tgz" in text
+
+
+def test_python_type_gate_is_pinned_and_cannot_silently_narrow():
+    with (REPOSITORY_ROOT / "pyproject.toml").open("rb") as file:
+        project = tomllib.load(file)
+
+    assert "ty==0.0.18" in project["dependency-groups"]["dev"]
+    assert project["tool"]["ty"] == {
+        "environment": {"python-version": "3.13"},
+        "src": {
+            "include": [
+                "src/gigaloom/application",
+                "src/gigaloom/attachments",
+                "src/gigaloom/contracts",
+                "src/gigaloom/core",
+                "src/gigaloom/evidence",
+                "src/gigaloom/execution",
+                "src/gigaloom/native",
+                "src/gigaloom/protocols",
+                "src/gigaloom/projects/backup_contracts.py",
+                "src/gigaloom/projects/backup.py",
+                "src/gigaloom/projects/backup_io.py",
+                "src/gigaloom/projects/state_migration.py",
+                "src/gigaloom/projects/state_migration_io.py",
+                "src/gigaloom/review",
+            ]
+        },
+    }
+
+    script = (REPOSITORY_ROOT / "scripts/ci-base.sh").read_text(encoding="utf-8")
+    assert 'exec "${environment}/bin/ty" check "$@"' in script
+    assert "./scripts/ci-base.sh type-check" in _workflow_text("ci.yaml")
 
 
 def test_browser_gate_covers_required_viewports_console_and_overflow():
