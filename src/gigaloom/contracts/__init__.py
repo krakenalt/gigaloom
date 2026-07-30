@@ -1,6 +1,29 @@
 """Stable, product-neutral public contracts."""
 
 from gigaloom.contracts.config import HarnessConfig
+from gigaloom.contracts.context import (
+    CONTEXT_MANIFEST_FORMAT,
+    CONTEXT_MANIFEST_SCHEMA_VERSION,
+    CompactionBoundary,
+    ContextEntry,
+    ContextEntryKind,
+    ContextManifest,
+    ContextOmission,
+    ContextOverride,
+    InclusionReason,
+    OmissionReason,
+    ProviderManagedUnknown,
+    TokenEstimate,
+    TokenEstimateConfidence,
+    TokenEstimateMethod,
+    build_context_manifest,
+    context_manifest_schema,
+)
+from gigaloom.contracts.context_cache import (
+    ContextManifestCache,
+    StaleContextManifestError,
+)
+from gigaloom.contracts.context_serialization import context_manifest_from_dict
 from gigaloom.contracts.events import (
     HarnessEvent,
     HarnessEventType,
@@ -46,6 +69,15 @@ __all__ = [
     "AttachmentTransportSupport",
     "Availability",
     "AvailabilityStatus",
+    "CONTEXT_MANIFEST_FORMAT",
+    "CONTEXT_MANIFEST_SCHEMA_VERSION",
+    "CompactionBoundary",
+    "ContextEntry",
+    "ContextEntryKind",
+    "ContextManifest",
+    "ContextManifestCache",
+    "ContextOmission",
+    "ContextOverride",
     "ExecutionTransport",
     "GIGACHAT_BUILTIN_TOOLS",
     "GigaChatApiMode",
@@ -61,7 +93,17 @@ __all__ = [
     "HarnessResult",
     "HarnessSpec",
     "HeadlessContinuationStrategy",
+    "InclusionReason",
+    "OmissionReason",
+    "ProviderManagedUnknown",
+    "StaleContextManifestError",
+    "TokenEstimate",
+    "TokenEstimateConfidence",
+    "TokenEstimateMethod",
     "availability_to_dict",
+    "build_context_manifest",
+    "context_manifest_from_dict",
+    "context_manifest_schema",
     "emit_event",
     "event_to_dict",
     "parse_api_mode",
