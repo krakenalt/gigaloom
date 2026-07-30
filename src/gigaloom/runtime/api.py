@@ -15,6 +15,18 @@ from gigaloom.runtime.models import (
 )
 
 EnforcementLevel: Any
+AdmissionDeniedError: Any
+BudgetHeadroomExceededError: Any
+BudgetLeaseBalance: Any
+BudgetLeaseClosedError: Any
+BudgetLeaseConflictError: Any
+BudgetLeaseExpiredError: Any
+BudgetLeaseNotFoundError: Any
+BudgetLeaseStatus: Any
+BudgetLeaseStore: Any
+ChildLeaseRequest: Any
+CostBudgetError: Any
+CostObservationConflictError: Any
 NativeProcessRecordNotFoundError: Any
 PermissionAction: Any
 PolicyContext: Any
@@ -22,9 +34,22 @@ PolicyDecision: Any
 PolicyResolution: Any
 RUNTIME_DB_NAME: Any
 RuntimeCoordinationStore: Any
+evaluate_budget_admission: Any
 
 __all__ = [
+    "AdmissionDeniedError",
     "ApprovalStatus",
+    "BudgetHeadroomExceededError",
+    "BudgetLeaseBalance",
+    "BudgetLeaseClosedError",
+    "BudgetLeaseConflictError",
+    "BudgetLeaseExpiredError",
+    "BudgetLeaseNotFoundError",
+    "BudgetLeaseStatus",
+    "BudgetLeaseStore",
+    "ChildLeaseRequest",
+    "CostBudgetError",
+    "CostObservationConflictError",
     "EnforcementLevel",
     "JobAttemptStatus",
     "NativeProcessOutputRecord",
@@ -37,10 +62,59 @@ __all__ = [
     "RUNTIME_DB_NAME",
     "RunStatus",
     "RuntimeCoordinationStore",
+    "evaluate_budget_admission",
     "parse_run_status",
 ]
 
 _LAZY_EXPORTS = {
+    "AdmissionDeniedError": (
+        "gigaloom.runtime.cost",
+        "AdmissionDeniedError",
+    ),
+    "BudgetHeadroomExceededError": (
+        "gigaloom.runtime.cost",
+        "BudgetHeadroomExceededError",
+    ),
+    "BudgetLeaseBalance": (
+        "gigaloom.runtime.cost",
+        "BudgetLeaseBalance",
+    ),
+    "BudgetLeaseClosedError": (
+        "gigaloom.runtime.cost",
+        "BudgetLeaseClosedError",
+    ),
+    "BudgetLeaseConflictError": (
+        "gigaloom.runtime.cost",
+        "BudgetLeaseConflictError",
+    ),
+    "BudgetLeaseExpiredError": (
+        "gigaloom.runtime.cost",
+        "BudgetLeaseExpiredError",
+    ),
+    "BudgetLeaseNotFoundError": (
+        "gigaloom.runtime.cost",
+        "BudgetLeaseNotFoundError",
+    ),
+    "BudgetLeaseStatus": (
+        "gigaloom.runtime.cost",
+        "BudgetLeaseStatus",
+    ),
+    "BudgetLeaseStore": (
+        "gigaloom.runtime.cost",
+        "BudgetLeaseStore",
+    ),
+    "ChildLeaseRequest": (
+        "gigaloom.runtime.cost",
+        "ChildLeaseRequest",
+    ),
+    "CostBudgetError": (
+        "gigaloom.runtime.cost",
+        "CostBudgetError",
+    ),
+    "CostObservationConflictError": (
+        "gigaloom.runtime.cost",
+        "CostObservationConflictError",
+    ),
     "EnforcementLevel": (
         "gigaloom.runtime.policy",
         "EnforcementLevel",
@@ -68,6 +142,10 @@ _LAZY_EXPORTS = {
     "RuntimeCoordinationStore": (
         "gigaloom.runtime.store",
         "RuntimeCoordinationStore",
+    ),
+    "evaluate_budget_admission": (
+        "gigaloom.runtime.cost",
+        "evaluate_budget_admission",
     ),
     "RUNTIME_DB_NAME": (
         "gigaloom.runtime.store",
