@@ -478,7 +478,7 @@
       },
       {
         "path": "tui/app.py",
-        "max_lines": 3118,
+        "max_lines": 2910,
         "owner": "T10/T20",
         "removal_gate": "tui-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
