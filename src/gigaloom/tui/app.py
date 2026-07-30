@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, ClassVar
 from uuid import uuid4
@@ -61,12 +62,10 @@ if TYPE_CHECKING:
     )
     from gigaloom.workbench_resources import WorkbenchResourceSnapshot
 
-MAX_NATIVE_SCROLLBACK_CHARS = 64 * 1024
 RUN_RESNAPSHOT_SECONDS = 15.0
-NATIVE_RECONNECT_SECONDS = 15.0
 # Kept as compatibility aliases for the versioned G5 performance report.
 RUN_POLL_SECONDS = RUN_RESNAPSHOT_SECONDS
-NATIVE_OUTPUT_POLL_SECONDS = NATIVE_RECONNECT_SECONDS
+NATIVE_OUTPUT_POLL_SECONDS = 15.0
 
 
 def __getattr__(name: str) -> Any:
@@ -355,282 +354,68 @@ class ApprovalScreen(ModalScreen[str | None]):
         self.dismiss(None)
 
 
-class NativeTerminalScreen(ModalScreen[str | None]):
-    """Contained, terminal-neutral view over application-owned native processes."""
+class NativeTerminalAttachScreen(ModalScreen[str | None]):
+    """Offer the explicit Web action when local terminal attach is unavailable."""
 
     CSS = """
-    NativeTerminalScreen { align: center middle; }
-    #native-dialog {
-        width: 96%;
-        height: 94%;
+    NativeTerminalAttachScreen { align: center middle; }
+    #native-attach-dialog {
+        width: 64;
+        max-width: 92%;
+        height: auto;
         padding: 1 2;
         border: round $accent;
         background: $surface;
     }
-    #native-header { height: auto; min-height: 2; }
-    #native-output {
-        height: 1fr;
-        min-height: 4;
+    #native-attach-title { height: auto; min-height: 2; }
+    #native-attach-body {
+        height: auto;
         margin-top: 1;
-        padding: 0 1;
-        border: round $primary-background;
-        overflow: auto hidden;
     }
-    #native-input-row { height: 3; align-vertical: middle; }
-    #native-input { width: 1fr; }
-    #native-send { min-width: 10; margin-left: 1; }
-    #native-actions { height: 3; align-horizontal: right; }
-    #native-actions Button { min-width: 10; margin-left: 1; }
-    #native-status { height: 1; color: $text-muted; }
+    #native-attach-actions { height: 3; align-horizontal: right; }
+    #native-attach-actions Button { min-width: 14; margin-left: 1; }
     """
 
     BINDINGS: ClassVar[list[Binding]] = [
         Binding("escape", "return_to_session", "Return", show=False),
-        Binding("ctrl+c", "stop", "Stop", show=False),
     ]
 
     def __init__(
         self,
-        client: WorkbenchClient,
-        snapshot: NativeTerminalSnapshot,
         *,
         title: str,
-        send: str,
-        stop: str,
+        body: str,
+        web_attach: str,
         return_to_session: str,
-        handoff: str,
-        fullscreen_blocked: str,
-        disconnected: str,
-        reconnected: str,
     ) -> None:
         super().__init__()
-        self.client = client
-        self.snapshot = snapshot
         self.dialog_title = title
-        self.send_label = send
-        self.stop_label = stop
+        self.body = body
+        self.web_attach_label = web_attach
         self.return_label = return_to_session
-        self.handoff_label = handoff
-        self.fullscreen_blocked = fullscreen_blocked
-        self.disconnected_label = disconnected
-        self.reconnected_label = reconnected
-        self.scrollback = ""
-        self._polling = False
-        self._resizing = False
-        self._pending_dimensions: tuple[int, int] | None = None
-        self._disconnected = False
-        self._stopping_for_handoff = False
-        self._delivery_worker: Any | None = None
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="native-dialog"):
-            yield Label(self.dialog_title, id="native-header", markup=False)
-            yield Static("", id="native-output", markup=False)
-            with Horizontal(id="native-input-row"):
-                yield Input(id="native-input")
-                yield Button(self.send_label, id="native-send", variant="primary")
-            with Horizontal(id="native-actions"):
-                yield Button(self.handoff_label, id="native-handoff")
-                yield Button(self.stop_label, id="native-stop", variant="error")
-                yield Button(self.return_label, id="native-return")
-            yield Static("", id="native-status", markup=False)
+        with Vertical(id="native-attach-dialog"):
+            yield Label(self.dialog_title, id="native-attach-title", markup=False)
+            yield Static(self.body, id="native-attach-body", markup=False)
+            with Horizontal(id="native-attach-actions"):
+                yield Button(
+                    self.web_attach_label,
+                    id="native-web-attach",
+                    variant="primary",
+                )
+                yield Button(self.return_label, id="native-attach-return")
 
-    async def on_mount(self) -> None:
-        self._apply_snapshot(self.snapshot)
-        self._delivery_worker = self.run_worker(
-            self._consume_output(),
-            name=f"native-output-{self.snapshot.process_id}",
-            group="native-output",
-            exit_on_error=False,
-            exclusive=True,
-        )
-        await self._resize()
-        await self._enforce_fullscreen_boundary()
-        self.query_one("#native-input", Input).focus()
-
-    async def on_resize(self, _event: events.Resize) -> None:
-        await self._resize()
-
-    @on(Input.Submitted, "#native-input")
-    async def submit_input(self, event: Input.Submitted) -> None:
-        event.stop()
-        await self._send(event.value)
-
-    @on(Button.Pressed, "#native-send")
-    async def press_send(self) -> None:
-        await self._send(self.query_one("#native-input", Input).value)
-
-    @on(Button.Pressed, "#native-stop")
-    async def press_stop(self) -> None:
-        await self.action_stop()
-
-    @on(Button.Pressed, "#native-return")
+    @on(Button.Pressed, "#native-attach-return")
     def press_return(self) -> None:
         self.action_return_to_session()
 
-    @on(Button.Pressed, "#native-handoff")
-    def press_handoff(self) -> None:
-        self.dismiss("handoff")
-
-    async def action_stop(self) -> None:
-        if self.snapshot.terminal:
-            return
-        try:
-            stopped = await self.client.stop_native_terminal(self.snapshot.process_id)
-        except Exception as exc:
-            self._show_error(exc)
-            return
-        self._apply_snapshot(stopped)
+    @on(Button.Pressed, "#native-web-attach")
+    def press_web_attach(self) -> None:
+        self.dismiss("web")
 
     def action_return_to_session(self) -> None:
-        self.dismiss("return")
-
-    async def _send(self, value: str) -> None:
-        if not value or self.snapshot.terminal or self.snapshot.handoff_required:
-            return
-        try:
-            updated = await self.client.send_native_terminal_input(
-                self.snapshot.process_id,
-                value,
-                submit=True,
-            )
-        except Exception as exc:
-            self._show_error(exc)
-            return
-        self.query_one("#native-input", Input).value = ""
-        self._apply_snapshot(updated)
-
-    async def _poll(self) -> None:
-        if self._polling or not self.is_mounted or self.snapshot.terminal:
-            return
-        self._polling = True
-        try:
-            updated = await self.client.snapshot_native_terminal(
-                self.snapshot.process_id,
-                cursor=self.snapshot.cursor,
-            )
-            if not self.is_mounted:
-                return
-            self._apply_snapshot(updated)
-            if self._disconnected:
-                self._disconnected = False
-                self.query_one("#native-status", Static).update(
-                    f"{updated.harness_id} · {updated.transport} · "
-                    f"{self.reconnected_label}"
-                )
-            await self._enforce_fullscreen_boundary()
-        except Exception as exc:
-            if self.is_mounted:
-                self._disconnected = True
-                self._show_error(exc, prefix=self.disconnected_label)
-        finally:
-            self._polling = False
-
-    async def _consume_output(self) -> None:
-        process_id = self.snapshot.process_id
-        while self.is_mounted and not self.snapshot.terminal:
-            stream = getattr(self.client, "stream_native_terminal", None)
-            try:
-                if callable(stream):
-                    async for updated in stream(
-                        process_id,
-                        cursor=self.snapshot.cursor,
-                    ):
-                        if (
-                            not self.is_mounted
-                            or process_id != self.snapshot.process_id
-                        ):
-                            return
-                        self._apply_snapshot(updated)
-                        if self._disconnected:
-                            self._disconnected = False
-                            self.query_one("#native-status", Static).update(
-                                f"{updated.harness_id} · {updated.transport} · "
-                                f"{self.reconnected_label}"
-                            )
-                        await self._enforce_fullscreen_boundary()
-                        if updated.terminal:
-                            return
-                else:
-                    await asyncio.sleep(NATIVE_RECONNECT_SECONDS)
-                    await self._poll()
-            except Exception as exc:
-                if not self.is_mounted:
-                    return
-                self._disconnected = True
-                self._show_error(exc, prefix=self.disconnected_label)
-            if self.is_mounted and not self.snapshot.terminal:
-                await asyncio.sleep(NATIVE_RECONNECT_SECONDS)
-
-    async def _resize(self) -> None:
-        if not self.is_mounted or self.snapshot.terminal:
-            return
-        rows = max(2, min(200, self.size.height - 10))
-        columns = max(20, min(500, self.size.width - 8))
-        self._pending_dimensions = (rows, columns)
-        if self._resizing:
-            return
-        self._resizing = True
-        try:
-            while self._pending_dimensions is not None:
-                requested_rows, requested_columns = self._pending_dimensions
-                self._pending_dimensions = None
-                try:
-                    updated = await self.client.resize_native_terminal(
-                        self.snapshot.process_id,
-                        rows=requested_rows,
-                        columns=requested_columns,
-                    )
-                except Exception as exc:
-                    self._disconnected = True
-                    self._show_error(exc, prefix=self.disconnected_label)
-                    return
-                self._apply_snapshot(updated)
-        finally:
-            self._resizing = False
-
-    async def _enforce_fullscreen_boundary(self) -> None:
-        if (
-            not self.snapshot.handoff_required
-            or self.snapshot.terminal
-            or self._stopping_for_handoff
-        ):
-            return
-        self._stopping_for_handoff = True
-        try:
-            stopped = await self.client.stop_native_terminal(self.snapshot.process_id)
-            self._apply_snapshot(replace(stopped, handoff_required=True))
-        except Exception as exc:
-            self._show_error(exc)
-        finally:
-            self._stopping_for_handoff = False
-
-    def _apply_snapshot(self, snapshot: NativeTerminalSnapshot) -> None:
-        from gigaloom.tui.client import neutralize_native_terminal_output
-
-        safe = neutralize_native_terminal_output(snapshot.output)
-        if safe:
-            self.scrollback = (self.scrollback + safe)[-MAX_NATIVE_SCROLLBACK_CHARS:]
-        self.snapshot = snapshot
-        output = self.scrollback
-        if snapshot.output_truncated:
-            output = "[older output unavailable]\n" + output
-        if snapshot.handoff_required:
-            output += f"\n\n{self.fullscreen_blocked}"
-        self.query_one("#native-output", Static).update(output)
-        self.query_one("#native-status", Static).update(
-            f"{snapshot.harness_id} · {snapshot.transport} · {snapshot.status}"
-        )
-        blocked = snapshot.terminal or snapshot.handoff_required
-        self.query_one("#native-input", Input).disabled = blocked
-        self.query_one("#native-send", Button).disabled = blocked
-        self.query_one("#native-stop", Button).disabled = snapshot.terminal
-
-    def _show_error(self, exc: Exception, *, prefix: str | None = None) -> None:
-        message = str(exc).strip() or type(exc).__name__
-        if prefix:
-            message = f"{prefix}: {message}"
-        self.query_one("#native-status", Static).update(message[:240])
+        self.dismiss(None)
 
 
 class WorkbenchTui(App[None]):
@@ -819,6 +604,9 @@ class WorkbenchTui(App[None]):
         session_id: str | None = None,
         locale: str | None = None,
         launch_intent: TuiLaunchIntent | None = None,
+        native_terminal_attach: (
+            Callable[["NativeTerminalSnapshot"], None] | None
+        ) = None,
     ) -> None:
         super().__init__()
         self.client = client
@@ -828,6 +616,7 @@ class WorkbenchTui(App[None]):
             workspace=workspace,
             session_id=session_id,
         )
+        self.native_terminal_attach = native_terminal_attach
         self._launch_intent_applied = False
         self._launch_session_id: str | None = None
         self.snapshot: NavigationSnapshot | None = None
@@ -2003,7 +1792,7 @@ class WorkbenchTui(App[None]):
         except Exception as exc:
             self._show_error(exc)
             return
-        self._show_native_terminal(snapshot)
+        await self._show_native_terminal(snapshot)
 
     async def action_provider_handoff(self) -> None:
         await self._show_handoff("provider")
@@ -2189,7 +1978,7 @@ class WorkbenchTui(App[None]):
                     )
                 self.attachments = ()
                 self._render_attachments()
-                self._show_native_terminal(terminal)
+                await self._show_native_terminal(terminal)
                 self._set_status(self.t("status.native_terminal"))
                 return
             turn_intent_arguments = dict(intent_arguments)
@@ -2610,27 +2399,30 @@ class WorkbenchTui(App[None]):
         self._show_detail(self.t("handoff.title"), self._handoff_text(preview))
         self._set_status(self.t("status.ready"))
 
-    def _show_native_terminal(self, snapshot: NativeTerminalSnapshot) -> None:
+    async def _show_native_terminal(self, snapshot: NativeTerminalSnapshot) -> None:
+        if self.native_terminal_attach is not None:
+            try:
+                with self.suspend():
+                    self.native_terminal_attach(snapshot)
+            except Exception as exc:
+                self._show_error(exc)
+                return
+            await self._reconnect_selected_run(force=True)
+            return
         self.push_screen(
-            NativeTerminalScreen(
-                self.client,
-                snapshot,
+            NativeTerminalAttachScreen(
                 title=self.t("terminal.title"),
-                send=self.t("button.send"),
-                stop=self.t("terminal.stop"),
+                body=self.t("terminal.web_only"),
+                web_attach=self.t("terminal.web_attach"),
                 return_to_session=self.t("terminal.return"),
-                handoff=self.t("button.provider"),
-                fullscreen_blocked=self.t("terminal.fullscreen_blocked"),
-                disconnected=self.t("status.disconnected"),
-                reconnected=self.t("status.reconnected"),
             ),
             self._native_terminal_closed,
         )
 
     async def _native_terminal_closed(self, result: str | None) -> None:
         await self._reconnect_selected_run(force=True)
-        if result == "handoff":
-            await self.action_provider_handoff()
+        if result == "web":
+            await self.action_web_handoff()
 
     def _show_detail(self, title: str, body: str) -> None:
         self.push_screen(DetailScreen(title, body, self.t("dialog.close")))
