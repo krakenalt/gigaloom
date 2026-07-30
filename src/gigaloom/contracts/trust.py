@@ -209,6 +209,11 @@ class SinkRequest:
                 field_name="payload_source_ids",
             ),
         )
+        bound_source_ids = set(self.destination_source_ids) | set(
+            self.payload_source_ids
+        )
+        if bound_source_ids != source_ids:
+            raise ValueError("every influence source must be bound to the request")
         if self.redirect_destination_sha256 is not None:
             _validate_hash(
                 self.redirect_destination_sha256,
