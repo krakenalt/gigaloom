@@ -9,6 +9,7 @@ from gpt2giga_harness.runtime.models import (
     ApprovalStatus,
     NativeProcessOutputRecord,
     NativeProcessRecord,
+    JobAttemptStatus,
     RunStatus,
     parse_run_status,
 )
@@ -19,11 +20,13 @@ PermissionAction: Any
 PolicyContext: Any
 PolicyDecision: Any
 PolicyResolution: Any
+RUNTIME_DB_NAME: Any
 RuntimeCoordinationStore: Any
 
 __all__ = [
     "ApprovalStatus",
     "EnforcementLevel",
+    "JobAttemptStatus",
     "NativeProcessOutputRecord",
     "NativeProcessRecord",
     "NativeProcessRecordNotFoundError",
@@ -31,6 +34,7 @@ __all__ = [
     "PolicyContext",
     "PolicyDecision",
     "PolicyResolution",
+    "RUNTIME_DB_NAME",
     "RunStatus",
     "RuntimeCoordinationStore",
     "parse_run_status",
@@ -64,6 +68,10 @@ _LAZY_EXPORTS = {
     "RuntimeCoordinationStore": (
         "gpt2giga_harness.runtime.store",
         "RuntimeCoordinationStore",
+    ),
+    "RUNTIME_DB_NAME": (
+        "gpt2giga_harness.runtime.store",
+        "RUNTIME_DB_NAME",
     ),
 }
 

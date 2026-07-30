@@ -7,7 +7,7 @@ import time
 from typing import Any, Mapping, Protocol
 from uuid import uuid4
 
-from gpt2giga_harness.product_capabilities import TitleProvenance
+from gpt2giga_harness.diagnostics.inventory.capabilities import TitleProvenance
 
 
 SESSION_TITLE_STATE_KEY = "title_state"

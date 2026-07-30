@@ -9,14 +9,14 @@ from urllib.parse import urlsplit, urlunsplit
 from fastapi import Body, HTTPException, Query, Request
 
 from gpt2giga_harness.config import DEFAULT_MODEL_HINTS
-from gpt2giga_harness.doctor import build_doctor_report
+from gpt2giga_harness.diagnostics.doctor.report import build_doctor_report
 from gpt2giga_harness.mcp import MCPProbeHistoryStore, build_mcp_inventory
 from gpt2giga_harness.project import (
     load_project_config,
     load_project_state,
     resolve_project,
 )
-from gpt2giga_harness.product_capabilities import (
+from gpt2giga_harness.diagnostics.inventory.capabilities import (
     AuthorityLevel,
     TaskIntent,
     legacy_mode_compatibility_receipt,

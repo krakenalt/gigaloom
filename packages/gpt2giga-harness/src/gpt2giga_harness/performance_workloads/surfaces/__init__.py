@@ -1,1 +1,1 @@
-"""CLI, TUI and Web workload declarations."""
+"""Compatibility package for canonical surface performance workloads."""

@@ -1,18 +1,9 @@
-"""Isolated CLI startup workload."""
+"""Compatibility alias for the canonical diagnostics performance workload."""
 
-from typing import Final
+import sys as _sys
+from importlib import import_module as _import_module
 
-from gpt2giga_harness.performance_workloads import WorkloadSpec
-
-
-WORKLOADS: Final[tuple[WorkloadSpec, ...]] = (
-    WorkloadSpec(
-        id="cli.startup.isolated",
-        family="cli/startup",
-        profiles=("local-detail",),
-        variants=("version_cold", "version_warm", "help_cold", "help_warm"),
-        required_metrics=("wall_ms", "cpu_ms", "rss_bytes"),
-        required_counters=("modules_loaded", "subprocesses_started"),
-        future_gate="G-PERF",
-    ),
+_implementation = _import_module(
+    "gpt2giga_harness.diagnostics.performance.workloads.surfaces.cli_startup"
 )
+_sys.modules[__name__] = _implementation

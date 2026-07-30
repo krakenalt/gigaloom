@@ -1,31 +1,9 @@
-"""Bounded Web read-path workload."""
+"""Compatibility alias for the canonical diagnostics performance workload."""
 
-from typing import Final
+import sys as _sys
+from importlib import import_module as _import_module
 
-from gpt2giga_harness.performance_workloads import WorkloadSpec
-
-
-WORKLOADS: Final[tuple[WorkloadSpec, ...]] = (
-    WorkloadSpec(
-        id="web.read_paths.initial",
-        family="web/read-paths",
-        profiles=("local-detail", "runtime-detail"),
-        variants=(
-            "overview",
-            "environment",
-            "messages",
-            "runs",
-            "attachments",
-            "events",
-        ),
-        required_metrics=("wall_ms", "cpu_ms", "rss_bytes"),
-        required_counters=(
-            "requests",
-            "bytes_read",
-            "files_opened",
-            "sqlite_connections",
-            "sqlite_statements",
-        ),
-        future_gate="G-PERF",
-    ),
+_implementation = _import_module(
+    "gpt2giga_harness.diagnostics.performance.workloads.surfaces.web_reads"
 )
+_sys.modules[__name__] = _implementation

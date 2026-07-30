@@ -9,7 +9,9 @@ from gpt2giga_harness.integration_flows import IntegrationFlowService
 from gpt2giga_harness.project import (
     HarnessProject,
 )
-from gpt2giga_harness.product_capabilities import legacy_mode_compatibility_receipt
+from gpt2giga_harness.diagnostics.inventory.capabilities import (
+    legacy_mode_compatibility_receipt,
+)
 from gpt2giga_harness.sessions.api import SessionQueryStore
 from gpt2giga_harness.sessions.models import (
     HarnessMessage,

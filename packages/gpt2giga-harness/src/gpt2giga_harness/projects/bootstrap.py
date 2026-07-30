@@ -13,7 +13,7 @@ from typing import Any
 from uuid import uuid4
 
 from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.doctor import build_doctor_report
+from gpt2giga_harness.diagnostics.doctor.report import build_doctor_report
 from gpt2giga_harness.sessions import locking as session_locking
 
 from .project_starter import init_project_config, project_config_path

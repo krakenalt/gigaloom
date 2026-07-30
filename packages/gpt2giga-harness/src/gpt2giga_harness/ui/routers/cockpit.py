@@ -13,7 +13,7 @@ from urllib.parse import quote
 from fastapi import Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from gpt2giga_harness.product_capabilities import (
+from gpt2giga_harness.diagnostics.inventory.capabilities import (
     legacy_mode_compatibility_receipt,
 )
 from gpt2giga_harness.sessions.filesystem import FilesystemHarnessSessionStore

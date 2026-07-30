@@ -6,7 +6,9 @@ from typing import Any
 
 from fastapi import Query, Request
 
-from gpt2giga_harness.compatibility_guardian import run_compatibility_guardian
+from gpt2giga_harness.diagnostics.compatibility.guardian import (
+    run_compatibility_guardian,
+)
 from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 
 

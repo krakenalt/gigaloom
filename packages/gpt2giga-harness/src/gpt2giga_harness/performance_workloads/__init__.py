@@ -1,9 +1,9 @@
-"""Deterministic registry for content-free performance workloads."""
+"""Compatibility facade for canonical diagnostics performance workloads."""
 
-from gpt2giga_harness.performance_workloads.contracts import WorkloadSpec
-from gpt2giga_harness.performance_workloads.registry import (
+from gpt2giga_harness.diagnostics.performance.workloads import (
     REQUIRED_WORKLOAD_FAMILIES,
     WorkloadRegistryError,
+    WorkloadSpec,
     discover_workloads,
     workload_contracts,
 )

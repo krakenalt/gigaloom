@@ -1,29 +1,9 @@
-"""Shared contracts for measured session storage cases."""
+"""Compatibility alias for the canonical diagnostics performance workload."""
 
-from __future__ import annotations
+import sys as _sys
+from importlib import import_module as _import_module
 
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
-from pathlib import Path
-from typing import TypeAlias
-
-from gpt2giga_harness.performance_workloads.instrumentation import StorageCounters
-
-
-CaseDetails: TypeAlias = Mapping[str, int | float]
-CaseOperation: TypeAlias = Callable[[StorageCounters], CaseDetails]
-CaseReset: TypeAlias = Callable[[], None]
-
-
-@dataclass(frozen=True, slots=True)
-class StorageCase:
-    """One prepared fixture plus the operation-only measured window."""
-
-    id: str
-    family: str
-    fixture: Mapping[str, int | str | bool]
-    operation: CaseOperation
-    reset: CaseReset | None = None
-
-
-CaseFactory: TypeAlias = Callable[[Path], StorageCase]
+_implementation = _import_module(
+    "gpt2giga_harness.diagnostics.performance.workloads.sessions.cases"
+)
+_sys.modules[__name__] = _implementation

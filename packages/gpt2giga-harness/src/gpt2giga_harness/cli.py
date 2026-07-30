@@ -40,8 +40,10 @@ from gpt2giga_harness.cli_commands.parser import build_parser
 from gpt2giga_harness.config import HarnessConfig
 from gpt2giga_harness.completion import render_completion
 from gpt2giga_harness.cli_capabilities import cli_capability_snapshot_to_dict
-from gpt2giga_harness.compatibility_guardian import run_compatibility_guardian
-from gpt2giga_harness.doctor import (
+from gpt2giga_harness.diagnostics.compatibility.guardian import (
+    run_compatibility_guardian,
+)
+from gpt2giga_harness.diagnostics.doctor.report import (
     build_doctor_report,
     format_doctor_report,
     write_doctor_support_report,
@@ -127,7 +129,7 @@ from gpt2giga_harness.preflight import (
     preflight_report_to_dict,
 )
 from gpt2giga_harness.permission_simulator import build_permission_simulation
-from gpt2giga_harness.performance_baseline import (
+from gpt2giga_harness.diagnostics.performance.api import (
     run_performance_baseline,
     write_performance_report,
 )
@@ -435,7 +437,7 @@ def _handle_harness_capabilities(
     args: argparse.Namespace,
     config: HarnessConfig,
 ) -> int:
-    from gpt2giga_harness.product_inventory import (
+    from gpt2giga_harness.diagnostics.inventory.product import (
         build_product_inventory,
         canonical_inventory_json,
         load_product_inventory,

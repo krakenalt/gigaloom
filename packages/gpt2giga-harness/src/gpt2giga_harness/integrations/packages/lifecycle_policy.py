@@ -32,7 +32,7 @@ from gpt2giga_harness.integration_groups import (
 )
 from gpt2giga_harness.integration_packages import IntegrationComponentType
 from gpt2giga_harness.integration_runtime import IntegrationRuntimeStore
-from gpt2giga_harness.product_capabilities import IntegrationLifecycle
+from gpt2giga_harness.diagnostics.inventory.capabilities import IntegrationLifecycle
 from gpt2giga_harness.sessions import locking as _session_locking
 
 exclusive_file_lock = _session_locking.exclusive_file_lock

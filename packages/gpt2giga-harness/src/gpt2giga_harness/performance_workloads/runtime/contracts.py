@@ -1,30 +1,9 @@
-"""Contracts shared by modular runtime performance workloads."""
+"""Compatibility alias for the canonical diagnostics performance workload."""
 
-from __future__ import annotations
+import sys as _sys
+from importlib import import_module as _import_module
 
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
-from pathlib import Path
-from typing import TypeAlias
-
-from gpt2giga_harness.performance_workloads.runtime.instrumentation import (
-    RuntimeCounters,
-    TracingRuntimeStore,
+_implementation = _import_module(
+    "gpt2giga_harness.diagnostics.performance.workloads.runtime.contracts"
 )
-
-
-RuntimeOperation: TypeAlias = Callable[[RuntimeCounters], Mapping[str, int | float]]
-
-
-@dataclass(frozen=True, slots=True)
-class RuntimeCase:
-    """One prepared runtime fixture with an operation-only measured window."""
-
-    id: str
-    family: str
-    fixture: Mapping[str, int | str | bool]
-    store: TracingRuntimeStore
-    operation: RuntimeOperation
-
-
-RuntimeCaseFactory: TypeAlias = Callable[[Path], RuntimeCase]
+_sys.modules[__name__] = _implementation

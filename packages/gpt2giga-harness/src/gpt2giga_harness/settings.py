@@ -15,7 +15,9 @@ from gpt2giga_harness.config import (
     DEFAULT_TITLE_MODEL,
     HarnessConfig,
 )
-from gpt2giga_harness.product_capabilities import legacy_mode_compatibility_receipt
+from gpt2giga_harness.diagnostics.inventory.capabilities import (
+    legacy_mode_compatibility_receipt,
+)
 from gpt2giga_harness.sessions.locking import exclusive_file_lock
 from gpt2giga_harness.secrets import (
     SecretReference,

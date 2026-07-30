@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Any, Mapping
 
 from gpt2giga_harness.execution import ExecutionTransport
-from gpt2giga_harness.product_capabilities import (
+from gpt2giga_harness.diagnostics.inventory.capabilities import (
     AdmissionStatus,
     AuthorityLevel,
     ProductCapabilityError,
