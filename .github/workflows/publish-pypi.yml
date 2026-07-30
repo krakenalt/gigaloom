@@ -129,7 +129,7 @@ jobs:
           ref: ${{ github.sha }}
 
       - name: Download verified frontend evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: gigaloom-release-assets-${{ github.sha }}
           path: packages/gpt2giga-harness/src/gpt2giga_harness/ui/cockpit_v2/assets
@@ -185,7 +185,7 @@ jobs:
 
     steps:
       - name: Download immutable release bundle
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: gigaloom-release-${{ needs.metadata.outputs.version }}
           path: dist/gigaloom
@@ -216,7 +216,7 @@ jobs:
 
     steps:
       - name: Download immutable release bundle
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: gigaloom-release-${{ needs.metadata.outputs.version }}
           path: dist/gigaloom
