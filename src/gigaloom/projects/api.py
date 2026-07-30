@@ -95,6 +95,19 @@ if TYPE_CHECKING:
         new_memory_id,
         utc_now,
     )
+    from .impact import (
+        DEFAULT_MAX_PYTHON_FILE_BYTES,
+        DEFAULT_MAX_PYTHON_FILES,
+        ImpactUncertainty,
+        ImpactUncertaintyKind,
+        ImpactedPythonFile,
+        PublicContractMarker,
+        PythonImpactIndex,
+        PythonImpactResult,
+        analyze_python_impact,
+        compile_python_impact_index,
+        project_python_impact,
+    )
     from .state_migration import (
         CANONICAL_STATE_RELATIVE_PATH,
         LEGACY_STATE_RELATIVE_PATH,
@@ -168,6 +181,22 @@ if TYPE_CHECKING:
     )
 
 _LAZY_EXPORT_MODULES = {
+    **dict.fromkeys(
+        {
+            "DEFAULT_MAX_PYTHON_FILE_BYTES",
+            "DEFAULT_MAX_PYTHON_FILES",
+            "ImpactUncertainty",
+            "ImpactUncertaintyKind",
+            "ImpactedPythonFile",
+            "PublicContractMarker",
+            "PythonImpactIndex",
+            "PythonImpactResult",
+            "analyze_python_impact",
+            "compile_python_impact_index",
+            "project_python_impact",
+        },
+        "impact",
+    ),
     **dict.fromkeys(
         {
             "CANONICAL_STATE_RELATIVE_PATH",
@@ -361,6 +390,8 @@ __all__ = [
     "DEFAULT_PROJECT_HARNESS",
     "DEFAULT_PROJECT_MODE",
     "DEFAULT_PROJECT_MODEL",
+    "DEFAULT_MAX_PYTHON_FILE_BYTES",
+    "DEFAULT_MAX_PYTHON_FILES",
     "DEFAULT_PROMPT_TEMPLATE_DIR",
     "DEFAULT_PROMPT_TEMPLATES",
     "FilesystemProjectMemoryStore",
@@ -387,6 +418,9 @@ __all__ = [
     "HarnessProject",
     "HarnessProjectConfig",
     "HarnessProjectState",
+    "ImpactUncertainty",
+    "ImpactUncertaintyKind",
+    "ImpactedPythonFile",
     "InjectedStateMigrationCrash",
     "GitHubEnvironmentService",
     "GitHubEnvironmentSnapshot",
@@ -415,6 +449,9 @@ __all__ = [
     "ProjectMemoryNotFoundError",
     "ProjectPreset",
     "ProjectToolProfile",
+    "PublicContractMarker",
+    "PythonImpactIndex",
+    "PythonImpactResult",
     "RenderedProjectPreset",
     "RunDiffReview",
     "STATE_MIGRATION_ID",
@@ -431,11 +468,13 @@ __all__ = [
     "WorktreeConflictError",
     "WorktreeError",
     "apply_run_diff",
+    "analyze_python_impact",
     "capture_workspace_diff",
     "default_project_config_text",
     "detect_overlapping_run_diffs",
     "discard_run_worktree",
     "create_state_backup",
+    "compile_python_impact_index",
     "init_project_config",
     "load_project_config",
     "load_project_state",
@@ -456,6 +495,7 @@ __all__ = [
     "project_state_to_dict",
     "project_to_dict",
     "project_tool_profile_to_dict",
+    "project_python_impact",
     "prepare_run_diff_merge",
     "prepare_runtime_state",
     "prepare_workspace_execution",
