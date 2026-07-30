@@ -205,7 +205,7 @@ The current `gigaloom==0.5.1a2` distribution provides the `giga` and
 `gpt2giga-harness` commands; its explicit `gpt2giga` extra pins
 `gpt2giga==0.2.6a1`.
 
-Requirements are Python 3.10–3.14 and `uv`. Direct GigaChat runs also need the
+Requirements are Python 3.11–3.14 and `uv`. Direct GigaChat runs also need the
 gateway credentials described in the [gpt2giga quickstart](quickstart.md).
 Codex, Claude Code, and Gemini integrations require the matching external CLI
 executable on `PATH` (or an explicit executable override) plus a configured
@@ -216,7 +216,7 @@ stay disabled rather than breaking the cockpit.
 #### Base install and optional providers
 
 The provider-neutral base distribution has nine reviewed direct runtime
-dependencies. Release CI installs the Harness wheel on Python 3.10–3.14 across
+dependencies. Release CI installs the Harness wheel on Python 3.11–3.14 across
 Linux, macOS, and Windows, runs terminal-command smoke, and runs a versioned
 audit that fails if the resolved environment exceeds 64 distributions or
 includes packages from these optional integration families:
@@ -1124,9 +1124,12 @@ Rollback succeeds only while the ownership marker and hash still match. Config
 changes are rejected while a managed native process owns the home. User-owned
 `~/.codex`, Claude, and Gemini settings are never changed.
 
-Only enabled, trusted servers are composed. Native-home preview/apply never
-copies secret references into persistent CLI config. For process-backed
-AgentProfile runs, selected `tool_ids` instead create an immutable
+Only enabled, trusted servers are composed. Repository configuration may request
+trust with `trusted = true`, but it becomes effective only after the user marks
+the project trusted in Harness-owned project state. Until then, process-backed
+probes require explicit approval and managed apply is rejected. Native-home
+preview/apply never copies secret references into persistent CLI config. For
+process-backed AgentProfile runs, selected `tool_ids` instead create an immutable
 descriptor-free public snapshot reference plus a content-verified internal
 snapshot under the Harness data directory. Replay reuses the same snapshot even
 if project TOML changes. A structured driver must separately prove its MCP
@@ -1643,6 +1646,8 @@ terminal_command = "auto"
 The command is parsed into argv and executed without a shell. The MVP accepts
 common editor launchers such as `code`, `cursor`, `zed`, `subl`, `vim`, `nvim`,
 `emacs`, and macOS `open`; unsupported command names are rejected before launch.
+Configured arguments are rejected except for safe window and wait flags on
+Code-family launchers.
 `terminal_command = "auto"` selects the platform terminal. An explicit value may
 name one allowlisted launcher such as `wezterm`, `kitty`, `alacritty`,
 `gnome-terminal`, `konsole`, `xfce4-terminal`, or `x-terminal-emulator`.

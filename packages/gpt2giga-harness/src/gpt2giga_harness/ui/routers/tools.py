@@ -260,7 +260,7 @@ def _inventory(request: Request, workspace: str | None):
     try:
         project = resolve_project(workspace, data_dir=config.data_dir)
         loaded = load_project_config(project.root)
-        descriptors, errors = build_mcp_inventory(loaded.tool_profiles)
+        descriptors, errors = build_mcp_inventory(loaded.tool_profiles, project=project)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return project, descriptors, errors

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import tomllib
 from typing import Any, Mapping
 
 from gpt2giga_harness.native import models as native_models
@@ -177,15 +178,6 @@ def default_project_config_text(project_name: str) -> str:
 
 
 def _load_toml(path: Path) -> Mapping[str, Any]:
-    try:
-        import tomllib
-    except ModuleNotFoundError:
-        try:
-            import tomli
-        except ModuleNotFoundError:
-            return _parse_basic_toml(path.read_text(encoding="utf-8"))
-        with path.open("rb") as stream:
-            return tomli.load(stream)
     with path.open("rb") as stream:
         return tomllib.load(stream)
 
@@ -375,105 +367,3 @@ def _secret_env_names() -> set[str]:
 
 def _toml_quote(value: str) -> str:
     return json.dumps(value)
-
-
-def _parse_basic_toml(text: str) -> Mapping[str, Any]:
-    data: dict[str, Any] = {}
-    current = data
-    pending_key: str | None = None
-    pending_lines: list[str] = []
-    pending_table: dict[str, Any] | None = None
-    for raw_line in text.splitlines():
-        line = _strip_comment(raw_line).strip()
-        if not line:
-            continue
-        if pending_key is not None:
-            pending_lines.append(line)
-            if line.endswith("]"):
-                assert pending_table is not None
-                pending_table[pending_key] = _parse_toml_value(" ".join(pending_lines))
-                pending_key = None
-                pending_lines = []
-                pending_table = None
-            continue
-        if line.startswith("[") and line.endswith("]"):
-            current = data
-            for part in line[1:-1].split("."):
-                current = current.setdefault(part.strip(), {})
-            continue
-        key, separator, value = line.partition("=")
-        if not separator:
-            raise ValueError("Invalid TOML line in project config")
-        key = key.strip()
-        value = value.strip()
-        if value.startswith("[") and not value.endswith("]"):
-            pending_key = key
-            pending_lines = [value]
-            pending_table = current
-            continue
-        current[key] = _parse_toml_value(value)
-    if pending_key is not None:
-        raise ValueError("Unterminated TOML array in project config")
-    return data
-
-
-def _strip_comment(line: str) -> str:
-    in_string = False
-    escaped = False
-    for index, char in enumerate(line):
-        if escaped:
-            escaped = False
-            continue
-        if char == "\\" and in_string:
-            escaped = True
-            continue
-        if char == '"':
-            in_string = not in_string
-            continue
-        if char == "#" and not in_string:
-            return line[:index]
-    return line
-
-
-def _parse_toml_value(value: str) -> Any:
-    if value.startswith('"') and value.endswith('"'):
-        return json.loads(value)
-    if value == "true":
-        return True
-    if value == "false":
-        return False
-    if value.startswith("[") and value.endswith("]"):
-        inner = value[1:-1].strip()
-        if not inner:
-            return []
-        return [_parse_toml_value(item) for item in _split_toml_array(inner)]
-    try:
-        return int(value)
-    except ValueError:
-        return value
-
-
-def _split_toml_array(value: str) -> list[str]:
-    items: list[str] = []
-    start = 0
-    in_string = False
-    escaped = False
-    for index, char in enumerate(value):
-        if escaped:
-            escaped = False
-            continue
-        if char == "\\" and in_string:
-            escaped = True
-            continue
-        if char == '"':
-            in_string = not in_string
-            continue
-        if char == "," and not in_string:
-            item = value[start:index].strip()
-            if item:
-                items.append(item)
-            start = index + 1
-    tail = value[start:].strip()
-    if tail:
-        items.append(tail)
-    return items

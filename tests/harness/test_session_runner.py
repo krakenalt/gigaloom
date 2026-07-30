@@ -17,7 +17,11 @@ from gpt2giga_harness.execution.options import RunOptions
 from gpt2giga_harness.harnesses.base import BaseHarness
 from gpt2giga_harness.native import HarnessInvocationMode
 from gpt2giga_harness.preflight import PreflightBlockedError
-from gpt2giga_harness.project import project_id_for_root, resolve_project
+from gpt2giga_harness.project import (
+    project_id_for_root,
+    resolve_project,
+    update_project_state,
+)
 from gpt2giga_harness.project_memory import FilesystemProjectMemoryStore
 from gpt2giga_harness.provider_account_sessions import ProviderAccountSessionError
 from gpt2giga_harness.provider_authentication_broker import (
@@ -654,7 +658,10 @@ harnesses = ["codex-cli"]
         encoding="utf-8",
     )
     harness = _ManagedCaptureHarness()
-    runner = _runner(harness, data_dir=tmp_path / "data")
+    data_dir = tmp_path / "data"
+    project = resolve_project(workspace, data_dir=data_dir)
+    update_project_state(project, {"trusted": True})
+    runner = _runner(harness, data_dir=data_dir)
 
     first = runner.create_and_run(
         {

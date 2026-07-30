@@ -12,13 +12,9 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import tomllib
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
-
-try:  # pragma: no cover - Python 3.10 compatibility
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover
-    import tomli as tomllib
 
 from gpt2giga_harness.integration_installer import (
     FileInstallMutation,

@@ -9,12 +9,8 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+import tomllib
 from urllib.parse import unquote
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python 3.10 compatibility.
-    import tomli as tomllib
 
 MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 HEADING_RE = re.compile(r"^#{1,6}\s+", re.MULTILINE)

@@ -61,6 +61,19 @@ def test_editor_rejects_allowlisted_command_path(tmp_path):
         build_open_file_plan(workspace, "app.py", command="/tmp/code")
 
 
+def test_editor_rejects_interpreting_launcher_arguments(tmp_path):
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "app.py").write_text("print('safe')\n", encoding="utf-8")
+
+    with pytest.raises(EditorOpenError, match="unsupported launcher argument"):
+        build_open_file_plan(
+            workspace,
+            "app.py",
+            command="vim -c 'call system(\"touch /tmp/owned\")'",
+        )
+
+
 def test_terminal_plan_uses_allowlisted_shell_free_launcher(tmp_path):
     workspace = tmp_path / "repo"
     workspace.mkdir()

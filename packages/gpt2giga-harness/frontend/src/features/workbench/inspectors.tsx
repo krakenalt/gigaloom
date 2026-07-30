@@ -357,7 +357,7 @@ export function GeneratedFileCard({
             <iframe
               className="generated-html-preview"
               referrerPolicy="no-referrer"
-              sandbox="allow-same-origin allow-scripts"
+              sandbox="allow-scripts"
               src={file.htmlPreviewUrl}
               title={`${message(locale, "generatedFile")}: ${file.filename}`}
             />

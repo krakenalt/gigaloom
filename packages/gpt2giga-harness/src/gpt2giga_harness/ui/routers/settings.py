@@ -89,7 +89,10 @@ def settings_read_model(
         project = resolve_project(workspace, data_dir=config.data_dir)
         project_config = load_project_config(project.root)
         project_state = load_project_state(project)
-        descriptors, mcp_errors = build_mcp_inventory(project_config.tool_profiles)
+        descriptors, mcp_errors = build_mcp_inventory(
+            project_config.tool_profiles,
+            project=project,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     history = MCPProbeHistoryStore(config.data_dir)

@@ -225,14 +225,15 @@ def effective_attachment_kind(attachment: HarnessAttachment) -> str:
     return attachment.kind
 
 
-def content_disposition(filename: str) -> str:
-    """Build a safe inline content-disposition value."""
+def content_disposition(filename: str, *, inline: bool) -> str:
+    """Build a safe attachment content-disposition value."""
     safe = "".join(
         char for char in filename if char.isalnum() or char in {" ", ".", "_", "-"}
     ).strip()
     if not safe:
         safe = "attachment"
-    return f'inline; filename="{safe}"'
+    disposition = "inline" if inline else "attachment"
+    return f'{disposition}; filename="{safe}"'
 
 
 def _optional_text(value: Any) -> str | None:

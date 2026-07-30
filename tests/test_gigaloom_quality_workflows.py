@@ -32,13 +32,13 @@ def test_required_quality_jobs_are_independent_and_standalone():
         "terminal",
     }
     assert jobs["python"]["strategy"]["matrix"]["python-version"] == [
-        "3.10",
+        "3.11",
         "3.13",
         "3.14",
     ]
     assert jobs["terminal"]["strategy"]["matrix"] == {
         "os": ["ubuntu-latest", "macos-latest", "windows-latest"],
-        "python-version": ["3.10", "3.13", "3.14"],
+        "python-version": ["3.11", "3.13", "3.14"],
     }
 
     text = _workflow_text("ci.yaml")

@@ -1,11 +1,7 @@
 """Standalone repository layout contracts owned by krakenalt/gigaloom."""
 
 from pathlib import Path
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python 3.10 compatibility
-    import tomli as tomllib
+import tomllib
 
 REPOSITORY_OWNER = "krakenalt/gigaloom"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]

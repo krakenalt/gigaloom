@@ -1239,7 +1239,7 @@ class HarnessSessionRunner:
             load_config_name=False,
         )
         loaded = load_project_config(project.root)
-        descriptors, errors = build_mcp_inventory(loaded.tool_profiles)
+        descriptors, errors = build_mcp_inventory(loaded.tool_profiles, project=project)
         selected_errors = {
             str(item.get("server_id")): str(item.get("error"))
             for item in errors
@@ -1460,7 +1460,7 @@ class HarnessSessionRunner:
             load_config_name=False,
         )
         loaded = load_project_config(project.root)
-        descriptors, errors = build_mcp_inventory(loaded.tool_profiles)
+        descriptors, errors = build_mcp_inventory(loaded.tool_profiles, project=project)
         selected_errors = {
             str(item.get("server_id")): str(item.get("error"))
             for item in errors

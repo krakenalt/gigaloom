@@ -9,14 +9,10 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
+import tomllib
 from typing import Any, Mapping
 
 from gpt2giga_harness.types import redact_secrets
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback.
-    import tomli as tomllib
 
 
 USER_CONFIG_RELATIVE_PATH = Path(".gpt2giga") / "harness" / "config.toml"

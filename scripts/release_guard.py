@@ -8,11 +8,7 @@ import json
 import re
 import subprocess
 from pathlib import Path
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python 3.10 compatibility.
-    import tomli as tomllib
+import tomllib
 
 
 SHA_RE = re.compile(r"[0-9a-f]{40}")

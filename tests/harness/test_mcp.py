@@ -15,7 +15,7 @@ from gpt2giga_harness.mcp import (
 )
 from gpt2giga_harness.project import ProjectToolProfile
 from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.runtime.policy import ApprovalDecision, MCP_SERVER_PROBE_OWNER
+from gpt2giga_harness.runtime.policy import MCP_SERVER_PROBE_OWNER
 from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
 from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
 from gpt2giga_harness.ui.app import create_app
@@ -97,7 +97,9 @@ def test_descriptor_requires_secret_references_for_sensitive_headers():
         },
     )
 
-    descriptors, errors = build_mcp_inventory({"remote": profile})
+    descriptors, errors = build_mcp_inventory(
+        {"remote": profile},
+    )
 
     assert descriptors == ()
     assert errors[0]["server_id"] == "remote"
@@ -297,6 +299,7 @@ harnesses = ["echo", "missing-harness"]
 transport = "stdio"
 command = {json.dumps(sys.executable)}
 args = ["-c", {escaped_script}]
+trusted = true
 """,
         encoding="utf-8",
     )
@@ -318,6 +321,7 @@ args = ["-c", {escaped_script}]
     assert listed.status_code == 200
     row = listed.json()["servers"][0]
     assert row["descriptor"]["transport"] == "stdio"
+    assert row["descriptor"]["trusted"] is False
     assert {item["status"] for item in row["compatibility"]} >= {
         "available",
         "missing",
@@ -327,11 +331,11 @@ args = ["-c", {escaped_script}]
     assert approval["action"] == "mcp.server.start"
     assert approval["enforcement_owner"] == MCP_SERVER_PROBE_OWNER
 
-    runtime.decide_approval_request(
-        approval["id"],
-        ApprovalDecision.ALLOW_PROJECT,
-        project_expiry_seconds=3600,
+    trusted = client.patch(
+        "/api/project/state",
+        json={"workspace": str(tmp_path), "trusted": True},
     )
+    assert trusted.status_code == 200
     probed = client.post(
         "/api/tool-servers/fake/probe", json={"workspace": str(tmp_path)}
     )
@@ -341,4 +345,5 @@ args = ["-c", {escaped_script}]
     refreshed = client.get(
         "/api/tool-servers", params={"workspace": str(tmp_path)}
     ).json()
+    assert refreshed["servers"][0]["descriptor"]["trusted"] is True
     assert refreshed["servers"][0]["latest_probe"]["server_name"] == "fake"

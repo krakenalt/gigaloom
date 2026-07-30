@@ -43,7 +43,9 @@ def _extension_source_checks(
             load_config_name=False,
         )
         project_config = load_project_config(project.root)
-        descriptors, errors = build_mcp_inventory(project_config.tool_profiles)
+        descriptors, errors = build_mcp_inventory(
+            project_config.tool_profiles, project=project
+        )
         enabled = sum(descriptor.enabled for descriptor in descriptors)
         mcp_check = _check(
             "mcp-sources",

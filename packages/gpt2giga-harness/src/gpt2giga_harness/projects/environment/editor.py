@@ -37,6 +37,12 @@ SUPPORTED_EDITOR_COMMANDS = {
     "vim",
     "zed",
 }
+SUPPORTED_EDITOR_ARGUMENTS = {
+    "code": frozenset({"--new-window", "--reuse-window", "--wait"}),
+    "code-insiders": frozenset({"--new-window", "--reuse-window", "--wait"}),
+    "codium": frozenset({"--new-window", "--reuse-window", "--wait"}),
+    "cursor": frozenset({"--new-window", "--reuse-window", "--wait"}),
+}
 SUPPORTED_TERMINAL_COMMANDS = {
     "alacritty",
     "foot",
@@ -92,6 +98,11 @@ def parse_editor_command(command: str | None = None) -> tuple[str, ...]:
     if parts[0] != executable:
         raise EditorOpenError(
             "Editor command must use an allowlisted launcher name without a path."
+        )
+    supported_arguments = SUPPORTED_EDITOR_ARGUMENTS.get(executable, frozenset())
+    if any(argument not in supported_arguments for argument in parts[1:]):
+        raise EditorOpenError(
+            "Editor command contains an unsupported launcher argument."
         )
     return parts
 

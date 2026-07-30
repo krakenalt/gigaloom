@@ -338,7 +338,7 @@
       },
       {
         "path": "codex_mcp_target.py",
-        "max_lines": 1210,
+        "max_lines": 1206,
         "owner": "T17/T20",
         "removal_gate": "codex-mcp-target-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."

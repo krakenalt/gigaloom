@@ -11,6 +11,7 @@ from gpt2giga_harness import cli
 from gpt2giga_harness.arena import FilesystemHarnessArenaStore, queue_arena
 from gpt2giga_harness.config import HarnessConfig
 from gpt2giga_harness.harnesses.base import BaseHarness
+from gpt2giga_harness.project import resolve_project, update_project_state
 from gpt2giga_harness.registry import HarnessRegistry, create_default_registry
 from gpt2giga_harness.runtime.models import (
     JobAttemptStatus,
@@ -419,6 +420,8 @@ harnesses = ["codex-cli"]
         encoding="utf-8",
     )
     config = HarnessConfig(data_dir=str(tmp_path / "data"))
+    project = resolve_project(workspace, data_dir=config.data_dir)
+    update_project_state(project, {"trusted": True})
     registry = HarnessRegistry()
     registry.register(_ManagedQueueHarness())
     sessions = FilesystemHarnessSessionStore(config.data_dir)

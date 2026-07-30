@@ -56,6 +56,9 @@ from gpt2giga_harness.workspace import (
 
 TUI_FILE_PREVIEW_BYTES = 8 * 1024
 TUI_FILE_PREVIEW_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
+INLINE_ATTACHMENT_MIME_TYPES = frozenset(
+    {"image/gif", "image/jpeg", "image/png", "image/webp"}
+)
 
 
 def create_router(services: AppServices) -> APIRouter:
@@ -217,12 +220,16 @@ def create_router(services: AppServices) -> APIRouter:
             ) from exc
         except (AttachmentValidationError, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        inline = attachment.mime_type.lower() in INLINE_ATTACHMENT_MIME_TYPES
         return Response(
             content=data,
-            media_type=attachment.mime_type,
+            media_type=(attachment.mime_type if inline else "application/octet-stream"),
             headers={
-                "Content-Disposition": _content_disposition(attachment.filename),
+                "Content-Disposition": _content_disposition(
+                    attachment.filename, inline=inline
+                ),
                 "X-GPT2GIGA-Attachment-Id": attachment.id,
+                "X-Content-Type-Options": "nosniff",
             },
         )
 

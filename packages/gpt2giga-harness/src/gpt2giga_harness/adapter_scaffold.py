@@ -164,7 +164,7 @@ def _render_pyproject(
 name = "{distribution}"
 version = "0.1.0"
 description = "Out-of-tree provider-neutral Harness adapter"
-requires-python = ">=3.10,<4"
+requires-python = ">=3.11,<4"
 dependencies = ["gigaloom>=0.5.1a1,<0.6"]
 
 [project.entry-points."agent_workbench.harness_adapters.v1"]

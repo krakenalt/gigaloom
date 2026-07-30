@@ -17,7 +17,7 @@ authority that has not been granted.
 
 ## Install
 
-Python 3.10–3.14 and an installed provider CLI are required:
+Python 3.11–3.14 and an installed provider CLI are required:
 
 ```sh
 uv tool install --prerelease allow 'gigaloom==0.5.1a2'

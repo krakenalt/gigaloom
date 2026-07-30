@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any, Mapping
 
-from gpt2giga_harness.project import ProjectToolProfile
+from gpt2giga_harness.project import (
+    HarnessProject,
+    ProjectToolProfile,
+    load_project_state,
+)
 from gpt2giga_harness.secrets import (
     SecretReference,
     secret_reference_from_dict,
@@ -51,15 +56,26 @@ def descriptor_from_profile(
 
 def build_mcp_inventory(
     profiles: Mapping[str, ProjectToolProfile],
+    *,
+    project: HarnessProject | None = None,
 ) -> tuple[tuple[ToolServerDescriptor, ...], tuple[dict[str, str], ...]]:
     """Build valid descriptors while returning safe per-profile errors."""
+    project_trusted = (
+        load_project_state(project).trusted is True if project is not None else False
+    )
     descriptors: list[ToolServerDescriptor] = []
     errors: list[dict[str, str]] = []
     for name, profile in profiles.items():
         if profile.kind.lower() != "mcp":
             continue
         try:
-            descriptors.append(descriptor_from_profile(name, profile))
+            descriptor = descriptor_from_profile(name, profile)
+            descriptors.append(
+                replace(
+                    descriptor,
+                    trusted=descriptor.trusted and project_trusted,
+                )
+            )
         except (TypeError, ValueError) as exc:
             errors.append({"server_id": name, "error": str(exc)})
     return tuple(descriptors), tuple(errors)

@@ -183,6 +183,14 @@ trusted = true
     payload = {"workspace": str(tmp_path), "harness_id": "codex-cli"}
 
     preview = client.post("/api/tool-config/preview", json=payload)
+    rejected = client.post(
+        "/api/tool-config/apply",
+        json={**payload, "expected_hash": preview.json()["plan"]["current_hash"]},
+    )
+    trusted = client.patch(
+        "/api/project/state",
+        json={"workspace": str(tmp_path), "trusted": True},
+    )
     applied = client.post(
         "/api/tool-config/apply",
         json={**payload, "expected_hash": preview.json()["plan"]["current_hash"]},
@@ -191,6 +199,11 @@ trusted = true
 
     assert preview.status_code == 200
     assert preview.json()["enforcement"] == "delegated_to_cli_sandbox"
+    assert rejected.status_code == 409
+    assert rejected.json()["detail"] == (
+        "Only trusted MCP servers can be applied: issues"
+    )
+    assert trusted.status_code == 200
     assert applied.status_code == 200
     assert applied.json()["provenance"]["server_ids"] == ["issues"]
     assert rolled_back.status_code == 200

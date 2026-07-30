@@ -5,13 +5,9 @@ from __future__ import annotations
 import ast
 import importlib
 from pathlib import Path
+import tomllib
 
 import pytest
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python 3.10
-    import tomli as tomllib
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

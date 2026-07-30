@@ -650,7 +650,12 @@ async def test_in_process_client_files_diff_evidence_and_handoffs_are_bounded(
         idempotency_key="turn_files",
         attachment_ids=(attachment.id,),
     )
-    run = client.store.get_run(submitted.binding.run_id)
+    for _ in range(100):
+        run = client.store.get_run(submitted.binding.run_id)
+        if run.status.value in {"succeeded", "failed", "canceled"}:
+            break
+        await asyncio.sleep(0.01)
+    assert run.status.value == "succeeded"
     client.store.update_run(
         run.id,
         metadata={
