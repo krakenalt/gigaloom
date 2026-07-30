@@ -63,6 +63,75 @@ export function markdownChunks(source: string, maxCharacters = 4096): string[] {
   return chunks;
 }
 
+export type FrameScheduler = (callback: () => void) => () => void;
+
+export interface FrameCoalescer<Value> {
+  cancel(): void;
+  enqueue(value: Value): void;
+  flush(): void;
+  reset(): void;
+}
+
+const defaultFrameScheduler: FrameScheduler = (callback) => {
+  if (typeof globalThis.requestAnimationFrame === "function") {
+    const handle = globalThis.requestAnimationFrame(callback);
+    return () => globalThis.cancelAnimationFrame(handle);
+  }
+  const handle = globalThis.setTimeout(callback, 16);
+  return () => globalThis.clearTimeout(handle);
+};
+
+export function createFrameCoalescer<Value>(
+  onValue: (value: Value) => void,
+  options: {
+    isEqual?: (left: Value, right: Value) => boolean;
+    schedule?: FrameScheduler;
+  } = {},
+): FrameCoalescer<Value> {
+  const isEqual = options.isEqual ?? Object.is;
+  const schedule = options.schedule ?? defaultFrameScheduler;
+  let cancelScheduled: (() => void) | null = null;
+  let hasLastValue = false;
+  let hasPendingValue = false;
+  let lastValue: Value;
+  let pendingValue: Value;
+
+  const cancel = () => {
+    cancelScheduled?.();
+    cancelScheduled = null;
+    hasPendingValue = false;
+  };
+  const flush = () => {
+    cancelScheduled = null;
+    if (!hasPendingValue) return;
+    const value = pendingValue;
+    hasPendingValue = false;
+    if (hasLastValue && isEqual(lastValue, value)) return;
+    lastValue = value;
+    hasLastValue = true;
+    onValue(value);
+  };
+  return {
+    cancel,
+    enqueue: (value) => {
+      if (
+        (hasPendingValue && isEqual(pendingValue, value)) ||
+        (!hasPendingValue && hasLastValue && isEqual(lastValue, value))
+      ) {
+        return;
+      }
+      pendingValue = value;
+      hasPendingValue = true;
+      if (cancelScheduled === null) cancelScheduled = schedule(flush);
+    },
+    flush,
+    reset: () => {
+      cancel();
+      hasLastValue = false;
+    },
+  };
+}
+
 type IncrementalScheduler = (callback: () => void) => () => void;
 
 const defaultScheduler: IncrementalScheduler = (callback) => {

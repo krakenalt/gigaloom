@@ -1,15 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
+import { cancelRequestScope } from "./api/queryCache";
+import { requestKeys } from "./api/queryKeys";
+import { runOverviewOptions, runsCenterOptions } from "./api/queries/runs";
 import {
-  cancelRequestScope,
-  requestKeys,
-  runOverviewOptions,
-  runsCenterOptions,
   sessionIndexOptions,
   sessionOverviewOptions,
   sessionProjectionOptions,
-} from "./request-graph";
+} from "./api/queries/sessions";
 
 export type ReadModelState = "idle" | "loading" | "ready" | "error";
 

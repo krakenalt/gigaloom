@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   RunEventStreamStore,
   coalescePresentationDeltas,
+  selectRunStreamConnection,
+  selectRunStreamControlEvents,
+  selectRunStreamPresentation,
+  selectRunStreamResnapshot,
   type RunStreamEvent,
 } from "./stream-store";
 
@@ -16,7 +20,7 @@ function event(id: string, type = "message_delta", delta = id): RunStreamEvent {
 }
 
 describe("run event stream store", () => {
-  it("batches normal deltas per frame and prioritizes terminal control", () => {
+  it("exposes independently subscribable stream projections", () => {
     const frames: Array<() => void> = [];
     const store = new RunEventStreamStore({
       scheduleFrame: (callback) => {
@@ -24,6 +28,54 @@ describe("run event stream store", () => {
         return vi.fn();
       },
     });
+    const connectionListener = vi.fn();
+    const controlListener = vi.fn();
+    const presentationListener = vi.fn();
+    const resnapshotListener = vi.fn();
+    store.select(selectRunStreamConnection).subscribe(connectionListener);
+    store.select(selectRunStreamControlEvents).subscribe(controlListener);
+    store.select(selectRunStreamPresentation).subscribe(presentationListener);
+    store.select(selectRunStreamResnapshot).subscribe(resnapshotListener);
+
+    store.ingest(event("delta"));
+    frames.shift()?.();
+
+    expect(presentationListener).toHaveBeenCalledOnce();
+    expect(connectionListener).not.toHaveBeenCalled();
+    expect(controlListener).not.toHaveBeenCalled();
+    expect(resnapshotListener).not.toHaveBeenCalled();
+
+    store.ingest(event("approval", "approval_requested"));
+
+    expect(controlListener).toHaveBeenCalledOnce();
+    expect(presentationListener).toHaveBeenCalledOnce();
+    expect(connectionListener).not.toHaveBeenCalled();
+  });
+
+  it("retains projection identities while unrelated state changes", () => {
+    const store = new RunEventStreamStore();
+    const before = store.getSnapshot();
+
+    store.ingest(event("approval", "approval_requested"));
+
+    const after = store.getSnapshot();
+    expect(after.connection).toBe(before.connection);
+    expect(after.presentation).toBe(before.presentation);
+    expect(after.resnapshot).toBe(before.resnapshot);
+    expect(after.control).not.toBe(before.control);
+  });
+
+  it("batches normal deltas per frame and prioritizes terminal control", () => {
+    const frames: Array<() => void> = [];
+    const cancelFrame = vi.fn();
+    const store = new RunEventStreamStore({
+      scheduleFrame: (callback) => {
+        frames.push(callback);
+        return cancelFrame;
+      },
+    });
+    const listener = vi.fn();
+    store.subscribe(listener);
 
     store.ingest(event("one", "message_delta", "A"));
     store.ingest(event("two", "message_delta", "B"));
@@ -40,6 +92,45 @@ describe("run event stream store", () => {
       "two",
     ]);
     expect(store.getSnapshot().status).toBe("closed");
+    expect(cancelFrame).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenCalledOnce();
+  });
+
+  it("bounds burst memory and emits one presentation update per frame", () => {
+    const frames: Array<() => void> = [];
+    const store = new RunEventStreamStore({
+      scheduleFrame: (callback) => {
+        frames.push(callback);
+        return vi.fn();
+      },
+    });
+    const presentationListener = vi.fn();
+    store
+      .select(selectRunStreamPresentation)
+      .subscribe(presentationListener);
+
+    for (let index = 0; index < 10_000; index += 1) {
+      store.ingest(event(`delta-${index}`, "message_delta", "x"));
+    }
+
+    expect(frames).toHaveLength(1);
+    expect(store.getBufferMetrics().pendingEvents).toBeLessThanOrEqual(512);
+    expect(store.getBufferMetrics()).toMatchObject({
+      retainedEvents: 0,
+      seenEventIds: 4096,
+    });
+    frames.shift()?.();
+
+    const presentation = store.getSnapshot().presentation.events;
+    expect(presentationListener).toHaveBeenCalledOnce();
+    expect(presentation).toHaveLength(1);
+    expect(presentation[0]?.payload?.delta).toHaveLength(10_000);
+    expect(presentation[0]?.coalesced_ids).toHaveLength(512);
+    expect(store.getBufferMetrics()).toEqual({
+      pendingEvents: 0,
+      retainedEvents: 1,
+      seenEventIds: 4096,
+    });
   });
 
   it("deduplicates reconnect replay and bounds the retained render window", () => {

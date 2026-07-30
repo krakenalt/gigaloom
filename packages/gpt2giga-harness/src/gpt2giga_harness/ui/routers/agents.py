@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Query, Request
+from fastapi import Body, HTTPException, Query, Request
 import yaml
 
 from gpt2giga_harness.agents import (
@@ -20,7 +20,7 @@ from gpt2giga_harness.agents import (
     load_agent_profile,
     parse_agent_profile,
 )
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.authoring import (
     AuthoringConflictError,
     ProjectAuthoringService,
@@ -34,10 +34,10 @@ from gpt2giga_harness.sessions.store import new_id, title_from_prompt
 from gpt2giga_harness.workflows import discover_workflows
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.get("/api/agents")
+@router.fs_read.get("/api/agents")
 def agent_list(
     request: Request,
     workspace: str | None = Query(default=None),
@@ -52,7 +52,7 @@ def agent_list(
     }
 
 
-@router.get("/api/agents/{agent_id}")
+@router.fs_read.get("/api/agents/{agent_id}")
 def agent_detail(
     agent_id: str,
     request: Request,
@@ -78,7 +78,7 @@ def agent_detail(
     }
 
 
-@router.post("/api/agents/validate")
+@router.fs_read.post("/api/agents/validate")
 def agent_validate(
     request: Request,
     payload: dict[str, Any] = Body(...),
@@ -91,7 +91,7 @@ def agent_validate(
     return {"valid": True, "profile": _profile_payload(request, profile)}
 
 
-@router.post("/api/agents/{agent_id}/draft")
+@router.fs_read.post("/api/agents/{agent_id}/draft")
 def agent_draft(
     agent_id: str,
     request: Request,
@@ -118,7 +118,7 @@ def agent_draft(
     }
 
 
-@router.post("/api/agents/{agent_id}/apply")
+@router.fs_atomic.post("/api/agents/{agent_id}/apply")
 def agent_apply(
     agent_id: str,
     request: Request,
@@ -145,7 +145,7 @@ def agent_apply(
     }
 
 
-@router.post("/api/agents/{agent_id}/duplicate")
+@router.fs_read.post("/api/agents/{agent_id}/duplicate")
 def agent_duplicate(
     agent_id: str,
     request: Request,
@@ -179,7 +179,7 @@ def agent_duplicate(
     }
 
 
-@router.post("/api/agents/{agent_id}/delete-preview")
+@router.fs_read.post("/api/agents/{agent_id}/delete-preview")
 def agent_delete_preview(
     agent_id: str,
     request: Request,
@@ -236,7 +236,7 @@ def agent_delete_preview(
     }
 
 
-@router.post("/api/agents/{agent_id}/delete")
+@router.fs_atomic.post("/api/agents/{agent_id}/delete")
 def agent_delete(
     agent_id: str,
     request: Request,
@@ -286,7 +286,7 @@ def agent_delete(
     }
 
 
-@router.post("/api/agents/{agent_id}/run")
+@router.worker_job.post("/api/agents/{agent_id}/run")
 def agent_run(
     agent_id: str,
     request: Request,

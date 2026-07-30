@@ -11,13 +11,13 @@ from typing import Any, Iterable, Mapping
 
 from gpt2giga_harness.config import DEFAULT_HARNESS_DATA_DIR
 from gpt2giga_harness.executables import ExecutableResolver
-from gpt2giga_harness.harnesses.agent_cli import build_safe_env
-from gpt2giga_harness.harnesses.attachment_plan import (
+from gpt2giga_harness.harnesses.api import (
     attachment_raw_metadata,
+    build_safe_env,
+    claude_code_custom_headers,
     cli_args_from_attachments,
     prompt_with_attachments,
 )
-from gpt2giga_harness.harnesses.claude_code import claude_code_custom_headers
 from gpt2giga_harness.native.base import (
     NativeCommandPlan,
     NativeHistoryConnector,

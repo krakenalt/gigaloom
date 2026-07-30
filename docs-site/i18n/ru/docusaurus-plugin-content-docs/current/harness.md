@@ -172,7 +172,7 @@ uv tool install 'gigaloom==0.5.1a2'
 
 ### 1. Получите preview
 
-Требуются Python 3.10–3.14 и `uv`. Текущий и всегда доступный путь для preview —
+Требуются Python 3.11–3.14 и `uv`. Текущий и всегда доступный путь для preview —
 запуск из source checkout:
 
 ```bash
@@ -219,7 +219,7 @@ CLI будет недоступен, но не сломает остальной
 
 Provider-neutral базовый distribution содержит девять проверенных прямых
 runtime dependencies. В release CI Harness wheel устанавливается с Python
-3.10–3.14 под Linux, macOS и Windows, проходит terminal-command smoke, после
+3.11–3.14 под Linux, macOS и Windows, проходит terminal-command smoke, после
 чего versioned audit завершается ошибкой, если resolved environment превышает
 64 distributions или содержит packages из следующих семейств опциональных
 интеграций:
@@ -788,6 +788,11 @@ Tool profile содержит descriptor MCP server, trust state, transport, sec
 refs и policy labels. Раздел **Tools** показывает discovery и совместимость, но
 не выполняет tool автоматически.
 
+Репозиторий может запросить доверие через `trusted = true`, но оно начинает
+действовать только после того, как пользователь пометит проект доверенным в
+состоянии проекта, принадлежащем Harness. До этого process-backed probe требует
+явного approval, а managed apply отклоняется.
+
 Управление доступно в top-level разделе **Tools** и через аутентифицированные
 `/api/tools`, `/api/mcp` endpoints cockpit. Сначала используйте preview/dry-run.
 Apply/rollback managed configuration проходит
@@ -1033,6 +1038,8 @@ configuration. Export по умолчанию не содержит raw task pay
 сначала показывает diff и требует approval; она не изменяет source checkout
 неявно. Editor Bridge открывает поддерживаемый local artifact или diff в
 настроенном editor и не превращает browser input в произвольную shell-команду.
+Аргументы конфигурации запрещены, кроме безопасных флагов окна и ожидания для
+редакторов семейства Code.
 
 ## Встроенные Harness-адаптеры
 

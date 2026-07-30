@@ -4,16 +4,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Query, Request
+from fastapi import Query, Request
 
-from gpt2giga_harness.compatibility_guardian import run_compatibility_guardian
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.diagnostics.compatibility.guardian import (
+    run_compatibility_guardian,
+)
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.get("/api/compatibility/guardian")
+@router.proc_read.get("/api/compatibility/guardian")
 def compatibility_guardian(
     request: Request,
     harness: list[str] | None = Query(default=None),

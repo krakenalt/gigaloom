@@ -13,12 +13,12 @@ from typing import Any, Callable, Iterable, Mapping
 
 from gpt2giga_harness.config import DEFAULT_HARNESS_DATA_DIR
 from gpt2giga_harness.executables import ExecutableResolver
-from gpt2giga_harness.harnesses.agent_cli import build_safe_env
-from gpt2giga_harness.harnesses.attachment_plan import (
+from gpt2giga_harness.harnesses.api import (
     attachment_raw_metadata,
+    build_safe_env,
+    gemini_cli_custom_headers,
     prompt_with_attachments,
 )
-from gpt2giga_harness.harnesses.gemini_cli import gemini_cli_custom_headers
 from gpt2giga_harness.native.base import (
     NativeCommandPlan,
     NativeHistoryConnector,

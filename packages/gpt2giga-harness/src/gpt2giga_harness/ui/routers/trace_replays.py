@@ -4,20 +4,20 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi import Body, HTTPException, Request
 
 from gpt2giga_harness.sessions.store import RunNotFoundError, SessionNotFoundError
 from gpt2giga_harness.trace_replay import (
     TraceReplayConflictError,
     TraceReplayService,
 )
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.post("/api/runs/{run_id}/trace-replays/preview")
+@router.db_atomic.post("/api/runs/{run_id}/trace-replays/preview")
 def preview_trace_replay(
     run_id: str,
     request: Request,
@@ -34,7 +34,7 @@ def preview_trace_replay(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/api/runs/{run_id}/trace-replays")
+@router.bounded_job.post("/api/runs/{run_id}/trace-replays")
 def start_trace_replay(
     run_id: str,
     request: Request,
@@ -51,7 +51,7 @@ def start_trace_replay(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get("/api/runs/{run_id}/trace-replay")
+@router.db_read.get("/api/runs/{run_id}/trace-replay")
 def get_trace_replay(run_id: str, request: Request) -> dict[str, Any]:
     """Return a bounded retained source/destination comparison."""
     try:

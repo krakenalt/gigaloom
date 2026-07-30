@@ -1,6 +1,6 @@
 # Installation
 
-GigaLoom supports Python 3.10–3.14. Install at least one provider-native CLI
+GigaLoom supports Python 3.11–3.14. Install at least one provider-native CLI
 separately and complete that provider's own authentication flow.
 
 ## Install the preview

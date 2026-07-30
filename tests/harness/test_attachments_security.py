@@ -96,13 +96,13 @@ def test_metadata_is_redacted_before_disk_write(tmp_path):
         },
     )
 
-    disk_text = "\n".join(
-        path.read_text(encoding="utf-8")
+    disk_bytes = b"\n".join(
+        path.read_bytes()
         for path in tmp_path.rglob("*")
         if path.is_file() and path.name != "original"
     )
-    assert secret not in disk_text
-    assert REDACTED in disk_text
+    assert secret.encode() not in disk_bytes
+    assert REDACTED.encode() in disk_bytes
     assert store.get_attachment(attachment.id).metadata["api_key"] == REDACTED
 
 

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   computeVirtualWindow,
+  createFrameCoalescer,
   markdownChunks,
   preserveScrollAnchor,
   renderTextIncrementally,
@@ -56,5 +57,35 @@ describe("bounded rendering primitives", () => {
     expect(received.join("")).toBe(`first\n${"x".repeat(600)}\nlast`);
     expect(received.length).toBeGreaterThan(1);
     cancel();
+  });
+
+  it("coalesces a burst to its latest distinct frame value", () => {
+    const callbacks: Array<() => void> = [];
+    const received: string[] = [];
+    const coalescer = createFrameCoalescer(
+      (value: string) => received.push(value),
+      {
+        schedule: (callback) => {
+          callbacks.push(callback);
+          return vi.fn();
+        },
+      },
+    );
+
+    coalescer.enqueue("revision-one");
+    coalescer.enqueue("revision-two");
+    coalescer.enqueue("revision-two");
+
+    expect(callbacks).toHaveLength(1);
+    expect(received).toEqual([]);
+    callbacks.shift()?.();
+    expect(received).toEqual(["revision-two"]);
+
+    coalescer.enqueue("revision-two");
+    expect(callbacks).toHaveLength(0);
+    coalescer.enqueue("revision-three");
+    coalescer.reset();
+    callbacks.shift()?.();
+    expect(received).toEqual(["revision-two"]);
   });
 });

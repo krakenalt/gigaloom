@@ -138,7 +138,7 @@ if the resolved environment grows beyond 64 distributions or pulls in the
 SDKs, external client frameworks, or sandbox-provider SDKs. Those capabilities
 must arrive through an explicit extra, separately installed provider, or
 Harness plugin; they are not silently enabled by the base package. Release CI
-runs the audit plus installed terminal-command smoke on clean Python 3.10–3.14
+runs the audit plus installed terminal-command smoke on clean Python 3.11–3.14
 environments across Linux, macOS, and Windows:
 
 ```sh

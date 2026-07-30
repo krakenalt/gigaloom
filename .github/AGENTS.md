@@ -9,7 +9,7 @@ their behavior deliberately and verify claims against the YAML itself.
 ## Invariants
 
 - Keep the CI Python matrix aligned with the Harness `requires-python`
-  declaration. Required checks must keep Python 3.10, 3.13, and 3.14 Harness
+  declaration. Required checks must keep Python 3.11, 3.13, and 3.14 Harness
   tests, Ruff, frontend, base artifact, terminal, performance, and browser QA
   independently visible.
 - No quality job may rely on a gateway source tree, editable sibling, project

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json
 from pathlib import Path
 import stat
@@ -20,6 +21,20 @@ from gpt2giga_harness.performance_baseline import (
     SCHEMA_VERSION,
     run_performance_baseline,
     write_performance_report,
+)
+from gpt2giga_harness.performance_workloads import (
+    REQUIRED_WORKLOAD_FAMILIES,
+    WorkloadSpec,
+    discover_workloads,
+    workload_contracts,
+)
+from gpt2giga_harness.performance_workloads.sessions import events
+from gpt2giga_harness.performance_workloads.sessions.profile import (
+    _measure_case,
+    run_session_storage_scaling_baseline,
+)
+from gpt2giga_harness.performance_workloads.runtime.profile import (
+    run_runtime_scaling_baseline,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -118,6 +133,7 @@ def test_performance_baseline_is_bounded_content_free_and_machine_readable():
     assert report["measurement_contract"]["required_workloads"] == list(
         REQUIRED_WORKLOADS
     )
+    assert report["measurement_contract"]["workload_registry"] == workload_contracts()
     assert {result["id"] for result in report["results"]} == set(CI_SMOKE_BUDGETS_MS)
     for result in report["results"]:
         assert set(result["percentiles_ms"]) == {"p50", "p95", "p99"}
@@ -132,6 +148,214 @@ def test_performance_baseline_is_bounded_content_free_and_machine_readable():
         ]
         is False
     )
+
+
+def test_workload_registry_is_deterministic_and_covers_required_families():
+    first = discover_workloads()
+    second = discover_workloads()
+
+    assert first == second
+    assert tuple(workload.family for workload in first) == REQUIRED_WORKLOAD_FAMILIES
+    assert len({workload.id for workload in first}) == len(first)
+    assert all(isinstance(workload, WorkloadSpec) for workload in first)
+    assert workload_contracts() == [workload.as_contract() for workload in first]
+
+
+def test_workload_discovery_accepts_new_module_without_central_inventory(
+    tmp_path,
+    monkeypatch,
+):
+    package_name = "performance_extension_fixture"
+    package = tmp_path / package_name
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    declarations = (
+        ("zeta.py", "extension.zeta", "extension/zeta"),
+        ("alpha.py", "extension.alpha", "extension/alpha"),
+    )
+    for filename, workload_id, family in declarations:
+        (package / filename).write_text(
+            "\n".join(
+                (
+                    "from gpt2giga_harness.performance_workloads import WorkloadSpec",
+                    "",
+                    "WORKLOADS = (",
+                    "    WorkloadSpec(",
+                    f"        id={workload_id!r},",
+                    f"        family={family!r},",
+                    "        profiles=('local-detail',),",
+                    "        variants=('fixture',),",
+                    "        required_metrics=('wall_ms',),",
+                    "        required_counters=('calls',),",
+                    "        future_gate='fixture',",
+                    "    ),",
+                    ")",
+                    "",
+                )
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+
+    discovered = discover_workloads(
+        package_name=package_name,
+        required_families=(),
+    )
+
+    assert [workload.id for workload in discovered] == [
+        "extension.alpha",
+        "extension.zeta",
+    ]
+
+
+def test_session_storage_case_resets_mutable_fixture_between_samples(tmp_path):
+    steady_append_factory = events.case_factories()[-2]
+
+    result = _measure_case(steady_append_factory(tmp_path), samples=2)
+
+    assert result["samples"] == 2
+    assert result["details"]["appended_events"]["p95"] == 100
+    assert result["counters"]["fsync_calls"]["p95"] == 100
+    assert result["counters"]["index_reads"]["p95"] == 0
+
+
+@pytest.mark.parametrize("samples", (0, 101))
+def test_session_storage_profile_rejects_unbounded_sample_counts(samples):
+    with pytest.raises(ValueError, match="samples must be between 1 and 100"):
+        run_session_storage_scaling_baseline(samples=samples)
+
+
+@pytest.mark.parametrize("samples", (0, 101))
+def test_runtime_scaling_profile_rejects_unbounded_sample_counts(samples):
+    with pytest.raises(ValueError, match="samples must be between 1 and 100"):
+        run_runtime_scaling_baseline(samples=samples)
+
+
+def test_runtime_scaling_profile_captures_required_content_free_fixtures():
+    report = run_runtime_scaling_baseline(samples=1)
+
+    assert report["schema_version"] == "gigaloom.runtime-scaling-baseline.v1"
+    assert report["fixture_set_version"] == "t01-3.v1"
+    assert report["profile"] == "runtime-detail"
+    assert len(report["source_commit"]) == 40
+    assert report["samples_per_case"] == 1
+    assert report["environment"]["fingerprint"]["algorithm"] == "sha256"
+    assert len(report["environment"]["fingerprint"]["value"]) == 64
+    assert report["privacy"] == {
+        "content_captured": False,
+        "secrets_captured": False,
+        "private_paths_captured": False,
+        "sql_parameter_values_captured": False,
+        "native_homes_accessed": False,
+        "provider_traffic": False,
+        "network_accessed": False,
+        "temporary_state_only": True,
+    }
+    assert report["measurement_contract"] == {
+        "fixture_setup_in_measured_window": False,
+        "fixture_setup": "direct_content_free_canonical_state",
+        "production_store_used_in_measured_window": True,
+        "queue_size": 10_000,
+        "incompatible_percent": 90,
+        "worker_counts": [2, 8],
+        "revision_scales": [100, 1_000, 10_000, 50_000],
+        "maintenance_cases": [
+            "heartbeat",
+            "idle",
+            "idle_minute",
+            "schedule",
+            "recovery",
+            "reconcile",
+        ],
+        "absolute_wall_time_is_ci_blocking": False,
+        "algorithmic_counters_are_ci_stable": True,
+        "query_plan_sql_retained": False,
+        "query_plan_parameter_values_retained": False,
+    }
+    assert len(report["results"]) == 15
+    by_metric = {item["id"]: item for item in report["results"]}
+    assert (
+        by_metric["runtime.queue.claim.incompatible_90_percent"]["details"][
+            "compatible_candidate_position"
+        ]["p95"]
+        == 9_001
+    )
+    assert (
+        by_metric["runtime.queue.claim.compatible_at_window_end"]["details"][
+            "compatible_candidate_position"
+        ]["p95"]
+        == 9_001
+    )
+    assert (
+        by_metric["runtime.queue.claim.compatible_at_window_end"]["details"][
+            "compatible_queue_position"
+        ]["p95"]
+        == 10_000
+    )
+    assert (
+        by_metric["runtime.queue.claim.compatible_at_window_end"]["fixture"][
+            "incompatible_jobs"
+        ]
+        == 9_000
+    )
+    for workers in (2, 8):
+        result = by_metric[f"runtime.queue.claim.workers_{workers}"]
+        assert result["details"]["workers"]["p95"] == workers
+        assert result["counters"]["claimed_jobs"]["p95"] == workers
+        assert result["counters"]["duplicate_claims"]["p95"] == 0
+    for scale in (100, 1_000, 10_000, 50_000):
+        result = by_metric[f"runtime.revisions.runs_center.rows_{scale}"]
+        assert result["counters"]["rows_parsed"]["p95"] == scale
+    for variant in (
+        "heartbeat",
+        "idle",
+        "idle_minute",
+        "schedule",
+        "recovery",
+        "reconcile",
+    ):
+        result = by_metric[f"runtime.worker.lifecycle.{variant}"]
+        assert result["measured_window"] == "operation_only"
+        assert result["regression_gate"]["blocking"] is False
+    idle_minute = by_metric["runtime.worker.lifecycle.idle_minute"]
+    heartbeat = by_metric["runtime.worker.lifecycle.heartbeat"]
+    assert heartbeat["details"]["attempt_leases"]["p95"] == 1
+    assert heartbeat["counters"]["sqlite_connections"]["p95"] == 1
+    assert heartbeat["counters"]["sqlite_writes"]["p95"] == 2
+    assert (
+        idle_minute["counters"]["sqlite_connections"]["p95"]
+        <= idle_minute["details"]["baseline_sql_connections"]["p95"] * 0.4
+    )
+    assert (
+        idle_minute["counters"]["sqlite_statements"]["p95"]
+        <= idle_minute["details"]["baseline_sql_statements"]["p95"] * 0.4
+    )
+    counter_names = {
+        "claimed_jobs",
+        "duplicate_claims",
+        "maintenance_cycles",
+        "rows_parsed",
+        "sqlite_connections",
+        "sqlite_reads",
+        "sqlite_statements",
+        "sqlite_writes",
+        "wakeups",
+    }
+    assert all(set(item["counters"]) == counter_names for item in report["results"])
+
+    serialized_plans = json.dumps(report["query_plans"], sort_keys=True)
+    assert len(report["query_plans"]) == 8
+    assert "2026-01-01" not in serialized_plans
+    assert "fixture" not in serialized_plans
+    for plan in report["query_plans"]:
+        assert set(plan) == {"id", "sql_sha256", "parameter_count", "steps"}
+        assert len(plan["sql_sha256"]) == 64
+        assert plan["steps"]
+        assert all(
+            set(step) == {"select_id", "parent_id", "detail"} for step in plan["steps"]
+        )
 
 
 def test_local_detail_profile_keeps_bounded_content_free_samples():
@@ -160,14 +384,133 @@ def test_local_detail_profile_keeps_bounded_content_free_samples():
                     "p95": DETAIL_REFERENCE_BUDGETS_MS[result["id"]],
                 },
             }
+    storage = report["session_storage_baseline"]
+    assert (
+        len(json.dumps(report, ensure_ascii=True).encode())
+        < REPORT_ARTIFACT_MAX_BYTES["local-detail"]
+    )
+    assert storage["schema_version"] == "gigaloom.session-storage-baseline.v1"
+    assert storage["fixture_set_version"] == "t01-2.v1"
+    assert storage["samples_per_case"] == 1
+    assert storage["privacy"] == report["privacy"]
+    assert storage["measurement_contract"] == {
+        "fixture_setup_in_measured_window": False,
+        "fixture_setup": "direct_content_free_canonical_state",
+        "production_store_used_in_measured_window": True,
+        "durability_disabled_in_measured_window": False,
+        "absolute_wall_time_is_ci_blocking": False,
+        "algorithmic_counters_are_ci_stable": True,
+        "catalog_scales": [10, 100, 1_000],
+        "message_history": 5_000,
+        "message_tail": 20,
+        "run_scales": [10, 100, 1_000],
+        "event_history": 50_000,
+        "steady_events": 100,
+        "burst_events": 500,
+    }
+    assert len(storage["results"]) == 21
+    by_storage_metric = {item["id"]: item for item in storage["results"]}
+    assert all(
+        item["measured_window"] == "operation_only"
+        and item["regression_gate"]
+        == {
+            "blocking": False,
+            "classification": "reference_wall_time_algorithmic_counters",
+        }
+        for item in storage["results"]
+    )
+    counters = {
+        "atomic_replaces",
+        "bytes_read",
+        "bytes_written",
+        "files_opened",
+        "fsync_calls",
+        "index_reads",
+        "manifest_reads",
+        "rows_parsed",
+        "sqlite_connections",
+        "sqlite_statements",
+    }
+    assert all(set(item["counters"]) == counters for item in storage["results"])
+    assert (
+        by_storage_metric["sessions.catalog.create_1000"]["counters"]["index_reads"][
+            "p95"
+        ]
+        == 0
+    )
+    assert (
+        by_storage_metric["sessions.catalog.first_page_cold_1000"]["counters"][
+            "manifest_reads"
+        ]["p95"]
+        == 1_000
+    )
+    assert (
+        by_storage_metric["sessions.catalog.first_page_cold_1000"]["counters"][
+            "index_reads"
+        ]["p95"]
+        == 0
+    )
+    assert (
+        by_storage_metric["sessions.catalog.first_page_warm_1000"]["counters"][
+            "manifest_reads"
+        ]["p95"]
+        == 0
+    )
+    assert (
+        by_storage_metric["sessions.messages.latest_20_of_5000"]["counters"][
+            "rows_parsed"
+        ]["p95"]
+        == 5_000
+    )
+    assert {
+        by_storage_metric[f"sessions.catalog.create_{scale}"]["counters"][
+            "bytes_written"
+        ]["p95"]
+        for scale in (10, 100, 1_000)
+    } == {609}
+    for scale in (10, 100, 1_000):
+        update = by_storage_metric[f"sessions.runs.update_1_of_{scale}"]
+        assert update["counters"]["rows_parsed"]["p95"] == 1
+        assert update["counters"]["atomic_replaces"]["p95"] == 2
+        assert update["counters"]["fsync_calls"]["p95"] == 1
+    assert (
+        by_storage_metric["sessions.events.direct_lookup_last_of_50000"]["counters"][
+            "rows_parsed"
+        ]["p95"]
+        == 50_000
+    )
+    assert (
+        by_storage_metric["sessions.events.append_steady_100"]["counters"][
+            "fsync_calls"
+        ]["p95"]
+        == 100
+    )
+    assert (
+        by_storage_metric["sessions.events.append_steady_100"]["counters"][
+            "index_reads"
+        ]["p95"]
+        == 0
+    )
+    assert (
+        by_storage_metric["sessions.events.append_burst_500"]["counters"][
+            "fsync_calls"
+        ]["p95"]
+        == 500
+    )
+    assert (
+        by_storage_metric["sessions.events.append_burst_500"]["counters"][
+            "index_reads"
+        ]["p95"]
+        == 0
+    )
 
 
 def test_tui_detail_profile_is_ranked_bounded_and_content_free():
     report = run_performance_baseline(samples=1, profile="tui-detail")
 
     _assert_g6_03_report_contract(report, profile="tui-detail")
-    assert report["schema_version"] == "gigaloom.tui-performance-profile.v3"
-    assert report["fixture_set_version"] == "g5-03.v1"
+    assert report["schema_version"] == "gigaloom.tui-performance-profile.v4"
+    assert report["fixture_set_version"] == "t10-render.v1"
     assert report["privacy"] == {
         "content_captured": False,
         "secrets_captured": False,
@@ -178,8 +521,11 @@ def test_tui_detail_profile_is_ranked_bounded_and_content_free():
     }
     assert (
         report["current_contract"]["timeline_render_strategy"]
-        == "stable_event_card_cache"
+        == "bounded_incremental_window"
     )
+    assert report["current_contract"]["timeline_visible_card_limit"] == 40
+    assert report["current_contract"]["timeline_row_limit"] == 200
+    assert report["current_contract"]["timeline_widget_character_limit"] == 64_000
     assert report["current_contract"]["run_poll_rerenders_unchanged_snapshot"] is False
     assert report["current_contract"]["run_delivery"].startswith(
         "persistent_event_stream"
@@ -204,6 +550,8 @@ def test_tui_detail_profile_is_ranked_bounded_and_content_free():
                 "timeline_full_100_projection",
                 "timeline_incremental_1_projection",
                 "timeline_batch_10_projection",
+                "timeline_navigation_1_projection",
+                "timeline_full_10000_projection",
                 "timeline_retained_memory",
             ],
         },
@@ -228,6 +576,8 @@ def test_tui_detail_profile_is_ranked_bounded_and_content_free():
         "first_input_to_paint",
         "timeline_full_100_projection",
         "timeline_incremental_1_projection",
+        "timeline_navigation_1_projection",
+        "timeline_full_10000_projection",
         "unchanged_run_poll_projection",
         "timeline_retained_memory",
         "run_timer_wakeup_rate",
@@ -241,6 +591,8 @@ def test_tui_detail_profile_is_ranked_bounded_and_content_free():
         "first_input_to_paint",
         "timeline_full_100_projection",
         "timeline_incremental_1_projection",
+        "timeline_navigation_1_projection",
+        "timeline_full_10000_projection",
         "unchanged_run_poll_projection",
         "run_timer_wakeup_rate",
         "run_active_request_rate",
@@ -269,6 +621,35 @@ def test_tui_detail_profile_is_ranked_bounded_and_content_free():
     ):
         assert by_metric[metric]["target_status"] == "within_target"
     assert report["startup_imports"]["module_count_p95"] > 0
+    by_workload = {item["id"]: item for item in report["render_workloads"]}
+    assert (
+        by_workload["timeline_full_10000_projection"]["counters"]["events_inspected"][
+            "max"
+        ]
+        == 40
+    )
+    assert (
+        by_workload["timeline_incremental_1_projection"]["counters"]["cards_rendered"][
+            "max"
+        ]
+        == 1
+    )
+    assert (
+        by_workload["timeline_incremental_1_projection"]["counters"]["widget_updates"][
+            "max"
+        ]
+        == 1
+    )
+    assert (
+        by_workload["timeline_navigation_1_projection"]["counters"]["cards_rendered"][
+            "max"
+        ]
+        == 0
+    )
+    assert all(
+        item["counters"]["chars_produced"]["max"] <= 64_000
+        for item in report["render_workloads"]
+    )
     assert [item["rank"] for item in report["ranked_bottlenecks"]] == list(
         range(1, len(report["ranked_bottlenecks"]) + 1)
     )
@@ -281,6 +662,7 @@ def test_runtime_detail_profile_is_ranked_bounded_and_content_free():
     _assert_g6_03_report_contract(report, profile="runtime-detail")
     assert report["schema_version"] == "gigaloom.runtime-performance-profile.v3"
     assert report["fixture_set_version"] == "g6-02.v1"
+    assert len(report["source_commit"]) == 40
     assert report["privacy"] == {
         "content_captured": False,
         "secrets_captured": False,
@@ -293,6 +675,10 @@ def test_runtime_detail_profile_is_ranked_bounded_and_content_free():
     assert report["measurement_contract"]["g6_01_authorized"] is True
     assert report["measurement_contract"]["g6_02_authorized"] is True
     assert report["missing_coverage"] == {}
+    assert (
+        report["runtime_scaling_baseline"]["schema_version"]
+        == "gigaloom.runtime-scaling-baseline.v1"
+    )
     assert report["status"] == "passed"
     metrics = {item["id"] for item in report["results"]}
     assert {
@@ -456,7 +842,7 @@ def test_performance_cli_writes_private_tui_profile(tmp_path, capsys):
     )
 
     payload = json.loads(output.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "gigaloom.tui-performance-profile.v3"
+    assert payload["schema_version"] == "gigaloom.tui-performance-profile.v4"
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
     assert "Wrote private performance report" in capsys.readouterr().out
 

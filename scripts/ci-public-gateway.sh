@@ -14,10 +14,7 @@ cd "${repository_root}"
 "${python}" -I - <<'PY'
 import importlib.metadata
 from pathlib import Path
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib
+import tomllib
 
 from gpt2giga_harness.gpt2giga_preset import require_gpt2giga_preset
 

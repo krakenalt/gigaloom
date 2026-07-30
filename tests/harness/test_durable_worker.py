@@ -5,11 +5,13 @@ import threading
 import time
 
 from fastapi.testclient import TestClient
+import pytest
 
 from gpt2giga_harness import cli
 from gpt2giga_harness.arena import FilesystemHarnessArenaStore, queue_arena
 from gpt2giga_harness.config import HarnessConfig
 from gpt2giga_harness.harnesses.base import BaseHarness
+from gpt2giga_harness.project import resolve_project, update_project_state
 from gpt2giga_harness.registry import HarnessRegistry, create_default_registry
 from gpt2giga_harness.runtime.models import (
     JobAttemptStatus,
@@ -18,7 +20,10 @@ from gpt2giga_harness.runtime.models import (
 )
 from gpt2giga_harness.runtime.payloads import DurableJobPayloadStore
 from gpt2giga_harness.runtime.side_effects import HarnessSideEffectExecutor
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
+from gpt2giga_harness.runtime.store import (
+    ConcurrentUpdateError,
+    RuntimeCoordinationStore,
+)
 from gpt2giga_harness.runtime.worker import (
     RECOVERY_MARKER_IDENTITY_FIELD,
     DurableJobDispatcher,
@@ -26,6 +31,15 @@ from gpt2giga_harness.runtime.worker import (
     _adaptive_idle_delay,
 )
 from gpt2giga_harness.runtime.wakeup import WorkerWakeReceiver
+from gpt2giga_harness.runtime.workers.scheduler import (
+    HEARTBEAT,
+    MAINTENANCE_TASKS,
+    RECONCILIATION,
+    RECOVERY,
+    RETRIES,
+    SCHEDULES,
+    WorkerMaintenanceScheduler,
+)
 from gpt2giga_harness.session_runner import HarnessSessionRunner
 from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
 from gpt2giga_harness.types import (
@@ -139,6 +153,168 @@ def test_worker_idle_backoff_and_deadlines_are_bounded(tmp_path):
     assert due_store.next_worker_maintenance_delay(1.0) == 1.0
 
 
+def test_worker_maintenance_scheduler_tracks_independent_cadences():
+    now = [100.0]
+    scheduler = WorkerMaintenanceScheduler(
+        heartbeat_seconds=2,
+        schedule_seconds=5,
+        retry_seconds=7,
+        recovery_seconds=11,
+        reconciliation_seconds=30,
+        clock=lambda: now[0],
+    )
+
+    assert {task for task in MAINTENANCE_TASKS if scheduler.is_due(task)} == set(
+        MAINTENANCE_TASKS
+    )
+    for task in MAINTENANCE_TASKS:
+        scheduler.complete(task)
+
+    now[0] += 2
+    assert scheduler.is_due(HEARTBEAT)
+    assert not scheduler.is_due(SCHEDULES)
+    assert scheduler.next_delay(10) == 0
+    scheduler.complete(HEARTBEAT)
+    assert scheduler.next_delay(10) == 2
+
+    scheduler.request(RETRIES, RECOVERY)
+    assert scheduler.is_due(RETRIES)
+    assert scheduler.is_due(RECOVERY)
+    assert not scheduler.is_due(RECONCILIATION)
+
+
+def test_empty_worker_cycle_does_not_repeat_maintenance_queries(tmp_path, monkeypatch):
+    worker = DurableJobWorker(
+        HarnessConfig(data_dir=str(tmp_path)),
+        registry=create_default_registry(include_entry_points=False),
+        worker_id="worker_cadence",
+    )
+    calls: list[str] = []
+    monkeypatch.setattr(
+        worker.runtime_store,
+        "heartbeat_worker",
+        lambda worker_id: calls.append("heartbeat"),
+    )
+    monkeypatch.setattr(
+        worker,
+        "_trigger_schedules",
+        lambda: calls.append("schedules"),
+    )
+    monkeypatch.setattr(
+        worker.runtime_store,
+        "recover_expired_attempts",
+        lambda: calls.append("recovery"),
+    )
+    monkeypatch.setattr(
+        worker.runtime_store,
+        "requeue_due_jobs",
+        lambda: calls.append("retries"),
+    )
+    monkeypatch.setattr(
+        worker.runtime_store,
+        "claim_next_job",
+        lambda **kwargs: calls.append("claim"),
+    )
+    monkeypatch.setattr(
+        "gpt2giga_harness.runtime.reconcile.RuntimeReconciler.reconcile",
+        lambda self: calls.append("reconciliation"),
+    )
+
+    assert worker.run_once() is False
+    assert worker.run_once() is False
+
+    assert calls == [
+        "heartbeat",
+        "schedules",
+        "recovery",
+        "retries",
+        "reconciliation",
+        "claim",
+        "claim",
+    ]
+
+
+def test_worker_batches_attempt_lease_and_worker_heartbeat(tmp_path):
+    store = RuntimeCoordinationStore(tmp_path)
+    store.register_worker(
+        worker_id="worker_batch",
+        process_id=123,
+        hostname="fixture",
+        capability_fingerprint={},
+    )
+    job = store.submit_job(
+        session_id="sess_batch",
+        user_message_id="msg_batch",
+        initial_run_id="run_batch",
+        idempotency_key="batch-heartbeat",
+    ).job
+    claim = store.claim_next_job(
+        worker_id="worker_batch",
+        capability_fingerprint={},
+        lease_seconds=5,
+    )
+    assert claim is not None
+    before_worker = store.list_workers()[0]
+
+    heartbeat = store.heartbeat_worker_attempt(
+        claim.attempt.id,
+        worker_id="worker_batch",
+        lease_seconds=10,
+        minimum_interval_seconds=0,
+    )
+    after_worker = store.list_workers()[0]
+
+    assert heartbeat.job_id == job.id
+    assert heartbeat.lease_owner == "worker_batch"
+    assert heartbeat.heartbeat_at is not None
+    assert heartbeat.leased_until > claim.attempt.leased_until
+    assert heartbeat.version == claim.attempt.version + 1
+    assert after_worker.heartbeat_at == heartbeat.heartbeat_at
+    assert after_worker.heartbeat_at >= before_worker.heartbeat_at
+
+    coalesced = store.heartbeat_worker_attempt(
+        claim.attempt.id,
+        worker_id="worker_batch",
+        lease_seconds=10,
+        minimum_interval_seconds=60,
+    )
+    assert coalesced.version == heartbeat.version
+    assert store.list_workers()[0].heartbeat_at == after_worker.heartbeat_at
+
+
+def test_worker_heartbeat_rejects_attempt_owned_by_another_worker(tmp_path):
+    store = RuntimeCoordinationStore(tmp_path)
+    store.register_worker(
+        worker_id="worker_owner",
+        process_id=123,
+        hostname="fixture",
+        capability_fingerprint={},
+    )
+    store.submit_job(
+        session_id="sess_owner",
+        user_message_id="msg_owner",
+        initial_run_id="run_owner",
+        idempotency_key="owned-heartbeat",
+    )
+    claim = store.claim_next_job(
+        worker_id="worker_owner",
+        capability_fingerprint={},
+        lease_seconds=5,
+    )
+    assert claim is not None
+
+    with pytest.raises(ConcurrentUpdateError, match="lease is not owned"):
+        store.heartbeat_worker_attempt(
+            claim.attempt.id,
+            worker_id="worker_intruder",
+            lease_seconds=10,
+        )
+
+    unchanged = store.get_attempt(claim.attempt.id)
+    assert unchanged.version == claim.attempt.version
+    assert unchanged.heartbeat_at == claim.attempt.heartbeat_at
+
+
 def test_worker_fails_orphaned_job_without_stopping(tmp_path):
     config = HarnessConfig(data_dir=str(tmp_path))
     registry = create_default_registry(include_entry_points=False)
@@ -244,6 +420,8 @@ harnesses = ["codex-cli"]
         encoding="utf-8",
     )
     config = HarnessConfig(data_dir=str(tmp_path / "data"))
+    project = resolve_project(workspace, data_dir=config.data_dir)
+    update_project_state(project, {"trusted": True})
     registry = HarnessRegistry()
     registry.register(_ManagedQueueHarness())
     sessions = FilesystemHarnessSessionStore(config.data_dir)

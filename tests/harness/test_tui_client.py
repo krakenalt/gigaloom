@@ -5,6 +5,7 @@ import importlib
 from dataclasses import replace
 import os
 from pathlib import Path
+import pickle
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -43,6 +44,28 @@ from gpt2giga_harness.workbench_resources import (
     preference_snapshot_to_dict,
     resource_snapshot_to_dict,
 )
+
+
+def test_client_facade_reexports_split_contracts_and_transports():
+    from gpt2giga_harness.tui.clients.http import (
+        AttachedWorkbenchClient as AttachedTransport,
+    )
+    from gpt2giga_harness.tui.clients.in_process import (
+        InProcessWorkbenchClient as InProcessTransport,
+    )
+    from gpt2giga_harness.tui.clients.protocol import WorkbenchClient
+    from gpt2giga_harness.tui.contracts import ProjectSummary
+
+    from gpt2giga_harness.tui import client as facade
+
+    assert facade.AttachedWorkbenchClient is AttachedTransport
+    assert facade.InProcessWorkbenchClient is InProcessTransport
+    assert facade.WorkbenchClient is WorkbenchClient
+    assert facade.ProjectSummary is ProjectSummary
+
+    project = ProjectSummary("project", "Project", "/workspace", None, 0)
+    assert pickle.loads(pickle.dumps(project)) == project
+    assert project.__class__.__module__ == "gpt2giga_harness.tui.client"
 
 
 def _git(cwd: Path, *args: str) -> None:
@@ -343,6 +366,100 @@ async def test_in_process_session_navigation_is_bound_searchable_and_exportable(
 
 
 @pytest.mark.anyio
+async def test_in_process_normal_session_reads_use_bounded_queries(
+    tmp_path,
+    monkeypatch,
+):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    client = InProcessWorkbenchClient(HarnessConfig(data_dir=str(tmp_path / "state")))
+    session = client.sessions.create_session(
+        {
+            "workspace": str(workspace),
+            "title": "Bounded navigation",
+            "harness_id": "echo",
+        },
+        validate_harness=True,
+    )
+    for index in range(105):
+        client.store.append_message(
+            HarnessMessage(
+                id=new_id("msg"),
+                session_id=session.id,
+                run_id=None,
+                role="user",
+                content=f"bounded needle {index}",
+                created_at=utc_now(),
+            )
+        )
+    run = client.store.create_run(
+        session_id=session.id,
+        harness_id="echo",
+        prompt="content-free",
+        model=None,
+        api_mode=session.default_api_mode,
+        capability=HarnessCapability.CHAT_COMPLETIONS,
+        mode="read",
+        workspace=str(workspace),
+        status="running",
+    )
+    client.store.append_event(
+        HarnessStoredEvent(
+            id="evt-bounded",
+            session_id=session.id,
+            run_id=run.id,
+            type="status",
+            message="bounded event",
+            payload={},
+            created_at=utc_now(),
+        )
+    )
+
+    recent_limits: list[int] = []
+    run_limits: list[int] = []
+    list_recent_messages = client.store.list_recent_messages
+    list_runs_page = client.store.list_runs_page
+
+    def bounded_messages(session_id, *, limit, before=None, through=None):
+        recent_limits.append(limit)
+        return list_recent_messages(
+            session_id,
+            limit=limit,
+            before=before,
+            through=through,
+        )
+
+    def bounded_runs(session_id, *, cursor=None, limit=50):
+        run_limits.append(limit)
+        return list_runs_page(session_id, cursor=cursor, limit=limit)
+
+    def reject_full_reader(*_args, **_kwargs):
+        raise AssertionError("normal TUI reads must use bounded session queries")
+
+    monkeypatch.setattr(client.store, "list_recent_messages", bounded_messages)
+    monkeypatch.setattr(client.store, "list_runs_page", bounded_runs)
+    monkeypatch.setattr(client.store, "list_messages", reject_full_reader)
+    monkeypatch.setattr(client.store, "list_runs", reject_full_reader)
+    monkeypatch.setattr(client.store, "list_events", reject_full_reader)
+    monkeypatch.setattr(client.store, "get_session_bundle", reject_full_reader)
+
+    matches = await client.search_sessions("Bounded navigation")
+    preview = await client.preview_session(session.id, transcript_query="needle")
+    latest = await client.latest_run(session.id)
+    snapshot = await client.snapshot_run(run.id)
+
+    assert matches[0].id == session.id
+    assert len(preview.transcript) == 100
+    assert preview.match_count == 100
+    assert preview.truncated is True
+    assert latest is not None
+    assert latest.binding.run_id == run.id
+    assert snapshot.events[0].id == "evt-bounded"
+    assert recent_limits and max(recent_limits) <= 101
+    assert run_limits and max(run_limits) <= 100
+
+
+@pytest.mark.anyio
 async def test_in_process_client_submits_idempotent_turn_and_resnapshots(tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -533,7 +650,12 @@ async def test_in_process_client_files_diff_evidence_and_handoffs_are_bounded(
         idempotency_key="turn_files",
         attachment_ids=(attachment.id,),
     )
-    run = client.store.get_run(submitted.binding.run_id)
+    for _ in range(100):
+        run = client.store.get_run(submitted.binding.run_id)
+        if run.status.value in {"succeeded", "failed", "canceled"}:
+            break
+        await asyncio.sleep(0.01)
+    assert run.status.value == "succeeded"
     client.store.update_run(
         run.id,
         metadata={

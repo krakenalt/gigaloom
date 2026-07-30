@@ -38,6 +38,9 @@ const sidebars: SidebarsConfig = {
       items: [
         'architecture',
         'architecture/harness',
+        'architecture/package-layout',
+        'architecture/durability-performance-contracts',
+        'architecture/session-run-storage-adr',
         'architecture/product-capability-admission-adr',
         'architecture/authority-approval-schema-adr',
         'architecture/scoped-network-access-adr',

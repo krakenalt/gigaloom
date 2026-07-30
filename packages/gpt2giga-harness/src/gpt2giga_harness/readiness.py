@@ -6,9 +6,11 @@ from typing import Any, Mapping
 
 from gpt2giga_harness import proxy
 from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.compatibility_guardian import compatibility_readiness_check
+from gpt2giga_harness.diagnostics.compatibility.guardian import (
+    compatibility_readiness_check,
+)
 from gpt2giga_harness.execution import ExecutionTransport
-from gpt2giga_harness.doctor import (
+from gpt2giga_harness.diagnostics.doctor.report import (
     _gigachat_check,
     _harness_checks,
     _managed_homes_check,

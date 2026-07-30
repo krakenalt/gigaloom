@@ -11,10 +11,10 @@ import re
 from time import monotonic
 from typing import Any, Mapping
 
-from fastapi import APIRouter, Header, HTTPException, Query, Request
+from fastapi import Header, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute, run_stream_offload
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter, run_stream_offload
 from gpt2giga_harness.runtime.models import (
     JobAttempt,
     JobAttemptStatus,
@@ -44,10 +44,12 @@ from gpt2giga_harness.sessions.event_stream import (
     StreamSignal,
 )
 from gpt2giga_harness.support_bundle import build_run_support_bundle
+from gpt2giga_harness.ui.dependencies import app_services
 from gpt2giga_harness.ui.routers.schemas import RunBundleResponse
+from gpt2giga_harness.ui.services.session_queries import event_for_run
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 _STATUS_GROUPS: dict[str, tuple[JobStatus, ...]] = {
     "queued": (JobStatus.QUEUED, JobStatus.RETRY_WAIT),
@@ -66,7 +68,7 @@ _RUNS_CENTER_STREAM_HEARTBEAT_SECONDS = 10.0
 _RUNS_CENTER_STREAM_REVISION_SECONDS = 1.0
 
 
-@router.get("/api/runs")
+@router.db_read.get("/api/runs")
 def list_runs_center(
     request: Request,
     status: str | None = Query(default=None),
@@ -103,7 +105,7 @@ def list_runs_center(
     }
 
 
-@router.get("/api/runs/updates/stream")
+@router.stream.get("/api/runs/updates/stream")
 async def runs_center_updates_stream(
     request: Request,
     last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
@@ -142,7 +144,7 @@ async def runs_center_updates_stream(
     )
 
 
-@router.get("/api/runs/{run_id}/trace")
+@router.db_read.get("/api/runs/{run_id}/trace")
 def run_trace(
     run_id: str,
     request: Request,
@@ -203,7 +205,7 @@ def run_trace(
     }
 
 
-@router.get("/api/runs/{run_id}/summary")
+@router.db_read.get("/api/runs/{run_id}/summary")
 def run_center_summary(run_id: str, request: Request) -> dict[str, Any]:
     """Resolve one durable run to its lightweight Runs Center summary."""
     session_store = _session_store(request)
@@ -218,7 +220,7 @@ def run_center_summary(run_id: str, request: Request) -> dict[str, Any]:
     return {"run": _job_summary(runtime_store, session_store, job)}
 
 
-@router.get("/api/runs/{run_id}/support-bundle")
+@router.db_read.get("/api/runs/{run_id}/support-bundle")
 def run_support_bundle(run_id: str, request: Request) -> Response:
     """Download a redaction-safe, content-free support bundle for one run."""
     session_store = _session_store(request)
@@ -267,7 +269,7 @@ def run_support_bundle(run_id: str, request: Request) -> Response:
     )
 
 
-@router.get("/api/runs/{run_id}/events/{event_id}")
+@router.db_read.get("/api/runs/{run_id}/events/{event_id}")
 def run_event_payload(
     run_id: str,
     event_id: str,
@@ -282,16 +284,11 @@ def run_event_payload(
         raise HTTPException(status_code=404, detail="Run not found") from exc
     job = runtime_store.find_job_for_run(run_id) if runtime_store else None
     attempts = runtime_store.list_attempts(job.id) if runtime_store and job else ()
-    event = next(
-        (
-            item
-            for item in _job_events(session_store, run, attempts, include_hidden=True)
-            if item.id == event_id
-        ),
-        None,
-    )
-    if event is None:
-        raise HTTPException(status_code=404, detail="Trace event not found")
+    run_ids = {run.id, *(attempt.run_id for attempt in attempts)}
+    try:
+        event = event_for_run(session_store, run.session_id, run_ids, event_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Trace event not found") from exc
     if _is_hidden_reasoning(event):
         return {"event_id": event.id, "hidden": True, "payload": {}}
     return {
@@ -301,7 +298,7 @@ def run_event_payload(
     }
 
 
-@router.post("/api/runs/{run_id}/retry")
+@router.db_atomic.post("/api/runs/{run_id}/retry")
 def retry_run(run_id: str, request: Request) -> dict[str, Any]:
     """Requeue the owning logical job when its latest attempt is retry-safe."""
     runtime_store = _runtime_store(request)
@@ -321,13 +318,14 @@ def retry_run(run_id: str, request: Request) -> dict[str, Any]:
     return {"job": job_to_dict(retried), "queued": True}
 
 
-@router.get("/api/runs/{run_id}", response_model=RunBundleResponse)
+@router.db_read.get("/api/runs/{run_id}", response_model=RunBundleResponse)
 def run_bundle(run_id: str, request: Request) -> dict[str, Any]:
     """Resolve one run id to its complete persisted session bundle."""
     store = _session_store(request)
     try:
         run = store.get_run(run_id)
-        payload = bundle_to_dict(store.get_session_bundle(run.session_id))
+        legacy_bundles = app_services(request.app).legacy_bundle_compatibility
+        payload = bundle_to_dict(legacy_bundles.export_session_bundle(run.session_id))
     except RunNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Run not found") from exc
     payload["selected_run_id"] = run.id

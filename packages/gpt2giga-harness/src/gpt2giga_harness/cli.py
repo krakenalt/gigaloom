@@ -5,19 +5,13 @@ from __future__ import annotations
 import argparse
 from dataclasses import replace
 import json
-import os
 from pathlib import Path
-import signal
-import subprocess
 import sys
 import tempfile
-import time
 from typing import Any, Mapping
 
-import uvicorn
 import yaml
 
-from gpt2giga_harness import __version__
 from gpt2giga_harness.adapter_scaffold import (
     render_adapter_module,
     scaffold_adapter_package,
@@ -41,17 +35,15 @@ from gpt2giga_harness.capability_matrix import (
     render_adapter_capability_matrix_markdown,
     render_agent_surface_capability_matrix_markdown,
 )
-from gpt2giga_harness.product_inventory import (
-    build_product_inventory,
-    canonical_inventory_json,
-    load_product_inventory,
-    validate_product_inventory,
-)
+from gpt2giga_harness.cli_commands.output import print_json as _print_json
+from gpt2giga_harness.cli_commands.parser import build_parser
 from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.completion import SHELLS, render_completion
+from gpt2giga_harness.completion import render_completion
 from gpt2giga_harness.cli_capabilities import cli_capability_snapshot_to_dict
-from gpt2giga_harness.compatibility_guardian import run_compatibility_guardian
-from gpt2giga_harness.doctor import (
+from gpt2giga_harness.diagnostics.compatibility.guardian import (
+    run_compatibility_guardian,
+)
+from gpt2giga_harness.diagnostics.doctor.report import (
     build_doctor_report,
     format_doctor_report,
     write_doctor_support_report,
@@ -68,17 +60,11 @@ from gpt2giga_harness.editor import (
 )
 from gpt2giga_harness.execution import ExecutionTransport
 from gpt2giga_harness.integration_flows import (
-    IntegrationFlowConflictError,
-    IntegrationFlowError,
-    IntegrationFlowNotFoundError,
     IntegrationFlowService,
     integration_flow_record_to_dict,
 )
 from gpt2giga_harness.integration_groups import (
     GroupedIntegrationService,
-    IntegrationGroupConflictError,
-    IntegrationGroupError,
-    IntegrationGroupNotFoundError,
     integration_group_record_to_dict,
 )
 from gpt2giga_harness.integration_scaffold import scaffold_integration_package
@@ -96,7 +82,6 @@ from gpt2giga_harness.executables import (
     user_config_path,
 )
 from gpt2giga_harness.evals import (
-    EvalSpecNotFoundError,
     FilesystemHarnessEvalStore,
     discover_eval_specs,
     eval_run_to_dict,
@@ -136,22 +121,15 @@ from gpt2giga_harness.project import (
 )
 from gpt2giga_harness.project_memory import (
     FilesystemProjectMemoryStore,
-    ProjectMemoryNotFoundError,
     memory_entry_to_dict,
 )
-from gpt2giga_harness.provider_settings import (
-    ProviderRegistryConflict,
-    ProviderSettingsNotFoundError,
-    ProviderSettingsService,
-)
-from gpt2giga_harness.provider_migration import ProviderMigrationService
 from gpt2giga_harness.preflight import (
     build_preflight_report,
     format_preflight_block_message,
     preflight_report_to_dict,
 )
 from gpt2giga_harness.permission_simulator import build_permission_simulation
-from gpt2giga_harness.performance_baseline import (
+from gpt2giga_harness.diagnostics.performance.api import (
     run_performance_baseline,
     write_performance_report,
 )
@@ -171,14 +149,11 @@ from gpt2giga_harness.registry import UnknownHarnessError, create_default_regist
 from gpt2giga_harness.runtime.models import job_to_dict
 from gpt2giga_harness.runtime.payloads import DurableJobPayloadStore
 from gpt2giga_harness.runtime.policy import (
-    ApprovalDecision,
     approval_request_to_dict,
 )
 from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
 from gpt2giga_harness.runtime.worker import (
     DurableJobDispatcher,
-    DurableJobWorker,
-    worker_status,
 )
 from gpt2giga_harness.schedules import (
     ScheduleService,
@@ -189,8 +164,6 @@ from gpt2giga_harness.schedules import (
 from gpt2giga_harness.session_runner import HarnessSessionRunner
 from gpt2giga_harness.sessions import (
     FilesystemHarnessSessionStore,
-    RunNotFoundError,
-    SessionNotFoundError,
 )
 from gpt2giga_harness.sessions.models import (
     bundle_to_dict,
@@ -226,13 +199,6 @@ from gpt2giga_harness.types import (
     spec_to_dict,
 )
 from gpt2giga_harness.worktrees import parse_workspace_policy
-from gpt2giga_harness.ui.app import create_app, validate_ui_bind
-from gpt2giga_harness.ui.remote_identity import (
-    RemoteIdentityError,
-    RemoteIdentityStore,
-    RemoteOIDCSettings,
-)
-from gpt2giga_harness.ui.security import is_loopback_host
 from gpt2giga_harness.workspace import resolve_workspace
 from gpt2giga_harness.workbench_execution import workbench_transport_projection
 from gpt2giga_harness.workflows import (
@@ -252,872 +218,12 @@ AGENT_ALIASES = {
     "gemini": "gemini-cli",
 }
 
-UI_WORKER_START_TIMEOUT_SECONDS = 10.0
-UI_WORKER_STOP_TIMEOUT_SECONDS = 3.0
-UI_GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS = 5
-MAX_UI_WORKER_COUNT = 32
-
 
 def main(argv: list[str] | None = None) -> int:
     """Run the Unified Harness CLI."""
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    if not hasattr(args, "handler"):
-        parser.print_help()
-        return 2
-    config = _config_from_args(args)
-    try:
-        return args.handler(args, config)
-    except UnknownHarnessError as exc:
-        print(f"Unknown harness: {exc.args[0]}", file=sys.stderr)
-        return 2
-    except UnknownNativeHistoryConnectorError as exc:
-        print(f"Unknown native harness: {exc.args[0]}", file=sys.stderr)
-        return 2
-    except SessionNotFoundError as exc:
-        print(f"Unknown session: {exc.args[0]}", file=sys.stderr)
-        return 2
-    except RunNotFoundError as exc:
-        print(f"Unknown run: {exc.args[0]}", file=sys.stderr)
-        return 2
-    except ProjectMemoryNotFoundError as exc:
-        print(f"Unknown memory: {exc.args[0]}", file=sys.stderr)
-        return 2
-    except ProviderSettingsNotFoundError as exc:
-        print(f"Unknown provider: {exc.args[0]}", file=sys.stderr)
-        return 2
-    except ProviderRegistryConflict as exc:
-        print(f"Provider registry conflict: {exc}", file=sys.stderr)
-        return 2
-    except EvalSpecNotFoundError as exc:
-        print(f"Unknown eval: {exc.args[0]}", file=sys.stderr)
-        return 2
-    except IntegrationFlowNotFoundError as exc:
-        print(f"Unknown integration flow: {exc.args[0]}", file=sys.stderr)
-        return 2
-    except (IntegrationFlowConflictError, IntegrationFlowError) as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
-    except IntegrationGroupNotFoundError as exc:
-        print(f"Unknown integration group: {exc.args[0]}", file=sys.stderr)
-        return 2
-    except (IntegrationGroupConflictError, IntegrationGroupError) as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
-    except RemoteIdentityError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
-    except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
+    from gpt2giga_harness.cli_commands.main import main as command_main
 
-
-def build_parser() -> argparse.ArgumentParser:
-    """Build the CLI parser."""
-    common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--proxy-url", default=None, help="Local gpt2giga proxy URL")
-    common.add_argument(
-        "--start-proxy",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Start a local gpt2giga sidecar if the proxy is down",
-    )
-    common.add_argument(
-        "--non-interactive",
-        action="store_true",
-        default=argparse.SUPPRESS,
-        help="Keep this invocation on the automation/admin command surface",
-    )
-
-    parser = argparse.ArgumentParser(prog="giga")
-    parser.add_argument(
-        "--non-interactive",
-        action="store_true",
-        help="Keep this invocation on the automation/admin command surface",
-    )
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"GigaLoom {__version__} (gigaloom)",
-    )
-    subparsers = parser.add_subparsers(dest="command")
-
-    doctor = subparsers.add_parser("doctor", parents=[common])
-    doctor.add_argument("workspace", nargs="?", default=None)
-    doctor.add_argument("--json", action="store_true")
-    doctor.add_argument(
-        "--output",
-        default=None,
-        help="Atomically write a private canonical JSON support report",
-    )
-    doctor.add_argument(
-        "--fail-on",
-        choices=("blocked", "degraded"),
-        default=None,
-        help="Return 1 when the selected CI readiness threshold is reached",
-    )
-    doctor.set_defaults(handler=_handle_doctor)
-
-    bootstrap = subparsers.add_parser("bootstrap", parents=[common])
-    bootstrap_subparsers = bootstrap.add_subparsers(dest="bootstrap_command")
-
-    bootstrap_preview = bootstrap_subparsers.add_parser("preview")
-    bootstrap_preview.add_argument("--workspace", default=None)
-    bootstrap_preview.add_argument("--json", action="store_true")
-    bootstrap_preview.set_defaults(handler=_handle_bootstrap_preview)
-
-    bootstrap_apply = bootstrap_subparsers.add_parser("apply")
-    bootstrap_apply.add_argument("plan_id")
-    bootstrap_apply.add_argument("--workspace", default=None)
-    bootstrap_apply.add_argument("--step", action="append", default=[])
-    bootstrap_apply.add_argument("--all-reversible", action="store_true")
-    bootstrap_apply.add_argument("--json", action="store_true")
-    bootstrap_apply.set_defaults(handler=_handle_bootstrap_apply)
-
-    bootstrap_status = bootstrap_subparsers.add_parser("status")
-    bootstrap_status.add_argument("application_id")
-    bootstrap_status.add_argument("--json", action="store_true")
-    bootstrap_status.set_defaults(handler=_handle_bootstrap_status)
-
-    bootstrap_rollback = bootstrap_subparsers.add_parser("rollback")
-    bootstrap_rollback.add_argument("application_id")
-    bootstrap_rollback.add_argument("--workspace", default=None)
-    bootstrap_rollback.add_argument("--json", action="store_true")
-    bootstrap_rollback.set_defaults(handler=_handle_bootstrap_rollback)
-
-    compatibility = subparsers.add_parser("compatibility")
-    compatibility_subparsers = compatibility.add_subparsers(
-        dest="compatibility_command"
-    )
-    compatibility_check = compatibility_subparsers.add_parser("check")
-    compatibility_check.add_argument("--harness", action="append", default=[])
-    compatibility_check.add_argument("--json", action="store_true")
-    compatibility_check.set_defaults(handler=_handle_compatibility_check)
-
-    handoff = subparsers.add_parser("handoff", parents=[common])
-    handoff_subparsers = handoff.add_subparsers(dest="handoff_command")
-    handoff_capsule = handoff_subparsers.add_parser("capsule")
-    handoff_capsule.add_argument("run_id")
-    handoff_capsule.add_argument("--target-harness", required=True)
-    handoff_capsule.add_argument("--json", action="store_true")
-    handoff_capsule.set_defaults(handler=_handle_handoff_capsule)
-
-    completion = subparsers.add_parser(
-        "completion",
-        help="Print shell completion for the stable giga command boundary",
-    )
-    completion.add_argument("shell", choices=SHELLS)
-    completion.set_defaults(handler=_handle_completion)
-
-    config_parser = subparsers.add_parser("config")
-    config_subparsers = config_parser.add_subparsers(dest="config_command")
-    config_path = config_subparsers.add_parser("path")
-    config_path.set_defaults(handler=_handle_config_path)
-    config_set = config_subparsers.add_parser("set")
-    config_set.add_argument("key")
-    config_set.add_argument("value")
-    config_set.set_defaults(handler=_handle_config_set)
-    config_unset = config_subparsers.add_parser("unset")
-    config_unset.add_argument("key")
-    config_unset.set_defaults(handler=_handle_config_unset)
-
-    provider = subparsers.add_parser("provider")
-    provider_subparsers = provider.add_subparsers(dest="provider_command")
-    provider_list = provider_subparsers.add_parser("list")
-    provider_list.add_argument("--json", action="store_true")
-    provider_list.set_defaults(handler=_handle_provider_list)
-    provider_show = provider_subparsers.add_parser("show")
-    provider_show.add_argument("provider_id")
-    provider_show.add_argument("--json", action="store_true")
-    provider_show.set_defaults(handler=_handle_provider_show)
-    provider_add = provider_subparsers.add_parser("add")
-    provider_add.add_argument("provider_id")
-    provider_add.add_argument("--name", required=True)
-    provider_add.add_argument(
-        "--protocol",
-        required=True,
-        choices=("openai_compatible", "anthropic_compatible", "gemini_compatible"),
-    )
-    provider_add.add_argument("--dialect", default=None)
-    provider_add.add_argument("--base-url", required=True)
-    provider_add.add_argument("--route-prefix", default=None)
-    _add_provider_auth_arguments(provider_add, optional=False)
-    _add_provider_model_arguments(provider_add)
-    provider_add.add_argument("--offline", action="store_true")
-    provider_add.add_argument("--disabled", action="store_true")
-    provider_add.add_argument("--json", action="store_true")
-    provider_add.set_defaults(handler=_handle_provider_add)
-    provider_edit = provider_subparsers.add_parser("edit")
-    provider_edit.add_argument("provider_id")
-    provider_edit.add_argument("--expected-revision", type=int, required=True)
-    provider_edit.add_argument("--name", default=None)
-    provider_edit.add_argument(
-        "--protocol",
-        choices=("openai_compatible", "anthropic_compatible", "gemini_compatible"),
-        default=None,
-    )
-    provider_edit.add_argument("--dialect", default=None)
-    provider_edit.add_argument("--base-url", default=None)
-    provider_edit.add_argument("--route-prefix", default=None)
-    _add_provider_auth_arguments(provider_edit, optional=True)
-    _add_provider_model_arguments(provider_edit)
-    provider_edit.add_argument(
-        "--enabled",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-    )
-    provider_edit.add_argument(
-        "--offline",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-    )
-    provider_edit.add_argument("--json", action="store_true")
-    provider_edit.set_defaults(handler=_handle_provider_edit)
-    for command, handler in (
-        ("test", _handle_provider_test),
-        ("discover", _handle_provider_discover),
-    ):
-        provider_probe = provider_subparsers.add_parser(command)
-        provider_probe.add_argument("provider_id")
-        provider_probe.add_argument("--json", action="store_true")
-        provider_probe.set_defaults(handler=handler)
-    provider_migrate = provider_subparsers.add_parser(
-        "migrate-legacy", aliases=("migrate",)
-    )
-    provider_migrate.add_argument("--backup", default=None)
-    provider_migrate.add_argument("--dry-run", action="store_true")
-    provider_migrate.add_argument("--json", action="store_true")
-    provider_migrate.set_defaults(handler=_handle_provider_migrate)
-
-    integration = subparsers.add_parser("integration")
-    integration_subparsers = integration.add_subparsers(dest="integration_command")
-    integration_list = integration_subparsers.add_parser("list")
-    integration_list.add_argument("--json", action="store_true")
-    integration_list.set_defaults(handler=_handle_integration_list)
-    integration_preview = integration_subparsers.add_parser("preview")
-    integration_preview.add_argument(
-        "--source",
-        required=True,
-        choices=("catalog", "marketplace", "git", "local", "package", "raw_descriptor"),
-    )
-    integration_preview.add_argument("--catalog-id")
-    integration_preview.add_argument("--manifest")
-    integration_preview.add_argument("--target", required=True)
-    integration_preview.add_argument(
-        "--scope",
-        required=True,
-        choices=("managed_home", "project", "user_home"),
-    )
-    integration_preview.add_argument("--workspace")
-    integration_preview.add_argument("--package-id")
-    integration_preview.add_argument("--configuration-json", default="{}")
-    integration_preview.add_argument("--json", action="store_true")
-    integration_preview.set_defaults(handler=_handle_integration_preview)
-    integration_status = integration_subparsers.add_parser("status")
-    integration_status.add_argument("flow_id")
-    integration_status.add_argument("--json", action="store_true")
-    integration_status.set_defaults(handler=_handle_integration_status)
-    integration_apply = integration_subparsers.add_parser("apply")
-    integration_apply.add_argument("flow_id")
-    integration_apply.add_argument("--plan-id", required=True)
-    integration_apply.add_argument("--authority", required=True)
-    integration_apply.add_argument("--allow-network", action="store_true")
-    integration_apply.add_argument("--allow-user-home", action="store_true")
-    integration_apply.add_argument("--ack-native-consent", action="store_true")
-    integration_apply.add_argument("--json", action="store_true")
-    integration_apply.set_defaults(handler=_handle_integration_apply)
-    integration_rollback = integration_subparsers.add_parser("rollback")
-    integration_rollback.add_argument("flow_id")
-    integration_rollback.add_argument("--json", action="store_true")
-    integration_rollback.set_defaults(handler=_handle_integration_rollback)
-    integration_group_preview = integration_subparsers.add_parser("group-preview")
-    integration_group_preview.add_argument("--catalog-id", required=True)
-    integration_group_preview.add_argument(
-        "--scope",
-        default="managed_home",
-        choices=("managed_home", "project"),
-    )
-    integration_group_preview.add_argument("--workspace")
-    integration_group_preview.add_argument("--configuration-json", default="{}")
-    integration_group_preview.add_argument("--json", action="store_true")
-    integration_group_preview.set_defaults(handler=_handle_integration_group_preview)
-    integration_pack_preview = integration_subparsers.add_parser("pack-preview")
-    integration_pack_preview.add_argument("--pack-id", required=True)
-    integration_pack_preview.add_argument("--pack-version", required=True)
-    integration_pack_preview.add_argument("--skill-catalog-id", required=True)
-    integration_pack_preview.add_argument("--mcp-catalog-id", required=True)
-    integration_pack_preview.add_argument(
-        "--scope",
-        default="managed_home",
-        choices=("managed_home", "project"),
-    )
-    integration_pack_preview.add_argument("--workspace")
-    integration_pack_preview.add_argument("--mcp-configuration-json", default="{}")
-    integration_pack_preview.add_argument("--json", action="store_true")
-    integration_pack_preview.set_defaults(handler=_handle_integration_pack_preview)
-    integration_group_status = integration_subparsers.add_parser("group-status")
-    integration_group_status.add_argument("group_id")
-    integration_group_status.add_argument("--json", action="store_true")
-    integration_group_status.set_defaults(handler=_handle_integration_group_status)
-    integration_group_apply = integration_subparsers.add_parser("group-apply")
-    integration_group_apply.add_argument("group_id")
-    integration_group_apply.add_argument("--plan-id", required=True)
-    integration_group_apply.add_argument("--authority", required=True)
-    integration_group_apply.add_argument("--allow-network", action="store_true")
-    integration_group_apply.add_argument("--allow-user-home", action="store_true")
-    integration_group_apply.add_argument("--ack-native-consent", action="store_true")
-    integration_group_apply.add_argument("--json", action="store_true")
-    integration_group_apply.set_defaults(handler=_handle_integration_group_apply)
-    for command, handler in (
-        ("group-recover", _handle_integration_group_recover),
-        ("group-rollback", _handle_integration_group_rollback),
-    ):
-        integration_group_action = integration_subparsers.add_parser(command)
-        integration_group_action.add_argument("group_id")
-        integration_group_action.add_argument("--json", action="store_true")
-        integration_group_action.set_defaults(handler=handler)
-    integration_scaffold = integration_subparsers.add_parser("scaffold")
-    integration_scaffold.add_argument("package_id")
-    integration_scaffold.add_argument("--output", type=Path, required=True)
-    integration_scaffold.set_defaults(handler=_handle_integration_scaffold)
-    integration_conformance = integration_subparsers.add_parser("conformance")
-    integration_conformance.add_argument("manifest", type=Path)
-    integration_conformance.add_argument(
-        "--target-descriptor",
-        action="append",
-        default=[],
-        type=Path,
-    )
-    integration_conformance.add_argument("--json", action="store_true")
-    integration_conformance.set_defaults(handler=_handle_integration_conformance)
-
-    init = subparsers.add_parser("init")
-    init.add_argument("--workspace", default=None)
-    init.add_argument("--name", default=None)
-    init.add_argument("--overwrite", action="store_true")
-    init.add_argument("--json", action="store_true")
-    init.set_defaults(handler=_handle_project_init)
-
-    chat = subparsers.add_parser("chat", parents=[common])
-    chat.add_argument("--model", default=None)
-    chat.add_argument("--api-mode", choices=("v1", "v2"), default=None)
-    chat.add_argument("--json", action="store_true")
-    chat.add_argument("--dry-run", action="store_true")
-    chat.add_argument("prompt", nargs="+")
-    chat.set_defaults(handler=_handle_chat)
-
-    ui = subparsers.add_parser("ui", parents=[common])
-    ui.add_argument("--host", default=None)
-    ui.add_argument("--port", type=int, default=None)
-    ui.add_argument(
-        "--allow-remote",
-        action="store_true",
-        help=(
-            "Allow a non-loopback listener only with the complete single-issuer "
-            "OIDC profile and deployment TLS/proxy controls"
-        ),
-    )
-    ui.add_argument(
-        "--start-worker",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Start local durable workers until the target worker count is online",
-    )
-    ui.add_argument(
-        "--worker-count",
-        type=int,
-        default=1,
-        metavar="N",
-        help="Target durable worker pool size when worker auto-start is enabled",
-    )
-    ui.set_defaults(handler=_handle_ui)
-    ui_identity = subparsers.add_parser(
-        "ui-identity",
-        help="Validate or recover the deployment-owned remote UI identity boundary",
-    )
-    ui_identity_subparsers = ui_identity.add_subparsers(dest="ui_identity_command")
-    ui_identity_validate = ui_identity_subparsers.add_parser("validate")
-    ui_identity_validate.add_argument("--json", action="store_true")
-    ui_identity_validate.set_defaults(handler=_handle_ui_identity_validate)
-    ui_identity_revoke = ui_identity_subparsers.add_parser("revoke-all")
-    ui_identity_revoke.add_argument("--confirm", action="store_true", required=True)
-    ui_identity_revoke.add_argument("--json", action="store_true")
-    ui_identity_revoke.set_defaults(handler=_handle_ui_identity_revoke_all)
-
-    run = subparsers.add_parser("run", parents=[common])
-    run.add_argument("--agent", choices=tuple(AGENT_ALIASES), default=None)
-    run.add_argument("--mode", choices=("plan", "read", "edit"), default="plan")
-    run.add_argument("--model", default=None)
-    run.add_argument("--api-mode", choices=("v1", "v2"), default=None)
-    run.add_argument("--workspace", default=None)
-    run.add_argument("--native", action="store_true")
-    run.add_argument("--json", action="store_true")
-    run.add_argument("--dry-run", action="store_true")
-    run.add_argument("prompt", nargs="*")
-    run.set_defaults(handler=_handle_run_command)
-
-    session = subparsers.add_parser("session")
-    session_subparsers = session.add_subparsers(dest="session_command")
-
-    session_list = session_subparsers.add_parser("list", parents=[common])
-    session_list.add_argument("--json", action="store_true")
-    session_list.add_argument("--workspace", default=None)
-    session_list.add_argument("--harness", dest="harness_id", default=None)
-    session_list.add_argument("--include-archived", action="store_true")
-    session_list.set_defaults(handler=_handle_session_list)
-
-    session_show = session_subparsers.add_parser("show", parents=[common])
-    session_show.add_argument("session_id")
-    session_show.add_argument("--json", action="store_true")
-    session_show.set_defaults(handler=_handle_session_show)
-
-    session_create = session_subparsers.add_parser("create", parents=[common])
-    session_create.add_argument("--title", default=None)
-    session_create.add_argument("--workspace", default=None)
-    session_create.add_argument("--harness", dest="harness_id", default=None)
-    session_create.add_argument("--model", default=None)
-    session_create.add_argument("--api-mode", choices=("v1", "v2"), default=None)
-    session_create.add_argument(
-        "--mode", choices=("plan", "read", "edit"), default=None
-    )
-    session_create.add_argument("--json", action="store_true")
-    session_create.set_defaults(handler=_handle_session_create)
-
-    session_turn = session_subparsers.add_parser("turn", parents=[common])
-    session_turn.add_argument("session_id")
-    session_turn.add_argument("--prompt", required=True)
-    session_turn.add_argument("--harness", dest="harness_id", default=None)
-    session_turn.add_argument("--model", default=None)
-    session_turn.add_argument("--api-mode", choices=("v1", "v2"), default=None)
-    session_turn.add_argument(
-        "--capability",
-        choices=tuple(capability.value for capability in HarnessCapability),
-        default=None,
-    )
-    session_turn.add_argument("--mode", choices=("plan", "read", "edit"), default=None)
-    session_turn.add_argument("--workspace", default=None)
-    session_turn.add_argument("--permission-profile", default="interactive")
-    session_turn.add_argument(
-        "--transport",
-        choices=("native_structured", "native_terminal", "one_shot"),
-        default=None,
-        help="Execution transport (default: backend Workbench setting)",
-    )
-    session_turn.add_argument("--idempotency-key", default=None)
-    session_turn.add_argument("--json", action="store_true")
-    session_turn.set_defaults(handler=_handle_session_turn)
-
-    session_events = session_subparsers.add_parser("events")
-    session_events.add_argument("run_id")
-    session_events.add_argument("--after-id", default=None)
-    session_events.add_argument("--json", action="store_true")
-    session_events.set_defaults(handler=_handle_session_events)
-
-    session_approve = session_subparsers.add_parser("approve")
-    session_approve.add_argument("approval_id")
-    session_approve.add_argument(
-        "--decision",
-        choices=tuple(decision.value for decision in ApprovalDecision),
-        required=True,
-    )
-    session_approve.add_argument("--expires-in-seconds", type=float, default=None)
-    session_approve.add_argument("--json", action="store_true")
-    session_approve.set_defaults(handler=_handle_session_approve)
-
-    runtime = subparsers.add_parser("runtime")
-    runtime_subparsers = runtime.add_subparsers(dest="runtime_command")
-
-    runtime_inspect = runtime_subparsers.add_parser("inspect")
-    runtime_inspect.add_argument("--json", action="store_true")
-    runtime_inspect.set_defaults(handler=_handle_runtime_inspect)
-
-    runtime_export = runtime_subparsers.add_parser("export")
-    runtime_export.add_argument("--output", default=None)
-    runtime_export.set_defaults(handler=_handle_runtime_export)
-
-    state = subparsers.add_parser("state")
-    state_subparsers = state.add_subparsers(dest="state_command")
-
-    state_backup = state_subparsers.add_parser("backup")
-    state_backup.add_argument("--output", required=True)
-    state_backup.add_argument("--json", action="store_true")
-    state_backup.set_defaults(handler=_handle_state_backup)
-
-    state_verify = state_subparsers.add_parser("verify")
-    state_verify.add_argument("archive")
-    state_verify.add_argument("--json", action="store_true")
-    state_verify.set_defaults(handler=_handle_state_verify)
-
-    state_restore = state_subparsers.add_parser("restore")
-    state_restore.add_argument("archive")
-    state_restore.add_argument("--destination", default=None)
-    state_restore.add_argument("--replace", action="store_true")
-    state_restore.add_argument("--json", action="store_true")
-    state_restore.set_defaults(handler=_handle_state_restore)
-    state_migrate_providers = state_subparsers.add_parser("migrate-providers")
-    state_migrate_providers.add_argument("--backup", default=None)
-    state_migrate_providers.add_argument("--dry-run", action="store_true")
-    state_migrate_providers.add_argument("--json", action="store_true")
-    state_migrate_providers.set_defaults(handler=_handle_provider_migrate)
-
-    worker = subparsers.add_parser("worker", parents=[common])
-    worker_subparsers = worker.add_subparsers(dest="worker_command")
-
-    worker_start = worker_subparsers.add_parser("start", parents=[common])
-    worker_start.add_argument("--once", action="store_true")
-    worker_start.add_argument("--poll-seconds", type=float, default=0.25)
-    worker_start.add_argument("--max-idle-seconds", type=float, default=1.0)
-    worker_start.add_argument("--lease-seconds", type=float, default=15.0)
-    worker_start.add_argument("--heartbeat-seconds", type=float, default=2.0)
-    worker_start.set_defaults(handler=_handle_worker_start)
-
-    worker_status_parser = worker_subparsers.add_parser("status")
-    worker_status_parser.add_argument("--json", action="store_true")
-    worker_status_parser.set_defaults(handler=_handle_worker_status)
-
-    worker_idle = worker_subparsers.add_parser("stop-on-idle", parents=[common])
-    worker_idle.add_argument("--idle-seconds", type=float, default=5.0)
-    worker_idle.add_argument("--poll-seconds", type=float, default=0.25)
-    worker_idle.add_argument("--max-idle-seconds", type=float, default=1.0)
-    worker_idle.add_argument("--lease-seconds", type=float, default=15.0)
-    worker_idle.add_argument("--heartbeat-seconds", type=float, default=2.0)
-    worker_idle.set_defaults(handler=_handle_worker_stop_on_idle)
-
-    benchmark = subparsers.add_parser("benchmark")
-    benchmark_subparsers = benchmark.add_subparsers(dest="benchmark_command")
-    benchmark_performance = benchmark_subparsers.add_parser("performance")
-    benchmark_performance.add_argument(
-        "--profile",
-        choices=("ci-smoke", "local-detail", "tui-detail", "runtime-detail"),
-        default="ci-smoke",
-    )
-    benchmark_performance.add_argument("--samples", type=int, default=5)
-    benchmark_performance.add_argument(
-        "--output",
-        default=None,
-        help="Atomically write a private canonical JSON report",
-    )
-    benchmark_performance.set_defaults(handler=_handle_benchmark_performance)
-
-    schedule = subparsers.add_parser("schedule")
-    schedule_subparsers = schedule.add_subparsers(dest="schedule_command")
-    schedule_list = schedule_subparsers.add_parser("list")
-    schedule_list.add_argument("--workspace", default=None)
-    schedule_list.add_argument("--json", action="store_true")
-    schedule_list.set_defaults(handler=_handle_schedule_list)
-    schedule_show = schedule_subparsers.add_parser("show")
-    schedule_show.add_argument("schedule_id")
-    schedule_show.add_argument("--workspace", default=None)
-    schedule_show.add_argument("--json", action="store_true")
-    schedule_show.set_defaults(handler=_handle_schedule_show)
-    for action in ("preview", "create", "update"):
-        command = schedule_subparsers.add_parser(action)
-        command.add_argument("definition")
-        command.add_argument("--workspace", default=None)
-        command.add_argument("--json", action="store_true")
-        command.set_defaults(handler=_handle_schedule_write, schedule_action=action)
-    for action in ("test-now", "enable", "pause", "resume", "run-now", "delete"):
-        command = schedule_subparsers.add_parser(action)
-        command.add_argument("schedule_id")
-        command.add_argument("--workspace", default=None)
-        command.add_argument("--json", action="store_true")
-        command.set_defaults(handler=_handle_schedule_action, schedule_action=action)
-
-    native = subparsers.add_parser("native")
-    native_subparsers = native.add_subparsers(dest="native_command")
-
-    native_sync = native_subparsers.add_parser("sync", parents=[common])
-    native_sync.add_argument("--harness", dest="harness_id", default=None)
-    native_sync.add_argument("--workspace", default=None)
-    native_sync.add_argument("--include-external", action="store_true")
-    native_sync.add_argument("--cursor", default=None)
-    native_sync.add_argument("--limit", type=int, default=100)
-    native_sync.add_argument("--json", action="store_true")
-    native_sync.set_defaults(handler=_handle_native_sync)
-
-    native_list = native_subparsers.add_parser("list", parents=[common])
-    native_list.add_argument("--harness", dest="harness_id", default=None)
-    native_list.add_argument("--workspace", default=None)
-    native_list.add_argument("--include-external", action="store_true")
-    native_list.add_argument(
-        "--status",
-        choices=tuple(status.value for status in NativeSessionStatus),
-        default=None,
-    )
-    native_list.add_argument("--limit", type=int, default=100)
-    native_list.add_argument("--json", action="store_true")
-    native_list.set_defaults(handler=_handle_native_list)
-
-    native_import = native_subparsers.add_parser("import", parents=[common])
-    native_import.add_argument("native_ref_id")
-    native_import.add_argument("--json", action="store_true")
-    native_import.set_defaults(handler=_handle_native_import)
-
-    project = subparsers.add_parser("project")
-    project_subparsers = project.add_subparsers(dest="project_command")
-
-    project_info = project_subparsers.add_parser("info")
-    project_info.add_argument("--workspace", default=None)
-    project_info.add_argument("--json", action="store_true")
-    project_info.set_defaults(handler=_handle_project_info)
-
-    project_init = project_subparsers.add_parser("init")
-    project_init.add_argument("--workspace", default=None)
-    project_init.add_argument("--name", default=None)
-    project_init.add_argument("--overwrite", action="store_true")
-    project_init.add_argument("--json", action="store_true")
-    project_init.set_defaults(handler=_handle_project_init)
-
-    preset = subparsers.add_parser("preset")
-    preset_subparsers = preset.add_subparsers(dest="preset_command")
-
-    preset_list = preset_subparsers.add_parser("list")
-    preset_list.add_argument("--workspace", default=None)
-    preset_list.add_argument("--json", action="store_true")
-    preset_list.set_defaults(handler=_handle_preset_list)
-
-    preset_run = preset_subparsers.add_parser("run", parents=[common])
-    preset_run.add_argument("preset_name")
-    preset_run.add_argument("--workspace", default=None)
-    preset_run.add_argument("--prompt", default=None)
-    preset_run.add_argument("--selected-file", action="append", default=[])
-    preset_run.add_argument("--last-run-diff", default=None)
-    preset_run.add_argument("--model", default=None)
-    preset_run.add_argument("--api-mode", choices=("v1", "v2"), default=None)
-    preset_run.add_argument("--mode", choices=("plan", "read", "edit"), default=None)
-    preset_run.add_argument("--native", action="store_true")
-    preset_run.add_argument("--json", action="store_true")
-    preset_run.add_argument("--dry-run", action="store_true")
-    preset_run.set_defaults(handler=_handle_preset_run)
-
-    memory = subparsers.add_parser("memory")
-    memory_subparsers = memory.add_subparsers(dest="memory_command")
-
-    memory_list = memory_subparsers.add_parser("list")
-    memory_list.add_argument("--workspace", default=None)
-    memory_list.add_argument("--include-disabled", action="store_true")
-    memory_list.add_argument("--json", action="store_true")
-    memory_list.set_defaults(handler=_handle_memory_list)
-
-    memory_add = memory_subparsers.add_parser("add")
-    memory_add.add_argument("text", nargs="+")
-    memory_add.add_argument("--workspace", default=None)
-    memory_add.add_argument("--tag", action="append", default=[])
-    memory_add.add_argument("--session-id", default=None)
-    memory_add.add_argument("--run-id", default=None)
-    memory_add.add_argument("--disabled", action="store_true")
-    memory_add.add_argument("--json", action="store_true")
-    memory_add.set_defaults(handler=_handle_memory_add)
-
-    memory_disable = memory_subparsers.add_parser("disable")
-    memory_disable.add_argument("memory_id")
-    memory_disable.add_argument("--workspace", default=None)
-    memory_disable.add_argument("--json", action="store_true")
-    memory_disable.set_defaults(handler=_handle_memory_disable)
-
-    memory_enable = memory_subparsers.add_parser("enable")
-    memory_enable.add_argument("memory_id")
-    memory_enable.add_argument("--workspace", default=None)
-    memory_enable.add_argument("--json", action="store_true")
-    memory_enable.set_defaults(handler=_handle_memory_enable)
-
-    memory_delete = memory_subparsers.add_parser("delete")
-    memory_delete.add_argument("memory_id")
-    memory_delete.add_argument("--workspace", default=None)
-    memory_delete.add_argument("--json", action="store_true")
-    memory_delete.set_defaults(handler=_handle_memory_delete)
-
-    eval_parser = subparsers.add_parser("eval")
-    eval_subparsers = eval_parser.add_subparsers(dest="eval_command")
-
-    eval_list = eval_subparsers.add_parser("list")
-    eval_list.add_argument("--workspace", default=None)
-    eval_list.add_argument("--json", action="store_true")
-    eval_list.set_defaults(handler=_handle_eval_list)
-
-    eval_run = eval_subparsers.add_parser("run", parents=[common])
-    eval_run.add_argument("eval_name")
-    eval_run.add_argument("--workspace", default=None)
-    eval_run.add_argument(
-        "--harness",
-        action="append",
-        default=[],
-        help="Comma-separated harness ids; can be repeated.",
-    )
-    eval_run.add_argument("--model", default=None)
-    eval_run.add_argument("--api-mode", choices=("v1", "v2"), default=None)
-    eval_run.add_argument("--mode", choices=("plan", "read", "edit"), default=None)
-    eval_run.add_argument(
-        "--workspace-policy",
-        choices=("auto", "current", "worktree", "temp_copy"),
-        default=None,
-    )
-    eval_run.add_argument("--dry-run", action="store_true")
-    eval_run.add_argument("--json", action="store_true")
-    eval_run.set_defaults(handler=_handle_eval_run)
-
-    agent = subparsers.add_parser("agent")
-    agent_subparsers = agent.add_subparsers(dest="agent_command")
-
-    agent_list = agent_subparsers.add_parser("list")
-    agent_list.add_argument("--workspace", default=None)
-    agent_list.add_argument("--json", action="store_true")
-    agent_list.set_defaults(handler=_handle_agent_list)
-
-    agent_show = agent_subparsers.add_parser("show")
-    agent_show.add_argument("agent_id")
-    agent_show.add_argument("--workspace", default=None)
-    agent_show.add_argument("--json", action="store_true")
-    agent_show.set_defaults(handler=_handle_agent_show)
-
-    agent_validate = agent_subparsers.add_parser("validate")
-    agent_validate.add_argument("path")
-    agent_validate.add_argument("--json", action="store_true")
-    agent_validate.set_defaults(handler=_handle_agent_validate)
-
-    agent_run = agent_subparsers.add_parser("run", parents=[common])
-    agent_run.add_argument("agent_id")
-    agent_run.add_argument("--workspace", default=None)
-    agent_run.add_argument("--prompt", required=True)
-    agent_run.add_argument("--dry-run", action="store_true")
-    agent_run.add_argument("--json", action="store_true")
-    agent_run.set_defaults(handler=_handle_agent_profile_run)
-
-    workflow = subparsers.add_parser("workflow")
-    workflow_subparsers = workflow.add_subparsers(dest="workflow_command")
-
-    workflow_list = workflow_subparsers.add_parser("list")
-    workflow_list.add_argument("--workspace", default=None)
-    workflow_list.add_argument("--json", action="store_true")
-    workflow_list.set_defaults(handler=_handle_workflow_list)
-
-    workflow_show = workflow_subparsers.add_parser("show")
-    workflow_show.add_argument("workflow_id")
-    workflow_show.add_argument("--workspace", default=None)
-    workflow_show.add_argument("--json", action="store_true")
-    workflow_show.set_defaults(handler=_handle_workflow_show)
-
-    workflow_validate = workflow_subparsers.add_parser("validate")
-    workflow_validate.add_argument("path")
-    workflow_validate.add_argument("--json", action="store_true")
-    workflow_validate.set_defaults(handler=_handle_workflow_validate)
-
-    workflow_run = workflow_subparsers.add_parser("run", parents=[common])
-    workflow_run.add_argument("workflow_id")
-    workflow_run.add_argument("--workspace", default=None)
-    workflow_run.add_argument("--prompt", default=None)
-    workflow_run.add_argument("--input", action="append", default=[])
-    workflow_run.add_argument("--dry-run", action="store_true")
-    workflow_run.add_argument("--json", action="store_true")
-    workflow_run.set_defaults(handler=_handle_workflow_run)
-
-    workflow_status = workflow_subparsers.add_parser("status", parents=[common])
-    workflow_status.add_argument("run_id")
-    workflow_status.add_argument("--json", action="store_true")
-    workflow_status.set_defaults(handler=_handle_workflow_status)
-
-    workflow_cancel = workflow_subparsers.add_parser("cancel", parents=[common])
-    workflow_cancel.add_argument("run_id")
-    workflow_cancel.add_argument("--json", action="store_true")
-    workflow_cancel.set_defaults(handler=_handle_workflow_cancel)
-
-    open_parser = subparsers.add_parser("open")
-    open_subparsers = open_parser.add_subparsers(dest="open_command")
-
-    open_session = open_subparsers.add_parser("session")
-    open_session.add_argument("session_id")
-    open_session.add_argument("--dry-run", action="store_true")
-    open_session.add_argument("--json", action="store_true")
-    open_session.set_defaults(handler=_handle_open_session)
-
-    open_run = open_subparsers.add_parser("run")
-    open_run.add_argument("run_id")
-    open_run_target = open_run.add_mutually_exclusive_group()
-    open_run_target.add_argument("--diff", action="store_true")
-    open_run_target.add_argument("--terminal", action="store_true")
-    open_run.add_argument("--dry-run", action="store_true")
-    open_run.add_argument("--json", action="store_true")
-    open_run.set_defaults(handler=_handle_open_run)
-
-    open_file = open_subparsers.add_parser("file")
-    open_file.add_argument("path")
-    open_file.add_argument("--workspace", default=None)
-    open_file.add_argument("--line", type=int, default=None)
-    open_file.add_argument("--column", type=int, default=None)
-    open_file.add_argument("--dry-run", action="store_true")
-    open_file.add_argument("--json", action="store_true")
-    open_file.set_defaults(handler=_handle_open_file)
-
-    harness = subparsers.add_parser("harness")
-    harness_subparsers = harness.add_subparsers(dest="harness_command")
-
-    harness_list = harness_subparsers.add_parser("list", parents=[common])
-    harness_list.add_argument("--json", action="store_true")
-    harness_list.set_defaults(handler=_handle_harness_list)
-
-    harness_capabilities = harness_subparsers.add_parser("capabilities")
-    harness_capabilities.add_argument("--json", action="store_true")
-    harness_capabilities.add_argument(
-        "--agents",
-        action="store_true",
-        help="Show Direct Chat and coding-agent behavior contracts",
-    )
-    harness_capabilities.add_argument(
-        "--inventory",
-        action="store_true",
-        help="Show the complete versioned product truth inventory",
-    )
-    harness_capabilities.add_argument(
-        "--check",
-        action="store_true",
-        help="Fail when the packaged inventory, docs, or contract evidence drift",
-    )
-    harness_capabilities.add_argument(
-        "--output",
-        type=Path,
-        default=None,
-        help="Write canonical inventory JSON to this path",
-    )
-    harness_capabilities.set_defaults(handler=_handle_harness_capabilities)
-
-    harness_inspect = harness_subparsers.add_parser("inspect", parents=[common])
-    harness_inspect.add_argument("harness_id")
-    harness_inspect.add_argument("--json", action="store_true")
-    harness_inspect.set_defaults(handler=_handle_harness_inspect)
-
-    harness_validate = harness_subparsers.add_parser("validate")
-    harness_validate.add_argument("harness_id")
-    harness_validate.add_argument("--json", action="store_true")
-    harness_validate.set_defaults(handler=_handle_harness_validate)
-
-    harness_run = harness_subparsers.add_parser("run", parents=[common])
-    harness_run.add_argument("harness_id")
-    harness_run.add_argument("--prompt", required=True)
-    harness_run.add_argument("--model", default=None)
-    harness_run.add_argument("--api-mode", choices=("v1", "v2"), default=None)
-    harness_run.add_argument(
-        "--capability",
-        choices=tuple(capability.value for capability in HarnessCapability),
-        default=HarnessCapability.CHAT_COMPLETIONS.value,
-    )
-    harness_run.add_argument("--mode", choices=("plan", "read", "edit"), default="plan")
-    harness_run.add_argument("--workspace", default=None)
-    harness_run.add_argument("--native", action="store_true")
-    harness_run.add_argument("--json", action="store_true")
-    harness_run.add_argument("--dry-run", action="store_true")
-    harness_run.set_defaults(handler=_handle_harness_run)
-
-    harness_scaffold = harness_subparsers.add_parser("scaffold")
-    harness_scaffold.add_argument("harness_id")
-    harness_scaffold.add_argument("--output", type=Path, default=None)
-    harness_scaffold.set_defaults(handler=_handle_harness_scaffold)
-
-    harness_conformance = harness_subparsers.add_parser("conformance")
-    harness_conformance.add_argument("harness_id")
-    harness_conformance.add_argument("--json", action="store_true")
-    harness_conformance.set_defaults(handler=_handle_harness_conformance)
-
-    return parser
+    return command_main(argv)
 
 
 def _handle_doctor(args: argparse.Namespace, config: HarnessConfig) -> int:
@@ -1331,6 +437,13 @@ def _handle_harness_capabilities(
     args: argparse.Namespace,
     config: HarnessConfig,
 ) -> int:
+    from gpt2giga_harness.diagnostics.inventory.product import (
+        build_product_inventory,
+        canonical_inventory_json,
+        load_product_inventory,
+        validate_product_inventory,
+    )
+
     registry = create_default_registry(include_entry_points=False)
     if args.agents and args.inventory:
         print(
@@ -1339,6 +452,8 @@ def _handle_harness_capabilities(
         )
         return 2
     if args.inventory:
+        from gpt2giga_harness.ui.app import create_app
+
         with tempfile.TemporaryDirectory(prefix="gigaloom-product-inventory-") as root:
             app = create_app(
                 HarnessConfig(data_dir=root),
@@ -1690,190 +805,6 @@ def _handle_integration_conformance(
         for result in report.results:
             print(f"- {result.claim}: {result.status} ({result.detail})")
     return 0 if report.ok else 1
-
-
-def _handle_provider_list(args: argparse.Namespace, config: HarnessConfig) -> int:
-    payload = ProviderSettingsService(config.data_dir).list()
-    if args.json:
-        _print_json(payload)
-    else:
-        _print_provider_table(payload["providers"])
-    return 0
-
-
-def _handle_provider_show(args: argparse.Namespace, config: HarnessConfig) -> int:
-    provider = ProviderSettingsService(config.data_dir).get(args.provider_id)
-    if args.json:
-        _print_json(provider)
-    else:
-        _print_provider_detail(provider)
-    return 0
-
-
-def _handle_provider_add(args: argparse.Namespace, config: HarnessConfig) -> int:
-    service = ProviderSettingsService(config.data_dir)
-    result = service.create(
-        args.provider_id,
-        _provider_payload_from_args(args, create=True),
-    )
-    if args.json:
-        _print_json(
-            {"saved": True, "provider": result.provider, "effects": result.effects}
-        )
-    else:
-        _print_provider_detail(result.provider)
-    return 0
-
-
-def _handle_provider_edit(args: argparse.Namespace, config: HarnessConfig) -> int:
-    service = ProviderSettingsService(config.data_dir)
-    result = service.update(
-        args.provider_id,
-        _provider_payload_from_args(args, create=False),
-        expected_revision=args.expected_revision,
-    )
-    if args.json:
-        _print_json(
-            {"saved": True, "provider": result.provider, "effects": result.effects}
-        )
-    else:
-        _print_provider_detail(result.provider)
-    return 0
-
-
-def _handle_provider_test(args: argparse.Namespace, config: HarnessConfig) -> int:
-    return _handle_provider_probe(args, config, discover_models=False)
-
-
-def _handle_provider_discover(
-    args: argparse.Namespace,
-    config: HarnessConfig,
-) -> int:
-    return _handle_provider_probe(args, config, discover_models=True)
-
-
-def _handle_provider_probe(
-    args: argparse.Namespace,
-    config: HarnessConfig,
-    *,
-    discover_models: bool,
-) -> int:
-    payload = ProviderSettingsService(config.data_dir).check(
-        args.provider_id,
-        discover_models=discover_models,
-    )
-    if args.json:
-        _print_json(payload)
-    else:
-        health = payload["health"]
-        print(f"Provider: {payload['provider_id']}")
-        print(f"Health: {health['status']}")
-        print(f"Discovery: {health['discovery_status']}")
-        if health["failure_kind"]:
-            print(
-                f"Failure: {health['failure_kind']} ({health['reason_code']})",
-                file=sys.stderr,
-            )
-        for model in health["models"]:
-            print(f"- {model['model']} [{model['source']}]")
-    return 0 if payload["health"]["status"] == "ready" else 1
-
-
-def _handle_provider_migrate(
-    args: argparse.Namespace,
-    config: HarnessConfig,
-) -> int:
-    service = ProviderMigrationService(config.data_dir, config)
-    if args.dry_run:
-        payload = service.plan().to_dict()
-    else:
-        if args.backup is None:
-            raise ValueError("provider migration requires --backup or --dry-run")
-        payload = service.migrate(args.backup).to_dict()
-    if args.json:
-        _print_json(payload)
-    else:
-        print(f"Provider migration: {payload['status']}")
-        print(f"Providers: {', '.join(payload['provider_ids'])}")
-        print(f"Routes: {payload['route_count']}")
-        if payload.get("applied"):
-            print(f"Pre-upgrade backup SHA-256: {payload['backup_sha256']}")
-        print("Rollback: stop Harness and restore the verified pre-upgrade archive.")
-    return 0
-
-
-def _provider_payload_from_args(
-    args: argparse.Namespace,
-    *,
-    create: bool,
-) -> dict[str, Any]:
-    payload: dict[str, Any] = {}
-    for argument, field in (
-        ("name", "display_name"),
-        ("protocol", "protocol"),
-        ("dialect", "dialect"),
-        ("base_url", "base_url"),
-        ("route_prefix", "route_prefix"),
-    ):
-        value = getattr(args, argument, None)
-        if value is not None:
-            payload[field] = value
-    authentication = getattr(args, "authentication", None)
-    auth_values = {
-        "ownership": authentication,
-        "reference_kind": getattr(args, "secret_reference_kind", None),
-        "reference_name": getattr(args, "secret_reference_name", None),
-        "service": getattr(args, "keychain_service", None),
-        "account": getattr(args, "keychain_account", None),
-    }
-    if create or any(value is not None for value in auth_values.values()):
-        payload["authentication"] = {
-            key: value for key, value in auth_values.items() if value is not None
-        }
-    defaults = {
-        purpose: getattr(args, f"{purpose}_model", None)
-        for purpose in ("coding", "title", "evaluation", "fallback")
-    }
-    if any(value is not None for value in defaults.values()):
-        payload["default_models"] = {
-            purpose: value for purpose, value in defaults.items() if value is not None
-        }
-    if create:
-        payload["enabled"] = not args.disabled
-        payload["offline"] = args.offline
-    else:
-        if args.enabled is not None:
-            payload["enabled"] = args.enabled
-        if args.offline is not None:
-            payload["offline"] = args.offline
-    return payload
-
-
-def _add_provider_auth_arguments(
-    parser: argparse.ArgumentParser,
-    *,
-    optional: bool,
-) -> None:
-    parser.add_argument(
-        "--authentication",
-        choices=("secret_reference", "provider_native", "none"),
-        default=None if optional else "secret_reference",
-    )
-    parser.add_argument(
-        "--secret-reference-kind",
-        choices=("environment", "keychain"),
-        default=None if optional else "environment",
-    )
-    parser.add_argument("--secret-reference-name", default=None)
-    parser.add_argument("--keychain-service", default=None)
-    parser.add_argument("--keychain-account", default=None)
-
-
-def _add_provider_model_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--coding-model", default=None)
-    parser.add_argument("--title-model", default=None)
-    parser.add_argument("--evaluation-model", default=None)
-    parser.add_argument("--fallback-model", default=None)
 
 
 def _handle_harness_inspect(args: argparse.Namespace, config: HarnessConfig) -> int:
@@ -2297,60 +1228,6 @@ def _handle_state_restore(args: argparse.Namespace, config: HarnessConfig) -> in
         print(f"Restored Harness state to {Path(destination).expanduser()}")
         print(f"SHA-256: {result.backup.sha256}")
         print(f"Files: {result.backup.file_count}; bytes: {result.backup.total_bytes}")
-    return 0
-
-
-def _handle_worker_start(args: argparse.Namespace, config: HarnessConfig) -> int:
-    worker = DurableJobWorker(
-        config,
-        lease_seconds=args.lease_seconds,
-        heartbeat_seconds=args.heartbeat_seconds,
-    )
-    if args.once:
-        claimed = worker.run_once()
-        worker.runtime_store.stop_worker(worker.worker_id)
-        print("processed" if claimed else "idle")
-        return 0
-    print(f"Starting durable Harness worker {worker.worker_id}")
-    print("Proxy auto-start is disabled; configure a running proxy/API key if needed.")
-    try:
-        worker.run_forever(
-            poll_seconds=args.poll_seconds,
-            max_idle_seconds=args.max_idle_seconds,
-        )
-    except KeyboardInterrupt:
-        return 130
-    return 0
-
-
-def _handle_worker_status(args: argparse.Namespace, config: HarnessConfig) -> int:
-    payload = worker_status(RuntimeCoordinationStore(config.data_dir))
-    if args.json:
-        _print_json(payload)
-    elif not payload["workers"]:
-        print("No durable Harness workers registered.")
-    else:
-        print(f"Online workers: {payload['online']}")
-        for worker in payload["workers"]:
-            print(
-                f"{worker['id']}  {worker['status']}  "
-                f"pid={worker['process_id']}  heartbeat={worker['heartbeat_at']}"
-            )
-    return 0
-
-
-def _handle_worker_stop_on_idle(args: argparse.Namespace, config: HarnessConfig) -> int:
-    worker = DurableJobWorker(
-        config,
-        lease_seconds=args.lease_seconds,
-        heartbeat_seconds=args.heartbeat_seconds,
-    )
-    worker.run_forever(
-        poll_seconds=args.poll_seconds,
-        max_idle_seconds=args.max_idle_seconds,
-        stop_on_idle_seconds=max(args.idle_seconds, 0.0),
-    )
-    print(f"Worker {worker.worker_id} stopped after idle timeout.")
     return 0
 
 
@@ -3100,189 +1977,6 @@ def _handle_open_file(args: argparse.Namespace, config: HarnessConfig) -> int:
     return 0
 
 
-def _handle_ui(args: argparse.Namespace, config: HarnessConfig) -> int:
-    config = config.with_overrides(ui_host=args.host, ui_port=args.port)
-    validate_ui_bind(config, allow_remote=args.allow_remote)
-    if not 1 <= args.worker_count <= MAX_UI_WORKER_COUNT:
-        raise ValueError(
-            f"UI worker count must be between 1 and {MAX_UI_WORKER_COUNT}."
-        )
-    ui_url = (
-        config.ui_oidc_public_origin
-        if not is_loopback_host(config.ui_host)
-        else f"http://{config.ui_host}:{config.ui_port}"
-    )
-    print(f"Starting GigaLoom UI at {ui_url}/")
-    worker_processes = (
-        _start_ui_workers(config, worker_count=args.worker_count)
-        if args.start_worker
-        else ()
-    )
-    try:
-        app = create_app(config)
-        uvicorn.run(
-            app,
-            host=config.ui_host,
-            port=config.ui_port,
-            log_level="info",
-            timeout_graceful_shutdown=UI_GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS,
-        )
-    finally:
-        _stop_ui_workers(worker_processes)
-    return 0
-
-
-def _handle_ui_identity_validate(
-    args: argparse.Namespace,
-    config: HarnessConfig,
-) -> int:
-    settings = RemoteOIDCSettings.from_config(config)
-    payload = {
-        "valid": True,
-        "issuer": settings.issuer,
-        "public_origin": settings.public_origin,
-        "callback_uri": settings.callback_uri,
-        "roles": {
-            "viewer": sum(role == "viewer" for role in settings.roles.values()),
-            "operator": sum(role == "operator" for role in settings.roles.values()),
-        },
-        "trusted_proxy_count": len(settings.trusted_proxies),
-        "client_secret_configured": True,
-    }
-    if args.json:
-        _print_json(payload)
-    else:
-        print(
-            "Remote UI identity configuration is valid for "
-            f"{settings.public_origin} ({len(settings.roles)} mapped subjects)."
-        )
-    return 0
-
-
-def _handle_ui_identity_revoke_all(
-    args: argparse.Namespace,
-    config: HarnessConfig,
-) -> int:
-    if not args.confirm:
-        raise ValueError("Remote session revocation requires --confirm.")
-    settings = RemoteOIDCSettings.from_config(config)
-    revoked = RemoteIdentityStore(config.data_dir, settings).revoke_all()
-    payload = {
-        "revoked": revoked,
-        "session_generation_rotated": True,
-    }
-    if args.json:
-        _print_json(payload)
-    else:
-        print(f"Revoked {revoked} remote UI session(s) and rotated the generation.")
-    return 0
-
-
-def _start_ui_workers(
-    config: HarnessConfig,
-    *,
-    worker_count: int,
-) -> tuple[subprocess.Popen[bytes], ...]:
-    runtime_store = RuntimeCoordinationStore(config.data_dir)
-    online = int(worker_status(runtime_store)["online"])
-    missing = max(worker_count - online, 0)
-    if missing == 0:
-        print(f"Using {online} existing online durable Harness worker(s).")
-        return ()
-    if online:
-        print(
-            f"Using {online} existing online durable Harness worker(s); "
-            f"starting {missing} more."
-        )
-
-    environment = os.environ.copy()
-    environment.update(
-        {
-            "GPT2GIGA_HARNESS_DATA_DIR": config.data_dir,
-            "GPT2GIGA_HARNESS_PROXY_URL": config.proxy_url,
-            "GPT2GIGA_HARNESS_DEFAULT_API_MODE": config.default_api_mode.value,
-            "GPT2GIGA_HARNESS_TIMEOUT_SECONDS": str(config.timeout_seconds),
-            "GPT2GIGA_HARNESS_AUTO_START_PROXY": "false",
-        }
-    )
-    if config.api_key:
-        environment["GPT2GIGA_HARNESS_API_KEY"] = config.api_key
-    if config.default_model:
-        environment["GPT2GIGA_HARNESS_DEFAULT_MODEL"] = config.default_model
-
-    processes: list[subprocess.Popen[bytes]] = []
-    try:
-        for _ in range(missing):
-            try:
-                process = subprocess.Popen(
-                    [
-                        sys.executable,
-                        "-m",
-                        "gpt2giga_harness.cli",
-                        "worker",
-                        "start",
-                    ],
-                    env=environment,
-                )
-            except OSError as exc:
-                raise ValueError(
-                    f"Failed to start durable Harness worker: {exc}"
-                ) from exc
-            processes.append(process)
-            _wait_for_ui_worker(runtime_store, process)
-            print(f"Started durable Harness worker pid={process.pid}.")
-    except Exception:
-        _stop_ui_workers(processes)
-        raise
-    return tuple(processes)
-
-
-def _wait_for_ui_worker(
-    runtime_store: RuntimeCoordinationStore,
-    process: subprocess.Popen[bytes],
-) -> None:
-    deadline = time.monotonic() + UI_WORKER_START_TIMEOUT_SECONDS
-    while time.monotonic() < deadline:
-        return_code = process.poll()
-        if return_code is not None:
-            raise ValueError(
-                f"Durable Harness worker exited during startup with code {return_code}."
-            )
-        status = worker_status(runtime_store)
-        if any(
-            worker["status"] == "online" and int(worker["process_id"]) == process.pid
-            for worker in status["workers"]
-        ):
-            return
-        time.sleep(0.05)
-    raise ValueError("Timed out waiting for the durable Harness worker to start.")
-
-
-def _stop_ui_workers(
-    processes: tuple[subprocess.Popen[bytes], ...] | list[subprocess.Popen[bytes]],
-) -> None:
-    for process in reversed(processes):
-        _stop_ui_worker(process)
-
-
-def _stop_ui_worker(process: subprocess.Popen[bytes]) -> None:
-    if process.poll() is not None:
-        return
-    try:
-        if os.name == "posix":
-            process.send_signal(signal.SIGINT)
-        else:
-            process.terminate()
-        process.wait(timeout=UI_WORKER_STOP_TIMEOUT_SECONDS)
-    except subprocess.TimeoutExpired:
-        process.terminate()
-        try:
-            process.wait(timeout=UI_WORKER_STOP_TIMEOUT_SECONDS)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=UI_WORKER_STOP_TIMEOUT_SECONDS)
-
-
 def _handle_harness_scaffold(args: argparse.Namespace, config: HarnessConfig) -> int:
     if args.output is None:
         print(render_adapter_module(args.harness_id), end="")
@@ -3434,14 +2128,6 @@ def _run_harness(
     return _result_with_preflight(harness.run(request, config.to_context()), preflight)
 
 
-def _config_from_args(args: argparse.Namespace) -> HarnessConfig:
-    config = HarnessConfig.from_env()
-    return config.with_overrides(
-        proxy_url=getattr(args, "proxy_url", None),
-        auto_start_proxy=getattr(args, "start_proxy", None),
-    )
-
-
 def _print_result(result, *, as_json: bool) -> None:
     payload = result_to_dict(result)
     if as_json:
@@ -3486,10 +2172,6 @@ def _print_readiness_remediation(payload: Mapping[str, Any]) -> None:
                 print(f"  Command: {command}", file=sys.stderr)
 
 
-def _print_json(value: Any) -> None:
-    print(json.dumps(value, ensure_ascii=False, indent=2))
-
-
 def _print_bootstrap(payload: Mapping[str, Any], *, as_json: bool) -> None:
     if as_json:
         _print_json(payload)
@@ -3531,32 +2213,6 @@ def _print_table(rows: list[dict[str, Any]]) -> None:
             f"{row['id']:<16}{row['kind']:<14}{row['status']:<12}"
             f"{native:<8}{row['description']}"
         )
-
-
-def _print_provider_table(rows: list[dict[str, Any]]) -> None:
-    print(f"{'ID':<24}{'Protocol':<24}{'Status':<16}Name")
-    for row in rows:
-        health = row.get("health") or {}
-        status = "disabled" if not row["enabled"] else health.get("status", "unchecked")
-        print(
-            f"{row['id'][:23]:<24}{row['protocol'][:23]:<24}"
-            f"{status[:15]:<16}{row['display_name']}"
-        )
-
-
-def _print_provider_detail(provider: Mapping[str, Any]) -> None:
-    print(f"Provider: {provider['display_name']} ({provider['id']})")
-    print(f"Protocol: {provider['protocol']} / {provider['dialect']}")
-    print(f"Endpoint: {provider['effective_base_url']}")
-    print(f"Source: {provider['source']}")
-    print(
-        "Authentication: "
-        f"{provider['authentication']['ownership']} "
-        f"({provider['authentication']['reference_kind'] or 'provider-owned'})"
-    )
-    print(f"Registry revision: {provider['registry_revision']}")
-    for purpose, model in provider["default_models"].items():
-        print(f"- {purpose}: {model}")
 
 
 def _print_preset_table(rows: list[dict[str, Any]]) -> None:

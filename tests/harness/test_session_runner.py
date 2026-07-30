@@ -1,5 +1,6 @@
 import json
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 import threading
 import time
@@ -8,10 +9,19 @@ from types import SimpleNamespace
 import pytest
 
 from gpt2giga_harness.config import HarnessConfig
+from gpt2giga_harness.execution.attachments import PreparedAttachments
+from gpt2giga_harness.execution.context import RunExecutionContext
+from gpt2giga_harness.execution.continuation import ContinuationPlan
+from gpt2giga_harness.execution.milestones import PersistenceMilestone
+from gpt2giga_harness.execution.options import RunOptions
 from gpt2giga_harness.harnesses.base import BaseHarness
 from gpt2giga_harness.native import HarnessInvocationMode
 from gpt2giga_harness.preflight import PreflightBlockedError
-from gpt2giga_harness.project import project_id_for_root, resolve_project
+from gpt2giga_harness.project import (
+    project_id_for_root,
+    resolve_project,
+    update_project_state,
+)
 from gpt2giga_harness.project_memory import FilesystemProjectMemoryStore
 from gpt2giga_harness.provider_account_sessions import ProviderAccountSessionError
 from gpt2giga_harness.provider_authentication_broker import (
@@ -22,10 +32,14 @@ from gpt2giga_harness.provider_authentication_broker import (
 from gpt2giga_harness.registry import HarnessRegistry
 from gpt2giga_harness.session_runner import HarnessSessionRunner
 from gpt2giga_harness.session_titles import title_diagnostics
-from gpt2giga_harness.sessions import InMemoryHarnessSessionStore
+from gpt2giga_harness.sessions import (
+    FilesystemHarnessSessionStore,
+    InMemoryHarnessSessionStore,
+)
 from gpt2giga_harness.sessions.conversation import active_conversation_messages
 from gpt2giga_harness.sessions.models import HarnessMessage
 from gpt2giga_harness.sessions.store import new_id, utc_now
+from gpt2giga_harness.sessions.write_batch import SessionWriteBatch
 from gpt2giga_harness.types import (
     Availability,
     GigaChatBuiltinTool,
@@ -38,6 +52,114 @@ from gpt2giga_harness.types import (
     HarnessSpec,
     emit_event,
 )
+
+
+def test_session_runner_uses_typed_execution_context_objects():
+    harness = _CaptureHarness()
+    runner = _runner(harness)
+    options = runner._run_options(
+        {"harness_id": "capture", "prompt": "hello"},
+        session=None,
+    )
+    context = RunExecutionContext(
+        session=object(),
+        options=options,
+        harness=harness,
+        logical_user_message_id="msg_test",
+        previous_messages=(),
+        provider_account_binding=None,
+    )
+    attachments = PreparedAttachments(attachments=(), metadata=())
+    continuation = ContinuationPlan(
+        {"strategy": "start", "prompt_id": "msg_test", "supported": True}
+    )
+
+    assert isinstance(options, RunOptions)
+    assert options.prompt == options["prompt"] == "hello"
+    assert context.milestone is PersistenceMilestone.ADMITTED
+    assert attachments.render_plan is None
+    assert continuation.to_dict()["prompt_id"] == "msg_test"
+    assert continuation.public_payload() == {
+        "strategy": "start",
+        "supported": True,
+    }
+
+
+def test_session_runner_materializes_full_bundle_only_for_explicit_legacy_access():
+    store = _BundleCountingStore()
+    runner = _runner(_CaptureHarness(), store=store)
+
+    result = runner.create_and_run({"harness_id": "capture", "prompt": "lightweight"})
+
+    assert result.has_materialized_bundle is False
+    assert store.bundle_exports == 0
+    assert set(result.to_lightweight_dict()) == {"session", "run", "result"}
+    assert store.bundle_exports == 0
+
+    assert result.bundle.messages[-1].content == "answer: lightweight"
+    assert result.has_materialized_bundle is True
+    assert store.bundle_exports == 1
+    assert result.to_dict()["messages"][-1]["content"] == "answer: lightweight"
+    assert store.bundle_exports == 1
+
+
+def test_durable_run_path_keeps_full_bundle_unmaterialized(monkeypatch):
+    store = _BundleCountingStore()
+    runner = _runner(_CaptureHarness(), store=store)
+    session = runner.create_session(default_harness_id="capture")
+    monkeypatch.setattr(
+        runner,
+        "_execution_readiness",
+        lambda _options, *, durable: {
+            "ok": True,
+            "blocked": False,
+            "summary": {"ready": 1, "degraded": 0, "blocked": 0},
+            "plan": {"delivery": "durable" if durable else "synchronous"},
+            "findings": [],
+        },
+    )
+
+    result = runner.run_in_session(
+        session.id,
+        {"harness_id": "capture", "prompt": "worker path"},
+        durable=True,
+    )
+
+    assert result.run.status.value == "succeeded"
+    assert result.has_materialized_bundle is False
+    assert store.bundle_exports == 0
+
+
+def test_normal_run_path_uses_bounded_history_and_direct_evidence_queries():
+    store = _BoundedQueryStore()
+    harness = _CaptureHarness()
+    runner = _runner(harness, store=store)
+    session = runner.create_session(default_harness_id="capture")
+
+    for index in range(12):
+        result = runner.run_in_session(
+            session.id,
+            {"harness_id": "capture", "prompt": f"turn {index}"},
+        )
+        assert result.has_materialized_bundle is False
+
+    tail = store.list_recent_messages(session.id, limit=2)
+    latest_user = next(message for message in tail if message.role == "user")
+    runner.run_in_session(
+        session.id,
+        {
+            "harness_id": "capture",
+            "prompt": "replacement",
+            "extra": {"edit_message_id": latest_user.id},
+        },
+    )
+
+    assert harness.last_request is not None
+    assert len(harness.last_request.messages) <= 20
+    assert harness.last_request.messages[-1].content == "replacement"
+    assert store.recent_message_queries >= 14
+    assert store.direct_message_queries >= 1
+    assert store.direct_event_queries > 0
 
 
 def test_session_runner_create_and_run_persists_success():
@@ -71,6 +193,106 @@ def test_session_runner_create_and_run_persists_success():
     assert result.run.metadata["preflight"]["ok"] is True
     assert result.run.metadata["preflight"]["context_budget"]["prompt_chars"] == 5
     assert bundle.raw_requests[0].payload["preflight"]["ok"] is True
+
+
+@pytest.mark.parametrize(
+    ("harness_factory", "cancel", "status", "role", "terminal_event"),
+    [
+        pytest.param(
+            lambda: _CaptureHarness(),
+            False,
+            "succeeded",
+            "assistant",
+            "message_completed",
+            id="success",
+        ),
+        pytest.param(
+            lambda: _FailingHarness(),
+            False,
+            "failed",
+            "error",
+            "error",
+            id="error",
+        ),
+        pytest.param(
+            lambda: _CaptureHarness(),
+            True,
+            "canceled",
+            "error",
+            "run_canceled",
+            id="cancel",
+        ),
+    ],
+)
+def test_session_runner_persists_bounded_ordered_milestones(
+    harness_factory,
+    cancel,
+    status,
+    role,
+    terminal_event,
+):
+    harness = harness_factory()
+    store = _MilestoneBatchStore()
+    runner = _runner(harness, store=store)
+    cancel_event = threading.Event()
+    if cancel:
+        cancel_event.set()
+
+    result = runner.create_and_run(
+        {
+            "harness_id": harness.spec().id,
+            "prompt": "milestones",
+            "title": "Milestone session",
+        },
+        cancel_event=cancel_event,
+    )
+    bundle = result.bundle
+
+    assert [batch.milestone for batch in store.milestone_batches] == [
+        PersistenceMilestone.RUN_STARTED,
+        PersistenceMilestone.RUN_TERMINAL,
+        PersistenceMilestone.PROVENANCE_STORED,
+    ]
+    assert all(batch.record_count <= 4 for batch in store.milestone_batches)
+    assert [event.type for event in bundle.events] == [
+        "run_started",
+        "raw_request",
+        "raw_response",
+        terminal_event,
+        "run_finished",
+    ]
+    assert result.run.status == status
+    assert bundle.messages[-1].role == role
+    assert store.terminal_status_writes == [(PersistenceMilestone.RUN_TERMINAL, status)]
+
+
+def test_session_runner_milestone_batches_reopen_from_filesystem(tmp_path):
+    store = FilesystemHarnessSessionStore(tmp_path)
+    runner = _runner(_CaptureHarness(), store=store, data_dir=tmp_path)
+
+    result = runner.create_and_run(
+        {
+            "harness_id": "capture",
+            "prompt": "durable milestones",
+            "title": "Durable milestones",
+        }
+    )
+    reopened = FilesystemHarnessSessionStore(tmp_path)
+    bundle = reopened.get_session_bundle(result.session.id)
+
+    assert [message.role for message in bundle.messages] == ["user", "assistant"]
+    assert [event.type for event in bundle.events] == [
+        "run_started",
+        "raw_request",
+        "raw_response",
+        "message_completed",
+        "run_finished",
+    ]
+    assert bundle.runs[0].status == "succeeded"
+    assert bundle.runs[0].metadata["provenance"]["records"]["event_ids"] == [
+        event.id for event in bundle.events
+    ]
+    assert not tuple((tmp_path / "sessions" / ".write_batches").glob("*.json"))
 
 
 def test_session_runner_edits_latest_user_turn_without_replaying_old_answer():
@@ -436,7 +658,10 @@ harnesses = ["codex-cli"]
         encoding="utf-8",
     )
     harness = _ManagedCaptureHarness()
-    runner = _runner(harness, data_dir=tmp_path / "data")
+    data_dir = tmp_path / "data"
+    project = resolve_project(workspace, data_dir=data_dir)
+    update_project_state(project, {"trusted": True})
+    runner = _runner(harness, data_dir=data_dir)
 
     first = runner.create_and_run(
         {
@@ -1327,6 +1552,86 @@ class _TerminalOrderingStore(InMemoryHarnessSessionStore):
                 event.session_id
             ).default_harness_id
         return super().append_event(event)
+
+
+@dataclass(frozen=True)
+class _ObservedMilestoneBatch:
+    milestone: PersistenceMilestone
+    record_count: int
+
+
+class _MilestoneBatchStore(InMemoryHarnessSessionStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.milestone_batches: list[_ObservedMilestoneBatch] = []
+        self.terminal_status_writes: list[tuple[PersistenceMilestone, str]] = []
+        self._active_milestone: PersistenceMilestone | None = None
+
+    def apply_write_batch(self, batch: SessionWriteBatch):
+        milestone = PersistenceMilestone(batch.batch_id.rsplit(":", 1)[-1])
+        self.milestone_batches.append(
+            _ObservedMilestoneBatch(milestone, batch.record_count)
+        )
+        self._active_milestone = milestone
+        try:
+            return super().apply_write_batch(batch)
+        finally:
+            self._active_milestone = None
+
+    def update_run(self, run_id, **patch):
+        status = patch.get("status")
+        if status in {"succeeded", "failed", "canceled"}:
+            assert self._active_milestone is not None
+            self.terminal_status_writes.append((self._active_milestone, str(status)))
+        return super().update_run(run_id, **patch)
+
+
+class _BundleCountingStore(InMemoryHarnessSessionStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.bundle_exports = 0
+
+    def export_session_bundle(self, session_id):
+        self.bundle_exports += 1
+        return super().export_session_bundle(session_id)
+
+
+class _BoundedQueryStore(InMemoryHarnessSessionStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.recent_message_queries = 0
+        self.direct_message_queries = 0
+        self.direct_event_queries = 0
+
+    def list_messages(self, session_id):
+        raise AssertionError("normal run path must not list the complete transcript")
+
+    def list_events(self, session_id, *, run_id=None, after_id=None):
+        raise AssertionError("normal run path must not scan the complete event log")
+
+    def list_recent_messages(
+        self,
+        session_id,
+        *,
+        limit,
+        before=None,
+        through=None,
+    ):
+        self.recent_message_queries += 1
+        return super().list_recent_messages(
+            session_id,
+            limit=limit,
+            before=before,
+            through=through,
+        )
+
+    def get_message(self, message_id):
+        self.direct_message_queries += 1
+        return super().get_message(message_id)
+
+    def get_event(self, event_id):
+        self.direct_event_queries += 1
+        return super().get_event(event_id)
 
 
 class _WorkspaceEditHarness(BaseHarness):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import HTTPException, Query, Request
 
 from gpt2giga_harness.handoff_capsules import (
     HandoffCapsuleError,
@@ -10,13 +10,13 @@ from gpt2giga_harness.handoff_capsules import (
 )
 from gpt2giga_harness.registry import UnknownHarnessError
 from gpt2giga_harness.sessions.store import RunNotFoundError
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.get("/api/runs/{run_id}/handoff-capsule")
+@router.db_read.get("/api/runs/{run_id}/handoff-capsule")
 def handoff_capsule(
     run_id: str,
     request: Request,

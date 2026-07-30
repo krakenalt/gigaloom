@@ -24,7 +24,6 @@ BASE_DIRECT_DISTRIBUTIONS = frozenset(
         "pyyaml",
         "starlette",
         "textual",
-        "tomli",
         "uvicorn",
     }
 )

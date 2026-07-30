@@ -8,8 +8,8 @@ import hashlib
 from typing import Any, Mapping, Protocol
 
 from gpt2giga_harness.runtime.models import ApprovalStatus
-from gpt2giga_harness.sessions.redaction import redact_for_storage
-from gpt2giga_harness.tools.policy import PolicyDecision
+from gpt2giga_harness.sessions.contracts import redact_for_storage
+from gpt2giga_harness.tools import PolicyDecision
 
 
 class PermissionAction(str, Enum):

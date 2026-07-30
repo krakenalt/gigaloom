@@ -3,7 +3,14 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-const styles = readFileSync(fileURLToPath(new URL("./styles.css", import.meta.url)), "utf8");
+const styles = [
+  "./shared/styles/reset.css",
+  "./features/workbench/workbench.css",
+]
+  .map((relativePath) => (
+    readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8")
+  ))
+  .join("\n");
 const shell = readFileSync(fileURLToPath(new URL("./AppShell.tsx", import.meta.url)), "utf8");
 const workbench = readFileSync(
   fileURLToPath(new URL("./surfaces/workbench.tsx", import.meta.url)),

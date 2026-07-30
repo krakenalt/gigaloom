@@ -4,16 +4,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Query, Request
+from fastapi import Body, HTTPException, Query, Request
 
 from gpt2giga_harness.attention import AttentionService
 from gpt2giga_harness.project import resolve_project
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.get("/api/automation")
+@router.db_read.get("/api/automation")
 def automation_center(
     request: Request, workspace: str | None = Query(default=None)
 ) -> dict[str, Any]:
@@ -27,7 +27,7 @@ def automation_center(
     return {**overview, "attention": attention}
 
 
-@router.get("/api/attention")
+@router.db_read.get("/api/attention")
 def attention_inbox(
     request: Request, workspace: str | None = Query(default=None)
 ) -> dict[str, Any]:
@@ -35,7 +35,7 @@ def attention_inbox(
     return _attention(request).list(_project(request, workspace))
 
 
-@router.post("/api/attention/read")
+@router.db_atomic.post("/api/attention/read")
 def attention_read(
     request: Request, payload: dict[str, Any] = Body(...)
 ) -> dict[str, Any]:

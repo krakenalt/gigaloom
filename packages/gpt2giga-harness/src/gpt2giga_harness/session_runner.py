@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-from collections import Counter
-from dataclasses import dataclass, replace
-import hashlib
-import json
-from pathlib import Path
+from dataclasses import dataclass, field, replace
 import threading
 import time
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from gpt2giga_harness import proxy
 from gpt2giga_harness.attachments import (
@@ -17,12 +13,24 @@ from gpt2giga_harness.attachments import (
     FilesystemAttachmentStore,
     HarnessAttachment,
     attachment_to_dict,
-    render_attachments_for_harness,
-    render_plan_to_dict,
 )
 from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.codex_app_server import build_execution_snapshot
 from gpt2giga_harness.execution import ExecutionTransport
+from gpt2giga_harness.execution.admission import RunAdmissionService
+from gpt2giga_harness.execution.attachments import PreparedAttachments
+from gpt2giga_harness.execution.continuation import (
+    build_continuation_plan,
+)
+from gpt2giga_harness.execution.finalization import RunFinalizationService
+from gpt2giga_harness.execution.invocation import (
+    HarnessExecutionService,
+    InvocationAccumulator,
+    cancel_requested,
+)
+from gpt2giga_harness.execution.milestones import PersistenceMilestone
+from gpt2giga_harness.execution.options import RunOptions
+from gpt2giga_harness.execution.persistence import RunPersistenceService
+from gpt2giga_harness.execution.preparation import RunPreparationService
 from gpt2giga_harness.managed_mcp import HeadlessManagedMCPSnapshotStore
 from gpt2giga_harness.mcp import build_mcp_inventory
 from gpt2giga_harness.native.models import parse_invocation_mode
@@ -60,9 +68,7 @@ from gpt2giga_harness.runtime.structured import (
 )
 from gpt2giga_harness.runtime.policy import PermissionAction, permission_profile
 from gpt2giga_harness.sessions.conversation import (
-    active_conversation_messages,
     edited_message_metadata,
-    history_before_edited_message,
 )
 from gpt2giga_harness.sessions.models import (
     HarnessMessage,
@@ -72,6 +78,7 @@ from gpt2giga_harness.sessions.models import (
     HarnessStoredEvent,
     bundle_to_dict,
     run_to_dict,
+    session_to_dict,
 )
 from gpt2giga_harness.sessions.store import (
     HarnessSessionStore,
@@ -102,29 +109,58 @@ from gpt2giga_harness.types import (
     result_to_dict,
 )
 from gpt2giga_harness.worktrees import (
-    WorkspaceExecution,
-    WorkspacePolicy,
     capture_workspace_diff,
     parse_workspace_policy,
-    prepare_workspace_execution,
 )
 from gpt2giga_harness.workspace import resolve_workspace
 
 MAX_HISTORY_MESSAGES = 20
-MAX_REASONING_CHARACTERS = 32_768
 
 
 @dataclass(frozen=True)
 class HarnessSessionRunResult:
-    """Result of running one harness inside one session."""
+    """Lightweight run result with an explicit legacy bundle adapter."""
 
     session: HarnessSession
     run: HarnessRun
     result: HarnessResult
-    bundle: HarnessSessionBundle
+    _bundle_loader: Callable[[], HarnessSessionBundle] = field(
+        repr=False,
+        compare=False,
+    )
+    _bundle: HarnessSessionBundle | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
+
+    @property
+    def bundle(self) -> HarnessSessionBundle:
+        """Materialize the complete bundle for explicit legacy/export callers."""
+        if self._bundle is None:
+            object.__setattr__(self, "_bundle", self._bundle_loader())
+        bundle = self._bundle
+        if bundle is None:  # pragma: no cover - frozen assignment is deterministic
+            raise RuntimeError("session bundle materialization failed")
+        return bundle
+
+    @property
+    def has_materialized_bundle(self) -> bool:
+        """Return whether a caller explicitly requested the complete bundle."""
+        return self._bundle is not None
+
+    def to_lightweight_dict(self) -> dict[str, Any]:
+        """Serialize session summary, run, and harness result without history."""
+        payload = {
+            "session": session_to_dict(self.session),
+            "run": run_to_dict(self.run),
+            "result": result_to_dict(self.result),
+        }
+        self._add_attachment_metadata(payload)
+        return payload
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the run result for API responses."""
+        """Serialize the legacy synchronous response with an explicit full export."""
         payload = bundle_to_dict(self.bundle)
         payload.update(
             {
@@ -133,13 +169,16 @@ class HarnessSessionRunResult:
                 "result": result_to_dict(self.result),
             }
         )
+        self._add_attachment_metadata(payload)
+        return payload
+
+    def _add_attachment_metadata(self, payload: dict[str, Any]) -> None:
         attachments = self.run.metadata.get("attachments")
         if attachments:
             payload["attachments"] = attachments
         attachment_render_plan = self.run.metadata.get("attachment_render_plan")
         if attachment_render_plan:
             payload["attachment_render_plan"] = attachment_render_plan
-        return payload
 
 
 @dataclass(frozen=True)
@@ -172,6 +211,15 @@ class HarnessSessionRunner:
         )
         self.memory_store = memory_store or FilesystemProjectMemoryStore()
         self.provider_account_provider = provider_account_provider
+        self.admission_service = RunAdmissionService()
+        self.preparation_service = RunPreparationService()
+        self.invocation_service = HarnessExecutionService()
+        self.persistence_service = RunPersistenceService(
+            store=store,
+            id_factory=new_id,
+            clock=utc_now,
+        )
+        self.finalization_service = RunFinalizationService()
 
     def preflight(
         self,
@@ -194,9 +242,12 @@ class HarnessSessionRunner:
         if session is not None and not bool(
             _mapping(options["extra"]).get("isolated_history")
         ):
-            previous_messages = _previous_messages_for_turn(
-                self.store.list_messages(session.id),
+            previous_messages = self.preparation_service.previous_messages(
+                self.store,
+                session.id,
                 edit_message_id=_edit_message_id(options),
+                current_user_message_id=None,
+                limit=MAX_HISTORY_MESSAGES,
             )
         if options["attachment_ids"] and session is None:
             raise ValueError("session_id is required for attachment preflight")
@@ -296,9 +347,13 @@ class HarnessSessionRunner:
             session.id,
             options["attachment_ids"],
         )
-        attachment_payloads = tuple(
-            _run_attachment_metadata(attachment) for attachment in attachments
+        prepared_attachments = PreparedAttachments(
+            attachments=attachments,
+            metadata=tuple(
+                _run_attachment_metadata(attachment) for attachment in attachments
+            ),
         )
+        attachment_payloads = prepared_attachments.metadata
         managed_mcp_snapshot = self._prepare_managed_mcp_snapshot(options)
         _validate_continuation_identity(session, options)
         message_id = new_id("msg")
@@ -387,47 +442,30 @@ class HarnessSessionRunner:
         durable: bool = False,
     ) -> HarnessSessionRunResult:
         """Run one prompt inside an existing session."""
-        session = self.store.get_session(session_id)
-        options = self._run_options(payload, session=session)
-        session, provider_account_binding = self._prepare_provider_account_session(
-            session,
-            options,
+        execution_context = self.admission_service.admit(
+            self,
+            session_id,
+            payload,
+            user_message_id=user_message_id,
+            excluded_history_run_ids=excluded_history_run_ids,
+            new_message_id=new_id,
+            history_resolver=self.preparation_service.previous_messages,
+            history_limit=MAX_HISTORY_MESSAGES,
+            edit_message_id=_edit_message_id,
         )
-        harness = self.registry.get(options["harness_id"])
-        logical_user_message_id = user_message_id or new_id("msg")
-        previous_messages = ()
-        if not bool(_mapping(options["extra"]).get("isolated_history")):
-            previous_messages = tuple(
-                message
-                for message in _previous_messages_for_turn(
-                    self.store.list_messages(session.id),
-                    edit_message_id=_edit_message_id(options),
-                    current_user_message_id=user_message_id,
-                )
-                if message.run_id not in excluded_history_run_ids
-            )
-        attachments = self._load_attachments(
-            session.id,
-            options["attachment_ids"],
+        session = execution_context.session
+        options = execution_context.options
+        harness = execution_context.harness
+        logical_user_message_id = execution_context.logical_user_message_id
+        provider_account_binding = execution_context.provider_account_binding
+        prepared_attachments = self.preparation_service.prepare_attachments(
+            self,
+            execution_context,
+            metadata_factory=_run_attachment_metadata,
         )
-        attachment_payloads = tuple(
-            _run_attachment_metadata(attachment) for attachment in attachments
-        )
-        attachment_render_plan = (
-            render_attachments_for_harness(
-                options["harness_id"],
-                attachments,
-                self.attachment_store,
-                prompt=options["prompt"],
-            )
-            if attachment_payloads
-            else None
-        )
-        attachment_render_plan_payload = (
-            render_plan_to_dict(attachment_render_plan)
-            if attachment_render_plan is not None
-            else None
-        )
+        attachments = prepared_attachments.attachments
+        attachment_payloads = prepared_attachments.metadata
+        attachment_render_plan_payload = prepared_attachments.render_plan_payload
         project_memory = self._load_project_memory(options["workspace"])
         project_memory_payload = (
             memory_entries_to_context(project_memory) if project_memory else None
@@ -461,7 +499,7 @@ class HarnessSessionRunner:
         preflight = build_preflight_report(
             prompt=options["prompt"],
             workspace=options["workspace"],
-            previous_messages=previous_messages,
+            previous_messages=execution_context.previous_messages,
             attachments=attachments,
             project_memory=project_memory,
             data_dir=self.config.data_dir,
@@ -472,7 +510,7 @@ class HarnessSessionRunner:
         if preflight.hard_block:
             raise PreflightBlockedError(preflight)
         managed_mcp_snapshot = self._prepare_managed_mcp_snapshot(options)
-        _validate_continuation_identity(session, options)
+        self.admission_service.validate_continuation_identity(execution_context)
         preflight_payload = preflight_report_to_dict(preflight)
         effective_prompt = _prompt_with_project_memory(
             options["prompt"],
@@ -557,26 +595,14 @@ class HarnessSessionRunner:
                 started_at=utc_now(),
                 metadata=run_metadata,
             )
-        workspace_execution = _continued_workspace_execution(
-            session,
-            options,
+        workspace_execution = self.preparation_service.prepare_workspace(
+            execution_context,
+            run_id=run.id,
             data_dir=self.config.data_dir,
         )
-        if workspace_execution is None:
-            workspace_execution = prepare_workspace_execution(
-                requested_policy=options["workspace_policy"],
-                harness_kind=options["harness_kind"],
-                mode=options["mode"],
-                workspace=options["workspace"],
-                data_dir=self.config.data_dir,
-                session_id=session.id,
-                run_id=run.id,
-                dry_run=bool(options["extra"].get("dry_run")),
-            )
         run_metadata["workspace_execution"] = workspace_execution.to_metadata()
-        run = self.store.update_run(run.id, metadata=run_metadata)
-        if user_message_id is None:
-            self.store.append_message(
+        user_messages = (
+            (
                 HarnessMessage(
                     id=logical_user_message_id,
                     session_id=session.id,
@@ -591,9 +617,12 @@ class HarnessSessionRunner:
                         **_message_attachment_metadata(attachment_payloads),
                         **edited_message_metadata(edit_message_id),
                     },
-                )
+                ),
             )
-        self._append_event(
+            if user_message_id is None
+            else ()
+        )
+        run_started_event = self.persistence_service.event(
             session.id,
             run.id,
             HarnessEventType.RUN_STARTED.value,
@@ -610,6 +639,15 @@ class HarnessSessionRunner:
                 "builtin_tools": [tool.value for tool in options["builtin_tools"]],
             },
         )
+        started = self.persistence_service.persist_milestone(
+            PersistenceMilestone.RUN_STARTED,
+            session_id=session.id,
+            run_id=run.id,
+            run_patch={"metadata": run_metadata},
+            messages=user_messages,
+            events=(run_started_event,),
+        )
+        run = started.runs[-1]
         if existing_run_id is None:
             self._schedule_session_title(session, run.id, options)
         if workspace_execution.fallback_reason:
@@ -624,7 +662,7 @@ class HarnessSessionRunner:
                 },
             )
         request_messages = self._build_request_messages(
-            previous_messages,
+            execution_context.previous_messages,
             prompt=effective_prompt,
         )
         request_extra = _request_extra(
@@ -638,11 +676,9 @@ class HarnessSessionRunner:
         if project_memory_payload:
             request_extra["project_memory"] = project_memory_payload
         request_extra["preflight"] = preflight_payload
-        emitted_event_counts: Counter[str] = Counter()
-        latest_usage: dict[str, Any] = {}
-        reasoning_parts: dict[str, list[str]] = {"summary": [], "text": [], "model": []}
+        invocation = InvocationAccumulator()
 
-        def event_sink(event: HarnessEvent) -> None:
+        def append_streamed_event(event: HarnessEvent) -> None:
             self._append_event(
                 session.id,
                 run.id,
@@ -650,11 +686,6 @@ class HarnessSessionRunner:
                 event.message,
                 event_to_dict(event)["payload"],
             )
-            emitted_event_counts[_event_fingerprint(event)] += 1
-            usage = _usage_from_event(event)
-            if usage is not None:
-                _merge_usage(latest_usage, usage)
-            _collect_reasoning(reasoning_parts, event)
 
         request = HarnessRequest(
             prompt=effective_prompt,
@@ -668,7 +699,8 @@ class HarnessSessionRunner:
             workspace=workspace_execution.request_workspace,
             messages=request_messages,
             attachments=tuple(
-                attachment_to_dict(attachment) for attachment in attachments
+                attachment_to_dict(attachment)
+                for attachment in prepared_attachments.attachments
             ),
             attachment_render_plan=attachment_render_plan_payload,
             builtin_tools=options["builtin_tools"],
@@ -676,27 +708,27 @@ class HarnessSessionRunner:
             run_id=run.id,
             native_session_id=options["native_session_id"],
             cancel_event=cancel_event,
-            event_sink=event_sink,
+            event_sink=invocation.event_sink(append_streamed_event),
             process_sink=process_sink,
             extra=request_extra,
         )
-        continuation = _continuation_plan(
+        continuation = build_continuation_plan(
             request,
-            harness=harness,
-            session=session,
-            previous_messages=previous_messages,
-            prompt_id=logical_user_message_id,
+            harness=execution_context.harness,
+            session=execution_context.session,
+            previous_messages=execution_context.previous_messages,
+            prompt_id=execution_context.logical_user_message_id,
             edit_source=_edit_continuation_source(
                 self.store,
                 edit_message_id=edit_message_id,
-                previous_messages=previous_messages,
+                previous_messages=execution_context.previous_messages,
             ),
         )
-        request_extra["continuation"] = continuation
+        request_extra["continuation"] = continuation.to_dict()
         request = replace(request, extra=request_extra)
-        run_metadata["continuation"] = _public_continuation(continuation)
+        run_metadata["continuation"] = continuation.public_payload()
         run = self.store.update_run(run.id, metadata=run_metadata)
-        if previous_messages and continuation.get("strategy") in {
+        if execution_context.previous_messages and continuation.get("strategy") in {
             HeadlessContinuationStrategy.UNSUPPORTED.value,
             HeadlessContinuationStrategy.DEGRADED_REPLAY.value,
             HeadlessContinuationStrategy.ONE_SHOT.value,
@@ -735,7 +767,7 @@ class HarnessSessionRunner:
             ],
             "builtin_tools": [tool.value for tool in options["builtin_tools"]],
             "extra": options["extra"],
-            "continuation": _public_continuation(continuation),
+            "continuation": continuation.public_payload(),
         }
         if effective_prompt != options["prompt"]:
             raw_request["original_prompt"] = options["prompt"]
@@ -747,7 +779,7 @@ class HarnessSessionRunner:
         if attachment_render_plan_payload:
             raw_request["attachment_render_plan"] = attachment_render_plan_payload
         raw_request["preflight"] = preflight_payload
-        raw_request_record = self.store.append_raw_request(
+        raw_request_record = self.persistence_service.append_raw_request(
             session_id=session.id,
             run_id=run.id,
             payload=raw_request,
@@ -776,36 +808,16 @@ class HarnessSessionRunner:
                     "codes": sorted({finding.code for finding in preflight.findings}),
                 },
             )
-        try:
-            if _cancel_requested(cancel_event):
-                result = HarnessResult(ok=False, text="", error="Harness run canceled.")
-            elif (
-                durable
-                and options["execution_transport"]
-                is ExecutionTransport.NATIVE_STRUCTURED
-            ):
-                if not isinstance(harness, DurableStructuredHarness):
-                    raise ValueError(
-                        "durable structured admission changed after submission"
-                    )
-                result = harness.run_durable_structured(
-                    request, self.config.to_context()
-                )
-            else:
-                result = harness.run(request, self.config.to_context())
-        except Exception as exc:
-            result = HarnessResult(ok=False, text="", error=str(exc))
-        if _cancel_requested(cancel_event):
-            result = HarnessResult(
-                ok=False,
-                text="",
-                raw=result.raw,
-                events=result.events,
-                command=result.command,
-                error="Harness run canceled.",
-            )
+        result = self.invocation_service.invoke(
+            harness=harness,
+            request=request,
+            config_context=self.config.to_context(),
+            durable=durable,
+            structured_harness_type=DurableStructuredHarness,
+            cancel_event=cancel_event,
+        )
 
-        raw_response_record = self.store.append_raw_response(
+        raw_response_record = self.persistence_service.append_raw_response(
             session_id=session.id,
             run_id=run.id,
             payload=result_to_dict(result),
@@ -818,9 +830,7 @@ class HarnessSessionRunner:
             {"ok": result.ok},
         )
         for event in result.events:
-            fingerprint = _event_fingerprint(event)
-            if emitted_event_counts[fingerprint] > 0:
-                emitted_event_counts[fingerprint] -= 1
+            if invocation.was_emitted(event):
                 continue
             self._append_event(
                 session.id,
@@ -829,59 +839,39 @@ class HarnessSessionRunner:
                 event.message,
                 event_to_dict(event)["payload"],
             )
-            usage = _usage_from_event(event)
-            if usage is not None:
-                _merge_usage(latest_usage, usage)
-            _collect_reasoning(reasoning_parts, event)
+            invocation.observe(event)
 
-        if _cancel_requested(cancel_event):
-            status = "canceled"
-            role = "error"
-            content = "Harness run canceled."
-            event_type = HarnessEventType.RUN_CANCELED.value
-            event_message = "Harness run canceled."
-            error = content
-        elif result.ok:
-            status = "succeeded"
-            role = "assistant"
-            content = result.text
-            event_type = HarnessEventType.MESSAGE_COMPLETED.value
-            event_message = "Assistant message completed."
-            error = None
-        else:
-            status = "failed"
-            role = "error"
-            content = result.error or result.text or "Harness run failed"
-            event_type = HarnessEventType.ERROR.value
-            event_message = "Harness run failed."
-            error = content
-        message_metadata: dict[str, Any] = {}
-        if role == "assistant" and latest_usage:
-            message_metadata["usage"] = dict(latest_usage)
-        reasoning = _final_reasoning(reasoning_parts)
-        if role == "assistant" and reasoning:
-            message_metadata["reasoning"] = reasoning
-        self.store.append_message(
-            HarnessMessage(
-                id=new_id("msg"),
-                session_id=session.id,
-                run_id=run.id,
-                role=role,
-                content=content,
-                created_at=utc_now(),
-                harness_id=options["harness_id"],
-                model=options["model"],
-                api_mode=options["api_mode"],
-                metadata=message_metadata,
-            )
+        latest_usage = invocation.latest_usage
+        terminal = self.finalization_service.resolve(
+            result,
+            canceled=cancel_requested(cancel_event),
+            latest_usage=latest_usage,
+            reasoning=invocation.reasoning(),
         )
-        self._append_event(
+        status = terminal.status
+        role = terminal.role
+        content = terminal.content
+        error = terminal.error
+        terminal_message = HarnessMessage(
+            id=new_id("msg"),
+            session_id=session.id,
+            run_id=run.id,
+            role=role,
+            content=content,
+            created_at=utc_now(),
+            harness_id=options["harness_id"],
+            model=options["model"],
+            api_mode=options["api_mode"],
+            metadata=terminal.message_metadata,
+        )
+        terminal_event = self.persistence_service.event(
             session.id,
             run.id,
-            event_type,
-            event_message,
+            terminal.event_type,
+            terminal.event_message,
             {"role": role},
         )
+        terminal_events = [terminal_event]
         metadata = dict(run_metadata)
         app_server_thread = _mapping(result.raw).get("app_server_thread")
         structured_session_link = _mapping(result.raw).get("structured_session_link")
@@ -902,16 +892,18 @@ class HarnessSessionRunner:
                 metadata["diff"] = workspace_diff.patch
                 metadata["diff_captured"] = workspace_diff.captured
                 if workspace_diff.captured:
-                    self._append_event(
-                        session.id,
-                        run.id,
-                        HarnessEventType.FILE_CHANGED.value,
-                        "Captured workspace diff.",
-                        {
-                            "changed_files": list(workspace_diff.changed_files),
-                            "untracked_files": list(workspace_diff.untracked_files),
-                            "workspace_policy": workspace_execution.policy.value,
-                        },
+                    terminal_events.append(
+                        self.persistence_service.event(
+                            session.id,
+                            run.id,
+                            HarnessEventType.FILE_CHANGED.value,
+                            "Captured workspace diff.",
+                            {
+                                "changed_files": list(workspace_diff.changed_files),
+                                "untracked_files": list(workspace_diff.untracked_files),
+                                "workspace_policy": workspace_execution.policy.value,
+                            },
+                        )
                     )
         pr_artifact_run = HarnessRun(
             id=run.id,
@@ -941,14 +933,21 @@ class HarnessSessionRunner:
                 result_raw=result.raw,
             )
         )
-        updated_run = self.store.update_run(
-            run.id,
-            status=status,
-            finished_at=utc_now(),
-            error=error,
-            command=result.command,
-            metadata=metadata,
+        terminal_result = self.persistence_service.persist_milestone(
+            PersistenceMilestone.RUN_TERMINAL,
+            session_id=session.id,
+            run_id=run.id,
+            run_patch={
+                "status": status,
+                "finished_at": utc_now(),
+                "error": error,
+                "command": result.command,
+                "metadata": metadata,
+            },
+            messages=(terminal_message,),
+            events=tuple(terminal_events),
         )
+        updated_run = terminal_result.runs[-1]
         session_patch: dict[str, Any] = {
             "default_harness_id": options["harness_id"],
             "default_model": options["model"],
@@ -984,7 +983,7 @@ class HarnessSessionRunner:
             if native_updated is not None:
                 self._append_title_event(native_updated, run.id)
                 updated_session = native_updated
-        self._append_event(
+        run_finished_event = self.persistence_service.event(
             session.id,
             run.id,
             HarnessEventType.RUN_FINISHED.value,
@@ -997,20 +996,29 @@ class HarnessSessionRunner:
             spec=harness.spec(),
             raw_requests=(raw_request_record,),
             raw_responses=(raw_response_record,),
-            events=self.store.list_events(session.id, run_id=run.id),
+            events=(
+                *self.persistence_service.provenance_events(run.id),
+                run_finished_event,
+            ),
             data_dir=self.config.data_dir,
         )
         metadata = {
             **dict(updated_run.metadata),
             "provenance": run_provenance_to_dict(provenance),
         }
-        updated_run = self.store.update_run(run.id, metadata=metadata)
-        bundle = self.store.get_session_bundle(session.id)
+        provenance_result = self.persistence_service.persist_milestone(
+            PersistenceMilestone.PROVENANCE_STORED,
+            session_id=session.id,
+            run_id=run.id,
+            run_patch={"metadata": metadata},
+            events=(run_finished_event,),
+        )
+        updated_run = provenance_result.runs[-1]
         return HarnessSessionRunResult(
             session=updated_session,
             run=updated_run,
             result=result,
-            bundle=bundle,
+            _bundle_loader=lambda: self._export_session_bundle(session.id),
         )
 
     def _run_options(
@@ -1018,7 +1026,7 @@ class HarnessSessionRunner:
         payload: Mapping[str, Any],
         *,
         session: HarnessSession | None,
-    ) -> dict[str, Any]:
+    ) -> RunOptions:
         prompt = str(payload.get("prompt") or "")
         harness_id = str(
             payload.get("harness_id")
@@ -1075,38 +1083,38 @@ class HarnessSessionRunner:
         required_permission_actions = _permission_actions(
             extra.get("required_permission_actions")
         )
-        return {
-            "prompt": prompt,
-            "harness_id": harness_id,
-            "harness_kind": spec.kind,
-            "model": model,
-            "api_mode": api_mode,
-            "builtin_tools": builtin_tools,
-            "capability": capability,
-            "mode": mode,
-            "invocation_mode": invocation_mode,
-            "execution_transport": execution_transport,
-            "workspace": workspace,
-            "stream": bool(payload.get("stream")),
-            "extra": extra,
-            "native_session_id": _optional_text(payload.get("native_session_id")),
-            "attachment_ids": attachment_ids,
-            "workspace_policy": workspace_policy,
-            "permission_profile": selected_permission_profile.id,
-            "permission_origin": origin,
-            "required_permission_actions": required_permission_actions,
-            "agent_id": _optional_text(payload.get("agent_id")),
-            "agent_profile_snapshot": (
+        return RunOptions(
+            prompt=prompt,
+            harness_id=harness_id,
+            harness_kind=spec.kind,
+            model=model,
+            api_mode=api_mode,
+            builtin_tools=builtin_tools,
+            capability=capability,
+            mode=mode,
+            invocation_mode=invocation_mode,
+            execution_transport=execution_transport,
+            workspace=workspace,
+            stream=bool(payload.get("stream")),
+            extra=extra,
+            native_session_id=_optional_text(payload.get("native_session_id")),
+            attachment_ids=attachment_ids,
+            workspace_policy=workspace_policy,
+            permission_profile=selected_permission_profile.id,
+            permission_origin=origin,
+            required_permission_actions=required_permission_actions,
+            agent_id=_optional_text(payload.get("agent_id")),
+            agent_profile_snapshot=(
                 dict(payload["agent_profile_snapshot"])
                 if isinstance(payload.get("agent_profile_snapshot"), Mapping)
                 else None
             ),
-            "agent_execution_plan": (
+            agent_execution_plan=(
                 dict(payload["agent_execution_plan"])
                 if isinstance(payload.get("agent_execution_plan"), Mapping)
                 else None
             ),
-        }
+        )
 
     def _prepare_provider_account_session(
         self,
@@ -1231,7 +1239,7 @@ class HarnessSessionRunner:
             load_config_name=False,
         )
         loaded = load_project_config(project.root)
-        descriptors, errors = build_mcp_inventory(loaded.tool_profiles)
+        descriptors, errors = build_mcp_inventory(loaded.tool_profiles, project=project)
         selected_errors = {
             str(item.get("server_id")): str(item.get("error"))
             for item in errors
@@ -1409,7 +1417,7 @@ class HarnessSessionRunner:
 
     def _prepare_managed_mcp_snapshot(
         self,
-        options: dict[str, Any],
+        options: RunOptions,
     ) -> Mapping[str, Any] | None:
         """Resolve or freeze the selected managed tools before run creation."""
         extra = dict(_mapping(options.get("extra")))
@@ -1452,7 +1460,7 @@ class HarnessSessionRunner:
             load_config_name=False,
         )
         loaded = load_project_config(project.root)
-        descriptors, errors = build_mcp_inventory(loaded.tool_profiles)
+        descriptors, errors = build_mcp_inventory(loaded.tool_profiles, project=project)
         selected_errors = {
             str(item.get("server_id")): str(item.get("error"))
             for item in errors
@@ -1484,17 +1492,19 @@ class HarnessSessionRunner:
         message: str,
         payload: Mapping[str, Any],
     ) -> HarnessStoredEvent:
-        return self.store.append_event(
-            HarnessStoredEvent(
-                id=new_id("evt"),
-                session_id=session_id,
-                run_id=run_id,
-                type=event_type,
-                message=message,
-                payload=payload,
-                created_at=utc_now(),
-            )
+        return self.persistence_service.append_event(
+            session_id,
+            run_id,
+            event_type,
+            message,
+            payload,
         )
+
+    def _export_session_bundle(self, session_id: str) -> HarnessSessionBundle:
+        exporter = getattr(self.store, "export_session_bundle", None)
+        if callable(exporter):
+            return exporter(session_id)
+        return self.store.get_session_bundle(session_id)
 
 
 def _native_resume_metadata(harness_id: str) -> dict[str, Any]:
@@ -1543,30 +1553,6 @@ def _edit_message_id(options: Mapping[str, Any]) -> str | None:
     return _optional_text(_mapping(options.get("extra")).get("edit_message_id"))
 
 
-def _previous_messages_for_turn(
-    messages: tuple[HarnessMessage, ...],
-    *,
-    edit_message_id: str | None,
-    current_user_message_id: str | None = None,
-) -> tuple[HarnessMessage, ...]:
-    active = active_conversation_messages(messages)
-    if current_user_message_id is not None:
-        current = next(
-            (message for message in active if message.id == current_user_message_id),
-            None,
-        )
-        if current is not None:
-            edited_from = _optional_text(current.metadata.get("edited_from_message_id"))
-            if edit_message_id is not None and edited_from != edit_message_id:
-                raise ValueError("Edited user message branch does not match its source")
-            return tuple(
-                message for message in active if message.id != current_user_message_id
-            )
-    if edit_message_id is not None:
-        return history_before_edited_message(active, edit_message_id)
-    return active
-
-
 def _edit_continuation_source(
     store: HarnessSessionStore,
     *,
@@ -1591,221 +1577,6 @@ def _edit_continuation_source(
                 "turn_id": link.get("latest_turn_id"),
             }
     return {"action": "start"}
-
-
-def _continuation_plan(
-    request: HarnessRequest,
-    *,
-    harness: Any,
-    session: HarnessSession,
-    previous_messages: tuple[HarnessMessage, ...],
-    prompt_id: str,
-    edit_source: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Select one truthful, machine-readable headless continuation strategy."""
-    if (
-        request.execution_transport is ExecutionTransport.NATIVE_STRUCTURED
-        and harness.spec().id != "codex-cli"
-    ):
-        return {
-            "strategy": ExecutionTransport.NATIVE_STRUCTURED.value,
-            "supported": True,
-            "continuity_proven": True,
-            "action": (
-                "start"
-                if edit_source is not None
-                else "continue"
-                if previous_messages
-                else "start"
-            ),
-            "prompt_id": prompt_id,
-            "history_replayed": edit_source is not None and bool(previous_messages),
-        }
-    if (
-        request.invocation_mode.value != "headless"
-        and request.execution_transport is not ExecutionTransport.NATIVE_STRUCTURED
-    ):
-        return {
-            "strategy": HeadlessContinuationStrategy.NATIVE_CLI_RESUME.value,
-            "supported": bool(request.native_session_id),
-            "reason": "Native continuity is owned by the managed native connector.",
-        }
-    spec = harness.spec()
-    configured = getattr(
-        spec,
-        "headless_continuation",
-        HeadlessContinuationStrategy.ONE_SHOT,
-    )
-    strategy = (
-        configured.value
-        if isinstance(configured, HeadlessContinuationStrategy)
-        else str(configured)
-    )
-    if strategy == HeadlessContinuationStrategy.STRUCTURED_THREAD.value:
-        probe = getattr(harness, "capability_probe", None)
-        snapshot = probe() if callable(probe) else None
-        capabilities = getattr(snapshot, "capabilities", {})
-        if not isinstance(capabilities, Mapping) or not capabilities.get("app-server"):
-            return {
-                "strategy": HeadlessContinuationStrategy.DEGRADED_REPLAY.value,
-                "supported": True,
-                "continuity_proven": False,
-                "reason": (
-                    "Codex app-server is unavailable; normalized history is replayed "
-                    "into a fresh codex exec --ephemeral process."
-                ),
-            }
-        managed_mcp = _mapping(request.extra.get("managed_mcp_snapshot"))
-        home_identity = (
-            "apphome_"
-            + hashlib.sha256(
-                (
-                    f"{request.api_mode.value}\0"
-                    f"{managed_mcp.get('snapshot_hash') or 'no-tools'}"
-                ).encode("utf-8")
-            ).hexdigest()[:24]
-        )
-        execution_snapshot = build_execution_snapshot(
-            request,
-            managed_home_id=home_identity,
-        )
-        link = _mapping(session.metadata.get("app_server_thread"))
-        fork = _mapping(session.metadata.get("app_server_fork"))
-        native_operation = str(
-            request.extra.get("native_session_operation") or ""
-        ).strip()
-        if request.native_session_id and not link and not fork:
-            if native_operation == "resume":
-                link = {
-                    "schema_version": 1,
-                    "protocol": "codex-app-server-json-rpc-v2",
-                    "thread_id": request.native_session_id,
-                    "snapshot": execution_snapshot,
-                    "snapshot_hash": execution_snapshot["snapshot_hash"],
-                    "runtime_status": "external",
-                }
-            elif native_operation == "fork":
-                fork = {"thread_id": request.native_session_id}
-            else:
-                raise ValueError(
-                    "Codex native session identity requires resume or fork"
-                )
-        if edit_source is not None:
-            link = _mapping(edit_source.get("link"))
-            fork = (
-                {
-                    "thread_id": edit_source.get("thread_id"),
-                    "turn_id": edit_source.get("turn_id"),
-                }
-                if edit_source.get("action") == "fork"
-                else {}
-            )
-        if link:
-            expected = str(link.get("snapshot_hash") or "")
-            if expected != execution_snapshot["snapshot_hash"]:
-                raise ValueError(
-                    "Codex app-server continuation changed route, model, workspace, "
-                    "permission mode, managed home, or tool snapshot; fork explicitly."
-                )
-        action = (
-            "fork"
-            if fork
-            else "resume"
-            if native_operation == "resume" and link
-            else "continue"
-            if link
-            else "start"
-        )
-        return {
-            "strategy": HeadlessContinuationStrategy.STRUCTURED_THREAD.value,
-            "supported": True,
-            "continuity_proven": True,
-            "action": action,
-            "prompt_id": prompt_id,
-            "snapshot": execution_snapshot,
-            "link": link or None,
-            "fork_thread_id": fork.get("thread_id"),
-            "fork_turn_id": fork.get("turn_id"),
-            "protocol": "codex-app-server-json-rpc-v2",
-            "cli_version": str(getattr(snapshot, "version", None) or "unknown"),
-            "normalized_history_canonical": True,
-            "history_replayed": False,
-        }
-    if strategy == HeadlessContinuationStrategy.STRUCTURED_REPLAY.value:
-        return {
-            "strategy": strategy,
-            "supported": True,
-            "continuity_proven": True,
-            "history_replayed": bool(previous_messages),
-            "reason": "Normalized Harness messages are sent as one structured request.",
-        }
-    if strategy == HeadlessContinuationStrategy.UNSUPPORTED.value:
-        return {
-            "strategy": strategy,
-            "supported": False,
-            "continuity_proven": False,
-            "reason": (
-                f"{spec.title} headless mode does not consume a stable external "
-                "session id or normalized prior turns; this run is one-shot."
-            ),
-        }
-    return {
-        "strategy": HeadlessContinuationStrategy.ONE_SHOT.value,
-        "supported": False,
-        "continuity_proven": False,
-        "reason": "This adapter advertises one-shot execution only.",
-    }
-
-
-def _public_continuation(value: Mapping[str, Any]) -> dict[str, Any]:
-    """Remove delivery-only ids while retaining truthful continuity evidence."""
-    return {
-        key: item for key, item in value.items() if key not in {"prompt_id", "link"}
-    }
-
-
-def _continued_workspace_execution(
-    session: HarnessSession,
-    options: Mapping[str, Any],
-    *,
-    data_dir: str,
-) -> WorkspaceExecution | None:
-    """Reuse the first isolated edit worktree for later app-server turns."""
-    link = _mapping(session.metadata.get("app_server_thread"))
-    snapshot = _mapping(link.get("snapshot"))
-    if not link or snapshot.get("permission_mode") != "edit":
-        return None
-    if options.get("harness_id") != "codex-cli" or options.get("mode") != "edit":
-        return None
-    source = _optional_text(snapshot.get("source_workspace"))
-    effective = _optional_text(snapshot.get("workspace"))
-    requested_source = _optional_text(options.get("workspace"))
-    if source != requested_source or effective is None:
-        raise ValueError(
-            "Codex app-server edit continuation changed its source workspace; "
-            "fork explicitly."
-        )
-    effective_path = Path(effective).expanduser().resolve()
-    owned_root = Path(data_dir).expanduser().resolve() / "worktrees"
-    try:
-        effective_path.relative_to(owned_root)
-    except ValueError as exc:
-        raise ValueError(
-            "Stored Codex app-server worktree is outside Harness ownership"
-        ) from exc
-    if not effective_path.is_dir():
-        raise ValueError(
-            "Stored Codex app-server worktree is unavailable; fork explicitly."
-        )
-    requested_policy = parse_workspace_policy(options.get("workspace_policy"))
-    return WorkspaceExecution(
-        requested_policy=requested_policy,
-        policy=WorkspacePolicy.WORKTREE,
-        source_workspace=source,
-        source_git_root=_optional_text(snapshot.get("source_git_root")),
-        effective_workspace=str(effective_path),
-        worktree_path=str(effective_path),
-    )
 
 
 def _project_metadata(workspace: str | None, *, data_dir: str) -> dict[str, str]:
@@ -2085,96 +1856,3 @@ def _request_extra(
     if attachment_render_plan:
         payload["attachment_render_plan"] = dict(attachment_render_plan)
     return payload
-
-
-def _cancel_requested(cancel_event: Any | None) -> bool:
-    if cancel_event is None:
-        return False
-    is_set = getattr(cancel_event, "is_set", None)
-    return bool(is_set()) if callable(is_set) else False
-
-
-def _event_fingerprint(event: HarnessEvent) -> str:
-    """Return a stable fingerprint used to suppress already-streamed events."""
-    return json.dumps(
-        event_to_dict(event),
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
-    )
-
-
-def _usage_from_event(event: HarnessEvent) -> dict[str, Any] | None:
-    """Extract safe token counters from one normalized usage event."""
-    if event.type != HarnessEventType.USAGE.value:
-        return None
-    payload = event_to_dict(event)["payload"]
-    aliases = {
-        "input_tokens": ("input_tokens", "prompt_tokens"),
-        "output_tokens": ("output_tokens", "completion_tokens"),
-        "total_tokens": ("total_tokens",),
-        "cached_input_tokens": ("cached_input_tokens", "cached_tokens"),
-        "reasoning_output_tokens": (
-            "reasoning_output_tokens",
-            "reasoning_tokens",
-            "thoughts_tokens",
-        ),
-        "tool_tokens": ("tool_tokens",),
-    }
-    usage: dict[str, Any] = {}
-    for target, keys in aliases.items():
-        value = next(
-            (payload[key] for key in keys if _is_nonnegative_integer(payload.get(key))),
-            None,
-        )
-        if value is not None:
-            usage[target] = value
-    if (
-        "total_tokens" not in usage
-        and {
-            "input_tokens",
-            "output_tokens",
-        }
-        <= usage.keys()
-    ):
-        usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
-    source = payload.get("source")
-    if isinstance(source, str) and source:
-        usage["source"] = source
-    return usage or None
-
-
-def _is_nonnegative_integer(value: Any) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
-
-
-def _collect_reasoning(
-    target: dict[str, list[str]],
-    event: HarnessEvent,
-) -> None:
-    if event.type != HarnessEventType.REASONING_DELTA.value:
-        return
-    payload = event_to_dict(event)["payload"]
-    delta = payload.get("delta")
-    if not isinstance(delta, str) or not delta:
-        return
-    kind = str(payload.get("kind") or "model")
-    target.setdefault(kind, []).append(delta)
-
-
-def _final_reasoning(parts: Mapping[str, list[str]]) -> str:
-    selected = parts.get("summary") or parts.get("model") or parts.get("text") or []
-    return "".join(selected)[:MAX_REASONING_CHARACTERS]
-
-
-def _merge_usage(target: dict[str, Any], update: Mapping[str, Any]) -> None:
-    """Merge partial usage snapshots and keep the aggregate total consistent."""
-    explicit_total = "total_tokens" in update
-    target.update(update)
-    if (
-        not explicit_total
-        and _is_nonnegative_integer(target.get("input_tokens"))
-        and _is_nonnegative_integer(target.get("output_tokens"))
-    ):
-        target["total_tokens"] = target["input_tokens"] + target["output_tokens"]

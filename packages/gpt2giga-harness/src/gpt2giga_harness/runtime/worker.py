@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 import hashlib
 import os
 import socket
@@ -30,7 +29,6 @@ from gpt2giga_harness.runtime.policy import (
     PolicyEngine,
     permission_profile,
 )
-from gpt2giga_harness.runtime.reconcile import RuntimeReconciler
 from gpt2giga_harness.runtime.side_effects import HarnessSideEffectExecutor
 from gpt2giga_harness.runtime.structured import (
     DURABLE_STRUCTURED_ADMISSION_FIELD,
@@ -42,11 +40,26 @@ from gpt2giga_harness.runtime.store import (
     SideEffectBlockedError,
     SideEffectConflictError,
 )
+from gpt2giga_harness.runtime.workers.scheduler import (
+    RECONCILIATION,
+    RECOVERY,
+    RETRIES,
+    SCHEDULES,
+    WorkerMaintenanceRunner,
+    WorkerMaintenanceScheduler,
+    adaptive_idle_delay as _adaptive_idle_delay,
+)
+from gpt2giga_harness.runtime.workers.status import worker_status as worker_status
 from gpt2giga_harness.session_runner import HarnessSessionRunner, QueuedHarnessRun
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.sessions.locking import exclusive_file_lock
-from gpt2giga_harness.sessions.models import HarnessStoredEvent
-from gpt2giga_harness.sessions.store import new_id, utc_now
+from gpt2giga_harness.sessions import (
+    FilesystemHarnessSessionStore,
+    HarnessStoredEvent,
+)
+from gpt2giga_harness.sessions.contracts import (
+    exclusive_file_lock,
+    new_id,
+    utc_now,
+)
 from gpt2giga_harness.types import HarnessEventType
 
 DEFAULT_LEASE_SECONDS = 15.0
@@ -322,15 +335,21 @@ class DurableJobWorker:
         )
         self.fingerprint = build_worker_fingerprint(self.registry)
         self._registered = False
+        self._maintenance = WorkerMaintenanceScheduler(
+            heartbeat_seconds=self.heartbeat_seconds
+        )
+        self._maintenance_runner = WorkerMaintenanceRunner(
+            scheduler=self._maintenance,
+            runtime_store=self.runtime_store,
+            session_store=self.session_store,
+            worker_id=self.worker_id,
+            trigger_schedules=lambda: self._trigger_schedules(),
+        )
 
     def run_once(self) -> bool:
         """Claim and execute at most one job; return whether work was claimed."""
         self._register()
-        self.runtime_store.heartbeat_worker(self.worker_id)
-        self._trigger_schedules()
-        self.runtime_store.recover_expired_attempts()
-        self.runtime_store.requeue_due_jobs()
-        RuntimeReconciler(self.runtime_store, self.session_store).reconcile()
+        self._maintenance_runner.run_due()
         claim = self.runtime_store.claim_next_job(
             worker_id=self.worker_id,
             capability_fingerprint=self.fingerprint,
@@ -460,7 +479,10 @@ class DurableJobWorker:
                 "error": error,
             },
         )
-        RuntimeReconciler(self.runtime_store, self.session_store).reconcile()
+        if retry_delay is not None:
+            self._maintenance.request(RETRIES, delay_seconds=retry_delay)
+        self._maintenance.request(SCHEDULES, RECONCILIATION)
+        self._maintenance_runner.run_due(only=(RECONCILIATION,))
         self._advance_parent_workflow(updated_job)
         return True
 
@@ -514,6 +536,7 @@ class DurableJobWorker:
                     maximum_wait,
                     idle_cycles,
                 )
+                wait_seconds = self._maintenance.next_delay(wait_seconds)
                 wait_seconds = self.runtime_store.next_worker_maintenance_delay(
                     wait_seconds
                 )
@@ -525,6 +548,7 @@ class DurableJobWorker:
                     wait_seconds = min(wait_seconds, idle_remaining)
                 if receiver.wait(wait_seconds):
                     idle_cycles = 0
+                    self._maintenance.request(SCHEDULES, RETRIES, RECOVERY)
         finally:
             receiver.close()
             if self._registered:
@@ -560,12 +584,12 @@ class DurableJobWorker:
             ):
                 timed_out.set()
                 cancel_event.set()
-            self.runtime_store.heartbeat_attempt(
+            self.runtime_store.heartbeat_worker_attempt(
                 attempt_id,
                 worker_id=self.worker_id,
                 lease_seconds=self.lease_seconds,
+                minimum_interval_seconds=self.heartbeat_seconds * 0.5,
             )
-            self.runtime_store.heartbeat_worker(self.worker_id)
 
     def _record_process(self, attempt_id: str, process: Mapping[str, Any]) -> None:
         process_id = int(process["process_id"])
@@ -691,52 +715,6 @@ class DurableJobWorker:
             origin=origin,
             schedule_id=schedule_id,
         ).advance(job.workflow_id)
-
-
-def worker_status(
-    store: RuntimeCoordinationStore, *, stale_after: float = 30.0
-) -> dict[str, Any]:
-    """Return a JSON-ready worker status snapshot."""
-    now = time.time()
-    workers = []
-    for worker in store.list_workers():
-        try:
-            heartbeat = datetime.fromisoformat(worker.heartbeat_at).timestamp()
-        except ValueError:
-            heartbeat = 0.0
-        effective = (
-            "offline"
-            if worker.status == "online" and now - heartbeat > stale_after
-            else worker.status
-        )
-        workers.append(
-            {
-                "id": worker.id,
-                "process_id": worker.process_id,
-                "hostname": worker.hostname,
-                "status": effective,
-                "started_at": worker.started_at,
-                "heartbeat_at": worker.heartbeat_at,
-                "stopped_at": worker.stopped_at,
-                "capability_fingerprint": dict(worker.capability_fingerprint),
-            }
-        )
-    return {
-        "workers": workers,
-        "online": sum(item["status"] == "online" for item in workers),
-    }
-
-
-def _adaptive_idle_delay(
-    minimum_seconds: float,
-    maximum_seconds: float,
-    idle_cycles: int,
-) -> float:
-    """Return bounded exponential idle delay after consecutive empty cycles."""
-    minimum = max(float(minimum_seconds), 0.05)
-    maximum = max(float(maximum_seconds), minimum)
-    exponent = max(min(int(idle_cycles) - 1, 16), 0)
-    return min(minimum * (2**exponent), maximum)
 
 
 def _idempotency_class(payload: Mapping[str, Any]) -> str:

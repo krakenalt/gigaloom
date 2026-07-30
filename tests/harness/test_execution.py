@@ -3,6 +3,7 @@ import json
 
 import pytest
 
+import gpt2giga_harness.execution as execution_module
 from gpt2giga_harness.execution import (
     EMPTY_EXTENSION_SNAPSHOT_HASH,
     ExecutionBudgets,
@@ -20,6 +21,25 @@ from gpt2giga_harness.execution import (
     execution_snapshot_to_dict,
     legacy_execution_placeholder,
 )
+
+
+def test_execution_package_facade_preserves_public_module_identity():
+    assert execution_module.__file__.replace("\\", "/").endswith(
+        "/gpt2giga_harness/execution/__init__.py"
+    )
+    public_types = (
+        ExecutionBudgets,
+        ExecutionClassification,
+        ExecutionClassificationStatus,
+        ExecutionSnapshot,
+        ExecutionTransport,
+        InteractionMode,
+        ProviderRef,
+        RouteRef,
+        RuntimeOwnership,
+        SnapshotEvidenceRef,
+    )
+    assert {item.__module__ for item in public_types} == {"gpt2giga_harness.execution"}
 
 
 def test_execution_snapshot_round_trips_with_stable_semantic_hash():

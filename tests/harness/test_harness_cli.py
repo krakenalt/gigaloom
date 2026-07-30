@@ -7,6 +7,7 @@ import pytest
 
 from gpt2giga_harness import cli, proxy
 from gpt2giga_harness import entrypoint
+from gpt2giga_harness.cli_commands.handlers import ui as ui_handlers
 from gpt2giga_harness.codex_mcp_target import CodexMCPTargetDriver
 from gpt2giga_harness.harnesses.base import BaseHarness
 from gpt2giga_harness.harnesses.claude_code import ClaudeCodeHarness
@@ -76,7 +77,7 @@ def _ready_execution_readiness(*_args, **_kwargs):
 
 
 def test_cli_ui_allows_cold_worker_fingerprint_startup():
-    assert cli.UI_WORKER_START_TIMEOUT_SECONDS == 10.0
+    assert ui_handlers.UI_WORKER_START_TIMEOUT_SECONDS == 10.0
 
 
 def test_cli_version_reports_distribution_version(capsys):
@@ -99,6 +100,15 @@ def test_cli_completion_is_static_and_leaves_provider_suffix_owned(shell, capsys
     assert "--output-format" not in output
 
 
+@pytest.mark.parametrize("shell", ("bash", "zsh", "fish", "powershell"))
+def test_console_completion_preserves_cli_output(shell, capsys):
+    assert entrypoint.main(["completion", shell]) == 0
+    entrypoint_output = capsys.readouterr().out
+
+    assert cli.main(["completion", shell]) == 0
+    assert entrypoint_output == capsys.readouterr().out
+
+
 def test_console_entrypoint_reports_version_without_importing_full_cli(
     capsys, monkeypatch
 ):
@@ -108,6 +118,44 @@ def test_console_entrypoint_reports_version_without_importing_full_cli(
 
     assert "gpt2giga_harness.cli" not in sys.modules
     assert capsys.readouterr().out == f"GigaLoom {version('gigaloom')} (gigaloom)\n"
+
+
+def test_console_config_path_preserves_cli_output(capsys):
+    assert entrypoint.main(["config", "path"]) == 0
+    entrypoint_output = capsys.readouterr().out
+
+    assert cli.main(["config", "path"]) == 0
+    assert entrypoint_output == capsys.readouterr().out
+
+
+def test_console_automation_help_preserves_cli_output(capsys):
+    arguments = ["--non-interactive", "--help"]
+    with pytest.raises(SystemExit) as entrypoint_exit:
+        entrypoint.main(arguments)
+    entrypoint_streams = capsys.readouterr()
+
+    with pytest.raises(SystemExit) as cli_exit:
+        cli.main(arguments)
+    assert entrypoint_exit.value.code == cli_exit.value.code == 0
+    assert entrypoint_streams == capsys.readouterr()
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    (
+        ["completion", "unsupported"],
+        ["config", "path", "unexpected"],
+    ),
+)
+def test_console_metadata_errors_preserve_cli_contract(arguments, capsys):
+    with pytest.raises(SystemExit) as entrypoint_exit:
+        entrypoint.main(arguments)
+    entrypoint_streams = capsys.readouterr()
+
+    with pytest.raises(SystemExit) as cli_exit:
+        cli.main(arguments)
+    assert entrypoint_exit.value.code == cli_exit.value.code == 2
+    assert entrypoint_streams == capsys.readouterr()
 
 
 def test_cli_ui_starts_and_stops_worker_when_none_is_online(
@@ -130,16 +178,16 @@ def test_cli_ui_starts_and_stops_worker_when_none_is_online(
         )
         return {"workers": workers, "online": len(workers)}
 
-    monkeypatch.setattr(cli, "worker_status", fake_worker_status)
+    monkeypatch.setattr(ui_handlers, "worker_status", fake_worker_status)
     monkeypatch.setattr(
-        cli.subprocess,
+        ui_handlers.subprocess,
         "Popen",
         lambda command, **kwargs: popen_calls.append((command, kwargs)) or process,
     )
-    monkeypatch.setattr(cli, "create_app", lambda _config: "app")
+    monkeypatch.setattr(ui_handlers, "create_app", lambda _config: "app")
     uvicorn_calls = []
     monkeypatch.setattr(
-        cli.uvicorn,
+        ui_handlers.uvicorn,
         "run",
         lambda *args, **kwargs: uvicorn_calls.append((args, kwargs)),
     )
@@ -177,22 +225,22 @@ def test_cli_ui_reuses_online_worker_or_allows_autostart_opt_out(
 ):
     monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(
-        cli,
+        ui_handlers,
         "worker_status",
         lambda _store: {"workers": [{"status": "online"}], "online": 1},
     )
     monkeypatch.setattr(
-        cli.subprocess,
+        ui_handlers.subprocess,
         "Popen",
         lambda *args, **kwargs: pytest.fail("must not start another worker"),
     )
-    monkeypatch.setattr(cli, "create_app", lambda _config: "app")
-    monkeypatch.setattr(cli.uvicorn, "run", lambda *args, **kwargs: None)
+    monkeypatch.setattr(ui_handlers, "create_app", lambda _config: "app")
+    monkeypatch.setattr(ui_handlers.uvicorn, "run", lambda *args, **kwargs: None)
 
     assert cli.main(["ui"]) == 0
 
     monkeypatch.setattr(
-        cli,
+        ui_handlers,
         "worker_status",
         lambda _store: pytest.fail("opt-out must skip worker discovery"),
     )
@@ -219,10 +267,10 @@ def test_cli_ui_starts_missing_workers_to_reach_target_pool(
         processes.append(process)
         return process
 
-    monkeypatch.setattr(cli, "worker_status", fake_worker_status)
-    monkeypatch.setattr(cli.subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(cli, "create_app", lambda _config: "app")
-    monkeypatch.setattr(cli.uvicorn, "run", lambda *args, **kwargs: None)
+    monkeypatch.setattr(ui_handlers, "worker_status", fake_worker_status)
+    monkeypatch.setattr(ui_handlers.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(ui_handlers, "create_app", lambda _config: "app")
+    monkeypatch.setattr(ui_handlers.uvicorn, "run", lambda *args, **kwargs: None)
 
     assert cli.main(["ui", "--worker-count", "4"]) == 0
 

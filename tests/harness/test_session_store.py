@@ -1,7 +1,7 @@
 from dataclasses import replace
 import json
 
-import gpt2giga_harness.sessions.filesystem as filesystem_sessions
+import gpt2giga_harness.sessions.storage.filesystem.runs as filesystem_runs
 from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
 from gpt2giga_harness.native import HarnessInvocationMode, NativeSessionStatus
 from gpt2giga_harness.sessions.models import (
@@ -115,7 +115,7 @@ def test_filesystem_store_persists_invocation_mode_on_runs(tmp_path):
     )
 
 
-def test_filesystem_store_updates_run_with_one_authoritative_log_scan(
+def test_filesystem_store_updates_run_with_one_authoritative_record_read(
     tmp_path, monkeypatch
 ):
     store = FilesystemHarnessSessionStore(tmp_path)
@@ -131,20 +131,24 @@ def test_filesystem_store_updates_run_with_one_authoritative_log_scan(
         workspace=None,
     )
     assert store.get_run(run.id) == run
-    original_read_jsonl = filesystem_sessions._read_jsonl
-    scans = 0
+    original_read_run_state = filesystem_runs._read_run_state
+    reads = 0
 
-    def counted_read_jsonl(*args, **kwargs):
-        nonlocal scans
-        scans += 1
-        return original_read_jsonl(*args, **kwargs)
+    def counted_read_run_state(*args, **kwargs):
+        nonlocal reads
+        reads += 1
+        return original_read_run_state(*args, **kwargs)
 
-    monkeypatch.setattr(filesystem_sessions, "_read_jsonl", counted_read_jsonl)
+    monkeypatch.setattr(
+        filesystem_runs,
+        "_read_run_state",
+        counted_read_run_state,
+    )
 
     updated = store.update_run(run.id, status="succeeded")
 
     assert updated.status.value == "succeeded"
-    assert scans == 1
+    assert reads == 1
 
 
 def test_filesystem_store_update_run_rebuilds_stale_session_lookup(tmp_path):
@@ -262,7 +266,7 @@ def test_filesystem_store_filters_by_project_id_without_hiding_legacy(tmp_path):
 def test_filesystem_store_rebuilds_missing_index(tmp_path):
     store = FilesystemHarnessSessionStore(tmp_path)
     session = store.create_session(title="recover me")
-    (tmp_path / "sessions" / "index.json").unlink()
+    (tmp_path / "sessions" / "index.json").unlink(missing_ok=True)
 
     reopened = FilesystemHarnessSessionStore(tmp_path)
 
@@ -275,7 +279,7 @@ def test_filesystem_store_ignores_corrupted_manifest_in_list(tmp_path):
     bad_dir = tmp_path / "sessions" / "2026" / "07" / "bad"
     bad_dir.mkdir(parents=True)
     (bad_dir / "manifest.json").write_text("{bad json", encoding="utf-8")
-    (tmp_path / "sessions" / "index.json").unlink()
+    (tmp_path / "sessions" / "index.json").unlink(missing_ok=True)
 
     assert [session.id for session in store.list_sessions()] == [good.id]
 
@@ -306,14 +310,12 @@ def test_filesystem_store_redacts_secrets_on_disk(tmp_path, monkeypatch):
         payload={"access_token": secret, "text": f"value {secret}"},
     )
 
-    disk_text = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in tmp_path.rglob("*")
-        if path.is_file()
+    disk_bytes = b"\n".join(
+        path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()
     )
 
-    assert secret not in disk_text
-    assert REDACTED in disk_text
+    assert secret.encode() not in disk_bytes
+    assert REDACTED.encode() in disk_bytes
     assert json.loads(
         next(tmp_path.rglob("raw_responses.jsonl")).read_text(encoding="utf-8")
     )

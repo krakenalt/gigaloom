@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Query, Request
+from fastapi import Body, HTTPException, Query, Request
 
 from gpt2giga_harness.integration_flows import (
     IntegrationFlowConflictError,
@@ -23,13 +23,13 @@ from gpt2giga_harness.integration_lifecycle import (
     IntegrationLifecycleError,
     IntegrationLifecycleNotFoundError,
 )
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.get("/api/integrations")
+@router.fs_read.get("/api/integrations")
 def integration_inventory(request: Request) -> dict[str, Any]:
     """Return source, target, catalog, and recent operation projections."""
     inventory = request.app.state.harness_integration_flow_service.inventory()
@@ -49,7 +49,7 @@ def integration_inventory(request: Request) -> dict[str, Any]:
     return inventory
 
 
-@router.get("/api/integrations/search")
+@router.net_async_read.get("/api/integrations/search")
 async def search_integrations(
     request: Request,
     q: str = Query(min_length=2, max_length=200),
@@ -67,7 +67,7 @@ async def search_integrations(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.get("/api/integrations/skills/preview")
+@router.fs_read.get("/api/integrations/skills/preview")
 def preview_skill(
     request: Request,
     preview_id: str = Query(min_length=1, max_length=512),
@@ -81,7 +81,7 @@ def preview_skill(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.get("/api/integrations/source-detail")
+@router.net_async_read.get("/api/integrations/source-detail")
 async def integration_source_detail(
     request: Request,
     source_id: str = Query(min_length=1, max_length=256),
@@ -101,7 +101,7 @@ async def integration_source_detail(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.post("/api/integrations/git/inspect")
+@router.proc_async_atomic.post("/api/integrations/git/inspect")
 async def inspect_git_repository(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),
@@ -134,7 +134,7 @@ async def inspect_git_repository(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.post("/api/integrations/git/import-skill")
+@router.fs_atomic.post("/api/integrations/git/import-skill")
 def import_git_skill(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),
@@ -159,7 +159,7 @@ def import_git_skill(
     }
 
 
-@router.post("/api/integrations/groups/preview")
+@router.fs_atomic.post("/api/integrations/groups/preview")
 def preview_integration_group(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),
@@ -173,7 +173,7 @@ def preview_integration_group(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.get("/api/integrations/groups/{group_id}")
+@router.fs_read.get("/api/integrations/groups/{group_id}")
 def integration_group(group_id: str, request: Request) -> dict[str, Any]:
     """Return one durable content-free group transaction."""
     try:
@@ -185,7 +185,7 @@ def integration_group(group_id: str, request: Request) -> dict[str, Any]:
     return {"group": integration_group_record_to_dict(record)}
 
 
-@router.post("/api/integrations/groups/{group_id}/apply")
+@router.fs_atomic.post("/api/integrations/groups/{group_id}/apply")
 def apply_integration_group(
     group_id: str,
     request: Request,
@@ -219,7 +219,7 @@ def apply_integration_group(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@router.post("/api/integrations/groups/{group_id}/recover")
+@router.fs_atomic.post("/api/integrations/groups/{group_id}/recover")
 def recover_integration_group(group_id: str, request: Request) -> dict[str, Any]:
     """Retry only exact safe group compensation actions."""
     try:
@@ -234,7 +234,7 @@ def recover_integration_group(group_id: str, request: Request) -> dict[str, Any]
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@router.post("/api/integrations/groups/{group_id}/rollback")
+@router.fs_atomic.post("/api/integrations/groups/{group_id}/rollback")
 def rollback_integration_group(group_id: str, request: Request) -> dict[str, Any]:
     """Compensate every exact current child in reverse order."""
     try:
@@ -249,7 +249,7 @@ def rollback_integration_group(group_id: str, request: Request) -> dict[str, Any
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@router.post("/api/integrations/groups/{group_id}/lifecycle/preview")
+@router.fs_atomic.post("/api/integrations/groups/{group_id}/lifecycle/preview")
 def preview_group_lifecycle(
     group_id: str,
     request: Request,
@@ -274,7 +274,7 @@ def preview_group_lifecycle(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.post("/api/integrations/preview")
+@router.fs_atomic.post("/api/integrations/preview")
 def preview_integration(
     request: Request,
     payload: dict[str, Any] = Body(default_factory=dict),
@@ -288,7 +288,7 @@ def preview_integration(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.get("/api/integrations/flows/{flow_id}")
+@router.fs_read.get("/api/integrations/flows/{flow_id}")
 def integration_flow(flow_id: str, request: Request) -> dict[str, Any]:
     """Return one content-free durable operation with progress events."""
     try:
@@ -300,7 +300,7 @@ def integration_flow(flow_id: str, request: Request) -> dict[str, Any]:
     return {"flow": integration_flow_record_to_dict(record)}
 
 
-@router.post("/api/integrations/flows/{flow_id}/apply")
+@router.fs_atomic.post("/api/integrations/flows/{flow_id}/apply")
 def apply_integration(
     flow_id: str,
     request: Request,
@@ -334,7 +334,7 @@ def apply_integration(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@router.post("/api/integrations/flows/{flow_id}/rollback")
+@router.fs_atomic.post("/api/integrations/flows/{flow_id}/rollback")
 def rollback_integration(flow_id: str, request: Request) -> dict[str, Any]:
     """Roll back one exact application-owned transaction."""
     try:
@@ -349,7 +349,7 @@ def rollback_integration(flow_id: str, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@router.post("/api/integrations/flows/{flow_id}/lifecycle/preview")
+@router.fs_atomic.post("/api/integrations/flows/{flow_id}/lifecycle/preview")
 def preview_flow_lifecycle(
     flow_id: str,
     request: Request,
@@ -374,7 +374,7 @@ def preview_flow_lifecycle(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.post("/api/integrations/lifecycle/{operation_id}/apply")
+@router.fs_atomic.post("/api/integrations/lifecycle/{operation_id}/apply")
 def apply_integration_lifecycle(
     operation_id: str,
     request: Request,

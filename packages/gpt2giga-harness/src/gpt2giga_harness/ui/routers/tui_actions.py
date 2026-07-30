@@ -5,19 +5,19 @@ from __future__ import annotations
 import hashlib
 from typing import Any, Mapping
 
-from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi import Body, HTTPException, Request
 
 from gpt2giga_harness.sessions.models import HarnessRun
 from gpt2giga_harness.sessions.store import RunNotFoundError
 from gpt2giga_harness.structured_sessions import StructuredTurnInput
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.ui.routers.cockpit import run_snapshot_revision
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.post("/api/runs/{run_id}/steer")
+@router.db_atomic.post("/api/runs/{run_id}/steer")
 def steer_run(
     run_id: str,
     request: Request,
@@ -55,7 +55,7 @@ def steer_run(
     }
 
 
-@router.post("/api/runs/{run_id}/input")
+@router.db_atomic.post("/api/runs/{run_id}/input")
 def answer_run_input(
     run_id: str,
     request: Request,

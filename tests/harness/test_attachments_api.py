@@ -68,6 +68,8 @@ def test_attachments_api_upload_list_fetch_metadata_and_delete(tmp_path):
     assert blob.status_code == 200
     assert blob.content == PNG_BYTES
     assert blob.headers["content-type"] == "image/png"
+    assert blob.headers["content-disposition"].startswith("inline;")
+    assert blob.headers["x-content-type-options"] == "nosniff"
 
     deleted = client.delete(f"/api/attachments/{attachment_id}")
     assert deleted.status_code == 200
@@ -130,6 +132,40 @@ def test_workspace_image_attachment_url_serves_preview_content(tmp_path):
     assert preview.status_code == 200
     assert preview.content == PNG_BYTES
     assert preview.headers["content-type"] == "image/png"
+    assert preview.headers["content-disposition"].startswith("inline;")
+    assert preview.headers["x-content-type-options"] == "nosniff"
+
+
+def test_attachment_blob_downloads_active_content_without_same_origin_execution(
+    tmp_path,
+):
+    client = _client(tmp_path / "data")
+    session_id = _create_session(client)
+
+    for filename, mime_type, content in (
+        ("report.html", "text/html", b"<script>parent.document.title='owned'</script>"),
+        (
+            "diagram.svg",
+            "image/svg+xml",
+            b"<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>",
+        ),
+    ):
+        uploaded = client.post(
+            f"/api/sessions/{session_id}/attachments",
+            json={
+                "filename": filename,
+                "mime_type": mime_type,
+                "data_base64": base64.b64encode(content).decode("ascii"),
+            },
+        )
+
+        assert uploaded.status_code == 200
+        blob = client.get(uploaded.json()["attachment"]["url"])
+        assert blob.status_code == 200
+        assert blob.content == content
+        assert blob.headers["content-type"] == "application/octet-stream"
+        assert blob.headers["content-disposition"].startswith("attachment;")
+        assert blob.headers["x-content-type-options"] == "nosniff"
 
 
 def test_session_attachment_search_is_bounded_and_hides_workspace_root(tmp_path):

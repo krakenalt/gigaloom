@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from fastapi import APIRouter, Body, HTTPException, Query, Request
+from fastapi import Body, HTTPException, Query
 
 from gpt2giga_harness.runtime.store import (
     JobNotFoundError,
     NativeProcessRecordNotFoundError,
 )
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
+from gpt2giga_harness.ui.dependencies import AppServicesDependency
 from gpt2giga_harness.workbench_resources import (
     WorkbenchResourceError,
     preference_snapshot_to_dict,
@@ -20,32 +21,32 @@ from gpt2giga_harness.workbench_resources import (
 )
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.get("/api/workbench/resources")
+@router.fs_read.get("/api/workbench/resources")
 def workbench_resources(
-    request: Request,
+    services: AppServicesDependency,
     session_id: str | None = Query(default=None, max_length=256),
 ) -> dict[str, Any]:
     """Return one bounded provider-neutral operational snapshot."""
     try:
-        snapshot = request.app.state.harness_workbench_resources.snapshot(session_id)
+        snapshot = services.workbench_resources.snapshot(session_id)
     except (ValueError, KeyError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return resource_snapshot_to_dict(snapshot)
 
 
-@router.post("/api/workbench/tasks/{task_id}/cancel")
+@router.fs_atomic.post("/api/workbench/tasks/{task_id}/cancel")
 def cancel_workbench_task(
     task_id: str,
-    request: Request,
+    services: AppServicesDependency,
     payload: dict[str, Any] = Body(...),
 ) -> dict[str, Any]:
     """Request cancellation only for the exact presented child and owner lease."""
     binding = _binding(payload, task_id)
     try:
-        task = request.app.state.harness_workbench_resources.cancel_task(binding)
+        task = services.workbench_resources.cancel_task(binding)
     except JobNotFoundError as exc:
         raise HTTPException(status_code=404, detail="task not found") from exc
     except WorkbenchResourceError as exc:
@@ -53,18 +54,18 @@ def cancel_workbench_task(
     return {"task": task.__dict__, "binding": task_binding(task)}
 
 
-@router.post("/api/workbench/processes/{process_id}/stop")
+@router.fs_atomic.post("/api/workbench/processes/{process_id}/stop")
 def stop_workbench_process(
     process_id: str,
-    request: Request,
+    services: AppServicesDependency,
     payload: dict[str, Any] = Body(...),
 ) -> dict[str, Any]:
     """Stop a process only while its presented owner and lease remain exact."""
     binding = _binding(payload, process_id)
-    service = request.app.state.harness_workbench_resources
+    service = services.workbench_resources
     try:
         process = service.validate_process(binding)
-        request.app.state.harness_native_process_manager.stop(process.id)
+        services.native_process_manager.stop(process.id)
         refreshed = service.snapshot(process.session_id)
         stopped = next(item for item in refreshed.processes if item.id == process.id)
     except NativeProcessRecordNotFoundError as exc:
@@ -74,9 +75,9 @@ def stop_workbench_process(
     return {"process": stopped.__dict__, "binding": process_binding(stopped)}
 
 
-@router.put("/api/workbench/preferences")
+@router.fs_atomic.put("/api/workbench/preferences")
 def save_workbench_preferences(
-    request: Request,
+    services: AppServicesDependency,
     payload: dict[str, Any] = Body(...),
 ) -> dict[str, Any]:
     """Persist private Workbench-only preferences with optimistic concurrency."""
@@ -85,7 +86,7 @@ def save_workbench_preferences(
     if not expected_revision or not isinstance(values, Mapping):
         raise HTTPException(status_code=400, detail="preference binding is invalid")
     try:
-        snapshot = request.app.state.harness_workbench_resources.save_preferences(
+        snapshot = services.workbench_resources.save_preferences(
             values, expected_revision=expected_revision
         )
     except WorkbenchResourceError as exc:

@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Query, Request
+from fastapi import Body, HTTPException, Query, Request
 
 from gpt2giga_harness.application import (
     DurableRuntimeUnavailableError,
     SessionApplicationService,
 )
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.runtime.models import ApprovalStatus
 from gpt2giga_harness.runtime.approval_ux import approval_ux_projection
 from gpt2giga_harness.runtime.policy import (
@@ -27,10 +27,10 @@ from gpt2giga_harness.runtime.store import (
 from gpt2giga_harness.ui.routers.tui_actions import validate_run_action_binding
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.get("/api/policy/profiles")
+@router.loop_read.get("/api/policy/profiles")
 async def policy_profiles() -> dict[str, Any]:
     """Return built-in profile decisions without exposing mutable policy input."""
     profiles = (
@@ -53,7 +53,7 @@ async def policy_profiles() -> dict[str, Any]:
     }
 
 
-@router.get("/api/approvals")
+@router.db_read.get("/api/approvals")
 def approval_inbox(
     request: Request,
     status: str | None = Query(default=None),
@@ -73,7 +73,7 @@ def approval_inbox(
     }
 
 
-@router.post("/api/approvals/{approval_id}/decision")
+@router.db_atomic.post("/api/approvals/{approval_id}/decision")
 def decide_approval(
     approval_id: str,
     request: Request,

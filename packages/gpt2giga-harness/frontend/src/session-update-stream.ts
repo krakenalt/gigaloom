@@ -1,3 +1,8 @@
+import {
+  createFrameCoalescer,
+  type FrameScheduler,
+} from "./bounded-rendering";
+
 export interface SessionUpdateEvent {
   id: string;
   session_id: string;
@@ -28,16 +33,27 @@ export function observeSessionUpdates(
   sessionId: string,
   onRevision: (event: SessionUpdateEvent | null) => void,
   createEventSource: EventSourceFactory = defaultEventSourceFactory,
+  scheduleFrame?: FrameScheduler,
 ): () => void {
+  const updates = createFrameCoalescer(onRevision, {
+    isEqual: (left, right) => left?.id === right?.id,
+    schedule: scheduleFrame,
+  });
   const source = createEventSource(
     `/api/cockpit/sessions/${encodeURIComponent(sessionId)}/updates/stream?tail_only=true`,
   );
   source.onmessage = (message) => {
     const event = parseSessionUpdate(message.data, sessionId);
-    if (event !== null) onRevision(event);
+    if (event !== null) updates.enqueue(event);
   };
-  source.addEventListener("resnapshot", () => onRevision(null));
-  return () => source.close();
+  source.addEventListener("resnapshot", () => {
+    updates.reset();
+    onRevision(null);
+  });
+  return () => {
+    updates.cancel();
+    source.close();
+  };
 }
 
 function parseSessionUpdate(

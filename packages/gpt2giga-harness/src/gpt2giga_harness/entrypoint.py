@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 
+from gpt2giga_harness.cli_commands.metadata import run_metadata_command
 from gpt2giga_harness.native_cli_facade import run_native_namespace
 from gpt2giga_harness.terminal_dispatch import (
     ConsoleSurface,
@@ -20,6 +21,9 @@ def main(
 ) -> int:
     """Launch the built-in TUI by default or an explicit command API route."""
     arguments = list(sys.argv[1:] if argv is None else argv)
+    metadata_result = run_metadata_command(arguments)
+    if metadata_result is not None:
+        return metadata_result
     terminal_context = context or TerminalContext.capture()
     native_result = run_native_namespace(
         arguments,
@@ -46,6 +50,6 @@ def main(
         launch_intent, tui_arguments = parse_tui_launch_intent(arguments)
         return tui_main(tui_arguments, launch_intent=launch_intent)
 
-    from gpt2giga_harness.cli import main as cli_main
+    from gpt2giga_harness.cli_commands.main import main as cli_main
 
     return cli_main(arguments)

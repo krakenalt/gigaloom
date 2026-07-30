@@ -1,10 +1,11 @@
-"""Authoritative asynchronous execution contracts for Harness UI routes."""
+"""Route-local asynchronous execution contracts and central validation."""
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Sequence
+from typing import Any, TypeVar, overload
 
 from gpt2giga_harness.ui.mutation_contracts import (
     MUTATION_ROUTE_CONTRACTS,
@@ -54,6 +55,16 @@ class IdempotencyContract(str, Enum):
 
 
 @dataclass(frozen=True)
+class RouteExecutionMetadata:
+    """Execution choices declared next to one owning route handler."""
+
+    workload: WorkloadClass
+    adapter: ExecutionAdapter
+    cancellation: CancellationContract
+    idempotency: IdempotencyContract
+
+
+@dataclass(frozen=True)
 class RouteExecutionContract:
     """One exact route's semantic, workload, and bounded execution contract."""
 
@@ -77,249 +88,205 @@ class RouteExecutionContract:
         return self.method, self.path
 
 
-READ_ROUTE_IDENTITIES = frozenset(
-    {
-        ("GET", "/api/agents"),
-        ("GET", "/api/agents/{agent_id}"),
-        ("GET", "/api/approvals"),
-        ("GET", "/api/arena/runs"),
-        ("GET", "/api/arena/runs/{arena_id}"),
-        ("GET", "/api/arena/runs/{arena_id}/events/stream"),
-        ("GET", "/api/attachments/{attachment_id}"),
-        ("GET", "/api/attachments/{attachment_id}/metadata"),
-        ("GET", "/api/attention"),
-        ("GET", "/api/automation"),
-        ("GET", "/api/cockpit/runs/{run_id}"),
-        ("GET", "/api/cockpit/runs/{run_id}/diff"),
-        ("GET", "/api/cockpit/runs/{run_id}/raw"),
-        ("GET", "/api/cockpit/runs/{run_id}/report"),
-        ("GET", "/api/cockpit/sessions"),
-        ("GET", "/api/cockpit/sessions/{session_id}"),
-        ("GET", "/api/cockpit/sessions/{session_id}/artifacts"),
-        ("GET", "/api/cockpit/sessions/{session_id}/events"),
-        ("GET", "/api/cockpit/sessions/{session_id}/messages"),
-        (
-            "GET",
-            "/api/cockpit/sessions/{session_id}/messages/{message_id}/content",
-        ),
-        ("GET", "/api/cockpit/sessions/{session_id}/runs"),
-        ("GET", "/api/cockpit/sessions/{session_id}/updates/stream"),
-        ("GET", "/api/compatibility/guardian"),
-        ("GET", "/api/defaults"),
-        ("GET", "/api/doctor"),
-        ("GET", "/api/evals"),
-        ("GET", "/api/evals/runs/{eval_run_id}"),
-        ("GET", "/api/evaluate"),
-        ("GET", "/api/evaluate/{eval_name}/matrix"),
-        ("GET", "/api/environment"),
-        ("GET", "/api/files/generated/{run_key}/{filename}"),
-        ("GET", "/api/files/preview"),
-        ("GET", "/api/harnesses"),
-        ("GET", "/api/health"),
-        ("GET", "/api/integrations"),
-        ("GET", "/api/integrations/search"),
-        ("GET", "/api/integrations/source-detail"),
-        ("GET", "/api/integrations/skills/preview"),
-        ("GET", "/api/integrations/flows/{flow_id}"),
-        ("GET", "/api/integrations/groups/{group_id}"),
-        ("GET", "/api/models"),
-        ("GET", "/api/native/processes/{process_id}"),
-        ("GET", "/api/native/processes/{process_id}/output"),
-        ("GET", "/api/native/processes/{process_id}/output/stream"),
-        ("GET", "/api/native/sessions"),
-        ("GET", "/api/native/sessions/{native_ref_id}/preview"),
-        ("GET", "/api/policy/profiles"),
-        ("GET", "/api/project"),
-        ("GET", "/api/project/config"),
-        ("GET", "/api/project/memory"),
-        ("GET", "/api/project/presets"),
-        ("GET", "/api/project/state"),
-        ("GET", "/api/providers"),
-        ("GET", "/api/providers/{provider_id}"),
-        ("GET", "/api/provider-accounts"),
-        ("GET", "/api/provider-handoffs/{harness_id}/preview"),
-        ("GET", "/api/runs"),
-        ("GET", "/api/runs/updates/stream"),
-        ("GET", "/api/runs/{run_id}"),
-        ("GET", "/api/runs/{run_id}/diff"),
-        ("GET", "/api/runs/{run_id}/events/stream"),
-        ("GET", "/api/runs/{run_id}/events/{event_id}"),
-        ("GET", "/api/runs/{run_id}/handoff-capsule"),
-        ("GET", "/api/runs/{run_id}/patch"),
-        ("GET", "/api/runs/{run_id}/pr"),
-        ("GET", "/api/runs/{run_id}/provenance"),
-        ("GET", "/api/runs/{run_id}/summary"),
-        ("GET", "/api/runs/{run_id}/support-bundle"),
-        ("GET", "/api/runs/{run_id}/trace"),
-        ("GET", "/api/runs/{run_id}/trace-replay"),
-        ("GET", "/api/schedules"),
-        ("GET", "/api/schedules/{schedule_id}"),
-        ("GET", "/api/settings"),
-        ("GET", "/api/sessions"),
-        ("GET", "/api/sessions/{session_id}"),
-        ("GET", "/api/sessions/{session_id}/navigation-preview"),
-        ("GET", "/api/sessions/{session_id}/attachments"),
-        ("GET", "/api/sessions/{session_id}/attachments/workspace/preview"),
-        ("GET", "/api/sessions/{session_id}/attachments/workspace/search"),
-        ("GET", "/api/sessions/{session_id}/events"),
-        ("GET", "/api/tool-servers"),
-        ("GET", "/api/tool-servers/{server_id}"),
-        ("GET", "/api/tools"),
-        ("GET", "/api/workbench/state"),
-        ("GET", "/api/workbench/resources"),
-        ("GET", "/api/workflow-runs/{run_id}"),
-        ("GET", "/api/workflow-runs/{run_id}/handoffs"),
-        ("GET", "/api/workflows"),
-        ("GET", "/api/workflows/{workflow_id}"),
-        ("GET", "/api/workflows/{workflow_id}/export"),
-        ("GET", "/api/workspace/file/metadata"),
-        ("GET", "/api/workspace/tree"),
-        ("GET", "/cockpit-v2"),
-        ("GET", "/cockpit-v2/assets/{asset_name:path}"),
-        ("GET", "/cockpit-v2/{spa_path:path}"),
-        ("GET", "/auth/status"),
-        ("GET", "/auth/oidc/callback"),
-        ("GET", "/auth/oidc/login"),
-        ("GET", "/healthz"),
-        ("GET", "/local-access"),
-        ("GET", "/openapi.json"),
-        ("GET", "/{spa_path:path}"),
-        ("HEAD", "/openapi.json"),
-    }
-)
+_Endpoint = TypeVar("_Endpoint", bound=Callable[..., Any])
+_METADATA_ATTRIBUTE = "__harness_route_execution_metadata__"
 
-_STREAMS = frozenset(
-    {
-        ("GET", "/api/arena/runs/{arena_id}/events/stream"),
-        ("GET", "/api/cockpit/sessions/{session_id}/updates/stream"),
-        ("GET", "/api/native/processes/{process_id}/output/stream"),
-        ("GET", "/api/runs/updates/stream"),
-        ("GET", "/api/runs/{run_id}/events/stream"),
-    }
-)
-_EVENT_LOOP_SAFE = frozenset(
-    {
-        ("GET", "/api/policy/profiles"),
-        ("GET", "/api/workbench/state"),
-        ("GET", "/auth/status"),
-        ("GET", "/healthz"),
-        ("GET", "/local-access"),
-        ("GET", "/openapi.json"),
-        ("POST", "/auth/local/recover"),
-        ("POST", "/auth/local/rotate"),
-        ("POST", "/auth/logout"),
-        ("HEAD", "/openapi.json"),
-    }
-)
-_NETWORK = frozenset(
-    {
-        ("GET", "/api/health"),
-        ("GET", "/api/integrations/search"),
-        ("GET", "/api/integrations/source-detail"),
-        ("GET", "/api/models"),
-        ("POST", "/api/providers/{provider_id}/discover"),
-        ("POST", "/api/providers/{provider_id}/test"),
-        ("GET", "/auth/oidc/callback"),
-        ("GET", "/auth/oidc/login"),
-        ("POST", "/auth/oidc/backchannel-logout"),
-    }
-)
-_SQLITE_PREFIXES = (
-    "/api/approvals",
-    "/api/attention",
-    "/api/automation",
-    "/api/evaluate",
-    "/api/runs",
-    "/api/schedules",
-    "/api/workflow-runs",
-)
-_SUBPROCESS_PREFIXES = (
-    "/api/editor/",
-    "/api/native/processes",
-    "/api/provider-accounts",
-    "/api/tool-servers/",
-)
-_SUBPROCESS_EXACT = frozenset(
-    {
-        ("GET", "/api/compatibility/guardian"),
-        ("GET", "/api/environment"),
-        ("POST", "/api/environment/commit/apply"),
-        ("POST", "/api/environment/commit/preview"),
-        ("POST", "/api/environment/push/apply"),
-        ("POST", "/api/environment/push/preview"),
-        ("POST", "/api/environment/pull-request/apply"),
-        ("POST", "/api/environment/pull-request/preview"),
-        ("POST", "/api/project/init"),
-        ("POST", "/api/integrations/git/inspect"),
-        ("POST", "/api/run"),
-        ("POST", "/api/tools/sync"),
-        ("POST", "/api/runs/{run_id}/apply"),
-        ("POST", "/api/runs/{run_id}/branch"),
-        ("POST", "/api/runs/{run_id}/discard"),
-        ("POST", "/api/runs/{run_id}/open-worktree"),
-        ("POST", "/api/workflow-runs/{run_id}/merge-queue/apply"),
-    }
-)
-_DURABLE_JOB_IDENTITIES = frozenset(
-    {
-        ("POST", "/api/agents/{agent_id}/run"),
-        ("POST", "/api/arena/runs"),
-        ("POST", "/api/arena/runs/{arena_id}/children/{child_index}/retry"),
-        ("POST", "/api/arena/runs/{arena_id}/turns"),
-        ("POST", "/api/evals/{eval_name}/runs"),
-        ("POST", "/api/runs/{run_id}/fork"),
-        ("POST", "/api/runs/{run_id}/replay"),
-        ("POST", "/api/runs/{run_id}/trace-replays"),
-        ("POST", "/api/schedules/{schedule_id}/run-now"),
-        ("POST", "/api/schedules/{schedule_id}/test-now"),
-        ("POST", "/api/sessions/run"),
-        ("POST", "/api/sessions/run/start"),
-        ("POST", "/api/sessions/{session_id}/run"),
-        ("POST", "/api/sessions/{session_id}/run/start"),
-        ("POST", "/api/workflows/{workflow_id}/run"),
-    }
-)
-_SYNC_DURABLE_SUBMISSIONS = frozenset(
-    {
-        ("POST", "/api/runs/{run_id}/fork"),
-        ("POST", "/api/runs/{run_id}/replay"),
-        ("POST", "/api/runs/{run_id}/trace-replays"),
-        ("POST", "/api/sessions/run"),
-        ("POST", "/api/sessions/{session_id}/run"),
-    }
-)
-_NATIVE_ASYNC = frozenset(
-    {
-        ("GET", "/auth/oidc/callback"),
-        ("GET", "/auth/oidc/login"),
-        ("POST", "/auth/oidc/backchannel-logout"),
-        ("POST", "/auth/remote/revoke-actor"),
-        ("POST", "/auth/remote/revoke-all"),
-        ("GET", "/api/environment"),
-        ("POST", "/api/environment/commit/apply"),
-        ("POST", "/api/environment/commit/preview"),
-        ("POST", "/api/environment/push/apply"),
-        ("POST", "/api/environment/push/preview"),
-        ("POST", "/api/environment/pull-request/apply"),
-        ("POST", "/api/environment/pull-request/preview"),
-        ("GET", "/api/integrations/search"),
-        ("GET", "/api/integrations/source-detail"),
-        ("POST", "/api/integrations/git/inspect"),
-        ("POST", "/api/native/processes/{process_id}/input"),
-    }
-)
-_EXPLICIT_BOUNDED_ASYNC = frozenset(
-    {
-        ("POST", "/api/runs/{run_id}/promotions/apply"),
-        ("POST", "/api/runs/{run_id}/promotions/preview"),
-        ("POST", "/api/tool-servers/{server_id}/probe"),
-        ("POST", "/api/workflow-runs/{run_id}/cancel"),
-        ("POST", "/api/workflow-runs/{run_id}/handoffs/{step_id}/choose"),
-        ("POST", "/api/workflow-runs/{run_id}/handoffs/{step_id}/discard"),
-        ("POST", "/api/workflow-runs/{run_id}/merge-queue"),
-        ("PUT", "/api/workflows/{workflow_id}"),
-    }
-)
+
+def route_execution(
+    workload: WorkloadClass,
+    adapter: ExecutionAdapter,
+    cancellation: CancellationContract,
+    idempotency: IdempotencyContract,
+) -> Callable[[_Endpoint], _Endpoint]:
+    """Attach execution metadata for the immediately owning route decorator."""
+    metadata = RouteExecutionMetadata(
+        workload=workload,
+        adapter=adapter,
+        cancellation=cancellation,
+        idempotency=idempotency,
+    )
+
+    def declare(endpoint: _Endpoint) -> _Endpoint:
+        setattr(endpoint, _METADATA_ATTRIBUTE, metadata)
+        return endpoint
+
+    return declare
+
+
+@dataclass(frozen=True)
+class _RouteExecutionPreset:
+    """Compose FastAPI registration with one typed execution declaration."""
+
+    metadata: RouteExecutionMetadata
+
+    def __call__(
+        self,
+        registrar: Callable[..., Callable[[_Endpoint], _Endpoint]],
+        *args: Any,
+        **kwargs: Any,
+    ) -> Callable[[_Endpoint], _Endpoint]:
+        register = registrar(*args, **kwargs)
+
+        def declare(endpoint: _Endpoint) -> _Endpoint:
+            metadata = self.metadata
+            declared = route_execution(
+                metadata.workload,
+                metadata.adapter,
+                metadata.cancellation,
+                metadata.idempotency,
+            )(endpoint)
+            return register(declared)
+
+        return declare
+
+
+def _preset(
+    workload: WorkloadClass,
+    adapter: ExecutionAdapter,
+    cancellation: CancellationContract,
+    idempotency: IdempotencyContract,
+) -> _RouteExecutionPreset:
+    return _RouteExecutionPreset(
+        RouteExecutionMetadata(workload, adapter, cancellation, idempotency)
+    )
+
+
+class RouteExecutionDeclarations:
+    """Readable route-local names for the supported execution combinations."""
+
+    fs_read = _preset(
+        WorkloadClass.FILESYSTEM,
+        ExecutionAdapter.BOUNDED_THREAD,
+        CancellationContract.REQUEST_SCOPED,
+        IdempotencyContract.READ_ONLY,
+    )
+    fs_atomic = _preset(
+        WorkloadClass.FILESYSTEM,
+        ExecutionAdapter.BOUNDED_THREAD,
+        CancellationContract.ATOMIC_COMPLETION,
+        IdempotencyContract.ATOMIC_STORE,
+    )
+    fs_async_atomic = _preset(
+        WorkloadClass.FILESYSTEM,
+        ExecutionAdapter.NATIVE_ASYNC,
+        CancellationContract.ATOMIC_COMPLETION,
+        IdempotencyContract.ATOMIC_STORE,
+    )
+    db_read = _preset(
+        WorkloadClass.SQLITE,
+        ExecutionAdapter.BOUNDED_THREAD,
+        CancellationContract.REQUEST_SCOPED,
+        IdempotencyContract.READ_ONLY,
+    )
+    db_atomic = _preset(
+        WorkloadClass.SQLITE,
+        ExecutionAdapter.BOUNDED_THREAD,
+        CancellationContract.ATOMIC_COMPLETION,
+        IdempotencyContract.ATOMIC_STORE,
+    )
+    net_read = _preset(
+        WorkloadClass.NETWORK,
+        ExecutionAdapter.BOUNDED_THREAD,
+        CancellationContract.REQUEST_SCOPED,
+        IdempotencyContract.READ_ONLY,
+    )
+    net_atomic = _preset(
+        WorkloadClass.NETWORK,
+        ExecutionAdapter.BOUNDED_THREAD,
+        CancellationContract.ATOMIC_COMPLETION,
+        IdempotencyContract.ATOMIC_STORE,
+    )
+    net_async_read = _preset(
+        WorkloadClass.NETWORK,
+        ExecutionAdapter.NATIVE_ASYNC,
+        CancellationContract.REQUEST_SCOPED,
+        IdempotencyContract.READ_ONLY,
+    )
+    net_async_atomic = _preset(
+        WorkloadClass.NETWORK,
+        ExecutionAdapter.NATIVE_ASYNC,
+        CancellationContract.ATOMIC_COMPLETION,
+        IdempotencyContract.ATOMIC_STORE,
+    )
+    proc_read = _preset(
+        WorkloadClass.SUBPROCESS,
+        ExecutionAdapter.BOUNDED_THREAD,
+        CancellationContract.REQUEST_SCOPED,
+        IdempotencyContract.READ_ONLY,
+    )
+    proc = _preset(
+        WorkloadClass.SUBPROCESS,
+        ExecutionAdapter.BOUNDED_THREAD,
+        CancellationContract.ATOMIC_COMPLETION,
+        IdempotencyContract.ATOMIC_STORE,
+    )
+    proc_async_read = _preset(
+        WorkloadClass.SUBPROCESS,
+        ExecutionAdapter.NATIVE_ASYNC,
+        CancellationContract.REQUEST_SCOPED,
+        IdempotencyContract.READ_ONLY,
+    )
+    proc_async_atomic = _preset(
+        WorkloadClass.SUBPROCESS,
+        ExecutionAdapter.NATIVE_ASYNC,
+        CancellationContract.ATOMIC_COMPLETION,
+        IdempotencyContract.ATOMIC_STORE,
+    )
+    worker_job = _preset(
+        WorkloadClass.DURABLE_JOB,
+        ExecutionAdapter.DURABLE_WORKER,
+        CancellationContract.DURABLE_IDENTITY,
+        IdempotencyContract.DURABLE_JOB,
+    )
+    worker_client_key = _preset(
+        WorkloadClass.DURABLE_JOB,
+        ExecutionAdapter.DURABLE_WORKER,
+        CancellationContract.DURABLE_IDENTITY,
+        IdempotencyContract.CLIENT_KEY,
+    )
+    bounded_job = _preset(
+        WorkloadClass.DURABLE_JOB,
+        ExecutionAdapter.BOUNDED_THREAD,
+        CancellationContract.DURABLE_IDENTITY,
+        IdempotencyContract.DURABLE_JOB,
+    )
+    stream = _preset(
+        WorkloadClass.STREAM,
+        ExecutionAdapter.ASYNC_STREAM,
+        CancellationContract.DISCONNECT_CLEANUP,
+        IdempotencyContract.STREAM_CURSOR,
+    )
+    loop_read = _preset(
+        WorkloadClass.EVENT_LOOP_SAFE,
+        ExecutionAdapter.EVENT_LOOP,
+        CancellationContract.REQUEST_SCOPED,
+        IdempotencyContract.READ_ONLY,
+    )
+    loop_atomic = _preset(
+        WorkloadClass.EVENT_LOOP_SAFE,
+        ExecutionAdapter.EVENT_LOOP,
+        CancellationContract.ATOMIC_COMPLETION,
+        IdempotencyContract.ATOMIC_STORE,
+    )
+
+
+routes = RouteExecutionDeclarations()
+
+
+_FRAMEWORK_ROUTE_METADATA = {
+    ("GET", "/openapi.json"): RouteExecutionMetadata(
+        workload=WorkloadClass.EVENT_LOOP_SAFE,
+        adapter=ExecutionAdapter.EVENT_LOOP,
+        cancellation=CancellationContract.REQUEST_SCOPED,
+        idempotency=IdempotencyContract.READ_ONLY,
+    ),
+    ("HEAD", "/openapi.json"): RouteExecutionMetadata(
+        workload=WorkloadClass.EVENT_LOOP_SAFE,
+        adapter=ExecutionAdapter.EVENT_LOOP,
+        cancellation=CancellationContract.REQUEST_SCOPED,
+        idempotency=IdempotencyContract.READ_ONLY,
+    ),
+}
 
 _OPAQUE_CURSOR_IDENTITIES = frozenset(
     {
@@ -333,39 +300,9 @@ _OPAQUE_CURSOR_IDENTITIES = frozenset(
         ("GET", "/api/workbench/state"),
     }
 )
-
-
-def _workload(identity: tuple[str, str]) -> WorkloadClass:
-    if identity in _STREAMS:
-        return WorkloadClass.STREAM
-    if identity in _EVENT_LOOP_SAFE:
-        return WorkloadClass.EVENT_LOOP_SAFE
-    if identity in _DURABLE_JOB_IDENTITIES:
-        return WorkloadClass.DURABLE_JOB
-    if identity in _NETWORK:
-        return WorkloadClass.NETWORK
-    if identity in _SUBPROCESS_EXACT or identity[1].startswith(_SUBPROCESS_PREFIXES):
-        return WorkloadClass.SUBPROCESS
-    if identity[1].startswith(_SQLITE_PREFIXES):
-        return WorkloadClass.SQLITE
-    return WorkloadClass.FILESYSTEM
-
-
-def _adapter(identity: tuple[str, str], workload: WorkloadClass) -> ExecutionAdapter:
-    if workload is WorkloadClass.STREAM:
-        return ExecutionAdapter.ASYNC_STREAM
-    if identity in _EVENT_LOOP_SAFE:
-        return ExecutionAdapter.EVENT_LOOP
-    if (
-        identity in _DURABLE_JOB_IDENTITIES
-        and identity not in _SYNC_DURABLE_SUBMISSIONS
-    ):
-        return ExecutionAdapter.DURABLE_WORKER
-    if identity in _NATIVE_ASYNC:
-        return ExecutionAdapter.NATIVE_ASYNC
-    if identity in _EXPLICIT_BOUNDED_ASYNC:
-        return ExecutionAdapter.BOUNDED_THREAD
-    return ExecutionAdapter.BOUNDED_THREAD
+_MUTATION_BY_IDENTITY = {
+    contract.identity: contract for contract in MUTATION_ROUTE_CONTRACTS
+}
 
 
 def _storage_owner(workload: WorkloadClass) -> str:
@@ -390,82 +327,86 @@ def _execution_owner(adapter: ExecutionAdapter, workload: WorkloadClass) -> str:
     return f"bounded_{workload.value}_offload"
 
 
-def _build_contracts() -> tuple[RouteExecutionContract, ...]:
-    mutation_by_identity = {
-        contract.identity: contract for contract in MUTATION_ROUTE_CONTRACTS
-    }
-    identities = sorted({*mutation_by_identity, *READ_ROUTE_IDENTITIES})
-    contracts: list[RouteExecutionContract] = []
-    for identity in identities:
-        mutation = mutation_by_identity.get(identity)
-        mutation_class = (
+def route_execution_metadata(
+    endpoint: Callable[..., Any],
+) -> RouteExecutionMetadata | None:
+    """Return metadata attached next to an owning route handler."""
+    metadata = getattr(endpoint, _METADATA_ATTRIBUTE, None)
+    return metadata if isinstance(metadata, RouteExecutionMetadata) else None
+
+
+def build_route_execution_contract(
+    method: str,
+    path: str,
+    endpoint: Callable[..., Any],
+) -> RouteExecutionContract | None:
+    """Combine route-local execution metadata with central bounded invariants."""
+    identity = (method.upper(), path)
+    metadata = route_execution_metadata(endpoint) or _FRAMEWORK_ROUTE_METADATA.get(
+        identity
+    )
+    if metadata is None:
+        return None
+    mutation = _MUTATION_BY_IDENTITY.get(identity)
+    workload = metadata.workload
+    return RouteExecutionContract(
+        method=identity[0],
+        path=identity[1],
+        mutation_class=(
             mutation.mutation_class if mutation is not None else MutationClass.READ_ONLY
-        )
-        workload = _workload(identity)
-        adapter = _adapter(identity, workload)
-        is_read = mutation_class is MutationClass.READ_ONLY
-        is_stream = workload is WorkloadClass.STREAM
-        is_job = workload is WorkloadClass.DURABLE_JOB
-        cancellation = (
-            CancellationContract.DISCONNECT_CLEANUP
-            if is_stream
-            else CancellationContract.DURABLE_IDENTITY
-            if is_job
-            else CancellationContract.REQUEST_SCOPED
-            if is_read
-            else CancellationContract.ATOMIC_COMPLETION
-        )
-        idempotency = (
-            IdempotencyContract.STREAM_CURSOR
-            if is_stream
-            else IdempotencyContract.CLIENT_KEY
-            if identity[1].endswith("/run/start")
-            else IdempotencyContract.DURABLE_JOB
-            if is_job
-            else IdempotencyContract.READ_ONLY
-            if is_read
-            else IdempotencyContract.ATOMIC_STORE
-        )
-        contracts.append(
-            RouteExecutionContract(
-                method=identity[0],
-                path=identity[1],
-                mutation_class=mutation_class,
-                workload=workload,
-                storage_owner=_storage_owner(workload),
-                execution_owner=_execution_owner(adapter, workload),
-                adapter=adapter,
-                deadline_seconds=(None if is_stream else 10.0),
-                cancellation=cancellation,
-                idempotency=idempotency,
-                max_response_bytes=(
-                    16 * 1024 * 1024
-                    if "/files/" in identity[1]
-                    or identity[1].endswith(("/diff", "/patch", "/support-bundle"))
-                    else 1024 * 1024
-                ),
-                cursor=(
-                    "Last-Event-ID"
-                    if is_stream
-                    else "opaque"
-                    if identity in _OPAQUE_CURSOR_IDENTITIES
-                    else None
-                ),
-                latency_p95_ms=(1500 if not identity[1].startswith("/api/") else 500),
-            )
-        )
-    return tuple(contracts)
+        ),
+        workload=workload,
+        storage_owner=_storage_owner(workload),
+        execution_owner=_execution_owner(metadata.adapter, workload),
+        adapter=metadata.adapter,
+        deadline_seconds=(None if workload is WorkloadClass.STREAM else 10.0),
+        cancellation=metadata.cancellation,
+        idempotency=metadata.idempotency,
+        max_response_bytes=(
+            16 * 1024 * 1024
+            if "/files/" in path
+            or path.endswith(("/diff", "/patch", "/support-bundle"))
+            else 1024 * 1024
+        ),
+        cursor=(
+            "Last-Event-ID"
+            if workload is WorkloadClass.STREAM
+            else "opaque"
+            if identity in _OPAQUE_CURSOR_IDENTITIES
+            else None
+        ),
+        latency_p95_ms=(1500 if not path.startswith("/api/") else 500),
+    )
 
 
-ROUTE_EXECUTION_CONTRACTS = _build_contracts()
-_CONTRACT_BY_IDENTITY = {
-    contract.identity: contract for contract in ROUTE_EXECUTION_CONTRACTS
-}
+class _RouteExecutionInventory(Sequence[RouteExecutionContract]):
+    """Stable public view over the latest centrally validated app inventory."""
+
+    def __init__(self) -> None:
+        self._contracts: tuple[RouteExecutionContract, ...] = ()
+
+    @overload
+    def __getitem__(self, index: int) -> RouteExecutionContract: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> Sequence[RouteExecutionContract]: ...
+
+    def __getitem__(
+        self, index: int | slice
+    ) -> RouteExecutionContract | Sequence[RouteExecutionContract]:
+        return self._contracts[index]
+
+    def __len__(self) -> int:
+        return len(self._contracts)
+
+    def __iter__(self) -> Iterator[RouteExecutionContract]:
+        return iter(self._contracts)
+
+    def replace(self, contracts: Sequence[RouteExecutionContract]) -> None:
+        self._contracts = tuple(sorted(contracts, key=lambda item: item.identity))
 
 
-def route_execution_contract(method: str, path: str) -> RouteExecutionContract | None:
-    """Return the declared contract for one exact route identity."""
-    return _CONTRACT_BY_IDENTITY.get((method.upper(), path))
+ROUTE_EXECUTION_CONTRACTS = _RouteExecutionInventory()
 
 
 def route_identities(routes: Sequence[object]) -> frozenset[tuple[str, str]]:
@@ -483,10 +424,38 @@ def route_identities(routes: Sequence[object]) -> frozenset[tuple[str, str]]:
     return frozenset(identities)
 
 
+def _contracts_from_routes(
+    routes: Sequence[object],
+) -> tuple[RouteExecutionContract, ...]:
+    contracts: list[RouteExecutionContract] = []
+    for route in routes:
+        included = getattr(route, "original_router", None)
+        if included is not None:
+            contracts.extend(_contracts_from_routes(included.routes))
+            continue
+        path = getattr(route, "path", None)
+        methods = getattr(route, "methods", None) or ()
+        endpoint = getattr(route, "endpoint", None)
+        if not isinstance(path, str) or not callable(endpoint):
+            continue
+        bound = getattr(route, "execution_contract", None)
+        for method in methods:
+            contract = (
+                bound
+                if isinstance(bound, RouteExecutionContract)
+                and bound.identity == (method, path)
+                else build_route_execution_contract(method, path, endpoint)
+            )
+            if contract is not None:
+                contracts.append(contract)
+    return tuple(contracts)
+
+
 def execution_contract_errors(routes: Sequence[object]) -> tuple[str, ...]:
     """Return deterministic route-drift and declaration errors."""
     errors: list[str] = []
-    declared_list = [contract.identity for contract in ROUTE_EXECUTION_CONTRACTS]
+    contracts = _contracts_from_routes(routes)
+    declared_list = [contract.identity for contract in contracts]
     duplicates = sorted(
         identity for identity in set(declared_list) if declared_list.count(identity) > 1
     )
@@ -498,7 +467,7 @@ def execution_contract_errors(routes: Sequence[object]) -> tuple[str, ...]:
         errors.append(f"unclassified routes: {missing}")
     if stale := sorted(declared - runtime):
         errors.append(f"contracts without routes: {stale}")
-    for contract in ROUTE_EXECUTION_CONTRACTS:
+    for contract in contracts:
         label = f"{contract.method} {contract.path}"
         if not contract.storage_owner or not contract.execution_owner:
             errors.append(f"{label} lacks storage or execution owner")
@@ -516,8 +485,11 @@ def execution_contract_errors(routes: Sequence[object]) -> tuple[str, ...]:
 
 def install_execution_contracts(app: object) -> None:
     """Fail closed on route drift and expose the validated inventory."""
-    errors = execution_contract_errors(getattr(app, "routes"))
+    routes = getattr(app, "routes")
+    errors = execution_contract_errors(routes)
     if errors:
         raise RuntimeError("Harness execution contract invalid: " + "; ".join(errors))
+    contracts = _contracts_from_routes(routes)
+    ROUTE_EXECUTION_CONTRACTS.replace(contracts)
     state = getattr(app, "state")
-    state.harness_execution_contracts = ROUTE_EXECUTION_CONTRACTS
+    state.harness_execution_contracts = tuple(ROUTE_EXECUTION_CONTRACTS)

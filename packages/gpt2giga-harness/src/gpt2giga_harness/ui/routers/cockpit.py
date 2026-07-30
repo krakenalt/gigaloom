@@ -10,10 +10,10 @@ from time import monotonic
 from typing import Any, Callable, Mapping
 from urllib.parse import quote
 
-from fastapi import APIRouter, Header, HTTPException, Query, Request
+from fastapi import Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from gpt2giga_harness.product_capabilities import (
+from gpt2giga_harness.diagnostics.inventory.capabilities import (
     legacy_mode_compatibility_receipt,
 )
 from gpt2giga_harness.sessions.filesystem import FilesystemHarnessSessionStore
@@ -40,14 +40,12 @@ from gpt2giga_harness.sessions.store import (
     SessionNotFoundError,
 )
 from gpt2giga_harness.session_titles import title_diagnostics
-from gpt2giga_harness.ui.async_execution import (
-    ConformantAPIRoute,
-    run_stream_offload,
-)
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter, run_stream_offload
+from gpt2giga_harness.ui.services import session_queries as queries
 from gpt2giga_harness.worktrees import run_diff_response
 
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 _DEFAULT_PAGE_BYTES = 256 * 1024
 _MAX_PAGE_BYTES = 1024 * 1024
@@ -57,7 +55,7 @@ _SESSION_STREAM_HEARTBEAT_SECONDS = 10.0
 _SESSION_STREAM_POLL_SECONDS = 0.1
 
 
-@router.get("/api/cockpit/sessions")
+@router.fs_read.get("/api/cockpit/sessions")
 def cockpit_sessions(
     request: Request,
     project_id: str | None = Query(default=None),
@@ -160,7 +158,7 @@ def cockpit_sessions(
     )
 
 
-@router.get("/api/cockpit/sessions/{session_id}")
+@router.fs_read.get("/api/cockpit/sessions/{session_id}")
 def cockpit_session(session_id: str, request: Request) -> Response:
     """Return one lightweight session overview and its lazy request graph."""
     try:
@@ -182,7 +180,7 @@ def cockpit_session(session_id: str, request: Request) -> Response:
     )
 
 
-@router.get("/api/cockpit/sessions/{session_id}/updates/stream")
+@router.stream.get("/api/cockpit/sessions/{session_id}/updates/stream")
 async def cockpit_session_updates(
     session_id: str,
     request: Request,
@@ -255,7 +253,7 @@ async def cockpit_session_updates(
     )
 
 
-@router.get("/api/cockpit/sessions/{session_id}/messages")
+@router.fs_read.get("/api/cockpit/sessions/{session_id}/messages")
 def cockpit_messages(
     session_id: str,
     request: Request,
@@ -275,7 +273,7 @@ def cockpit_messages(
     )
 
 
-@router.get("/api/cockpit/sessions/{session_id}/messages/{message_id}/content")
+@router.fs_read.get("/api/cockpit/sessions/{session_id}/messages/{message_id}/content")
 def cockpit_message_content(
     session_id: str,
     message_id: str,
@@ -283,12 +281,14 @@ def cockpit_message_content(
 ) -> Response:
     """Return one complete retained message after an explicit user action."""
     try:
-        retained = _store(request).list_messages(session_id)
-    except SessionNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="Session not found") from exc
-    selected = next((item for item in retained if item.id == message_id), None)
-    if selected is None:
-        raise HTTPException(status_code=404, detail="Message not found")
+        selected = queries.message_for_session(_store(request), session_id, message_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Session not found"
+            if isinstance(exc, SessionNotFoundError)
+            else "Message not found",
+        ) from exc
     content = selected.content
     return JSONResponse(
         {
@@ -301,7 +301,7 @@ def cockpit_message_content(
     )
 
 
-@router.get("/api/cockpit/sessions/{session_id}/runs")
+@router.fs_read.get("/api/cockpit/sessions/{session_id}/runs")
 def cockpit_session_runs(
     session_id: str,
     request: Request,
@@ -315,7 +315,7 @@ def cockpit_session_runs(
     )
 
 
-@router.get("/api/cockpit/sessions/{session_id}/events")
+@router.fs_read.get("/api/cockpit/sessions/{session_id}/events")
 def cockpit_events(
     session_id: str,
     request: Request,
@@ -329,7 +329,7 @@ def cockpit_events(
     )
 
 
-@router.get("/api/cockpit/sessions/{session_id}/artifacts")
+@router.fs_read.get("/api/cockpit/sessions/{session_id}/artifacts")
 def cockpit_artifacts(
     session_id: str,
     request: Request,
@@ -343,7 +343,7 @@ def cockpit_artifacts(
     )
 
 
-@router.get("/api/cockpit/runs/{run_id}")
+@router.fs_read.get("/api/cockpit/runs/{run_id}")
 def cockpit_run(run_id: str, request: Request) -> Response:
     """Resolve one run through the direct read index, without a session scan."""
     run = _get_run(request, run_id)
@@ -362,7 +362,7 @@ def cockpit_run(run_id: str, request: Request) -> Response:
     )
 
 
-@router.get("/api/cockpit/runs/{run_id}/raw")
+@router.fs_read.get("/api/cockpit/runs/{run_id}/raw")
 def cockpit_run_raw(
     run_id: str,
     request: Request,
@@ -372,15 +372,12 @@ def cockpit_run_raw(
     store = _store(request)
     run = _get_run(request, run_id)
     records = [
-        ("request", item)
-        for item in store.list_raw_requests(run.session_id)
-        if item.run_id == run.id
+        ("request", item) for item in queries.raw_requests_for_run(store, run.id)
     ]
     records.extend(
-        ("response", item)
-        for item in store.list_raw_responses(run.session_id)
-        if item.run_id == run.id
+        ("response", item) for item in queries.raw_responses_for_run(store, run.id)
     )
+    source_limited = len(records) >= queries.MAX_UI_RECORDS * 2
     records.sort(key=lambda item: (item[1].created_at, item[1].id, item[0]))
     per_record = max(512, (max_bytes - 1024) // max(len(records), 1))
     items = []
@@ -406,14 +403,14 @@ def cockpit_run_raw(
         {
             "run_id": run.id,
             "records": items,
-            "has_more": truncated,
+            "has_more": truncated or source_limited,
             "snapshot_revision": revision,
             "byte_count": byte_count,
         },
     )
 
 
-@router.get("/api/cockpit/runs/{run_id}/diff")
+@router.fs_read.get("/api/cockpit/runs/{run_id}/diff")
 def cockpit_run_diff(
     run_id: str,
     request: Request,
@@ -441,7 +438,7 @@ def cockpit_run_diff(
     )
 
 
-@router.get("/api/cockpit/runs/{run_id}/report")
+@router.fs_read.get("/api/cockpit/runs/{run_id}/report")
 def cockpit_run_report(
     run_id: str,
     request: Request,

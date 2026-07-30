@@ -1,7 +1,9 @@
 import concurrent.futures
-from contextlib import closing
+from contextlib import closing, contextmanager
 import hashlib
+import importlib
 import json
+from pathlib import Path
 import sqlite3
 import threading
 import time
@@ -13,22 +15,53 @@ from gpt2giga_harness.sessions import filesystem as filesystem_sessions
 from gpt2giga_harness.harnesses.codex_cli import CodexCliHarness
 from gpt2giga_harness.harnesses.echo import EchoHarness
 from gpt2giga_harness.runtime.capabilities import negotiate_execution_capabilities
+from gpt2giga_harness.runtime.approvals import (
+    ApprovalDecisionsRepository,
+    ApprovalsRepository,
+)
+from gpt2giga_harness.runtime.db import DbProvider, transaction
+from gpt2giga_harness.runtime.jobs import (
+    AttemptsRepository,
+    JobClaimsRepository,
+    JobsRepository,
+)
+from gpt2giga_harness.runtime.native import NativeProcessRepository
+from gpt2giga_harness.runtime.outbox import OutboxRepository
+from gpt2giga_harness.runtime.repositories.diagnostics import (
+    RuntimeDiagnosticsRepository,
+)
+from gpt2giga_harness.runtime.revisions import RevisionsRepository
+from gpt2giga_harness.runtime.side_effects import SideEffectsRepository
+from gpt2giga_harness.runtime.workers import WorkersRepository
 from gpt2giga_harness.runtime.models import (
     JobAttemptStatus,
     JobStatus,
     RunStatus,
     SideEffectStatus,
 )
+from gpt2giga_harness.runtime.policy import (
+    ApprovalDecision,
+    EnforcementLevel,
+    PermissionAction,
+    PolicyContext,
+    PolicyDecision,
+    PolicyResolution,
+)
 from gpt2giga_harness.runtime.reconcile import RuntimeReconciler
 from gpt2giga_harness.runtime.side_effects import HarnessSideEffectExecutor
 from gpt2giga_harness.runtime.store import (
     RUNTIME_SCHEMA_VERSION,
+    AttemptNotFoundError,
     ConcurrentUpdateError,
     IdempotencyConflictError,
     InvalidStateTransitionError,
+    JobNotFoundError,
+    NativeProcessRecordNotFoundError,
     RuntimeCoordinationStore,
+    RuntimeStoreError,
     SideEffectBlockedError,
     SideEffectConflictError,
+    SideEffectNotFoundError,
     _MIGRATIONS,
 )
 from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
@@ -40,6 +73,153 @@ from gpt2giga_harness.sessions.models import (
     run_to_dict,
 )
 from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability
+
+
+def test_runtime_store_facade_composes_bounded_domain_repositories():
+    method_owners = {
+        "submit_job": JobsRepository,
+        "finish_attempt": AttemptsRepository,
+        "claim_next_job": JobClaimsRepository,
+        "heartbeat_worker": WorkersRepository,
+        "create_approval_request": ApprovalsRepository,
+        "decide_approval_request": ApprovalDecisionsRepository,
+        "reserve_side_effect": SideEffectsRepository,
+        "create_native_process": NativeProcessRepository,
+        "pending_outbox": OutboxRepository,
+        "runs_center_revision": RevisionsRepository,
+        "inspect": RuntimeDiagnosticsRepository,
+    }
+
+    for method_name, owner in method_owners.items():
+        assert getattr(RuntimeCoordinationStore, method_name) is getattr(
+            owner, method_name
+        )
+    module_file = importlib.import_module(RuntimeCoordinationStore.__module__).__file__
+    assert module_file is not None
+    source_path = Path(module_file)
+    assert len(source_path.read_text(encoding="utf-8").splitlines()) <= 350
+    assert (
+        HarnessSideEffectExecutor.__module__ == "gpt2giga_harness.runtime.side_effects"
+    )
+    for error_type in (
+        RuntimeStoreError,
+        JobNotFoundError,
+        AttemptNotFoundError,
+        NativeProcessRecordNotFoundError,
+        IdempotencyConflictError,
+        SideEffectConflictError,
+        SideEffectBlockedError,
+        SideEffectNotFoundError,
+        ConcurrentUpdateError,
+        InvalidStateTransitionError,
+    ):
+        assert error_type.__module__ == "gpt2giga_harness.runtime.store"
+
+
+def test_db_provider_preserves_sqlite_contract_and_closes_resources(tmp_path):
+    provider = DbProvider(tmp_path / "provider.sqlite3")
+
+    with provider.connect() as connection:
+        assert connection.execute("PRAGMA busy_timeout").fetchone()[0] == 10_000
+        assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        assert connection.execute("PRAGMA synchronous").fetchone()[0] == 2
+        assert connection.row_factory is sqlite3.Row
+
+    with pytest.raises(sqlite3.ProgrammingError):
+        connection.execute("SELECT 1")
+
+    provider.close()
+    provider.close()
+    with pytest.raises(RuntimeError, match="database provider is closed"):
+        with provider.connect():
+            pass
+
+
+def test_db_provider_bounds_connection_and_database_setup_counts(tmp_path, monkeypatch):
+    connection_count = 0
+    setup_statements: list[str] = []
+    process_id = 101
+    original_connect = sqlite3.connect
+    count_lock = threading.Lock()
+
+    class TracingConnection(sqlite3.Connection):
+        def execute(self, sql, parameters=(), /):
+            setup_statements.append(" ".join(sql.lower().split()))
+            return super().execute(sql, parameters)
+
+    def traced_connect(*args, **kwargs):
+        nonlocal connection_count
+        with count_lock:
+            connection_count += 1
+        return original_connect(*args, **kwargs, factory=TracingConnection)
+
+    monkeypatch.setattr(
+        "gpt2giga_harness.runtime.db.connection.sqlite3.connect",
+        traced_connect,
+    )
+    monkeypatch.setattr(
+        "gpt2giga_harness.runtime.db.connection.getpid",
+        lambda: process_id,
+    )
+    provider = DbProvider(tmp_path / "provider-budget.sqlite3")
+
+    def read_database() -> int:
+        with provider.connect() as connection:
+            return int(connection.execute("SELECT 1").fetchone()[0])
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        assert list(executor.map(lambda _: read_database(), range(8))) == [1] * 8
+
+    assert connection_count == 8
+    assert setup_statements.count("pragma journal_mode = wal") == 1
+    assert setup_statements.count("pragma foreign_keys = on") == 8
+    assert setup_statements.count("pragma synchronous = full") == 8
+    assert "pragma busy_timeout = 10000" not in setup_statements
+
+    inherited_lock = provider._state_lock
+    inherited_lock.acquire()
+    process_id = 202
+    try:
+        with provider.connect() as connection:
+            assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    finally:
+        inherited_lock.release()
+
+    assert connection_count == 9
+    assert setup_statements.count("pragma journal_mode = wal") == 2
+
+
+def test_db_transaction_instruments_wait_and_preserves_atomicity(tmp_path, monkeypatch):
+    provider = DbProvider(tmp_path / "transaction.sqlite3")
+    measurements: list[tuple[str, float]] = []
+    monkeypatch.setattr(
+        "gpt2giga_harness.runtime.db.transactions.record_duration",
+        lambda name, duration_ms: measurements.append((name, duration_ms)),
+    )
+
+    with provider.connect() as connection:
+        connection.execute("CREATE TABLE records (value TEXT NOT NULL)")
+        with pytest.raises(RuntimeError, match="rollback"):
+            with transaction(connection):
+                connection.execute("INSERT INTO records VALUES ('discarded')")
+                raise RuntimeError("rollback")
+        with transaction(connection):
+            connection.execute("INSERT INTO records VALUES ('committed')")
+        values = connection.execute("SELECT value FROM records").fetchall()
+
+    assert [row[0] for row in values] == ["committed"]
+    assert [name for name, _ in measurements] == ["db_wait_ms", "db_wait_ms"]
+    assert all(duration_ms >= 0 for _, duration_ms in measurements)
+
+
+def test_runtime_store_context_closes_database_provider(tmp_path):
+    with RuntimeCoordinationStore(tmp_path) as store:
+        assert store.schema_version == RUNTIME_SCHEMA_VERSION
+
+    store.close()
+    with pytest.raises(RuntimeError, match="database provider is closed"):
+        _ = store.schema_version
 
 
 def test_runtime_store_uses_wal_hashed_idempotency_and_safe_json_export(tmp_path):
@@ -780,16 +960,26 @@ def test_runtime_cli_inspect_and_export_json(tmp_path, monkeypatch, capsys):
     assert "Exported runtime coordination state" in capsys.readouterr().out
 
 
-def test_runs_center_revision_tracks_state_but_ignores_worker_heartbeats(tmp_path):
+def test_runs_center_revision_tracks_domain_mutations_but_ignores_heartbeats(tmp_path):
     store = RuntimeCoordinationStore(tmp_path)
     initial = store.runs_center_revision()
-    job = store.submit_job(
+    submission = store.submit_job(
         session_id="sess_revision",
         user_message_id="msg_revision",
         initial_run_id="run_revision",
         idempotency_key="revision",
-    ).job
+    )
+    job = submission.job
     queued = store.runs_center_revision()
+    duplicate = store.submit_job(
+        session_id="sess_revision",
+        user_message_id="msg_revision",
+        initial_run_id="run_revision",
+        idempotency_key="revision",
+    )
+    assert duplicate.created is False
+    assert store.runs_center_revision() == queued
+
     store.register_worker(
         worker_id="worker_revision",
         process_id=123,
@@ -797,14 +987,147 @@ def test_runs_center_revision_tracks_state_but_ignores_worker_heartbeats(tmp_pat
         capability_fingerprint={},
     )
     online = store.runs_center_revision()
+    store.register_worker(
+        worker_id="worker_revision",
+        process_id=123,
+        hostname="localhost",
+        capability_fingerprint={},
+    )
+    assert store.runs_center_revision() == online
     store.heartbeat_worker("worker_revision")
-
-    assert queued != initial
-    assert online != queued
     assert store.runs_center_revision() == online
 
-    store.transition_job(job.id, JobStatus.RUNNING)
-    assert store.runs_center_revision() != online
+    claim = store.claim_next_job(
+        worker_id="worker_revision",
+        capability_fingerprint={},
+        lease_seconds=30,
+    )
+    assert claim is not None
+    claimed = store.runs_center_revision()
+    assert claimed != online
+    store.heartbeat_worker_attempt(
+        claim.attempt.id,
+        worker_id="worker_revision",
+        lease_seconds=30,
+    )
+    assert store.runs_center_revision() == claimed
+
+    store.transition_attempt(claim.attempt.id, JobAttemptStatus.RUNNING)
+    running = store.runs_center_revision()
+    assert running != claimed
+    resolution = PolicyResolution(
+        action=PermissionAction.PROCESS_SPAWN,
+        decision=PolicyDecision.ASK,
+        enforcement=EnforcementLevel.ENFORCED_BY_HARNESS,
+        policy_source="test:revision",
+    )
+    context = PolicyContext(
+        session_id=job.session_id,
+        run_id=job.initial_run_id,
+        job_id=job.id,
+        reason="Verify approval invalidation.",
+    )
+    approval = store.create_approval_request(resolution, context)
+    approval_revision = store.runs_center_revision()
+    assert approval_revision != running
+    assert store.create_approval_request(resolution, context).id == approval.id
+    assert store.runs_center_revision() == approval_revision
+    store.decide_approval_request(approval.id, ApprovalDecision.DENY)
+    decided = store.runs_center_revision()
+    assert decided != approval_revision
+
+    revisions = [
+        initial,
+        queued,
+        online,
+        claimed,
+        running,
+        approval_revision,
+        decided,
+    ]
+    assert all(len(revision) == 64 for revision in revisions)
+    assert [int(revision, 16) for revision in revisions] == sorted(
+        int(revision, 16) for revision in revisions
+    )
+
+
+def test_runs_center_revision_bump_rolls_back_with_domain_mutation(tmp_path):
+    store = RuntimeCoordinationStore(tmp_path)
+    initial = store.runs_center_revision()
+    with closing(sqlite3.connect(store.path)) as connection:
+        connection.execute(
+            """
+            CREATE TRIGGER reject_runtime_revision_bump
+            BEFORE UPDATE ON runtime_revisions
+            BEGIN
+                SELECT RAISE(ABORT, 'revision bump rejected');
+            END
+            """
+        )
+        connection.commit()
+
+    with pytest.raises(sqlite3.IntegrityError, match="revision bump rejected"):
+        store.submit_job(
+            session_id="sess_atomic_revision",
+            user_message_id="msg_atomic_revision",
+            idempotency_key="atomic-revision",
+        )
+
+    assert store.list_jobs() == ()
+    assert store.runs_center_revision() == initial
+
+
+def test_runs_center_revision_read_is_one_indexed_row_at_scale(tmp_path, monkeypatch):
+    store = RuntimeCoordinationStore(tmp_path)
+    with closing(sqlite3.connect(store.path)) as connection:
+        now = "2026-07-29T00:00:00+00:00"
+        connection.executemany(
+            """
+            INSERT INTO jobs (
+                id, origin, idempotency_key_hash, status, session_id,
+                user_message_id, initial_run_id, max_attempts, version,
+                required_fingerprint_json, created_at, updated_at
+            ) VALUES (?, 'manual', ?, 'queued', ?, ?, ?, 1, 0, '{}', ?, ?)
+            """,
+            (
+                (
+                    f"job_revision_{index}",
+                    f"key_revision_{index}",
+                    f"sess_revision_{index}",
+                    f"msg_revision_{index}",
+                    f"run_revision_{index}",
+                    now,
+                    now,
+                )
+                for index in range(10_000)
+            ),
+        )
+        connection.commit()
+
+    statements: list[str] = []
+    provider_connect = store._db.connect
+
+    @contextmanager
+    def traced_connect():
+        with provider_connect() as connection:
+            connection.set_trace_callback(statements.append)
+            try:
+                yield connection
+            finally:
+                connection.set_trace_callback(None)
+
+    monkeypatch.setattr(store._db, "connect", traced_connect)
+    revision = store.runs_center_revision()
+
+    selects = [
+        statement
+        for statement in statements
+        if statement.lstrip().upper().startswith("SELECT")
+    ]
+    assert len(revision) == 64
+    assert len(selects) == 1
+    assert "runtime_revisions" in selects[0]
+    assert "jobs" not in selects[0]
 
 
 def _create_run(

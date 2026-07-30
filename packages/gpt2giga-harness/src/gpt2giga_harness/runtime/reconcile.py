@@ -15,12 +15,12 @@ from gpt2giga_harness.runtime.models import (
     parse_run_status,
 )
 from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.sessions.models import HarnessStoredEvent
-from gpt2giga_harness.sessions.store import (
+from gpt2giga_harness.sessions import (
     HarnessSessionStore,
+    HarnessStoredEvent,
     RunNotFoundError,
-    utc_now,
 )
+from gpt2giga_harness.sessions.contracts import utc_now
 
 _RUN_TO_JOB_STATUS = {
     RunStatus.SUCCEEDED: JobStatus.SUCCEEDED,

@@ -1,0 +1,1 @@
+"""Domain-independent technical primitives."""

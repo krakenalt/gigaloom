@@ -8,17 +8,13 @@ import os
 import subprocess
 import sys
 import tarfile
+import tomllib
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 from gpt2giga_harness.base_install import BASE_DIRECT_DISTRIBUTIONS
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python 3.10 compatibility
-    import tomli as tomllib
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -59,7 +55,6 @@ IMPORT_DISTRIBUTIONS = {
     "pydantic": "pydantic",
     "starlette": "starlette",
     "textual": "textual",
-    "tomli": "tomli",
     "uvicorn": "uvicorn",
     "yaml": "pyyaml",
 }
@@ -441,7 +436,7 @@ def _build_neutral_plugin(root: Path) -> Path:
         f"""[project]
 name = "neutral-harness-plugin"
 version = "1.0.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 [project.entry-points."{NEUTRAL_HARNESS_ENTRY_POINT_GROUP}"]
 neutral-wheel = "neutral_harness_plugin:NeutralWheelHarness"
@@ -712,7 +707,7 @@ def _write_minimal_plugin(source_root: Path) -> None:
         f"""[project]
 name = "example-harness-plugin"
 version = "1.0.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = ["gigaloom=={HARNESS_VERSION}"]
 
 [project.entry-points."gpt2giga.harnesses"]

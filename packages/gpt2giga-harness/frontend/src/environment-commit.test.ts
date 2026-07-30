@@ -3,8 +3,10 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-const workbench = readFileSync(
-  fileURLToPath(new URL("./surfaces/workbench.tsx", import.meta.url)),
+const environmentActions = readFileSync(
+  fileURLToPath(
+    new URL("./features/workbench/environment-actions.tsx", import.meta.url),
+  ),
   "utf8",
 );
 const inbox = readFileSync(
@@ -15,14 +17,19 @@ const approvalPreview = readFileSync(
   fileURLToPath(new URL("./inspectors/InspectorFrame.tsx", import.meta.url)),
   "utf8",
 );
-const styles = readFileSync(fileURLToPath(new URL("./styles.css", import.meta.url)), "utf8");
+const styles = readFileSync(
+  fileURLToPath(
+    new URL("./features/workbench/workbench.css", import.meta.url),
+  ),
+  "utf8",
+);
 
 describe("governed Environment commit flow", () => {
   it("keeps preview, approval, and apply on backend-owned routes", () => {
-    expect(workbench).toContain('"/api/environment/commit/preview"');
-    expect(workbench).toContain('"/api/environment/commit/apply"');
-    expect(workbench).toContain("openInbox(\"approvals\")");
-    expect(workbench).toContain("environmentCommitPreview");
+    expect(environmentActions).toContain('"/api/environment/commit/preview"');
+    expect(environmentActions).toContain('"/api/environment/commit/apply"');
+    expect(environmentActions).toContain("openInbox()");
+    expect(environmentActions).toContain("setCommitPreview");
   });
 
   it("shows the exact author, message, HEAD, and diff before approval", () => {

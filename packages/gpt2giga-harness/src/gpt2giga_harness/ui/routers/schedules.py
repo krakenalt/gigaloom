@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Query, Request
+from fastapi import Body, HTTPException, Query, Request
 from starlette.responses import JSONResponse
 
 from gpt2giga_harness.project import resolve_project
-from gpt2giga_harness.ui.async_execution import ConformantAPIRoute
+from gpt2giga_harness.ui.async_execution import ContractAPIRouter
 from gpt2giga_harness.runtime.policy import (
     EnforcementLevel,
     INTERACTIVE_PROFILE,
@@ -28,10 +28,10 @@ from gpt2giga_harness.schedules import (
     schedule_definition_to_dict,
 )
 
-router = APIRouter(route_class=ConformantAPIRoute)
+router = ContractAPIRouter()
 
 
-@router.get("/api/schedules")
+@router.db_read.get("/api/schedules")
 def schedule_list(
     request: Request, workspace: str | None = Query(default=None)
 ) -> dict[str, Any]:
@@ -40,7 +40,7 @@ def schedule_list(
     return {"schedules": list(_service(request).list(project))}
 
 
-@router.post("/api/schedules/preview")
+@router.db_read.post("/api/schedules/preview")
 def schedule_preview(
     request: Request, payload: dict[str, Any] = Body(...)
 ) -> dict[str, Any]:
@@ -57,7 +57,7 @@ def schedule_preview(
     }
 
 
-@router.post("/api/schedules", status_code=201)
+@router.db_atomic.post("/api/schedules", status_code=201)
 def schedule_create(request: Request, payload: dict[str, Any] = Body(...)) -> Any:
     """Create or replace one disabled definition and invalidate its test grant."""
     project = _project(request, payload.get("workspace"))
@@ -81,7 +81,7 @@ def schedule_create(request: Request, payload: dict[str, Any] = Body(...)) -> An
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get("/api/schedules/{schedule_id}")
+@router.db_read.get("/api/schedules/{schedule_id}")
 def schedule_detail(
     schedule_id: str,
     request: Request,
@@ -96,7 +96,7 @@ def schedule_detail(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.put("/api/schedules/{schedule_id}")
+@router.db_atomic.put("/api/schedules/{schedule_id}")
 def schedule_update(
     schedule_id: str, request: Request, payload: dict[str, Any] = Body(...)
 ) -> Any:
@@ -140,7 +140,7 @@ def schedule_update(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.delete("/api/schedules/{schedule_id}")
+@router.db_atomic.delete("/api/schedules/{schedule_id}")
 def schedule_delete(
     schedule_id: str,
     request: Request,
@@ -177,7 +177,7 @@ def schedule_delete(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.post("/api/schedules/{schedule_id}/delete-preview")
+@router.db_read.post("/api/schedules/{schedule_id}/delete-preview")
 def schedule_delete_preview(
     schedule_id: str,
     request: Request,
@@ -217,7 +217,7 @@ def schedule_delete_preview(
     }
 
 
-@router.post("/api/schedules/{schedule_id}/test-now")
+@router.worker_job.post("/api/schedules/{schedule_id}/test-now")
 def schedule_test_now(
     schedule_id: str,
     request: Request,
@@ -227,7 +227,7 @@ def schedule_test_now(
     return _action(request, schedule_id, payload, "test_now")
 
 
-@router.post("/api/schedules/{schedule_id}/enable")
+@router.db_atomic.post("/api/schedules/{schedule_id}/enable")
 def schedule_enable(
     schedule_id: str,
     request: Request,
@@ -237,7 +237,7 @@ def schedule_enable(
     return _action(request, schedule_id, payload, "enable")
 
 
-@router.post("/api/schedules/{schedule_id}/pause")
+@router.db_atomic.post("/api/schedules/{schedule_id}/pause")
 def schedule_pause(
     schedule_id: str,
     request: Request,
@@ -247,7 +247,7 @@ def schedule_pause(
     return _action(request, schedule_id, payload, "pause")
 
 
-@router.post("/api/schedules/{schedule_id}/resume")
+@router.db_atomic.post("/api/schedules/{schedule_id}/resume")
 def schedule_resume(
     schedule_id: str,
     request: Request,
@@ -257,7 +257,7 @@ def schedule_resume(
     return _action(request, schedule_id, payload, "enable")
 
 
-@router.post("/api/schedules/{schedule_id}/run-now")
+@router.worker_job.post("/api/schedules/{schedule_id}/run-now")
 def schedule_run_now(
     schedule_id: str,
     request: Request,

@@ -17,7 +17,7 @@ authority that has not been granted.
 
 ## Install
 
-Python 3.10–3.14 and an installed provider CLI are required:
+Python 3.11–3.14 and an installed provider CLI are required:
 
 ```sh
 uv tool install --prerelease allow 'gigaloom==0.5.1a2'
@@ -49,7 +49,7 @@ See [Installation](./docs/installation.md) and
 |---|---|
 | Product overview | [Documentation home](./docs/index.md) |
 | Installation and first run | [Installation](./docs/installation.md) · [Quickstart](./docs/quickstart.md) |
-| Architecture and safety boundaries | [Architecture](./docs/architecture.md) · [Security](./docs/security.md) |
+| Architecture and safety boundaries | [Architecture](./docs/architecture.md) · [Durability and performance](./docs/architecture/durability-performance-contracts.md) · [Security](./docs/security.md) |
 | Runtime, backup, and troubleshooting | [Operations](./docs/operations.md) |
 | Optional gpt2giga gateway | [Gateway integration](./docs/gateway-integration.md) |
 | Development and release | [Contributing](./docs/contributing.md) · [Release](./docs/release.md) |

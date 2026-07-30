@@ -6,8 +6,10 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from gpt2giga_harness.sessions.locking import exclusive_file_lock
-from gpt2giga_harness.sessions.redaction import redact_for_storage
+from gpt2giga_harness.sessions.contracts import (
+    exclusive_file_lock,
+    redact_for_storage,
+)
 
 MAX_ATTEMPT_LOG_CHARS = 8192
 

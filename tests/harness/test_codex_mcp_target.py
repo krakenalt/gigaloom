@@ -3,13 +3,9 @@ from __future__ import annotations
 from dataclasses import replace
 import json
 from pathlib import Path
+import tomllib
 
 import pytest
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover
-    import tomli as tomllib
 
 from gpt2giga_harness.codex_mcp_target import (
     CODEX_MCP_MARKER,
