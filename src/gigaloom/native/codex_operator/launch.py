@@ -18,6 +18,9 @@ from gigaloom.native.codex_operator.contracts import (
     CodexCapabilityState,
     CodexCompatibilitySnapshot,
 )
+from gigaloom.native.codex_operator.protocol import (
+    CodexUnixWebSocketJsonRpcClient,
+)
 from gigaloom.native.terminal import (
     ManagedTerminalRegistry,
     TerminalAccess,
@@ -230,6 +233,30 @@ class CodexManagedTerminalLauncher:
             access,
             close_instance=close_instance,
             expected_revision=expected_revision,
+        )
+
+    def open_structured_client(
+        self,
+        terminal_id: str,
+        access: TerminalAccess,
+        *,
+        expected_revision: int | None = None,
+    ) -> CodexUnixWebSocketJsonRpcClient:
+        """Open an authorized client without exposing the private socket path."""
+        record = self.registry.get(
+            terminal_id,
+            access,
+            expected_revision=expected_revision,
+        )
+        with self._process_lock:
+            app_server = self._processes.get(record.id)
+        if app_server is None or not app_server.alive:
+            raise CodexManagedLaunchError(
+                "managed Codex app-server ownership is unavailable"
+            )
+        return CodexUnixWebSocketJsonRpcClient(
+            socket_path=app_server.spec.socket_path,
+            runtime_id=record.id,
         )
 
     def _prepare_home(self, home: Path, config_toml: str | None) -> None:

@@ -16,6 +16,12 @@ from gigaloom.native.codex_operator.command import (
     CodexOperatorIntent,
     parse_codex_operator_args,
 )
+from gigaloom.native.codex_operator.compaction import (
+    CodexCompactionBoundary,
+    CodexCompactionOutcome,
+    CodexCompactionStatus,
+    CodexNativeCompactionService,
+)
 from gigaloom.native.codex_operator.launch import (
     CodexManagedLaunch,
     CodexManagedLaunchError,
@@ -23,6 +29,11 @@ from gigaloom.native.codex_operator.launch import (
     CodexManagedTerminalLauncher,
 )
 from gigaloom.native.codex_operator.resume import CodexAttachResumeService
+from gigaloom.native.codex_operator.protocol import (
+    CodexOperatorProtocolError,
+    CodexStdioJsonRpcClient,
+    CodexUnixWebSocketJsonRpcClient,
+)
 from gigaloom.native.codex_operator.session_contracts import (
     CODEX_SESSION_BINDING_SCHEMA_VERSION,
     CodexCwdDecision,
@@ -49,17 +60,24 @@ __all__ = [
     "CodexBindingAccessError",
     "CodexBindingNotFoundError",
     "CodexCapabilityState",
+    "CodexCompactionBoundary",
+    "CodexCompactionOutcome",
+    "CodexCompactionStatus",
     "CodexCompatibilitySnapshot",
     "CodexCwdDecision",
     "CodexManagedLaunch",
     "CodexManagedLaunchError",
     "CodexManagedLaunchRequest",
     "CodexManagedTerminalLauncher",
+    "CodexNativeCompactionService",
     "CodexOperatorIntent",
+    "CodexOperatorProtocolError",
     "CodexResumeMode",
     "CodexResumeOutcome",
     "CodexSessionBinding",
     "CodexSessionBindingStore",
+    "CodexStdioJsonRpcClient",
+    "CodexUnixWebSocketJsonRpcClient",
     "codex_compatibility_snapshot_to_dict",
     "codex_session_binding_to_dict",
     "parse_codex_operator_args",
