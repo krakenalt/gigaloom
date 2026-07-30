@@ -21,16 +21,14 @@ from gpt2giga_harness.native.base import (
     native_command_plan_to_dict,
     native_prompt_delivery_to_dict,
 )
-from gpt2giga_harness.sessions.models import HarnessStoredEvent
-from gpt2giga_harness.sessions.store import HarnessSessionStore, new_id, utc_now
-from gpt2giga_harness.runtime.models import (
+from gpt2giga_harness.runtime.api import (
     NativeProcessOutputRecord,
     NativeProcessRecord,
-)
-from gpt2giga_harness.runtime.store import (
     NativeProcessRecordNotFoundError,
     RuntimeCoordinationStore,
 )
+from gpt2giga_harness.sessions import HarnessSessionStore, HarnessStoredEvent
+from gpt2giga_harness.sessions.contracts import new_id, utc_now
 from gpt2giga_harness.types import (
     REDACTED,
     SECRET_ENV_NAMES,

@@ -21,7 +21,7 @@ from gpt2giga_harness.runtime.repositories.records import (
     _safe_json,
     _utc_now,
 )
-from gpt2giga_harness.sessions.redaction import redact_for_storage
+from gpt2giga_harness.sessions.contracts import redact_for_storage
 
 
 class NativeProcessRepository(RuntimeRepository):

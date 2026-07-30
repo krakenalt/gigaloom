@@ -8,8 +8,8 @@ import threading
 from typing import Any, Mapping, Protocol
 from uuid import uuid4
 
-from gpt2giga_harness.native.models import parse_invocation_mode
-from gpt2giga_harness.runtime.models import RunStatus, parse_run_status
+from gpt2giga_harness.native import parse_invocation_mode
+from gpt2giga_harness.runtime.api import RunStatus, parse_run_status
 from gpt2giga_harness.sessions.api import SessionQueryStore
 from gpt2giga_harness.sessions.event_persistence import (
     EventPersistenceStore,

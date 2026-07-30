@@ -222,3 +222,33 @@ def test_legacy_and_context_imports_resolve_to_same_modules(
     assert importlib.import_module(prefix + legacy) is importlib.import_module(
         prefix + context
     )
+
+
+@pytest.mark.parametrize(
+    ("facade_module", "target_module", "attribute"),
+    (
+        ("harnesses.api", "harnesses.agent_cli", "build_safe_env"),
+        (
+            "harnesses.api",
+            "harnesses.attachment_plan",
+            "prompt_with_attachments",
+        ),
+        (
+            "harnesses.api",
+            "harnesses.claude_code",
+            "claude_code_custom_headers",
+        ),
+        ("runtime.api", "runtime.policy", "PolicyDecision"),
+        ("runtime.api", "runtime.store", "RuntimeCoordinationStore"),
+    ),
+)
+def test_cross_context_facades_resolve_reviewed_exports(
+    facade_module: str,
+    target_module: str,
+    attribute: str,
+) -> None:
+    prefix = "gpt2giga_harness."
+    facade = importlib.import_module(prefix + facade_module)
+    target = importlib.import_module(prefix + target_module)
+
+    assert getattr(facade, attribute) is getattr(target, attribute)

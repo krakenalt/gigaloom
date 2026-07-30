@@ -31,7 +31,7 @@ from gpt2giga_harness.runtime.policy import (
     PolicyAuditEvent,
     PolicyAuditPhase,
 )
-from gpt2giga_harness.sessions.redaction import redact_for_storage
+from gpt2giga_harness.sessions.contracts import redact_for_storage
 
 
 def _job_from_row(row: sqlite3.Row) -> RuntimeJob:

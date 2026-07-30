@@ -28,8 +28,11 @@ from gpt2giga_harness.attachments.models import (
     attachment_to_dict,
 )
 from gpt2giga_harness.sessions import SessionLocator
-from gpt2giga_harness.sessions.redaction import redact_for_storage
-from gpt2giga_harness.sessions.store import new_id, utc_now
+from gpt2giga_harness.sessions.contracts import (
+    new_id,
+    redact_for_storage,
+    utc_now,
+)
 
 SESSION_ATTACHMENTS_FILE = "attachments.jsonl"
 ATTACHMENTS_INDEX_FILE = "index.json"

@@ -12,6 +12,7 @@ def test_current_imports_follow_frozen_direction(
     architecture_manifest: dict[str, object],
     package_root: Path,
 ) -> None:
+    assert architecture_manifest["import_boundaries"]["temporary_violations"] == []
     assert (
         architecture_checker.check_import_boundaries(
             package_root,

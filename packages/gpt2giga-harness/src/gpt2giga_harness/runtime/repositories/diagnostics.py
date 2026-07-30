@@ -24,7 +24,7 @@ from gpt2giga_harness.runtime.repositories.records import (
     _utc_now,
 )
 from gpt2giga_harness.reviewed_evidence import reviewed_evidence_index
-from gpt2giga_harness.sessions.redaction import redact_for_storage
+from gpt2giga_harness.sessions.contracts import redact_for_storage
 
 
 class RuntimeDiagnosticsRepository(RuntimeRepository):

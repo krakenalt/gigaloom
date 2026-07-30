@@ -17,9 +17,11 @@ from gpt2giga_harness.native.models import (
     execution_snapshot_from_dict,
     execution_snapshot_to_dict,
 )
-from gpt2giga_harness.sessions.redaction import redact_for_storage
-from gpt2giga_harness.sessions.locking import exclusive_file_lock
-from gpt2giga_harness.sessions.store import new_id
+from gpt2giga_harness.sessions.contracts import (
+    exclusive_file_lock,
+    new_id,
+    redact_for_storage,
+)
 
 SNAPSHOT_INDEX_FILE = "execution-snapshots.json"
 SNAPSHOT_BINDING_MAX_DELAY_SECONDS = 300.0

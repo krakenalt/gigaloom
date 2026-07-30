@@ -51,10 +51,15 @@ from gpt2giga_harness.runtime.workers.scheduler import (
 )
 from gpt2giga_harness.runtime.workers.status import worker_status as worker_status
 from gpt2giga_harness.session_runner import HarnessSessionRunner, QueuedHarnessRun
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.sessions.locking import exclusive_file_lock
-from gpt2giga_harness.sessions.models import HarnessStoredEvent
-from gpt2giga_harness.sessions.store import new_id, utc_now
+from gpt2giga_harness.sessions import (
+    FilesystemHarnessSessionStore,
+    HarnessStoredEvent,
+)
+from gpt2giga_harness.sessions.contracts import (
+    exclusive_file_lock,
+    new_id,
+    utc_now,
+)
 from gpt2giga_harness.types import HarnessEventType
 
 DEFAULT_LEASE_SECONDS = 15.0

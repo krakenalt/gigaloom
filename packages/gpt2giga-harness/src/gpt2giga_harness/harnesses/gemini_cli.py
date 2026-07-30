@@ -8,14 +8,14 @@ from typing import TYPE_CHECKING
 from gpt2giga_harness.harnesses.builtins.gemini import cli as _implementation
 
 if TYPE_CHECKING:
-    from gpt2giga_harness.runtime.models import ApprovalStatus  # noqa: F401
-    from gpt2giga_harness.runtime.policy import (  # noqa: F401
+    from gpt2giga_harness.runtime.api import (  # noqa: F401
+        ApprovalStatus,
         EnforcementLevel,
         PermissionAction,
         PolicyContext,
         PolicyDecision,
         PolicyResolution,
+        RuntimeCoordinationStore,
     )
-    from gpt2giga_harness.runtime.store import RuntimeCoordinationStore  # noqa: F401
 
 sys.modules[__name__] = _implementation

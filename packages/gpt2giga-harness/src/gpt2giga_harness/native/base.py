@@ -12,7 +12,7 @@ from gpt2giga_harness.native.models import (
     NativeTranscriptMessage,
     execution_snapshot_to_dict,
 )
-from gpt2giga_harness.runtime.policy import EnforcementLevel
+from gpt2giga_harness.runtime.api import EnforcementLevel
 from gpt2giga_harness.types import HarnessContext, HarnessRequest, redact_secrets
 
 

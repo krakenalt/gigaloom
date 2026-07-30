@@ -11,8 +11,8 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from gpt2giga_harness.native.models import parse_invocation_mode
-from gpt2giga_harness.runtime.models import RunStatus, parse_run_status
+from gpt2giga_harness.native import parse_invocation_mode
+from gpt2giga_harness.runtime.api import RunStatus, parse_run_status
 from gpt2giga_harness.sessions.models import (
     HarnessMessage,
     HarnessNativeLink,

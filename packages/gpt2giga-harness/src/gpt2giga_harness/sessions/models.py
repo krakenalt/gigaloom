@@ -5,12 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
-from gpt2giga_harness.native.models import (
+from gpt2giga_harness.native import (
     HarnessInvocationMode,
     NativeSessionStatus,
     parse_invocation_mode,
 )
-from gpt2giga_harness.runtime.models import RunStatus, parse_run_status
+from gpt2giga_harness.runtime.api import RunStatus, parse_run_status
 from gpt2giga_harness.types import (
     GigaChatApiMode,
     HarnessCapability,

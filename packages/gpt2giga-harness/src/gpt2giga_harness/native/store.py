@@ -18,8 +18,7 @@ from gpt2giga_harness.native.discovery import (
     merge_native_refs,
     native_ref_identity,
 )
-from gpt2giga_harness.sessions.redaction import redact_for_storage
-from gpt2giga_harness.sessions.store import new_id
+from gpt2giga_harness.sessions.contracts import new_id, redact_for_storage
 
 INDEX_FILE = "index.json"
 TRANSCRIPT_METADATA_KEYS = frozenset(
