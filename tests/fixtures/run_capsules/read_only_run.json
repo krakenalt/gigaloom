@@ -1,0 +1,145 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "artifact_fixture",
+      "byte_count": 42,
+      "content_included": false,
+      "media_type": "application/json",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "summary_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "created_at": "2026-07-31T00:00:00Z",
+  "input_lock": {
+    "acp": {
+      "capabilities_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "profile_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "protocol_version": "v1"
+    },
+    "agent_profile": {
+      "id": "fixture-agent",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": "1"
+    },
+    "attachments": [],
+    "context_manifest": {
+      "id": "context_fixture",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "environment": {
+      "container": null,
+      "os": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "python": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "toolchain": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "executable": {
+      "path_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "version": "fixture-agent-1"
+    },
+    "extensions": {
+      "mcp": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "plugins": [],
+      "skills": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ]
+    },
+    "git": {
+      "base_commit": "1111111111111111111111111111111111111111",
+      "dirty": false,
+      "files": []
+    },
+    "governance": {
+      "authority": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "network": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "policy": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_to_sink": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "launch_profile_sha256": null,
+    "model_account": {
+      "account_id": null,
+      "model_id": "fixture-model"
+    },
+    "omissions": [
+      "account_identity",
+      "content_bundle"
+    ],
+    "project": {
+      "catalog_id": "prj_fixture",
+      "catalog_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "workspace_ref_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "route_decision": {
+      "id": "route_fixture",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "structured_route_id": "fixture.acp",
+    "time": {
+      "captured_at": "2026-07-31T00:00:00Z",
+      "clock_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "source": "fixture-clock"
+    }
+  },
+  "omissions": [
+    {
+      "code": "content_bundle",
+      "reason_code": "default_content_free",
+      "scope": "capsule"
+    }
+  ],
+  "output_receipt": {
+    "approvals": [],
+    "artifacts": [
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ],
+    "cancellation": {
+      "reason_code": null,
+      "state": "not_requested"
+    },
+    "change": {
+      "base_sha256": "none",
+      "patch_sha256": "none",
+      "worktree_sha256": "none"
+    },
+    "cost": {
+      "amount_micros": null,
+      "currency": null,
+      "knowledge": "unknown",
+      "receipt_sha256": null
+    },
+    "gates": [
+      {
+        "gate_id": "read-only",
+        "outcome": "passed",
+        "receipt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "omissions": [
+      "raw_output"
+    ],
+    "output_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "process": {
+      "exit_code": 0,
+      "mode": "structured",
+      "outcome": "succeeded",
+      "receipt_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "run": {
+      "attempt_id": "attempt_1",
+      "run_id": "run_fixture",
+      "session_id": "session_fixture"
+    },
+    "source_to_sink": [
+      "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    ],
+    "usage_context": {
+      "context_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "usage_sha256": null
+    },
+    "warnings": [
+      "cost_unknown"
+    ]
+  }
+}
