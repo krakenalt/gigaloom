@@ -17,6 +17,7 @@ from gigaloom.review.route_decisions.models import (
     RouteDecisionError,
     RouteDecisionLatencyEvidenceV1,
     RouteDecisionNotFoundError,
+    RouteDecisionOverrideError,
     RouteDecisionOutcome,
     RouteDecisionOverrideV1,
     RouteDecisionReceiptV1,
@@ -24,6 +25,9 @@ from gigaloom.review.route_decisions.models import (
     RouteDecisionVerificationError,
 )
 from gigaloom.review.route_decisions.repository import RouteDecisionRepository
+from gigaloom.review.route_decisions.overrides import (
+    override_route_decision_receipt,
+)
 from gigaloom.review.route_decisions.verification import (
     verify_route_decision_receipt,
 )
@@ -39,6 +43,7 @@ __all__ = [
     "RouteDecisionError",
     "RouteDecisionLatencyEvidenceV1",
     "RouteDecisionNotFoundError",
+    "RouteDecisionOverrideError",
     "RouteDecisionOutcome",
     "RouteDecisionOverrideV1",
     "RouteDecisionReceiptV1",
@@ -47,6 +52,7 @@ __all__ = [
     "RouteDecisionVerificationError",
     "canonical_route_decision_bytes",
     "create_route_decision_receipt",
+    "override_route_decision_receipt",
     "route_decision_receipt_from_dict",
     "route_decision_receipt_to_dict",
     "verify_route_decision_receipt",
