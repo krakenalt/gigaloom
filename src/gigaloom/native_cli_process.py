@@ -11,9 +11,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from typing import cast
-
-from gigaloom.native_cli_contracts import NativeNamespaceSpec
+from typing import Protocol, cast
 
 
 class NativeProcessPlatform(str, Enum):
@@ -38,6 +36,33 @@ class NativeResolutionStatus(str, Enum):
     MISSING = "missing"
     NON_EXECUTABLE = "non_executable"
     UNSAFE = "unsafe"
+
+
+class NativeProcessTarget(Protocol):
+    """Minimum declarative identity required by the process kernel."""
+
+    namespace: str
+    executable: str
+
+
+@dataclass(frozen=True)
+class NativeProcessSpec:
+    """Provider-neutral process target derived from an agent profile."""
+
+    namespace: str
+    executable: str
+
+    def __post_init__(self) -> None:
+        if not self.namespace or any(
+            character.isspace() or character in {"/", "\\", "\x00"}
+            for character in self.namespace
+        ):
+            raise ValueError("native process namespace is invalid")
+        if not self.executable or any(
+            character.isspace() or character in {"/", "\\", "\x00"}
+            for character in self.executable
+        ):
+            raise ValueError("native process executable is invalid")
 
 
 @dataclass(frozen=True)
@@ -102,7 +127,7 @@ def build_native_environment(
 
 
 def resolve_native_executable(
-    spec: NativeNamespaceSpec,
+    spec: NativeProcessTarget,
     *,
     environment: Mapping[str, str],
     facade_executable: str | os.PathLike[str] | None,
@@ -145,7 +170,7 @@ def resolve_native_executable(
 
 
 def run_native_l0(
-    spec: NativeNamespaceSpec,
+    spec: NativeProcessTarget,
     suffix: Sequence[str],
     *,
     environment: Mapping[str, str] | None = None,
@@ -221,7 +246,7 @@ def run_native_l0(
 
 
 def run_native_l1_handoff(
-    spec: NativeNamespaceSpec,
+    spec: NativeProcessTarget,
     suffix: Sequence[str],
     *,
     environment: Mapping[str, str] | None = None,

@@ -17,6 +17,7 @@ from gigaloom.harnesses.agent_profiles import (
     AgentProfileSourceKind,
     AgentProfileTrustClass,
     CoreCommandCollisionContractV1,
+    RELEASE_RESERVED_CORE_COMMANDS,
     load_builtin_agent_profiles,
 )
 from gigaloom.harnesses.agent_profiles.manifests import (
@@ -118,6 +119,9 @@ def test_core_collision_fixture_is_derived_from_the_real_parser() -> None:
 
     assert payload["source"] == "gigaloom.cli_commands.parser.build_parser"
     assert payload["registered_commands"] == sorted(action.choices)
+    assert tuple(payload["release_reserved_commands"]) == (
+        RELEASE_RESERVED_CORE_COMMANDS
+    )
     contract = CoreCommandCollisionContractV1(
         schema_version=payload["schema_version"],
         registered_commands=tuple(payload["registered_commands"]),

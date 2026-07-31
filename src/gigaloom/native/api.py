@@ -14,7 +14,10 @@ from gigaloom.native.launch import (
     NativeIntentMatcherKind,
     NativeInvocation,
     NativeLaunchMode,
+    NativeLaunchPlan,
     NativeLaunchReason,
+    TerminalContext,
+    plan_native_launch,
 )
 
 CodexStdioJsonRpcClient: Any
@@ -29,7 +32,10 @@ __all__ = [
     "NativeIntentMatcherKind",
     "NativeInvocation",
     "NativeLaunchMode",
+    "NativeLaunchPlan",
     "NativeLaunchReason",
+    "TerminalContext",
+    "plan_native_launch",
 ]
 
 

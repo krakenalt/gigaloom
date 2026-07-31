@@ -65,7 +65,7 @@ def test_console_metadata_commands_do_not_import_domain_graph():
 
         cases = (
             (["--version"], False),
-            (["--help"], True),
+            (["--help"], False),
             (["--non-interactive", "--help"], True),
             (["completion", "bash"], False),
             (["config", "path"], False),

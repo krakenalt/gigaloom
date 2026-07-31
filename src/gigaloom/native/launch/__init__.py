@@ -11,6 +11,8 @@ from gigaloom.native.launch.contracts import (
     NativeLaunchMode,
     NativeLaunchReason,
 )
+from gigaloom.native.launch.context import TerminalContext
+from gigaloom.native.launch.planner import NativeLaunchPlan, plan_native_launch
 
 __all__ = [
     "AgentResolutionKind",
@@ -22,4 +24,7 @@ __all__ = [
     "NativeInvocation",
     "NativeLaunchMode",
     "NativeLaunchReason",
+    "NativeLaunchPlan",
+    "TerminalContext",
+    "plan_native_launch",
 ]

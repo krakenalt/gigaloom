@@ -1,129 +1,124 @@
-"""Early root-namespace routing for provider-native CLI passthrough."""
+"""Early root routing from declarative agent profiles to native CLIs."""
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 import os
+import sys
 
-from gigaloom.native_cli_contracts import (
-    CapabilityLevel,
-    NATIVE_NAMESPACE_SPECS,
-    NativeNamespaceSpec,
-    classify_native_route,
+from gigaloom.harnesses.agent_profiles import (
+    AgentProfileRegistry,
+    AgentProfileV1,
+    build_core_command_collision_contract,
+    load_builtin_agent_profiles,
 )
-from gigaloom.native_cli_process import run_native_l0, run_native_l1_handoff
-from gigaloom.terminal_dispatch import TerminalContext, TuiLaunchIntent
+from gigaloom.native.api import (
+    AgentResolutionKind,
+    NativeInvocation,
+    NativeLaunchMode,
+    TerminalContext,
+    plan_native_launch,
+)
+from gigaloom.native_cli_process import (
+    NativeProcessSpec,
+    run_native_l0,
+    run_native_l1_handoff,
+)
 
 
 NativeRunner = Callable[..., int]
 ManagedRunner = Callable[..., int]
-StructuredRunner = Callable[[TuiLaunchIntent], int]
-StructuredProbe = Callable[
-    [NativeNamespaceSpec, tuple[str, ...]], tuple[str | None, bool]
-]
+
+
+def default_agent_profile_registry(
+    *,
+    registered_commands: Sequence[str] = (),
+) -> AgentProfileRegistry:
+    """Load the bounded built-in profile snapshot without provider imports."""
+    return AgentProfileRegistry.build(
+        load_builtin_agent_profiles(),
+        collision_contract=build_core_command_collision_contract(registered_commands),
+    )
 
 
 def match_native_namespace(
     argv: Sequence[str],
-) -> tuple[NativeNamespaceSpec, tuple[str, ...]] | None:
-    """Return one reviewed root namespace and its untouched provider suffix."""
+    *,
+    registry: AgentProfileRegistry | None = None,
+) -> tuple[AgentProfileV1, tuple[str, ...]] | None:
+    """Return one registered agent profile and its untouched provider suffix."""
     if not argv:
         return None
-    spec = NATIVE_NAMESPACE_SPECS.get(argv[0])
-    if spec is None:
+    profiles = registry or default_agent_profile_registry()
+    resolution = profiles.resolve(argv[0])
+    if resolution.kind not in {
+        AgentResolutionKind.AGENT_ID,
+        AgentResolutionKind.AGENT_ALIAS,
+    }:
         return None
-    return spec, tuple(argv[1:])
+    assert resolution.agent_id is not None
+    return profiles.get(resolution.agent_id), tuple(argv[1:])
 
 
 def run_native_namespace(
     argv: Sequence[str],
     *,
+    registry: AgentProfileRegistry | None = None,
     environment: Mapping[str, str] | None = None,
     facade_executable: str | os.PathLike[str] | None = None,
     runner: NativeRunner = run_native_l0,
     managed_runner: ManagedRunner = run_native_l1_handoff,
-    structured_runner: StructuredRunner | None = None,
-    structured_probe: StructuredProbe | None = None,
     context: TerminalContext | None = None,
+    managed_terminal_supported: bool | None = None,
 ) -> int | None:
-    """Run an admitted native namespace or return to Harness root routing."""
-    invocation = match_native_namespace(argv)
-    if invocation is None:
+    """Launch a registered native agent without consulting structured routes."""
+    matched = match_native_namespace(argv, registry=registry)
+    if matched is None:
         return None
-    spec, suffix = invocation
+    profile, suffix = matched
+    native = profile.native
+    if native is None:
+        _write_no_native_diagnostic(profile.agent_id)
+        return 126
     terminal = context or TerminalContext.capture()
-    human_terminal = terminal.fully_interactive and not terminal.ci
-    version: str | None = None
-    structured_ready = False
-    preliminary = classify_native_route(
-        spec.namespace,
-        suffix,
-        stdin_is_tty=human_terminal,
-        stdout_is_tty=human_terminal,
-        structured_transport_ready=False,
+    invocation = NativeInvocation(
+        agent_id=profile.agent_id,
+        requested_token=argv[0],
+        suffix=suffix,
+        cwd=os.getcwd(),
+        stdin_is_tty=terminal.stdin_is_tty,
+        stdout_is_tty=terminal.stdout_is_tty,
+        stderr_is_tty=terminal.stderr_is_tty,
+        ci=terminal.ci,
+        platform=terminal.platform,
     )
-    if (
-        spec.namespace == "codex"
-        and preliminary.level is CapabilityLevel.MANAGED_HANDOFF
-    ):
-        try:
-            version, structured_ready = (structured_probe or _probe_codex_structured)(
-                spec, suffix
-            )
-        except Exception:
-            # Probe drift or failure degrades only the optional L2 route.
-            version, structured_ready = None, False
-    decision = classify_native_route(
-        spec.namespace,
-        suffix,
-        version=version,
-        stdin_is_tty=human_terminal,
-        stdout_is_tty=human_terminal,
-        structured_transport_ready=structured_ready,
+    plan = plan_native_launch(
+        invocation,
+        native,
+        managed_terminal_supported=(
+            terminal.terminal_supported
+            if managed_terminal_supported is None
+            else managed_terminal_supported
+        ),
     )
-    if decision.level in {
-        CapabilityLevel.MANAGED_HANDOFF,
-        CapabilityLevel.STRUCTURED_WORKBENCH,
-    }:
-        # Import the semantic decoder only for an affirmative human route.
-        from gigaloom.terminal_intent import parse_native_tui_launch_intent
-
-        intent: TuiLaunchIntent | None = parse_native_tui_launch_intent(
-            spec.namespace, suffix, decision, workspace=os.getcwd()
-        )
-        if intent is not None:
-            if decision.level is CapabilityLevel.STRUCTURED_WORKBENCH:
-                return (structured_runner or _run_structured_workbench)(intent)
-            return managed_runner(
-                spec,
-                suffix,
-                environment=environment,
-                facade_executable=facade_executable,
-            )
-    return runner(
-        spec,
+    process_spec = NativeProcessSpec(
+        namespace=profile.agent_id,
+        executable=native.executable_names[0],
+    )
+    selected_runner = (
+        managed_runner if plan.mode is NativeLaunchMode.MANAGED_NATIVE else runner
+    )
+    return selected_runner(
+        process_spec,
         suffix,
         environment=environment,
         facade_executable=facade_executable,
     )
 
 
-def _probe_codex_structured(
-    _spec: NativeNamespaceSpec, suffix: tuple[str, ...]
-) -> tuple[str | None, bool]:
-    """Return bounded Codex app-server admission without reading its native home."""
-    if suffix == ("resume", "--last"):
-        # The reviewed app-server contract has no admitted thread-list selector.
-        return None, False
-    from gigaloom.harnesses.codex_cli import CodexCliHarness
-    from gigaloom.harnesses.codex_workbench import admit_codex_workbench
-
-    admission = admit_codex_workbench(CodexCliHarness().capability_probe())
-    return admission.version, admission.admitted
-
-
-def _run_structured_workbench(intent: TuiLaunchIntent) -> int:
-    """Launch the canonical TUI for an admitted provider integration."""
-    from gigaloom.tui.entrypoint import main as tui_main
-
-    return tui_main([], launch_intent=intent)
+def _write_no_native_diagnostic(agent_id: str) -> None:
+    message = f"giga: agent {agent_id} has no native launch route\n"
+    try:
+        sys.stderr.write(message)
+    except (AttributeError, OSError, ValueError):
+        pass

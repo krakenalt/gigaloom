@@ -1457,31 +1457,27 @@ print("textual" in sys.modules, "fastapi" in sys.modules, "uvicorn" in sys.modul
 
 
 def test_root_help_teaches_prefix_contract_and_legacy_automation(capsys):
-    with pytest.raises(SystemExit) as raised:
-        entrypoint.main(["--help"])
-
-    assert raised.value.code == 0
+    assert entrypoint.main(["--help"]) == 0
     output = capsys.readouterr().out
-    assert "giga codex exec" in output
-    assert "giga claude -p" in output
-    assert "giga gemini -p" in output
+    assert "giga codex [args...]" in output
+    assert "giga claude [args...]" in output
+    assert "giga gemini [args...]" in output
     assert "giga --non-interactive --help" in output
     assert "giga completion" in output
 
 
-def test_console_entrypoint_dispatches_tui_without_full_cli(monkeypatch):
-    from gigaloom.tui import entrypoint as tui_entrypoint
-
+def test_console_entrypoint_dispatches_session_to_plain_cli(monkeypatch):
     monkeypatch.delitem(sys.modules, "gigaloom.cli", raising=False)
+    calls = []
     monkeypatch.setattr(
-        tui_entrypoint,
-        "main",
-        lambda arguments, **_kwargs: len(arguments),
+        entrypoint,
+        "_run_core_command",
+        lambda arguments: calls.append(arguments) or 23,
     )
     context = TerminalContext(True, True, True, "xterm-256color")
 
-    assert entrypoint.main(["--workspace", "."], context=context) == 2
-    assert entrypoint.main(["tui", "--workspace", "."], context=context) == 2
+    assert entrypoint.main(["session", "list"], context=context) == 23
+    assert calls == [["session", "list"]]
     assert "gigaloom.cli" not in sys.modules
 
 
@@ -1492,32 +1488,26 @@ def test_automation_cli_does_not_advertise_a_competing_tui_command():
     assert "tui" not in help_text
 
 
-def test_bare_console_entrypoint_dispatches_to_tui(monkeypatch):
-    from gigaloom.tui import entrypoint as tui_entrypoint
-
+def test_bare_console_entrypoint_prints_launcher_summary(monkeypatch, capsys):
     monkeypatch.delitem(sys.modules, "gigaloom.cli", raising=False)
-    calls = []
-    monkeypatch.setattr(
-        tui_entrypoint,
-        "main",
-        lambda arguments, **kwargs: calls.append((arguments, kwargs)) or 0,
-    )
+    monkeypatch.delitem(sys.modules, "gigaloom.tui.entrypoint", raising=False)
 
     context = TerminalContext(True, True, True, "xterm-256color")
     assert entrypoint.main([], context=context) == 0
-    assert calls[0][0] == []
+    output = capsys.readouterr().out
+    assert "Native agents" in output
+    assert "Launch agent:   giga <agent>" in output
     assert "gigaloom.cli" not in sys.modules
+    assert "gigaloom.tui.entrypoint" not in sys.modules
 
 
-def test_bare_console_entrypoint_fails_closed_without_an_interactive_terminal(
-    monkeypatch, capsys
-):
+def test_explicit_tui_is_no_longer_a_root_surface(monkeypatch, capsys):
     monkeypatch.delitem(sys.modules, "gigaloom.cli", raising=False)
 
     context = TerminalContext(False, False, True, "xterm-256color")
     assert entrypoint.main(["tui"], context=context) == 2
 
-    assert "requires a supported interactive terminal" in capsys.readouterr().err
+    assert "unknown command or agent 'tui'" in capsys.readouterr().err
     assert "gigaloom.cli" not in sys.modules
 
 
@@ -1646,21 +1636,17 @@ def test_human_terminal_deep_links_preserve_typed_intent(arguments, expected):
         assert getattr(intent, key) == value
 
 
-def test_console_entrypoint_deep_links_human_chat_without_importing_cli(monkeypatch):
-    from gigaloom.tui import entrypoint as tui_entrypoint
-
+def test_console_entrypoint_routes_chat_to_plain_cli(monkeypatch):
     monkeypatch.delitem(sys.modules, "gigaloom.cli", raising=False)
     calls = []
     monkeypatch.setattr(
-        tui_entrypoint,
-        "main",
-        lambda arguments, **kwargs: calls.append((arguments, kwargs)) or 0,
+        entrypoint,
+        "_run_core_command",
+        lambda arguments: calls.append(arguments) or 0,
     )
 
     context = TerminalContext(True, True, True, "xterm-256color")
     assert entrypoint.main(["chat", "hello"], context=context) == 0
 
-    assert calls[0][0] == []
-    assert calls[0][1]["launch_intent"].harness_id == "direct-chat"
-    assert calls[0][1]["launch_intent"].prompt == "hello"
+    assert calls == [["chat", "hello"]]
     assert "gigaloom.cli" not in sys.modules
