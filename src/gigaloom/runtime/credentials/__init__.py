@@ -1,6 +1,7 @@
 """Public credential control-plane runtime API."""
 
 from gigaloom.runtime.credentials.broker import (
+    CredentialLeaseNotFoundError,
     CredentialSourceConflictError,
     CredentialSourceNotFoundError,
     InMemoryCredentialBroker,
@@ -18,6 +19,7 @@ from gigaloom.runtime.credentials.models import (
 __all__ = [
     "CredentialQuotaMetadata",
     "CredentialQuotaStatus",
+    "CredentialLeaseNotFoundError",
     "CredentialSourceConflictError",
     "CredentialSourceNotFoundError",
     "CredentialSourceProjection",
