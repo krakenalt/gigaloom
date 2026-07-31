@@ -95,6 +95,7 @@ def test_browser_gate_covers_required_viewports_console_and_overflow():
     config = (REPOSITORY_ROOT / "web/playwright.config.ts").read_text(encoding="utf-8")
     smoke = (REPOSITORY_ROOT / "web/e2e/web.spec.ts").read_text(encoding="utf-8")
 
+    assert 'path.resolve(frontendDirectory, "..")' in config
     assert "width: 1440, height: 1000" in config
     assert 'name: "mobile-390x844"' in config
     assert "width: 390, height: 844" in config

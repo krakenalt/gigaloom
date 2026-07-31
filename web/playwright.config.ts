@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
 const frontendDirectory = path.dirname(fileURLToPath(import.meta.url));
-const repositoryRoot = path.resolve(frontendDirectory, "../../..");
+const repositoryRoot = path.resolve(frontendDirectory, "..");
 const qaDataDirectory = path.join(repositoryRoot, ".cache", "browser-qa-state");
 const baseURL = "http://127.0.0.1:8091";
 
