@@ -49,6 +49,7 @@ def test_builtin_profiles_load_from_reviewed_declarative_resources() -> None:
         "codex": ("codex.app-server", "codex_app_server_v1"),
         "claude": ("claude.stream-json", "claude_stream_json_v1"),
         "gemini": ("gemini.acp", "acp_stdio_v1"),
+        "pi": ("pi.acp", "acp_stdio_v1"),
     }
     resources = files("gigaloom.harnesses.agent_profiles.builtins")
     for profile in profiles:
@@ -63,10 +64,6 @@ def test_builtin_profiles_load_from_reviewed_declarative_resources() -> None:
         assert not hasattr(profile.native, "default_args")
         assert profile.native.executable_names == (profile.agent_id,)
         assert profile.native.supports_managed_terminal is True
-        if profile.agent_id == "pi":
-            assert profile.structured_routes == ()
-            assert profile.compatibility_profiles == ()
-            continue
         assert len(profile.structured_routes) == 1
         route = profile.structured_routes[0]
         assert (route.route_id, route.transport_kind) == expected_routes[

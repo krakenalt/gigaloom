@@ -2,16 +2,14 @@ schema_version = 1
 agent_id = "pi"
 display_name = "Pi"
 aliases = []
-profile_version = "1.0.0"
+profile_version = "1.1.0"
 auth_owner = "provider"
 platform_support = ["darwin", "linux", "win32"]
-compatibility_profiles = []
-structured_routes = []
 
 [source]
 kind = "builtin"
 origin = "gigaloom:builtin/pi.toml"
-revision = "0.7.0-alpha.1-b1-native"
+revision = "0.7.0-alpha.1-b1-acp"
 trust_class = "first_party"
 reviewed = true
 
@@ -69,3 +67,17 @@ matcher_id = "pi.protocol-mode"
 kind = "first_token_with_value"
 tokens = ["--mode"]
 precedence = 20
+
+[[compatibility_profiles]]
+compatibility_profile_id = "pi.acp.v1"
+revision = "0.0.33"
+evidence_digest = "4db3b33bee6582cd352d355eea3f6d22864f1683c825687122b84389ab33e7b3"
+
+[[structured_routes]]
+route_id = "pi.acp"
+harness_id = "acp-gateway"
+transport_kind = "acp_stdio_v1"
+compatibility_profile_id = "pi.acp.v1"
+command_ref = { executable_name = "pi-acp", arguments = [] }
+capability_requirements = ["structured_prompt"]
+version_policy = { kind = "exact", exact_version = "0.0.33" }

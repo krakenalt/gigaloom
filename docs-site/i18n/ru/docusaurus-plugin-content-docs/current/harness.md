@@ -76,6 +76,7 @@ provider. Harness не вводит общий синтаксис выполне
 giga codex exec --json "проверь репозиторий"
 giga claude -p "проверь репозиторий"
 giga gemini -p "проверь репозиторий"
+giga pi "проверь репозиторий"
 ```
 
 После имени provider argv непрозрачен для Harness. Нативными остаются
@@ -94,6 +95,11 @@ giga gemini -p "проверь репозиторий"
 | Drift | Версия вне reviewed window | Structured routes могут деградировать, но валидные native-команды остаются независимыми. |
 | Нет runtime | `giga claude --version` без Claude | Понятная ошибка до provider side effects. |
 
+Pi использует тот же декларативный native path. Отдельный structured route
+`pi.acp` доступен только если reviewed executable `pi-acp` уже установлен
+локально и runtime capability negotiation завершился успешно. GigaLoom не
+скачивает adapter, не запускает `npx` и не переключает native Pi на ACP неявно.
+
 `giga doctor --json` показывает declarative profile, executable и его источник,
 native launch evidence, structured routes, причину деградации и
 remediation. Отчёт не хранит provider argv, prompts или output.
@@ -109,9 +115,9 @@ giga completion fish
 giga completion powershell
 ```
 
-Скрипты намеренно не копируют upstream-парсеры. После выбора `codex`, `claude`
-или `gemini` суффикс и `--` остаются нетронутыми, а shell использует обычный
-fallback completion.
+Скрипты намеренно не копируют upstream-парсеры. После выбора `codex`, `claude`,
+`gemini` или `pi` суффикс и `--` остаются нетронутыми, а shell использует
+обычный fallback completion.
 
 ### Установка, миграция и откат
 
