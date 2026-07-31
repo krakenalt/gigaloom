@@ -40,6 +40,32 @@ export interface ProjectLaunchProfile {
   digest: string;
 }
 
+export interface UnsatisfiedLaunchHint {
+  field: string;
+  value: string;
+  reason: "unavailable";
+}
+
+export interface ProjectLaunchResolution {
+  launch_profile_id: string;
+  agent_id: string | null;
+  structured_route_id: string | null;
+  model_id: string | null;
+  mode: string | null;
+  host_id: string | null;
+  workspace_policy: string | null;
+  terminal_mode: TerminalModeHint | null;
+  authority_granted: false;
+  unsatisfied_hints: UnsatisfiedLaunchHint[];
+}
+
+export interface ProjectSessionSummary {
+  id: string;
+  title: string;
+  updated_at: string;
+  catalog_project_id: string | null;
+}
+
 export interface ProjectCatalogPage {
   projects: ProjectCatalogEntry[];
   next_cursor: string | null;
@@ -49,6 +75,9 @@ export interface ProjectCatalogPage {
 export interface ProjectCatalogDetail {
   project: ProjectCatalogEntry;
   launch_profiles: ProjectLaunchProfile[];
+  launch_resolutions: ProjectLaunchResolution[];
+  sessions: ProjectSessionSummary[];
+  sessions_truncated: boolean;
   next_profile_cursor: string | null;
   has_more_profiles: boolean;
 }
@@ -112,6 +141,18 @@ export function profileDraft(
     workspace_policy_hint: profile.workspace_policy_hint ?? "",
     terminal_mode_hint: profile.terminal_mode_hint ?? "",
   };
+}
+
+export function launchResolutionForProfile(
+  profile: ProjectLaunchProfile,
+  resolutions: readonly ProjectLaunchResolution[],
+): ProjectLaunchResolution | null {
+  return (
+    resolutions.find(
+      (resolution) =>
+        resolution.launch_profile_id === profile.launch_profile_id,
+    ) ?? null
+  );
 }
 
 export function profilePayload(

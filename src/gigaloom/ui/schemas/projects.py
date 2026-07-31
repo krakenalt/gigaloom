@@ -60,11 +60,46 @@ class ProjectLaunchProfileResponse(BaseModel):
     digest: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class UnsatisfiedLaunchHintResponse(BaseModel):
+    """One visible soft hint that current inventory cannot satisfy."""
+
+    field: str
+    value: str
+    reason: Literal["unavailable"]
+
+
+class ProjectLaunchResolutionResponse(BaseModel):
+    """Authority-free Launch Profile resolution shared with CLI semantics."""
+
+    launch_profile_id: str
+    agent_id: str | None
+    structured_route_id: str | None
+    model_id: str | None
+    mode: str | None
+    host_id: str | None
+    workspace_policy: str | None
+    terminal_mode: Literal["auto", "managed", "direct"] | None
+    authority_granted: Literal[False]
+    unsatisfied_hints: list[UnsatisfiedLaunchHintResponse]
+
+
+class ProjectSessionSummaryResponse(BaseModel):
+    """Content-free session row used for project grouping and movement."""
+
+    id: str
+    title: str
+    updated_at: str
+    catalog_project_id: str | None
+
+
 class ProjectCatalogDetailResponse(BaseModel):
     """One project plus one bounded launch-profile page."""
 
     project: ProjectCatalogEntryResponse
     launch_profiles: list[ProjectLaunchProfileResponse]
+    launch_resolutions: list[ProjectLaunchResolutionResponse]
+    sessions: list[ProjectSessionSummaryResponse]
+    sessions_truncated: bool
     next_profile_cursor: str | None
     has_more_profiles: bool
 
@@ -134,3 +169,13 @@ class ProjectLaunchProfileUpdateRequest(BaseModel):
     host_hint: str | None = Field(default=None, max_length=200)
     workspace_policy_hint: str | None = Field(default=None, max_length=200)
     terminal_mode_hint: Literal["auto", "managed", "direct"] | None = None
+
+
+class ProjectSessionMoveRequest(BaseModel):
+    """Optimistic session regrouping request; null means explicit unfiled."""
+
+    to_catalog_project_id: str | None = Field(
+        default=None,
+        pattern=r"^prj_[0-9a-f]{24}$",
+    )
+    expected_updated_at: str = Field(min_length=1, max_length=64)

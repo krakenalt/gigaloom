@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  launchResolutionForProfile,
   profileDraft,
   profilePayload,
   selectedProjectId,
   type ProjectCatalogEntry,
   type ProjectLaunchProfile,
+  type ProjectLaunchResolution,
 } from "./model";
 
 const project = (id: string): ProjectCatalogEntry => ({
@@ -64,5 +66,40 @@ describe("Project Catalog workspace model", () => {
     });
     expect(profilePayload(draft)).not.toHaveProperty("authority");
     expect(profilePayload(draft)).not.toHaveProperty("args");
+  });
+
+  it("matches visible unsatisfied hints to the exact launch profile", () => {
+    const profile: ProjectLaunchProfile = {
+      schema_version: 1,
+      launch_profile_id: "launch_demo",
+      catalog_project_id: "prj_demo",
+      display_name: "Review",
+      agent_hint: "codex",
+      structured_route_hint: null,
+      model_hint: "future-model",
+      mode_hint: null,
+      host_hint: null,
+      workspace_policy_hint: null,
+      terminal_mode_hint: "direct",
+      revision: 1,
+      digest: "c".repeat(64),
+    };
+    const resolution: ProjectLaunchResolution = {
+      launch_profile_id: profile.launch_profile_id,
+      agent_id: "codex",
+      structured_route_id: null,
+      model_id: null,
+      mode: null,
+      host_id: null,
+      workspace_policy: null,
+      terminal_mode: "direct",
+      authority_granted: false,
+      unsatisfied_hints: [
+        { field: "model_hint", value: "future-model", reason: "unavailable" },
+      ],
+    };
+
+    expect(launchResolutionForProfile(profile, [resolution])).toEqual(resolution);
+    expect(launchResolutionForProfile({ ...profile, launch_profile_id: "launch_other" }, [resolution])).toBeNull();
   });
 });

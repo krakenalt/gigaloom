@@ -7,6 +7,7 @@ import {
   deleteLaunchProfile,
   fetchProjectCatalog,
   fetchProjectDetail,
+  moveProjectSession,
   previewProjectRelocation,
   projectCatalogKeys,
   relocateProject,
@@ -16,13 +17,16 @@ import {
 } from "./api";
 import {
   emptyProjectProfileDraft,
+  launchResolutionForProfile,
   profileDraft,
   selectedProjectId,
   type ProjectCatalogDetail,
   type ProjectCatalogEntry,
   type ProjectLaunchProfile,
+  type ProjectLaunchResolution,
   type ProjectProfileDraft,
   type ProjectRelocationPreview,
+  type ProjectSessionSummary,
 } from "./model";
 import "./projects.css";
 
@@ -115,6 +119,7 @@ export function ProjectCatalogWorkspace() {
                 refresh();
               }}
               onUpdated={refresh}
+              projects={catalog.data.projects}
             />
           )}
         </main>
@@ -174,10 +179,12 @@ function ProjectDetail({
   detail,
   onRemoved,
   onUpdated,
+  projects,
 }: {
   detail: ProjectCatalogDetail;
   onRemoved: () => void;
   onUpdated: () => void;
+  projects: readonly ProjectCatalogEntry[];
 }) {
   const project = detail.project;
   const [name, setName] = useState(project.display_name);
@@ -228,6 +235,27 @@ function ProjectDetail({
       <section className="project-card">
         <div className="project-card-heading">
           <div>
+            <h3>Sessions</h3>
+            <p>Move existing sessions between catalog groups or explicitly leave them unfiled.</p>
+          </div>
+          <span>{detail.sessions.length}{detail.sessions_truncated ? "+" : ""}</span>
+        </div>
+        <div className="project-session-list">
+          {detail.sessions.length === 0 ? (
+            <div className="project-empty compact">No sessions are grouped here.</div>
+          ) : detail.sessions.map((session) => (
+            <ProjectSessionMover
+              key={`${session.id}:${session.updated_at}`}
+              onUpdated={onUpdated}
+              projects={projects}
+              session={session}
+            />
+          ))}
+        </div>
+      </section>
+      <section className="project-card">
+        <div className="project-card-heading">
+          <div>
             <h3>Launch profiles</h3>
             <p>Hints are previewed and never grant authority or inject provider arguments.</p>
           </div>
@@ -242,11 +270,61 @@ function ProjectDetail({
               key={`${profile.launch_profile_id}:${profile.revision}`}
               onUpdated={onUpdated}
               profile={profile}
+              resolution={launchResolutionForProfile(
+                profile,
+                detail.launch_resolutions,
+              )}
             />
           ))}
         </div>
       </section>
     </div>
+  );
+}
+
+function ProjectSessionMover({
+  onUpdated,
+  projects,
+  session,
+}: {
+  onUpdated: () => void;
+  projects: readonly ProjectCatalogEntry[];
+  session: ProjectSessionSummary;
+}) {
+  const [targetProjectId, setTargetProjectId] = useState("");
+  const move = useMutation({
+    mutationFn: () => moveProjectSession(session, targetProjectId || null),
+    onSuccess: onUpdated,
+  });
+  return (
+    <article className="project-session-row">
+      <div>
+        <strong>{session.title}</strong>
+        <code>{session.id}</code>
+      </div>
+      <label>
+        <span>Move to</span>
+        <select
+          onChange={(event) => setTargetProjectId(event.target.value)}
+          value={targetProjectId}
+        >
+          <option value="">Unfiled</option>
+          {projects.map((project) => (
+            <option
+              disabled={project.catalog_project_id === session.catalog_project_id}
+              key={project.catalog_project_id}
+              value={project.catalog_project_id}
+            >
+              {project.display_name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button disabled={move.isPending} onClick={() => move.mutate()} type="button">
+        Move session
+      </button>
+      <MutationStatus mutation={move} />
+    </article>
   );
 }
 
@@ -329,9 +407,11 @@ function LaunchProfileCreateForm({
 function LaunchProfileEditor({
   profile,
   onUpdated,
+  resolution,
 }: {
   profile: ProjectLaunchProfile;
   onUpdated: () => void;
+  resolution: ProjectLaunchResolution | null;
 }) {
   const [draft, setDraft] = useState(() => profileDraft(profile));
   const update = useMutation({
@@ -344,6 +424,7 @@ function LaunchProfileEditor({
   });
   return (
     <article className="launch-profile-editor">
+      <LaunchResolutionSummary profile={profile} resolution={resolution} />
       <ProfileForm
         action="Save profile"
         draft={draft}
@@ -354,6 +435,43 @@ function LaunchProfileEditor({
       <button className="text-danger" disabled={remove.isPending} onClick={() => remove.mutate()} type="button">Delete profile</button>
       <MutationStatus mutation={remove} />
     </article>
+  );
+}
+
+function LaunchResolutionSummary({
+  profile,
+  resolution,
+}: {
+  profile: ProjectLaunchProfile;
+  resolution: ProjectLaunchResolution | null;
+}) {
+  if (resolution === null) {
+    return <p className="launch-resolution missing">Launch resolution is unavailable.</p>;
+  }
+  return (
+    <div className="launch-resolution">
+      <div>
+        <strong>Explicit launch preview</strong>
+        <code>
+          giga project launch {profile.catalog_project_id} --profile {profile.launch_profile_id}
+        </code>
+      </div>
+      <span className={resolution.unsatisfied_hints.length === 0 ? "satisfied" : "unsatisfied"}>
+        {resolution.unsatisfied_hints.length === 0
+          ? "Configured hints satisfied"
+          : `${resolution.unsatisfied_hints.length} unsatisfied hint${resolution.unsatisfied_hints.length === 1 ? "" : "s"}`}
+      </span>
+      {resolution.unsatisfied_hints.length === 0 ? null : (
+        <ul>
+          {resolution.unsatisfied_hints.map((hint) => (
+            <li key={`${hint.field}:${hint.value}`}>
+              <strong>{hint.field}</strong> <code>{hint.value}</code> is unavailable
+            </li>
+          ))}
+        </ul>
+      )}
+      <small>Authority granted: no · provider arguments: none</small>
+    </div>
   );
 }
 

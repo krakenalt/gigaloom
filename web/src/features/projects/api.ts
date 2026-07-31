@@ -11,6 +11,7 @@ import type {
   ProjectCatalogPage,
   ProjectProfileDraft,
   ProjectLaunchProfile,
+  ProjectSessionSummary,
   ProjectRelocationPreview,
 } from "./model";
 import { profilePayload } from "./model";
@@ -114,5 +115,18 @@ export function deleteLaunchProfile(profile: ProjectLaunchProfile) {
       `/api/project-launch-profiles/${encodeURIComponent(profile.launch_profile_id)}`,
       { expected_revision: profile.revision },
     ),
+  );
+}
+
+export function moveProjectSession(
+  session: ProjectSessionSummary,
+  toProjectId: string | null,
+) {
+  return mutateCockpit<ProjectSessionSummary>(
+    `/api/project-catalog/sessions/${encodeURIComponent(session.id)}/move`,
+    {
+      to_catalog_project_id: toProjectId,
+      expected_updated_at: session.updated_at,
+    },
   );
 }

@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from gigaloom.sessions import InMemoryHarnessSessionStore
+from gigaloom.projects.api import LaunchResolutionContextV1
 from gigaloom.ui.routers.project_catalog import create_router
 from gigaloom.ui.services.project_catalog import ProjectCatalogWebService
 
@@ -13,6 +14,10 @@ def _client(tmp_path):
     service = ProjectCatalogWebService.from_data_dir(
         tmp_path / "data",
         session_store=sessions,
+        launch_context=LaunchResolutionContextV1(
+            agent_ids=frozenset({"codex"}),
+            terminal_modes=frozenset({"direct"}),
+        ),
     )
     app = FastAPI()
     app.include_router(create_router(service))
@@ -33,7 +38,7 @@ def test_project_catalog_web_crud_detail_and_profile_workspace(tmp_path):
     project_id = project["catalog_project_id"]
     assert project["session_count"] == 0
 
-    sessions.create_session(
+    bound_session = sessions.create_session(
         title="Bound",
         metadata={"catalog_project_id": project_id},
     )
@@ -55,6 +60,54 @@ def test_project_catalog_web_crud_detail_and_profile_workspace(tmp_path):
     detail = client.get(f"/api/project-catalog/{project_id}")
     assert detail.status_code == 200
     assert detail.json()["launch_profiles"] == [profile.json()]
+    assert detail.json()["sessions"] == [
+        {
+            "id": bound_session.id,
+            "title": "Bound",
+            "updated_at": bound_session.updated_at,
+            "catalog_project_id": project_id,
+        }
+    ]
+    assert detail.json()["sessions_truncated"] is False
+    assert detail.json()["launch_resolutions"] == [
+        {
+            "launch_profile_id": profile_id,
+            "agent_id": "codex",
+            "structured_route_id": None,
+            "model_id": None,
+            "mode": None,
+            "host_id": None,
+            "workspace_policy": None,
+            "terminal_mode": "direct",
+            "authority_granted": False,
+            "unsatisfied_hints": [
+                {
+                    "field": "model_hint",
+                    "value": "gpt-next",
+                    "reason": "unavailable",
+                }
+            ],
+        }
+    ]
+
+    unfiled = client.post(
+        f"/api/project-catalog/sessions/{bound_session.id}/move",
+        json={
+            "to_catalog_project_id": None,
+            "expected_updated_at": bound_session.updated_at,
+        },
+    )
+    assert unfiled.status_code == 200
+    assert unfiled.json()["catalog_project_id"] is None
+    assert client.get(f"/api/project-catalog/{project_id}").json()["sessions"] == []
+    stale_move = client.post(
+        f"/api/project-catalog/sessions/{bound_session.id}/move",
+        json={
+            "to_catalog_project_id": project_id,
+            "expected_updated_at": bound_session.updated_at,
+        },
+    )
+    assert stale_move.status_code == 409
 
     renamed = client.patch(
         f"/api/project-catalog/{project_id}",

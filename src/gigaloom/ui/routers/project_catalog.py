@@ -11,6 +11,7 @@ from gigaloom.projects.api import (
     ProjectCatalogConflictError,
     ProjectCatalogNotFoundError,
 )
+from gigaloom.sessions import SessionNotFoundError
 from gigaloom.ui.async_execution import ContractAPIRouter
 from gigaloom.ui.schemas.projects import (
     ProjectCatalogDetailResponse,
@@ -20,10 +21,13 @@ from gigaloom.ui.schemas.projects import (
     ProjectLaunchProfileCreateRequest,
     ProjectLaunchProfileResponse,
     ProjectLaunchProfileUpdateRequest,
+    ProjectLaunchResolutionResponse,
     ProjectRelocateRequest,
     ProjectRelocationPreviewRequest,
     ProjectRelocationPreviewResponse,
     ProjectRenameRequest,
+    ProjectSessionMoveRequest,
+    ProjectSessionSummaryResponse,
 )
 from gigaloom.ui.services.project_catalog import (
     ProjectCatalogWebDetail,
@@ -186,6 +190,37 @@ def create_router(service: ProjectCatalogWebService) -> APIRouter:
             raise _http_error(exc) from exc
 
     @router.fs_atomic.post(
+        "/api/project-catalog/sessions/{session_id}/move",
+        response_model=ProjectSessionSummaryResponse,
+    )
+    def move_session(
+        session_id: Annotated[str, Path(min_length=1, max_length=128)],
+        payload: ProjectSessionMoveRequest,
+    ) -> ProjectSessionSummaryResponse:
+        try:
+            session = service.move_session(
+                session_id,
+                to_catalog_project_id=payload.to_catalog_project_id,
+                expected_updated_at=payload.expected_updated_at,
+            )
+            project_id = session.metadata.get("catalog_project_id")
+            return ProjectSessionSummaryResponse(
+                id=session.id,
+                title=session.title,
+                updated_at=session.updated_at,
+                catalog_project_id=(
+                    project_id if isinstance(project_id, str) else None
+                ),
+            )
+        except (
+            ProjectCatalogNotFoundError,
+            ProjectCatalogConflictError,
+            SessionNotFoundError,
+            ValueError,
+        ) as exc:
+            raise _http_error(exc) from exc
+
+    @router.fs_atomic.post(
         "/api/project-catalog/{catalog_project_id}/launch-profiles",
         response_model=ProjectLaunchProfileResponse,
     )
@@ -283,13 +318,34 @@ def _detail_response(
             ProjectLaunchProfileResponse.model_validate(asdict(item))
             for item in detail.launch_profiles
         ],
+        launch_resolutions=[
+            ProjectLaunchResolutionResponse.model_validate(asdict(item))
+            for item in detail.launch_resolutions
+        ],
+        sessions=[
+            ProjectSessionSummaryResponse(
+                id=item.id,
+                title=item.title,
+                updated_at=item.updated_at,
+                catalog_project_id=(
+                    project_id
+                    if isinstance(
+                        project_id := item.metadata.get("catalog_project_id"),
+                        str,
+                    )
+                    else None
+                ),
+            )
+            for item in detail.sessions
+        ],
+        sessions_truncated=detail.sessions_truncated,
         next_profile_cursor=detail.next_profile_cursor,
         has_more_profiles=detail.has_more_profiles,
     )
 
 
 def _http_error(exc: Exception) -> HTTPException:
-    if isinstance(exc, ProjectCatalogNotFoundError):
+    if isinstance(exc, (ProjectCatalogNotFoundError, SessionNotFoundError)):
         status_code = 404
     elif isinstance(exc, ProjectCatalogConflictError):
         status_code = 409

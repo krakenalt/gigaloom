@@ -5,26 +5,33 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Protocol
+from typing import Any, Mapping, Protocol, cast
 
 from gigaloom.projects.api import (
     FilesystemLaunchProfileRepository,
     FilesystemProjectCatalogRepository,
+    LaunchResolutionContextV1,
     ProjectCatalogEntryV1,
     ProjectCatalogPageV1,
     ProjectCatalogService,
     ProjectLaunchProfileService,
     ProjectLaunchProfileV1,
     ProjectRelocationPreviewV1,
+    ResolvedProjectLaunchProfileV1,
+    SessionCatalogBindingService,
 )
 
 
 MAX_PROJECT_SESSION_COUNT = 10_000
+MAX_PROJECT_DETAIL_SESSIONS = 100
 
 
 class ProjectSessionSummary(Protocol):
     """Minimum session view used for project grouping counts."""
 
+    id: str
+    title: str
+    updated_at: str
     metadata: Mapping[str, Any]
 
 
@@ -37,6 +44,15 @@ class ProjectSessionReadPort(Protocol):
         include_archived: bool = False,
         limit: int | None = None,
     ) -> tuple[ProjectSessionSummary, ...]: ...
+
+    def get_session(self, session_id: str) -> ProjectSessionSummary: ...
+
+    def update_session_if_revision(
+        self,
+        session_id: str,
+        expected_updated_at: str,
+        **patch: Any,
+    ) -> ProjectSessionSummary | None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +79,9 @@ class ProjectCatalogWebDetail:
 
     project: ProjectCatalogWebSummary
     launch_profiles: tuple[ProjectLaunchProfileV1, ...]
+    launch_resolutions: tuple[ResolvedProjectLaunchProfileV1, ...]
+    sessions: tuple[ProjectSessionSummary, ...]
+    sessions_truncated: bool
     next_profile_cursor: str | None
     has_more_profiles: bool
 
@@ -76,6 +95,7 @@ class ProjectCatalogWebService:
         catalog_repository: FilesystemProjectCatalogRepository,
         profile_repository: FilesystemLaunchProfileRepository,
         session_store: ProjectSessionReadPort,
+        launch_context: LaunchResolutionContextV1 | None = None,
     ) -> None:
         self.catalog_repository = catalog_repository
         self.profile_repository = profile_repository
@@ -85,6 +105,7 @@ class ProjectCatalogWebService:
             catalog_repository,
         )
         self.session_store = session_store
+        self.launch_context = launch_context or LaunchResolutionContextV1()
 
     @classmethod
     def from_data_dir(
@@ -92,6 +113,7 @@ class ProjectCatalogWebService:
         data_dir: str | Path,
         *,
         session_store: ProjectSessionReadPort,
+        launch_context: LaunchResolutionContextV1 | None = None,
     ) -> ProjectCatalogWebService:
         """Build the service from the canonical runtime project state root."""
         root = Path(data_dir) / "projects"
@@ -101,6 +123,7 @@ class ProjectCatalogWebService:
                 root / "launch_profiles"
             ),
             session_store=session_store,
+            launch_context=launch_context,
         )
 
     def list_projects(
@@ -132,7 +155,8 @@ class ProjectCatalogWebService:
             cursor=profile_cursor,
             limit=profile_limit,
         )
-        counts, truncated = self._session_counts()
+        counts, sessions_by_project, truncated = self._session_inventory()
+        project_sessions = sessions_by_project.get(project.catalog_project_id, ())
         return ProjectCatalogWebDetail(
             project=ProjectCatalogWebSummary(
                 project=project,
@@ -140,6 +164,17 @@ class ProjectCatalogWebService:
                 session_count_truncated=truncated,
             ),
             launch_profiles=profiles.items,
+            launch_resolutions=tuple(
+                self.profile_service.resolve_profile(
+                    profile.launch_profile_id,
+                    self.launch_context,
+                )
+                for profile in profiles.items
+            ),
+            sessions=project_sessions[:MAX_PROJECT_DETAIL_SESSIONS],
+            sessions_truncated=(
+                truncated or len(project_sessions) > MAX_PROJECT_DETAIL_SESSIONS
+            ),
             next_profile_cursor=profiles.next_cursor,
             has_more_profiles=profiles.has_more,
         )
@@ -162,7 +197,7 @@ class ProjectCatalogWebService:
             display_name,
             expected_revision=expected_revision,
         )
-        counts, truncated = self._session_counts()
+        counts, _, truncated = self._session_inventory()
         return ProjectCatalogWebSummary(
             project,
             counts[project.catalog_project_id],
@@ -203,7 +238,7 @@ class ProjectCatalogWebService:
             preview_digest=preview_digest,
             allow_identity_change=confirm_identity_change,
         )
-        counts, truncated = self._session_counts()
+        counts, _, truncated = self._session_inventory()
         return ProjectCatalogWebSummary(
             project,
             counts[project.catalog_project_id],
@@ -221,7 +256,7 @@ class ProjectCatalogWebService:
             catalog_project_id,
             expected_revision=expected_revision,
         )
-        counts, truncated = self._session_counts()
+        counts, _, truncated = self._session_inventory()
         return ProjectCatalogWebSummary(
             project,
             counts[project.catalog_project_id],
@@ -266,8 +301,28 @@ class ProjectCatalogWebService:
             expected_revision=expected_revision,
         )
 
+    def move_session(
+        self,
+        session_id: str,
+        *,
+        to_catalog_project_id: str | None,
+        expected_updated_at: str,
+    ) -> ProjectSessionSummary:
+        """Move a session to one catalog group or the explicit unfiled group."""
+        return cast(
+            ProjectSessionSummary,
+            SessionCatalogBindingService(
+                self.catalog_repository,
+                self.session_store,
+            ).move_session(
+                session_id,
+                to_catalog_project_id=to_catalog_project_id,
+                expected_updated_at=expected_updated_at,
+            ),
+        )
+
     def _with_counts(self, page: ProjectCatalogPageV1) -> ProjectCatalogWebPage:
-        counts, truncated = self._session_counts()
+        counts, _, truncated = self._session_inventory()
         return ProjectCatalogWebPage(
             projects=tuple(
                 ProjectCatalogWebSummary(
@@ -281,21 +336,34 @@ class ProjectCatalogWebService:
             has_more=page.has_more,
         )
 
-    def _session_counts(self) -> tuple[Counter[str], bool]:
+    def _session_inventory(
+        self,
+    ) -> tuple[
+        Counter[str],
+        dict[str, tuple[ProjectSessionSummary, ...]],
+        bool,
+    ]:
         sessions = self.session_store.list_sessions(
             include_archived=True,
             limit=MAX_PROJECT_SESSION_COUNT + 1,
         )
         truncated = len(sessions) > MAX_PROJECT_SESSION_COUNT
         counts: Counter[str] = Counter()
+        grouped: dict[str, list[ProjectSessionSummary]] = {}
         for session in sessions[:MAX_PROJECT_SESSION_COUNT]:
             project_id = session.metadata.get("catalog_project_id")
             if isinstance(project_id, str):
                 counts[project_id] += 1
-        return counts, truncated
+                grouped.setdefault(project_id, []).append(session)
+        return (
+            counts,
+            {key: tuple(value) for key, value in grouped.items()},
+            truncated,
+        )
 
 
 __all__ = [
+    "MAX_PROJECT_DETAIL_SESSIONS",
     "MAX_PROJECT_SESSION_COUNT",
     "ProjectCatalogWebDetail",
     "ProjectCatalogWebPage",
