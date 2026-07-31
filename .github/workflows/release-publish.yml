@@ -100,7 +100,7 @@ jobs:
           --github-output "${GITHUB_OUTPUT}"
 
       - name: Download exact retained candidate bundle
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: gigaloom-release-candidate-${{ inputs.candidate_sha }}
           path: dist/release-candidate
