@@ -58,6 +58,15 @@ package. Never make an older executable read `~/.gigaloom` as a substitute for
 restoring the verified historical root. See
 [Installation](installation.md#roll-back-an-upgrade) for the exact order.
 
+For the 0.6→0.7 Native Agent Gateway upgrade, stop all state owners and run
+`giga state upgrade --backup <outside-data-dir>.zip --json`. This is distinct
+from the earlier root cutover: it creates a full verified archive, migrates
+legacy session project bindings, retires Textual-only preferences without
+converting them into Web settings, and records a content-free ordered receipt.
+An interrupted invocation is resumed with the same backup path. If recovery is
+required, keep GigaLoom stopped, verify the archive, then use
+`giga state restore <archive> --replace --json` before reinstalling 0.6.
+
 ## Troubleshooting
 
 - Missing provider: install its native CLI and use its native login/status

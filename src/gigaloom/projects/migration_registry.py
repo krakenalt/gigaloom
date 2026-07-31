@@ -9,6 +9,10 @@ from .catalog.migration import (
     PROJECT_CATALOG_MIGRATION_ID,
     PROJECT_CATALOG_MIGRATION_SCHEMA_VERSION,
 )
+from .release_migration import (
+    NATIVE_AGENT_GATEWAY_MIGRATION_SCHEMA_VERSION,
+    TEXTUAL_PREFERENCES_RETIREMENT_ID,
+)
 
 
 MIGRATION_REGISTRY_SCHEMA_VERSION = 1
@@ -52,6 +56,14 @@ NATIVE_AGENT_GATEWAY_MIGRATION_SEQUENCE_V1 = (
         owner_context="projects",
         migration_schema_version=PROJECT_CATALOG_MIGRATION_SCHEMA_VERSION,
         depends_on=(),
+        requires_backup=True,
+        automatic=False,
+    ),
+    MigrationRegistrationV1(
+        migration_id=TEXTUAL_PREFERENCES_RETIREMENT_ID,
+        owner_context="projects",
+        migration_schema_version=NATIVE_AGENT_GATEWAY_MIGRATION_SCHEMA_VERSION,
+        depends_on=(PROJECT_CATALOG_MIGRATION_ID,),
         requires_backup=True,
         automatic=False,
     ),

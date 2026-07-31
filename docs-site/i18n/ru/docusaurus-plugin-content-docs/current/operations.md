@@ -58,6 +58,15 @@ backup в legacy root и намеренно оставляет canonical root д
 восстановления проверенного historical root. Точный порядок приведён в
 [Установке](installation.md#откат-обновления).
 
+Для upgrade Native Agent Gateway 0.6→0.7 остановите всех владельцев state и
+запустите `giga state upgrade --backup <outside-data-dir>.zip --json`. Эта
+операция отличается от прежнего root cutover: она создаёт полный проверенный
+archive, мигрирует legacy project bindings sessions, исключает Textual-only
+preferences без преобразования в Web settings и записывает content-free
+ordered receipt. Прерванный запуск возобновляется с тем же backup path. Для
+recovery остановите GigaLoom, проверьте archive и выполните
+`giga state restore <archive> --replace --json` до переустановки 0.6.
+
 ## Диагностика
 
 - Нет провайдера: установите нативный CLI и используйте его login/status.

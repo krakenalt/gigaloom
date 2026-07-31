@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "86965b31e2ab4ea777c89438ce865396f48e43562d45bce444f2a60f0655b22c",
+  "content_sha256": "bc4a99b607d65e6b457c58d983e39307b2cab580ae14505cec7ba0ddde281cf2",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -2435,6 +2435,7 @@
       "state migrate-providers",
       "state restore",
       "state rollback",
+      "state upgrade",
       "state verify",
       "ui",
       "ui-identity",

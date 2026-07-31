@@ -15,7 +15,9 @@ from gigaloom.projects.api import (
 )
 
 
-_STATE_CUTOVER_HANDLERS = frozenset({"_handle_state_migrate", "_handle_state_rollback"})
+_STATE_CUTOVER_HANDLERS = frozenset(
+    {"_handle_state_migrate", "_handle_state_rollback", "_handle_state_upgrade"}
+)
 _STATE_FREE_HANDLERS = frozenset({"_handle_capsule_verify"})
 
 

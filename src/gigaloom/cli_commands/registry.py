@@ -51,6 +51,7 @@ _STATE_HANDLERS = frozenset(
         "_handle_state_migrate",
         "_handle_state_restore",
         "_handle_state_rollback",
+        "_handle_state_upgrade",
         "_handle_state_verify",
     }
 )

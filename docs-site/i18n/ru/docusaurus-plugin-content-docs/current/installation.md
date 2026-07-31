@@ -103,6 +103,38 @@ legacy root и сохраняет `~/.gigaloom` для диагностики.
 Для собственного canonical root задайте `GIGALOOM_DATA_DIR`. При таком
 override default roots автоматически не мигрируются.
 
+## Обновление состояния 0.6 для Native Agent Gateway
+
+Изменение state 0.6→0.7 выполняется отдельной явной offline-миграцией.
+Остановите Web server, workers, native sessions и все остальные процессы,
+использующие data directory, затем выберите путь backup вне этого каталога:
+
+```sh
+giga state upgrade --backup ../gigaloom-before-0.7.zip --json
+```
+
+Команда сначала создаёт и проверяет полный state archive, затем в фиксированном
+порядке выполняет `project_catalog_v1` и
+`textual_preferences_retirement_v1`. Legacy project bindings у sessions
+становятся catalog bindings. Старые Textual-only preferences исключаются, а не
+копируются в browser preferences. Project repositories, `.giga/`, provider
+homes, credentials, prompts и provider output не читаются и не меняются.
+
+Миграция возобновляется после каждой durable boundary и сохраняет content-free
+receipt в `migrations/` активного state. Сохраняйте archive и соседний private
+migration support directory вместе до приёмки candidate. Повтор команды с тем
+же backup path возвращает тот же проверенный receipt.
+
+Для recovery остановите GigaLoom и атомарно восстановите pre-upgrade archive:
+
+```sh
+giga state verify ../gigaloom-before-0.7.zip --json
+giga state restore ../gigaloom-before-0.7.zip --replace --json
+```
+
+Восстановите archive до переустановки 0.6. Reverse schema migration и
+объединение старого и нового state tree не поддерживаются.
+
 ## Откат обновления
 
 До миграции state остановите GigaLoom и переустановите точную предыдущую

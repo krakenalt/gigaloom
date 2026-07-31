@@ -135,6 +135,11 @@ def register(
     state_migrate.add_argument("--json", action="store_true")
     state_migrate.set_defaults(handler="_handle_state_migrate")
 
+    state_upgrade = state_subparsers.add_parser("upgrade")
+    state_upgrade.add_argument("--backup", required=True)
+    state_upgrade.add_argument("--json", action="store_true")
+    state_upgrade.set_defaults(handler="_handle_state_upgrade")
+
     state_rollback = state_subparsers.add_parser("rollback")
     state_rollback.add_argument("--json", action="store_true")
     state_rollback.set_defaults(handler="_handle_state_rollback")

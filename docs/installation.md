@@ -102,6 +102,39 @@ restore the verified backup to the legacy root while preserving
 Set `GIGALOOM_DATA_DIR` to use a custom canonical root. A custom root does not
 trigger migration of the two default roots.
 
+## Upgrade 0.6 state for the Native Agent Gateway
+
+The 0.6→0.7 state change is a separate explicit offline migration. Stop the Web
+server, workers, native sessions, and every other process using the data
+directory, then choose a backup path outside that directory:
+
+```sh
+giga state upgrade --backup ../gigaloom-before-0.7.zip --json
+```
+
+The command first creates and verifies the complete state archive. It then runs
+the fixed `project_catalog_v1` and `textual_preferences_retirement_v1` steps in
+that order. Legacy session project bindings become catalog bindings. Historical
+Textual-only preferences are omitted instead of being copied into browser
+preferences. Project repositories, `.giga/` directories, provider homes,
+credentials, prompts, and provider output are not read or changed.
+
+The migration is resumable after every durable boundary and emits a
+content-free receipt under the active state `migrations/` directory. Keep the
+archive and its adjacent private migration support directory together until the
+candidate is accepted. Re-running the exact command with the same backup path
+returns the same verified receipt.
+
+To recover, stop GigaLoom and atomically restore the pre-upgrade archive:
+
+```sh
+giga state verify ../gigaloom-before-0.7.zip --json
+giga state restore ../gigaloom-before-0.7.zip --replace --json
+```
+
+Restore the archive before reinstalling 0.6. Reverse schema migration and
+merging old and new state trees are not supported.
+
 ## Roll back an upgrade
 
 Before state migration, stop GigaLoom and reinstall the exact previously used

@@ -31,6 +31,7 @@ from gigaloom.harnesses.api import (
 from gigaloom.projects.api import (
     NATIVE_AGENT_GATEWAY_MIGRATION_SEQUENCE_V1,
     PROJECT_CATALOG_MIGRATION_ID,
+    TEXTUAL_PREFERENCES_RETIREMENT_ID,
     FilesystemLaunchProfileRepository,
     FilesystemProjectCatalogRepository,
     ProjectCatalogService,
@@ -166,6 +167,7 @@ def test_project_launch_read_model_and_wave_a_migration_registry_are_bounded(
     sequence = validate_migration_sequence(NATIVE_AGENT_GATEWAY_MIGRATION_SEQUENCE_V1)
     assert tuple(item.migration_id for item in sequence) == (
         PROJECT_CATALOG_MIGRATION_ID,
+        TEXTUAL_PREFERENCES_RETIREMENT_ID,
     )
     assert sequence[0].requires_backup is True
     assert sequence[0].automatic is False
