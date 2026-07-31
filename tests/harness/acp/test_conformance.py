@@ -78,17 +78,18 @@ def test_hostile_framing_is_terminal(tmp_path: Path, mode: str) -> None:
 
 
 def test_event_stream_resnapshots_with_bounded_occupancy(tmp_path: Path) -> None:
-    done_file = tmp_path / "stream.done"
-    client = _client(tmp_path, "stream", "--stream-done-file", done_file.as_posix())
-    client.initialize()
-    deadline = time.monotonic() + 5.0
-    while not done_file.exists() and time.monotonic() < deadline:
-        time.sleep(0.01)
-    assert done_file.exists()
-    assert client.supervisor.event_queue_occupancy <= 256
-    events = [client.supervisor.next_event(timeout=0.05) for _ in range(256)]
-    assert any(event and event.type == "resnapshot_required" for event in events)
-    client.close()
+    client = _client(tmp_path, "stream")
+    try:
+        client.initialize()
+        # The session/new response is ordered after the fixture's stream flood, so
+        # it is a deterministic reader barrier rather than a producer-side sentinel.
+        new_session(client, workspace=tmp_path)
+        occupancy = client.supervisor.event_queue_occupancy
+        assert 0 < occupancy <= 256
+        events = [client.supervisor.next_event(timeout=0.0) for _ in range(occupancy)]
+        assert any(event and event.type == "resnapshot_required" for event in events)
+    finally:
+        client.close()
 
 
 def test_ignored_cancel_still_frees_local_waiter(tmp_path: Path) -> None:

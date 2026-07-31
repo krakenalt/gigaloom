@@ -41,6 +41,7 @@ class _Client:
         self.close_calls = 0
         self.input_received = Event()
         self.resize_received = Event()
+        self.closed = Event()
 
     def read_line(self) -> bytes:
         try:
@@ -58,6 +59,7 @@ class _Client:
 
     def close(self) -> None:
         self.close_calls += 1
+        self.closed.set()
 
 
 class _Backend:
@@ -148,6 +150,11 @@ def test_terminal_websocket_streams_binary_and_revision_bound_resize(
         assert socket.receive_bytes() == b"echo\n"
         assert backend.client.input_received.wait(timeout=2)
         assert backend.client.resize_received.wait(timeout=2)
+        # Deliver the disconnect while the TestClient portal is still alive, then
+        # wait for the server-side relay to close its control client. Context exit
+        # cancels the portal task and is not itself a cleanup acknowledgement.
+        socket.close()
+        assert backend.client.closed.wait(timeout=5)
 
     assert b"".join(backend.client.inputs) == b"\x00input"
     assert backend.client.resizes == [(40, 120)]

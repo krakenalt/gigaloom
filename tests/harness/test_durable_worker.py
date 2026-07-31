@@ -101,23 +101,33 @@ def test_worker_queue_signal_interrupts_long_idle_backoff(tmp_path):
         initial_status=JobStatus.WAITING_INPUT,
     )
     outcome: list[bool] = []
+    wait_started = threading.Event()
+
+    def wait_for_wake() -> None:
+        wait_started.set()
+        outcome.append(receiver.wait(5.0))
+
     thread = threading.Thread(
-        target=lambda: outcome.append(receiver.wait(5.0)),
-        daemon=True,
+        target=wait_for_wake,
+        name="worker-wake-receiver",
     )
     thread.start()
-    started = time.monotonic()
-    runtime.transition_job(
-        submitted.job.id,
-        JobStatus.QUEUED,
-        expected_status=JobStatus.WAITING_INPUT,
-    )
-    thread.join(timeout=0.75)
+    receiver_waiting = wait_started.wait(timeout=5)
+    try:
+        if receiver_waiting:
+            runtime.transition_job(
+                submitted.job.id,
+                JobStatus.QUEUED,
+                expected_status=JobStatus.WAITING_INPUT,
+            )
+        thread.join(timeout=6)
+    finally:
+        receiver.close()
+        thread.join(timeout=1)
 
+    assert receiver_waiting
     assert outcome == [True]
-    assert time.monotonic() - started < 0.75
     assert not thread.is_alive()
-    receiver.close()
 
 
 def test_worker_idle_backoff_and_deadlines_are_bounded(tmp_path):

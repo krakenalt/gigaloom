@@ -21,7 +21,7 @@ def result(request: dict, value: dict) -> None:
     send({"jsonrpc": "2.0", "id": request["id"], "result": value})
 
 
-def initialize(request: dict, mode: str, stream_done_file: str | None) -> None:
+def initialize(request: dict, mode: str) -> None:
     if mode == "banner":
         sys.stdout.write("ACP agent ready\n")
         sys.stdout.flush()
@@ -64,15 +64,12 @@ def initialize(request: dict, mode: str, stream_done_file: str | None) -> None:
                     },
                 }
             )
-        if stream_done_file:
-            Path(stream_done_file).write_text("done", encoding="utf-8")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", default="normal")
     parser.add_argument("--child-pid-file")
-    parser.add_argument("--stream-done-file")
     args = parser.parse_args()
     if args.mode == "fork":
         child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
@@ -88,7 +85,7 @@ def main() -> None:
             continue
         method = request.get("method")
         if method == "initialize":
-            initialize(request, args.mode, args.stream_done_file)
+            initialize(request, args.mode)
         elif method == "session/new":
             result(request, {"sessionId": "fake-session"})
         elif method == "session/prompt":
