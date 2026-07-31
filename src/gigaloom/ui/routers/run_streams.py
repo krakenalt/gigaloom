@@ -24,7 +24,7 @@ from gigaloom.types import (
 )
 from gigaloom.ui.async_execution import ContractAPIRouter, run_stream_offload
 from gigaloom.ui.container import AppServices
-from gigaloom.ui.routers.tui_actions import validate_run_action_binding
+from gigaloom.ui.routers.run_actions import validate_run_action_binding
 from gigaloom.ui.services.request_values import optional_text as _optional_text
 from gigaloom.ui.streaming.events import (
     encode_run_stream_cursor as _encode_run_stream_cursor,

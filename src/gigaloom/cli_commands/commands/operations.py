@@ -16,7 +16,7 @@ def register(
     benchmark_performance = benchmark_subparsers.add_parser("performance")
     benchmark_performance.add_argument(
         "--profile",
-        choices=("ci-smoke", "local-detail", "tui-detail", "runtime-detail"),
+        choices=("ci-smoke", "local-detail", "runtime-detail"),
         default="ci-smoke",
     )
     benchmark_performance.add_argument("--samples", type=int, default=5)

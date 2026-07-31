@@ -12,11 +12,8 @@ frontend:
 terminal:
   - changed-files:
       - any-glob-to-any-file:
-          - "src/gigaloom/terminal_*.py"
-          - "src/gigaloom/tui*.py"
           - "src/gigaloom/native/**"
           - "tests/harness/test_terminal_*.py"
-          - "tests/harness/test_tui*.py"
           - "tests/harness/test_native_*.py"
 
 performance:

@@ -11,7 +11,6 @@ SUPPORTED_PROFILES: Final[frozenset[str]] = frozenset(
         "ci-smoke",
         "local-detail",
         "runtime-detail",
-        "tui-detail",
     }
 )
 

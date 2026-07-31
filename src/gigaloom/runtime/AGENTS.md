@@ -12,7 +12,7 @@ Cross-context callers use `runtime/api.py`.
 
 # Forbidden imports
 
-No CLI, TUI, UI, or provider-specific application imports.
+No CLI, UI, or provider-specific application imports.
 
 # Persistence/security invariants
 

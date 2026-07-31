@@ -1,1 +1,1 @@
-"""CLI, TUI and Web workload declarations."""
+"""CLI and Web workload declarations."""

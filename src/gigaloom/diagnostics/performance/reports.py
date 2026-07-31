@@ -12,7 +12,6 @@ from typing import Any, Final
 REPORT_ARTIFACT_MAX_BYTES: Final[dict[str, int]] = {
     "ci-smoke": 64 * 1024,
     "local-detail": 512 * 1024,
-    "tui-detail": 2 * 1024 * 1024,
     "runtime-detail": 2 * 1024 * 1024,
 }
 

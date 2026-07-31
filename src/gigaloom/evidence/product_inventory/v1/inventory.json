@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "8308a02f4ad33e3cddad8af56f88c8626ac21cce9141537e69d92eca2fc20d48",
+  "content_sha256": "83f6f59f33f5ff408ab3e8bccc2cea73606b924303e0c75e5e76c96650176821",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -689,8 +689,6 @@
     "tests/harness/test_product_capabilities.py",
     "tests/harness/test_product_inventory.py",
     "tests/harness/test_provider_profiles.py",
-    "tests/harness/test_terminal_dispatch.py",
-    "tests/harness/test_tui_app.py",
     "tests/harness/test_ui.py"
   ],
   "deprecations": {
@@ -957,7 +955,7 @@
       "value": "gigaloom.provider_profiles:gemini_legacy_compatibility"
     }
   ],
-  "generated_from": "schemas+registries+entry_points+provider_profiles+cli+tui+api+contract_tests",
+  "generated_from": "schemas+registries+entry_points+provider_profiles+cli+api+contract_tests",
   "harnesses": [
     {
       "capabilities": [
@@ -2327,236 +2325,6 @@
       "workflow show",
       "workflow status",
       "workflow validate"
-    ],
-    "tui_commands": [
-      {
-        "action": "command_palette",
-        "id": "commands",
-        "requires_session": false,
-        "slash": "/commands"
-      },
-      {
-        "action": "context_drawer",
-        "id": "context",
-        "requires_session": false,
-        "slash": "/context"
-      },
-      {
-        "action": "status_view",
-        "id": "status",
-        "requires_session": false,
-        "slash": "/status"
-      },
-      {
-        "action": "choose_project",
-        "id": "project",
-        "requires_session": false,
-        "slash": "/project"
-      },
-      {
-        "action": "new_session",
-        "id": "new-session",
-        "requires_session": false,
-        "slash": "/new"
-      },
-      {
-        "action": "sessions",
-        "id": "sessions",
-        "requires_session": false,
-        "slash": "/sessions"
-      },
-      {
-        "action": "rename_session",
-        "id": "rename-session",
-        "requires_session": true,
-        "slash": "/rename"
-      },
-      {
-        "action": "archive_session",
-        "id": "archive-session",
-        "requires_session": true,
-        "slash": "/archive"
-      },
-      {
-        "action": "delete_session",
-        "id": "delete-session",
-        "requires_session": true,
-        "slash": "/delete"
-      },
-      {
-        "action": "fork_session",
-        "id": "fork-session",
-        "requires_session": true,
-        "slash": "/fork"
-      },
-      {
-        "action": "transcript_search",
-        "id": "transcript-search",
-        "requires_session": true,
-        "slash": "/search"
-      },
-      {
-        "action": "export_session",
-        "id": "export-session",
-        "requires_session": true,
-        "slash": "/export"
-      },
-      {
-        "action": "tasks",
-        "id": "tasks",
-        "requires_session": false,
-        "slash": "/tasks"
-      },
-      {
-        "action": "processes",
-        "id": "processes",
-        "requires_session": false,
-        "slash": "/processes"
-      },
-      {
-        "action": "usage",
-        "id": "usage",
-        "requires_session": false,
-        "slash": "/usage"
-      },
-      {
-        "action": "preferences",
-        "id": "preferences",
-        "requires_session": false,
-        "slash": "/preferences"
-      },
-      {
-        "action": "integrations",
-        "id": "integrations",
-        "requires_session": false,
-        "slash": "/integrations"
-      },
-      {
-        "action": "environment_view",
-        "id": "environment",
-        "requires_session": false,
-        "slash": "/environment"
-      },
-      {
-        "action": "status_view",
-        "id": "diagnostics",
-        "requires_session": false,
-        "slash": "/diagnostics"
-      },
-      {
-        "action": "advanced_transport",
-        "id": "advanced-transport",
-        "requires_session": false,
-        "slash": "/advanced"
-      },
-      {
-        "action": "refresh",
-        "id": "refresh",
-        "requires_session": false,
-        "slash": "/refresh"
-      },
-      {
-        "action": "environment_commit",
-        "id": "environment-commit",
-        "requires_session": true,
-        "slash": "/commit"
-      },
-      {
-        "action": "environment_push",
-        "id": "environment-push",
-        "requires_session": true,
-        "slash": "/push"
-      },
-      {
-        "action": "environment_pull_request",
-        "id": "environment-pull-request",
-        "requires_session": true,
-        "slash": "/pr"
-      },
-      {
-        "action": "files",
-        "id": "files",
-        "requires_session": true,
-        "slash": "/files"
-      },
-      {
-        "action": "evidence",
-        "id": "evidence",
-        "requires_session": true,
-        "slash": "/evidence"
-      },
-      {
-        "action": "native_terminal",
-        "id": "terminal",
-        "requires_session": true,
-        "slash": "/terminal"
-      },
-      {
-        "action": "provider_handoff",
-        "id": "provider-handoff",
-        "requires_session": true,
-        "slash": "/provider-ui"
-      },
-      {
-        "action": "web_handoff",
-        "id": "web-handoff",
-        "requires_session": true,
-        "slash": "/web"
-      },
-      {
-        "action": "runtime_control('harness')",
-        "id": "harness",
-        "requires_session": false,
-        "slash": "/harness"
-      },
-      {
-        "action": "runtime_control('model')",
-        "id": "model",
-        "requires_session": false,
-        "slash": "/model"
-      },
-      {
-        "action": "runtime_control('effort')",
-        "id": "effort",
-        "requires_session": false,
-        "slash": "/effort"
-      },
-      {
-        "action": "runtime_control('mode')",
-        "id": "mode",
-        "requires_session": false,
-        "slash": "/mode"
-      },
-      {
-        "action": "runtime_control('permission')",
-        "id": "permission",
-        "requires_session": false,
-        "slash": "/permission"
-      },
-      {
-        "action": "runtime_control('policy')",
-        "id": "policy",
-        "requires_session": false,
-        "slash": "/policy"
-      },
-      {
-        "action": "runtime_control('sandbox')",
-        "id": "sandbox",
-        "requires_session": false,
-        "slash": "/sandbox"
-      },
-      {
-        "action": "help",
-        "id": "help",
-        "requires_session": false,
-        "slash": "/help"
-      },
-      {
-        "action": "quit",
-        "id": "quit",
-        "requires_session": false,
-        "slash": "/quit"
-      }
     ]
   },
   "kind": "gigaloom_product_inventory",
@@ -2949,7 +2717,6 @@
     "ProviderCompatibilityRegistry.with_builtins",
     "installed GigaLoom entry points",
     "cli.build_parser",
-    "tui.commands.COMMAND_REGISTRY",
     "ui.app.create_app routes",
     "contract tests"
   ],

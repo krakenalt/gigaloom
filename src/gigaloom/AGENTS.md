@@ -46,7 +46,7 @@ These rules apply to `src/gigaloom/**` in addition to the root contract.
 | `projects/`, `attachments/` | Project state, bounded filesystems, worktrees, and attachments |
 | `automation/`, `review/` | Workflows, schedules, evaluations, evidence, and review flows |
 | `diagnostics/` | Doctor, compatibility, inventory, and benchmark implementation |
-| `tui/`, `ui/` | Textual and FastAPI/Cockpit application surfaces |
+| `ui/` | FastAPI/Cockpit application surface and packaged Web frontend |
 
 Keep `ui/app.py` as composition; add cohesive API families to `ui/routers/`
 instead of expanding the composition module. Use temporary data dirs and repos

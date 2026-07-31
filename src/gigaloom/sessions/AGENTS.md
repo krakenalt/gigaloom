@@ -12,7 +12,7 @@ Cross-context callers use `sessions/api.py`.
 
 # Forbidden imports
 
-No runtime worker, CLI, TUI, or UI implementation imports.
+No runtime worker, CLI, or UI implementation imports.
 
 # Persistence/security invariants
 

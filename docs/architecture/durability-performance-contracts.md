@@ -14,11 +14,11 @@ gigaloom/
   attachments/  automation/  cli/          contracts/   core/
   diagnostics/  execution/   harnesses/    integrations/ native/
   projects/     providers/   review/       runtime/      sessions/
-  skills/       tools/       tui/          ui/
+  skills/       tools/       ui/
 ```
 
 Domain contexts own state and policy. `execution` coordinates their public
-facades. CLI, TUI, Web, and diagnostics adapt those application APIs; they do
+facades. CLI, Web, and diagnostics adapt those application APIs; they do
 not become alternative state owners. Root Python modules outside this tree are
 temporary compatibility shims only. The versioned architecture manifest is the
 source of truth for every remaining shim, owner, and removal gate.
@@ -30,7 +30,7 @@ source of truth for every remaining shim, owner, and removal gate.
 | Session metadata, messages, events, attachments, and per-run current records | Redacted files below the configured Harness data directory | Never discard to repair an index |
 | Durable jobs, attempts, approvals, workers, leases, outbox, and side-effect records | Runtime SQLite database | Migrate forward under the runtime schema; do not reconstruct from UI projections |
 | Session catalog, lookup tables, run order, revisions, and SQLite read models | Derived indexes or projections | May be deleted and rebuilt from authoritative session records |
-| Browser/TUI query caches, SSE pending queues, generated frontend assets, benchmark reports | Derived or exported artifacts | Re-fetch, regenerate, or recreate; they are not recovery sources |
+| Browser query caches, SSE pending queues, generated frontend assets, benchmark reports | Derived or exported artifacts | Re-fetch, regenerate, or recreate; they are not recovery sources |
 | Project configuration and project-local `.giga/` state | Files in the project workspace | Back up or version separately from the Harness user-data archive |
 
 The configured user-data directory is normally
@@ -101,15 +101,13 @@ Run content-free diagnostics with:
 giga benchmark performance --profile ci-smoke --samples 10
 giga benchmark performance --profile local-detail --samples 10
 giga benchmark performance --profile runtime-detail --samples 10
-giga benchmark performance --profile tui-detail --samples 10
 ```
 
 | Profile | Purpose | Gate semantics |
 | --- | --- | --- |
 | `ci-smoke` | Fast deterministic projections and local primitives | Only profile with blocking CI budgets |
-| `local-detail` | Filesystem, SQLite, session/history, CLI, worker, Web, and TUI detail | Reference evidence; machine-sensitive budgets are non-blocking |
+| `local-detail` | Filesystem, SQLite, session/history, CLI, worker, and Web detail | Reference evidence; machine-sensitive budgets are non-blocking |
 | `runtime-detail` | Queue claims, leases, worker cadence/wakeup, recovery, SQLite contention, revisions, and application reads | Runtime regression and scaling evidence |
-| `tui-detail` | Startup, navigation, rendering, command palette, and large-session interaction | Terminal interaction and rendering evidence |
 
 The CLI defaults to five samples; release and refactor gates use the sample
 count named by their plan. `--output PATH` writes canonical private JSON with

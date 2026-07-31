@@ -7,9 +7,8 @@ flow аутентификации провайдера.
 Для managed provider terminals также нужны POSIX-система и доступный `tmux` с
 корректным выводом `tmux -V`. На Linux или macOS установите `tmux` через
 системный package manager. Windows и POSIX-системы без рабочего `tmux`
-сохраняют provider-native passthrough; GigaLoom не подменяет его эмуляцией
-терминала. Для самого TUI `giga` достаточно поддерживаемого интерактивного
-терминала.
+сохраняют provider-native passthrough; GigaLoom не подменяет его собственным
+эмулированным terminal UI.
 
 ## Установка preview
 

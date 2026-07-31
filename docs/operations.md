@@ -8,7 +8,6 @@ project-scoped state lives under `.giga/` in a registered project.
 ```sh
 giga doctor
 giga ui
-giga tui
 ```
 
 The browser UI binds to `127.0.0.1:8091` by default. Do not expose it on an
@@ -34,7 +33,7 @@ giga doctor
 ```
 
 If tmux is missing, invalid, or later disabled, GigaLoom must report that
-capability honestly. It does not restore an emulated Textual provider terminal
+capability honestly. It does not restore a GigaLoom-owned provider terminal UI
 or claim structured resume. Existing content-free terminal lifecycle records
 remain readable; cleanup and recovery stay scoped to the exact managed
 instance.

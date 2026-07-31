@@ -54,7 +54,6 @@ IMPORT_DISTRIBUTIONS = {
     "jwt": "pyjwt",
     "pydantic": "pydantic",
     "starlette": "starlette",
-    "textual": "textual",
     "uvicorn": "uvicorn",
     "yaml": "pyyaml",
 }
@@ -227,6 +226,7 @@ assert "/v1beta/models/{model}:generateContent" in paths
 
 HARNESS_BASE_SMOKE = """
 import importlib.metadata
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -284,13 +284,9 @@ assert any(
     and "extra ==" in requirement
     for requirement in requirements
 )
-assert any(
-    requirement.startswith("textual")
-    and ">=8.2.8" in requirement
-    and "extra ==" not in requirement
-    for requirement in requirements
-)
+assert not any(requirement.startswith("textual") for requirement in requirements)
 assert "tui" not in harness_distribution.metadata.get_all("Provides-Extra", [])
+assert importlib.util.find_spec("gigaloom.tui") is None
 scripts = {
     entry.name: entry.value
     for entry in harness_distribution.entry_points

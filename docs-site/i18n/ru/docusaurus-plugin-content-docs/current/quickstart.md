@@ -39,7 +39,8 @@ loopback. В cockpit:
 4. подтвердите только точное действие, которое хотите выполнить;
 5. изучите события, diff и evidence.
 
-Для терминального workflow используйте `giga tui`.
+Для provider-native terminal workflow используйте `giga <agent>`, а для
+governed browser Workbench — `giga ui`.
 
 ## Дальше
 

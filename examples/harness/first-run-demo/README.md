@@ -15,9 +15,9 @@ export GIGALOOM_DATA_DIR="$PWD/.local/harness"
 
 giga init --name harness-first-run-demo
 giga doctor .
-# On a supported interactive terminal, this opens the built-in TUI:
+# This prints the bounded launcher summary and never enters raw mode:
 giga
-# The demo below is intentionally machine-readable and never opens Textual:
+# The demo below is intentionally machine-readable:
 giga harness run echo \
   --no-start-proxy \
   --workspace . \
@@ -37,11 +37,10 @@ report `"status": "passed"`, with two passing cases and no failed cases.
 each such check includes its remediation, while the local Echo path remains
 available.
 
-Human `giga chat`, `giga run --agent`, and selected `giga session` commands now
-deep-link into the same built-in TUI when all standard streams are attached to
-a supported terminal. Add `--non-interactive`, `--json`, or `--dry-run` for
-scripts, or use redirects/pipes/CI; those routes preserve the automation CLI
-and do not initialize Textual.
+Human `giga chat`, `giga run --agent`, and `giga session` commands remain
+ordinary CLI or explicit structured-run surfaces. Use `giga <agent>` for the
+real provider-owned terminal UI, `giga ui` for the GigaLoom Workbench, and
+`--non-interactive`, `--json`, or `--dry-run` for scripts.
 
 What the setup changes:
 

@@ -121,6 +121,6 @@ def test_detail_profiles_are_scheduled_and_non_blocking():
     assert workflow["permissions"] == {"contents": "read"}
 
     text = _workflow_text("nightly-smoke.yaml")
-    for profile in ("local-detail", "tui-detail", "runtime-detail"):
+    for profile in ("local-detail", "runtime-detail"):
         assert f"--profile {profile}" in text
-    assert text.count("continue-on-error: true") == 3
+    assert text.count("continue-on-error: true") == 2

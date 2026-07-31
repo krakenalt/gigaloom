@@ -6,10 +6,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from gigaloom.config import HarnessConfig
-from gigaloom.tui.client import (
-    AttachedWorkbenchClient,
-    InProcessWorkbenchClient,
-)
 from gigaloom.ui import create_app
 from gigaloom.workbench_protocol import (
     ArtifactReference,
@@ -262,26 +258,6 @@ def test_state_page_round_trip_preserves_revision_deltas_and_artifacts():
     parsed = workbench_state_page_from_dict(workbench_state_page_to_dict(page))
 
     assert parsed == page
-
-
-async def test_in_process_and_attach_clients_use_matching_state_contract(tmp_path):
-    config = HarnessConfig(data_dir=tmp_path / "data")
-    in_process = InProcessWorkbenchClient(config)
-    in_process.workbench_backbone.publish(_draft(1))
-    expected = await in_process.workbench_state(cursor="wb1.1.0.0")
-
-    attached = AttachedWorkbenchClient("http://127.0.0.1:8000")
-
-    async def request(method, path, payload=None):
-        assert method == "GET"
-        assert path == "/api/workbench/state?limit=32&cursor=wb1.1.0.0"
-        assert payload is None
-        return workbench_state_page_to_dict(expected)
-
-    attached._request = request
-    actual = await attached.workbench_state(cursor="wb1.1.0.0")
-
-    assert actual == expected
 
 
 def test_workbench_api_is_bounded_and_uses_app_backbone(tmp_path):

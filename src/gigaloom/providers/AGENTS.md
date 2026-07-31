@@ -12,7 +12,7 @@ Cross-context callers use `providers/api.py`.
 
 # Forbidden imports
 
-No CLI, TUI, UI, or concrete session/runtime storage imports.
+No CLI, UI, or concrete session/runtime storage imports.
 
 # Persistence/security invariants
 

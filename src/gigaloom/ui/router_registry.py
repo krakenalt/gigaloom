@@ -78,7 +78,7 @@ from gigaloom.ui.routers.settings import router as settings_router
 from gigaloom.ui.routers.shell import create_shell_router
 from gigaloom.ui.routers.tools import router as tools_router
 from gigaloom.ui.routers.trace_replays import router as trace_replays_router
-from gigaloom.ui.routers.tui_actions import router as tui_actions_router
+from gigaloom.ui.routers.run_actions import router as run_actions_router
 from gigaloom.ui.routers.workbench_resources import (
     router as workbench_resources_router,
 )
@@ -124,7 +124,7 @@ def install_application_routers(
     app.include_router(environments_router)
     app.include_router(integrations_router)
     app.include_router(tools_router)
-    app.include_router(tui_actions_router)
+    app.include_router(run_actions_router)
     app.include_router(workbench_state_router)
     app.include_router(workbench_resources_router)
     app.include_router(workflows_router)

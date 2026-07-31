@@ -39,7 +39,8 @@ cockpit:
 4. approve only the exact action you intend to run;
 5. inspect the resulting events, diff, and evidence.
 
-Use `giga tui` when a terminal-first workflow is preferable.
+Use `giga <agent>` for the provider's native terminal workflow, or `giga ui`
+for the governed browser Workbench.
 
 ## Next steps
 

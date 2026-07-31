@@ -5,7 +5,7 @@ Status: accepted as the T15 Phase A architecture handoff for gate `G-ARCH` on
 
 ## Context
 
-GigaLoom is a modular monolith with durable local state, three user-facing
+GigaLoom is a modular monolith with durable local state, two user-facing
 surfaces, built-in coding-agent adapters, provider compatibility layers, and
 extension tooling. The existing Python package grew as a mostly flat namespace.
 Several root modules now combine storage, application policy, provider
@@ -44,7 +44,7 @@ All other implementation belongs to one of these frozen contexts:
 attachments/  automation/  cli/          contracts/   core/
 diagnostics/  execution/   harnesses/    integrations/ native/
 projects/     providers/   review/       runtime/      sessions/
-skills/       tools/       tui/          ui/
+skills/       tools/       ui/
 ```
 
 Directories are introduced only with real behavior and focused tests. Empty
@@ -72,7 +72,6 @@ tree.
 | `review` | Provenance, reviewed evidence, artifacts, replay, promotions, handoffs, and support exports | Explicit read and reviewed-mutation contracts |
 | `diagnostics` | Doctor checks, compatibility evidence, inventory, and performance tooling | Diagnostic report and export contracts |
 | `cli` | Lazy command-line parsing, dispatch, errors, and output adaptation | `cli/main.py`; no business ownership |
-| `tui` | Textual state, clients, controllers, projections, widgets, screens, and rendering | Application client protocols; no storage ownership |
 | `ui` | FastAPI composition, dependencies, routers, projections, streaming, and packaged Cockpit delivery | Application services and transport schemas; no storage ownership |
 
 During the published migration window, root files or directories outside the
@@ -179,11 +178,6 @@ cli/
   main.py  parser.py  registry.py  context.py  errors.py  output.py
   completion.py  commands/
 
-tui/
-  entrypoint.py  app.py  contracts.py  state.py  i18n.py
-  commands/  clients/  controllers/  projections/  widgets/  screens/
-  rendering/
-
 ui/
   app.py  container.py  dependencies.py
   security/  schemas/  services/  streaming/  routers/  web/
@@ -198,7 +192,7 @@ distinction applies wherever a context adds an index or projection.
 First-party imports follow this direction:
 
 ```text
-cli tui ui diagnostics -> public application APIs
+cli ui diagnostics     -> public application APIs
 automation review      -> execution runtime sessions projects
 execution              -> sessions runtime harnesses projects attachments
 harnesses              -> providers native contracts
@@ -214,7 +208,7 @@ Rules:
 
 1. `core` imports no product context.
 2. `contracts` imports only `core`, stdlib, and typing.
-3. Runtime and domain contexts never import `cli`, `tui`, or `ui`.
+3. Runtime and domain contexts never import `cli` or `ui`.
 4. Cross-context imports use the target context's `api.py`, `contracts.py`, or
    another explicitly named public port. They do not reach into repositories,
    storage, routers, widgets, or other internals.
@@ -224,7 +218,7 @@ Rules:
    attachment APIs without taking ownership of their persistence.
 7. `automation` and `review` consume bounded execution, runtime, session, and
    project APIs.
-8. CLI, TUI, and Web adapt input and output to application APIs. They do not
+8. CLI and Web adapt input and output to application APIs. They do not
    duplicate policy or query concrete filesystem and SQLite repositories.
 9. `__init__.py` files remain import-light and do not form circular re-export
    chains.
@@ -270,7 +264,7 @@ Tests follow the owning architecture and type of evidence:
 ```text
 tests/harness/
   architecture/
-  unit/{sessions,runtime,execution,providers,harnesses,integrations,automation,projects,cli,tui,ui}/
+  unit/{sessions,runtime,execution,providers,harnesses,integrations,automation,projects,cli,ui}/
   contract/{adapters,api,cli,sse,storage}/
   integration/{durable_runtime,session_execution,application_surfaces}/
   migrations/{sessions,runtime}/
@@ -374,8 +368,6 @@ the compatibility surface in `execution/__init__.py`, `safe_paths.py`, and
 | Runner and new `execution` modules | T06 |
 | FastAPI composition, services, streaming, and routers | T07 |
 | CLI and entrypoint | T08 |
-| TUI clients, contracts, and projections | T09 |
-| TUI application and rendering | T10 |
 | Frontend API and query contracts | T11 |
 | Frontend Workbench | T12 |
 | Frontend streaming and bounded rendering | T13 |
@@ -395,8 +387,8 @@ owner's file submits an interface request instead of editing the file.
 
 This decision changes package organization, not product behavior. CLI commands,
 flags, output, exit codes, REST paths, response shapes, SSE events and cursors,
-plugin entry points, provider-native passthrough, persisted state, and TUI or
-Web semantics remain compatibility contracts.
+plugin entry points, provider-native passthrough, persisted state, and Web
+semantics remain compatibility contracts.
 
 Each structural commit is independently revertible. Compatibility shims and
 the authoritative state formats provide the rollback boundary. Derived indexes

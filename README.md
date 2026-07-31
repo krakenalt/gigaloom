@@ -7,7 +7,7 @@
 [![GigaLoom coverage baseline](./badges/gigaloom-coverage.svg)](./docs/operations.md#quality-baseline)
 
 GigaLoom is a local, provider-neutral control plane for coding agents. It
-combines the `giga` CLI, a terminal UI, and a browser cockpit for governed
+combines provider-native `giga <agent>` commands and a browser cockpit for governed
 sessions, approvals, worktrees, schedules, evaluations, and multi-agent
 workflows.
 

@@ -30,14 +30,13 @@ from gigaloom.registry import (
     HARNESS_ADAPTER_ENTRY_POINTS,
     HarnessRegistry,
 )
-from gigaloom.tui.commands import COMMAND_REGISTRY
 from gigaloom.types import spec_to_dict
 
 PRODUCT_INVENTORY_SCHEMA_VERSION = 1
 PRODUCT_INVENTORY_KIND = "gigaloom_product_inventory"
 PRODUCT_INVENTORY_RESOURCE = "evidence/product_inventory/v1/inventory.json"
 PRODUCT_INVENTORY_SOURCE = (
-    "schemas+registries+entry_points+provider_profiles+cli+tui+api+contract_tests"
+    "schemas+registries+entry_points+provider_profiles+cli+api+contract_tests"
 )
 _DOCUMENTATION = (
     {
@@ -93,8 +92,6 @@ _CONTRACT_TESTS = (
     "tests/harness/test_product_capabilities.py",
     "tests/harness/test_product_inventory.py",
     "tests/harness/test_provider_profiles.py",
-    "tests/harness/test_terminal_dispatch.py",
-    "tests/harness/test_tui_app.py",
     "tests/harness/test_ui.py",
 )
 
@@ -141,7 +138,6 @@ def build_product_inventory(
             "ProviderCompatibilityRegistry.with_builtins",
             "installed GigaLoom entry points",
             "cli.build_parser",
-            "tui.commands.COMMAND_REGISTRY",
             "ui.app.create_app routes",
             "contract tests",
         ],
@@ -175,15 +171,6 @@ def build_product_inventory(
         ],
         "interfaces": {
             "cli_commands": _cli_commands(cli_parser),
-            "tui_commands": [
-                {
-                    "id": command.id,
-                    "slash": command.slash,
-                    "action": command.action,
-                    "requires_session": command.requires_session,
-                }
-                for command in COMMAND_REGISTRY
-            ],
             "api_operations": _api_operations(api_routes),
         },
         "protocols": [item.value for item in ProviderProtocol],

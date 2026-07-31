@@ -1,4 +1,4 @@
-"""Exact-generation interactive actions shared by terminal clients."""
+"""Exact-generation interactive actions for structured Web runs."""
 
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ def answer_run_input(
     request: Request,
     payload: dict[str, Any] = Body(...),
 ) -> dict[str, Any]:
-    """Fail closed until the active provider advertises a retained input bridge."""
+    """Fail closed until the provider advertises a retained input bridge."""
     run = _bound_run(request, run_id, payload)
     _required_identity(payload.get("input_id"), "input request")
     _required_content(payload.get("answer"), "input answer")

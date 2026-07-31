@@ -227,7 +227,7 @@ def test_non_ui_domain_imports_defer_ui_frameworks():
 
         import gigaloom.doctor
         import gigaloom.performance_baseline
-        import gigaloom.tui.commands
+        import gigaloom.native.api
         import gigaloom.ui.local_access
 
         assert not any(

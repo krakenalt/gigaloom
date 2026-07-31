@@ -14,11 +14,11 @@ gigaloom/
   attachments/  automation/  cli/          contracts/   core/
   diagnostics/  execution/   harnesses/    integrations/ native/
   projects/     providers/   review/       runtime/      sessions/
-  skills/       tools/       tui/          ui/
+  skills/       tools/       ui/
 ```
 
 Domain contexts владеют state и policy. `execution` координирует их публичные
-facades. CLI, TUI, Web и diagnostics адаптируют эти application APIs, но не
+facades. CLI, Web и diagnostics адаптируют эти application APIs, но не
 становятся альтернативными владельцами state. Root Python-модули вне этого
 дерева являются только временными compatibility shims. Versioned architecture
 manifest — источник истины для каждого оставшегося shim, owner и removal gate.
@@ -30,7 +30,7 @@ manifest — источник истины для каждого оставше�
 | Session metadata, messages, events, attachments и per-run current records | Redacted-файлы в настроенном Harness data directory | Нельзя удалять ради починки индекса |
 | Durable jobs, attempts, approvals, workers, leases, outbox и side-effect records | Runtime SQLite database | Мигрировать вперёд по runtime schema; не восстанавливать из UI projections |
 | Session catalog, lookup tables, run order, revisions и SQLite read models | Derived indexes или projections | Можно удалить и перестроить из authoritative session records |
-| Browser/TUI query caches, SSE pending queues, generated frontend assets и benchmark reports | Derived или exported artifacts | Повторно загрузить, сгенерировать или создать; это не recovery source |
+| Browser query caches, SSE pending queues, generated frontend assets и benchmark reports | Derived или exported artifacts | Повторно загрузить, сгенерировать или создать; это не recovery source |
 | Project configuration и project-local `.giga/` state | Файлы project workspace | Сохранять или version-control отдельно от Harness user-data archive |
 
 Настроенный user-data directory обычно равен `~/.gigaloom` и
@@ -100,15 +100,13 @@ reconciliation. Idle polling по умолчанию увеличивается 
 giga benchmark performance --profile ci-smoke --samples 10
 giga benchmark performance --profile local-detail --samples 10
 giga benchmark performance --profile runtime-detail --samples 10
-giga benchmark performance --profile tui-detail --samples 10
 ```
 
 | Profile | Назначение | Gate semantics |
 | --- | --- | --- |
 | `ci-smoke` | Быстрые deterministic projections и local primitives | Единственный профиль с blocking CI budgets |
-| `local-detail` | Детали filesystem, SQLite, session/history, CLI, worker, Web и TUI | Reference evidence; machine-sensitive budgets не blocking |
+| `local-detail` | Детали filesystem, SQLite, session/history, CLI, worker и Web | Reference evidence; machine-sensitive budgets не blocking |
 | `runtime-detail` | Queue claims, leases, worker cadence/wakeup, recovery, SQLite contention, revisions и application reads | Evidence runtime regression и scaling |
-| `tui-detail` | Startup, navigation, rendering, command palette и large-session interaction | Evidence terminal interaction и rendering |
 
 CLI по умолчанию использует пять samples; release и refactor gates задают
 sample count в своём плане. `--output PATH` записывает canonical private JSON с

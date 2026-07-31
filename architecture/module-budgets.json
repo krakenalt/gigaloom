@@ -29,7 +29,6 @@
       "sessions",
       "skills",
       "tools",
-      "tui",
       "ui"
     ],
     "compatibility_context_groups": [
@@ -53,8 +52,7 @@
           "performance_baseline.py",
           "product_capabilities.py",
           "product_inventory.py",
-          "runtime_performance_profile.py",
-          "tui_performance_profile.py"
+          "runtime_performance_profile.py"
         ]
       },
       {
@@ -258,9 +256,7 @@
         "paths": [
           "cli.py",
           "cli_capabilities.py",
-          "completion.py",
-          "terminal_dispatch.py",
-          "terminal_intent.py"
+          "completion.py"
         ]
       },
       {
@@ -477,20 +473,6 @@
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
-        "path": "tui/app.py",
-        "max_lines": 2910,
-        "owner": "T10/T20",
-        "removal_gate": "tui-hard-limit-fission",
-        "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
-      },
-      {
-        "path": "tui/i18n.py",
-        "max_lines": 625,
-        "owner": "T10/T20",
-        "removal_gate": "tui-hard-limit-fission",
-        "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
-      },
-      {
         "path": "ui/mutation_contracts.py",
         "max_lines": 1057,
         "owner": "T07/T20",
@@ -581,7 +563,6 @@
         ],
         "forbidden_targets": [
           "cli",
-          "tui",
           "ui"
         ]
       },

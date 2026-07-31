@@ -27,7 +27,7 @@ from gigaloom.sessions.models import (
 from gigaloom.sessions.store import title_from_prompt
 from gigaloom.ui.async_execution import ContractAPIRouter
 from gigaloom.ui.container import AppServices
-from gigaloom.ui.routers.tui_actions import validate_run_action_binding
+from gigaloom.ui.routers.run_actions import validate_run_action_binding
 from gigaloom.ui.services.navigation import session_summary as _session_summary
 from gigaloom.ui.services.provenance import (
     _build_current_run_provenance,

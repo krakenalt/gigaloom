@@ -23,7 +23,6 @@ from gigaloom.native_cli_contracts import (
     NativeCommandClass,
     classify_native_route,
 )
-from gigaloom.terminal_intent import parse_native_tui_launch_intent
 
 
 def _snapshot(
@@ -175,37 +174,6 @@ def test_gemini_one_shot_decoder_uses_common_events_without_native_wrapping():
     ]
     assert all(draft.session_id == "sess_1" for draft in (*message, *usage))
     assert "provider-session-must-not-be-adopted" not in repr(message)
-
-
-@pytest.mark.parametrize(
-    ("suffix", "pattern", "selector"),
-    (
-        ((), "gemini.root", None),
-        (("inspect",), "gemini.prompt", None),
-        (("-i", "inspect"), "gemini.interactive", None),
-        (("--prompt-interactive", "inspect"), "gemini.interactive", None),
-        (("-r", "latest"), "gemini.resume", "latest"),
-        (("--resume", "2"), "gemini.resume", "2"),
-        (
-            ("-r", "11111111-1111-4111-8111-111111111111"),
-            "gemini.resume",
-            "11111111-1111-4111-8111-111111111111",
-        ),
-    ),
-)
-def test_gemini_human_intents_are_affirmative_and_preserve_native_identity(
-    suffix, pattern, selector
-):
-    decision = classify_native_route("gemini", suffix, version="0.46.0")
-    intent = parse_native_tui_launch_intent("gemini", suffix, decision)
-
-    assert decision.level is CapabilityLevel.STRUCTURED_WORKBENCH
-    assert decision.intent_pattern_id == pattern
-    assert intent is not None
-    assert intent.persistence == "provider_native"
-    assert intent.native_session_selector == selector
-    assert intent.session_operation == ("resume" if selector else None)
-    assert intent.provider_transport == "acp"
 
 
 @pytest.mark.parametrize(

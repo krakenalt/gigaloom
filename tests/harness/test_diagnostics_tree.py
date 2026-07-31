@@ -20,7 +20,6 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[2] / "src" / "gigaloom"
         ("product_capabilities", "diagnostics.inventory.capabilities"),
         ("performance_baseline", "diagnostics.performance.baseline"),
         ("runtime_performance_profile", "diagnostics.performance.runtime"),
-        ("tui_performance_profile", "diagnostics.performance.tui"),
     ),
 )
 def test_legacy_diagnostic_module_is_bounded_context_alias(
@@ -40,7 +39,6 @@ def test_legacy_diagnostic_module_is_bounded_context_alias(
     (
         ".runtime.profile",
         ".sessions.profile",
-        ".surfaces.tui_render",
     ),
 )
 def test_legacy_performance_workload_is_canonical_alias(suffix: str) -> None:
@@ -82,7 +80,6 @@ def test_diagnostic_implementations_and_shims_fit_structural_limits() -> None:
         "product_capabilities.py",
         "product_inventory.py",
         "runtime_performance_profile.py",
-        "tui_performance_profile.py",
     )
     for relative_path in root_shims:
         assert (
@@ -103,7 +100,6 @@ def test_canonical_diagnostics_do_not_import_legacy_paths() -> None:
         "gigaloom.product_capabilities",
         "gigaloom.product_inventory",
         "gigaloom.runtime_performance_profile",
-        "gigaloom.tui_performance_profile",
     )
 
     for path in (PACKAGE_ROOT / "diagnostics").rglob("*.py"):

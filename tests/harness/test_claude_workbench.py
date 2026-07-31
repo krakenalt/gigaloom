@@ -20,7 +20,6 @@ from gigaloom.native_cli_contracts import CapabilityState
 from gigaloom.native_cli_contracts import CapabilityLevel
 from gigaloom.native_cli_contracts import NativeCommandClass
 from gigaloom.native_cli_contracts import classify_native_route
-from gigaloom.terminal_intent import parse_native_tui_launch_intent
 
 
 def _snapshot(
@@ -114,43 +113,6 @@ def test_claude_one_shot_decoder_normalizes_reviewed_stream_without_session_clai
     assert all(draft.session_id == "sess_1" for draft in (*message, *result))
     assert "providerSecret" not in repr(message)
     assert "provider-session-must-not-be-adopted" not in repr(result)
-
-
-@pytest.mark.parametrize(
-    ("suffix", "pattern", "selector", "operation"),
-    (
-        ((), "claude.root", None, None),
-        (("inspect",), "claude.prompt", None, None),
-        (("-c",), "claude.continue", None, "continue"),
-        (("--continue",), "claude.continue", None, "continue"),
-        (("-r", "migration-review"), "claude.resume", "migration-review", "resume"),
-        (
-            ("--resume", "11111111-1111-4111-8111-111111111111"),
-            "claude.resume",
-            "11111111-1111-4111-8111-111111111111",
-            "resume",
-        ),
-        (
-            ("--fork-session", "-r", "fixture-session"),
-            "claude.resume",
-            "fixture-session",
-            "fork",
-        ),
-    ),
-)
-def test_claude_human_intents_are_affirmative_and_remain_provider_native(
-    suffix, pattern, selector, operation
-):
-    decision = classify_native_route("claude", suffix, version="2.1.212")
-    intent = parse_native_tui_launch_intent("claude", suffix, decision)
-
-    assert decision.level is CapabilityLevel.MANAGED_HANDOFF
-    assert decision.intent_pattern_id == pattern
-    assert intent is not None
-    assert intent.persistence == "provider_native"
-    assert intent.native_session_selector == selector
-    assert intent.session_operation == operation
-    assert intent.provider_transport is None
 
 
 @pytest.mark.parametrize(

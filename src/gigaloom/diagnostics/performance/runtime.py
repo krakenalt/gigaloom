@@ -65,7 +65,6 @@ REQUIRED_COVERAGE: Final[dict[str, tuple[str, ...]]] = {
         "api_session_events",
         "sse_terminal_attach",
         "web_payload_projection",
-        "tui_navigation_load",
     ),
     "filesystem": ("session_run_update",),
 }
@@ -315,7 +314,7 @@ def run_runtime_performance_profile(*, samples: int) -> dict[str, Any]:
                     "api_defaults",
                     "api_session_events",
                     "sse_terminal_attach",
-                    "tui_navigation_load",
+                    "web_payload_projection",
                 ],
                 "status": "bounded_filesystem_scan_repair_implemented",
             },

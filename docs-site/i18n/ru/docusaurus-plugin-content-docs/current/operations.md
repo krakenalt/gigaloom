@@ -9,7 +9,6 @@ GigaLoom работает local-first. Runtime state хранится в
 ```sh
 giga doctor
 giga ui
-giga tui
 ```
 
 Browser UI по умолчанию слушает `127.0.0.1:8091`. Не открывайте его в
@@ -34,8 +33,8 @@ giga doctor
 ```
 
 Если tmux отсутствует, некорректен или позже отключён, GigaLoom должен честно
-сообщить unavailable capability. Он не возвращает эмулированный Textual
-provider terminal и не заявляет structured resume. Существующие content-free
+сообщить unavailable capability. Он не возвращает GigaLoom-owned provider
+terminal UI и не заявляет structured resume. Существующие content-free
 terminal lifecycle records остаются читаемыми; cleanup и recovery ограничены
 точным managed instance.
 

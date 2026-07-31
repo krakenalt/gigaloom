@@ -8,8 +8,7 @@ Managed provider terminals additionally require a POSIX host and a discoverable
 `tmux` whose `tmux -V` output can be probed. Install `tmux` with the operating
 system package manager on Linux or macOS. Windows and POSIX systems without a
 usable `tmux` retain provider-native passthrough; GigaLoom does not substitute
-an emulated terminal. The `giga` TUI itself only requires a supported
-interactive terminal.
+an emulated terminal UI.
 
 ## Install the preview
 

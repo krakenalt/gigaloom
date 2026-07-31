@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
@@ -53,7 +52,6 @@ DETAIL_REFERENCE_BUDGETS_MS: Final[dict[str, float]] = {
     **CI_SMOKE_BUDGETS_MS,
     "filesystem_roundtrip": 250.0,
     "sqlite_transaction": 500.0,
-    "tui_interaction": 10_000.0,
     "worker_queue_claim_cancel": 2_000.0,
     "web_api_defaults": 10_000.0,
 }
@@ -61,23 +59,10 @@ DETAIL_REFERENCE_BUDGETS_MS: Final[dict[str, float]] = {
 REPORT_RETENTION_DAYS: Final[dict[str, int]] = {
     "ci-smoke": 7,
     "local-detail": 14,
-    "tui-detail": 14,
     "runtime-detail": 14,
 }
 
 REQUIRED_WORKLOADS: Final[tuple[dict[str, Any], ...]] = (
-    {
-        "id": "tui_startup",
-        "variants": ("cold", "warm", "first_input"),
-        "required_metrics": ("wall_ms", "cpu_ms", "rss_bytes"),
-        "future_gate": "G5-00",
-    },
-    {
-        "id": "tui_paint",
-        "variants": ("keypress", "event", "stream", "cancel"),
-        "required_percentiles": ("p50", "p95", "p99"),
-        "future_gate": "G5-00",
-    },
     {
         "id": "session_scale",
         "variants": (1, 10, 100, "long_transcript"),
@@ -146,20 +131,11 @@ def run_performance_baseline(
     if profile not in {
         "ci-smoke",
         "local-detail",
-        "tui-detail",
         "runtime-detail",
     }:
-        raise ValueError(
-            "profile must be ci-smoke, local-detail, tui-detail, or runtime-detail"
-        )
+        raise ValueError("profile must be ci-smoke, local-detail, or runtime-detail")
     if not 1 <= samples <= MAX_SAMPLES:
         raise ValueError(f"samples must be between 1 and {MAX_SAMPLES}")
-    if profile == "tui-detail":
-        from gigaloom.diagnostics.performance.tui import (
-            run_tui_performance_profile,
-        )
-
-        return _finalize_report(run_tui_performance_profile(samples=samples))
     if profile == "runtime-detail":
         from gigaloom.diagnostics.performance.runtime import (
             run_runtime_performance_profile,
@@ -176,7 +152,6 @@ def run_performance_baseline(
             "session_projection_10": lambda: _probe_session_projection(10),
             "session_projection_100": lambda: _probe_session_projection(100),
             "long_transcript_projection": _probe_long_transcript,
-            "tui_interaction": _probe_tui_interaction,
             "worker_queue_claim_cancel": lambda: _probe_worker_runtime(root),
             "web_api_defaults": lambda: _probe_web_api(root),
         }
@@ -434,73 +409,6 @@ def _probe_long_transcript() -> Mapping[str, float]:
     encoded = json.dumps(events, separators=(",", ":"))
     json.loads(encoded)
     return {"projection": _elapsed_ms(started)}
-
-
-def _probe_tui_interaction() -> Mapping[str, float]:
-    return asyncio.run(_run_tui_interaction())
-
-
-async def _run_tui_interaction() -> Mapping[str, float]:
-    from textual.widgets import Input
-
-    from gigaloom.tui.app import WorkbenchTui
-    from gigaloom.tui.client import (
-        HarnessSummary,
-        NavigationSnapshot,
-        ProjectSummary,
-        ReadinessSummary,
-    )
-
-    project = ProjectSummary("fixture", "Fixture", "/tmp/fixture", "main", 0)
-    snapshot = NavigationSnapshot(
-        transport_mode="in_process",
-        projects=(project,),
-        project=project,
-        sessions=(),
-        selected_session_id=None,
-        harnesses=(HarnessSummary("echo", "Echo", "available", "local", "one_shot"),),
-        readiness=ReadinessSummary(
-            "ready",
-            "content-free fixture",
-            "available",
-            "echo",
-            "available",
-            None,
-            "one_shot",
-            (),
-        ),
-    )
-
-    class _FixtureClient:
-        async def load(
-            self,
-            workspace: str | None,
-            *,
-            selected_session_id: str | None = None,
-        ) -> NavigationSnapshot:
-            del workspace, selected_session_id
-            return snapshot
-
-    app = WorkbenchTui(_FixtureClient(), workspace="/tmp/fixture")  # type: ignore[arg-type]
-    started = time.perf_counter_ns()
-    async with app.run_test(size=(80, 24)) as pilot:
-        await pilot.pause()
-        startup_ms = _elapsed_ms(started)
-        composer = app.query_one("#composer", Input)
-        composer.focus()
-        started = time.perf_counter_ns()
-        await pilot.press("x")
-        await pilot.pause()
-        first_input_ms = _elapsed_ms(started)
-        started = time.perf_counter_ns()
-        app.query_one("#status").update("content-free event")
-        await pilot.pause()
-        event_ms = _elapsed_ms(started)
-    return {
-        "startup_to_paint": startup_ms,
-        "keypress_to_paint": first_input_ms,
-        "event_to_paint": event_ms,
-    }
 
 
 def _probe_worker_runtime(root: Path) -> Mapping[str, float]:

@@ -10,13 +10,12 @@ import sys
 import pytest
 
 from gigaloom import entrypoint
+from gigaloom.native.api import TerminalContext
 from gigaloom.native_cli_facade import (
     match_native_namespace,
     run_native_namespace,
 )
 from gigaloom.native_cli_process import NativeProcessSpec
-from gigaloom.terminal_dispatch import TerminalContext
-from gigaloom.terminal_intent import parse_native_tui_launch_intent
 
 
 PTY = TerminalContext(True, True, True, "xterm-256color")
@@ -93,72 +92,6 @@ def test_console_entrypoint_routes_native_namespace_before_plain_cli(monkeypatch
     assert kwargs["facade_executable"] == sys.argv[0]
     assert kwargs["context"] is PTY
     assert kwargs["registry"].get("gemini").agent_id == "gemini"
-
-
-@pytest.mark.parametrize(
-    ("namespace", "suffix", "expected"),
-    (
-        (
-            "codex",
-            ("resume", "--last"),
-            {
-                "provider_namespace": "codex",
-                "native_session_selector": "--last",
-                "session_operation": "resume",
-                "harness_id": "codex-cli",
-                "provider_transport": "app-server",
-            },
-        ),
-        (
-            "claude",
-            ("--fork-session", "-r", "fixture-session"),
-            {
-                "provider_namespace": "claude",
-                "native_session_selector": "fixture-session",
-                "session_operation": "fork",
-                "fork_session": True,
-                "harness_id": "claude-code",
-            },
-        ),
-        (
-            "claude",
-            ("--permission-mode", "plan"),
-            {
-                "provider_namespace": "claude",
-                "permission_mode": "plan",
-                "harness_id": "claude-code",
-            },
-        ),
-        (
-            "gemini",
-            ("-i", "inspect"),
-            {
-                "provider_namespace": "gemini",
-                "prompt": "inspect",
-                "harness_id": "gemini-cli",
-                "provider_transport": "acp",
-            },
-        ),
-    ),
-)
-def test_affirmative_native_human_forms_decode_to_lossless_typed_intent(
-    namespace, suffix, expected
-):
-    from gigaloom.native_cli_contracts import classify_native_route
-
-    decision = classify_native_route(
-        namespace,
-        suffix,
-        stdin_is_tty=True,
-        stdout_is_tty=True,
-        structured_transport_ready=False,
-    )
-    intent = parse_native_tui_launch_intent(namespace, suffix, decision)
-
-    assert intent is not None
-    assert intent.persistence == "provider_native"
-    for field, value in expected.items():
-        assert getattr(intent, field) == value
 
 
 def test_affirmative_human_route_uses_visible_l1_handoff_without_l0_exec():
@@ -265,24 +198,6 @@ def test_lossy_or_unknown_human_shapes_remain_exact_l0_passthrough(namespace, su
 
     assert result == 7
     assert calls[0][1] == suffix
-
-
-def test_attach_and_in_process_entry_paths_share_one_native_intent_decoder():
-    from gigaloom.native_cli_contracts import classify_native_route
-
-    suffix = ("-r", "latest")
-    decision = classify_native_route(
-        "gemini",
-        suffix,
-        stdin_is_tty=True,
-        stdout_is_tty=True,
-        structured_transport_ready=False,
-    )
-
-    in_process = parse_native_tui_launch_intent("gemini", suffix, decision)
-    attached = parse_native_tui_launch_intent("gemini", suffix, decision)
-
-    assert in_process == attached
 
 
 def test_native_console_import_path_avoids_argparse_textual_and_full_cli():
