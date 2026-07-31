@@ -61,6 +61,7 @@ def test_profiles_bind_to_catalog_without_promoting_metadata_to_capability() -> 
         "claude.stream-json",
         "codex.app-server",
         "gemini.acp",
+        "pi.acp",
     )
     catalog = build_capability_catalog(descriptors)
     assert catalog == build_capability_catalog(descriptors)

@@ -901,6 +901,7 @@ def test_cli_agent_inventory_does_not_execute_project_automation_agents(
         "claude",
         "codex",
         "gemini",
+        "pi",
     ]
     assert "planner" not in {item["agent_id"] for item in listing["agents"]}
     assert (tmp_path / ".giga" / "agents" / "planner.yaml").exists()

@@ -74,6 +74,7 @@ provider command. Harness does not invent one shared execution grammar.
 giga codex exec --json "inspect this repository"
 giga claude -p "inspect this repository"
 giga gemini -p "inspect this repository"
+giga pi "inspect this repository"
 ```
 
 After the provider token, argv is opaque. Provider-scoped `--help` and
@@ -91,6 +92,11 @@ working without waiting for a Harness parser update.
 | Resume | `giga codex resume --last` | Exact provider selector and opaque suffix; no structured interception. |
 | Structured drift | version outside the reviewed window | Structured routes may degrade, but valid native commands remain independent. |
 | Missing runtime | `giga claude --version` without Claude | Actionable startup failure before provider side effects. |
+
+Pi uses the same declarative native path. Its separate `pi.acp` structured
+route is available only when the reviewed `pi-acp` executable already exists
+locally and runtime capability negotiation succeeds. GigaLoom never downloads
+the adapter, runs `npx`, or falls back from native Pi to ACP implicitly.
 
 Inspect the local truth with `giga doctor --json`. Each native provider entry
 reports the declarative profile, executable and source, native launch evidence,
@@ -110,8 +116,8 @@ giga completion powershell
 ```
 
 The scripts intentionally do not mirror upstream provider parsers. Once
-`codex`, `claude`, or `gemini` is selected, the suffix and `--` remain untouched
-and the shell's default completion applies.
+`codex`, `claude`, `gemini`, or `pi` is selected, the suffix and `--` remain
+untouched and the shell's default completion applies.
 
 ### Install, migrate, and roll back
 
