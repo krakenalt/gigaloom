@@ -5,6 +5,12 @@ GigaLoom — самостоятельный Python-дистрибутив с д�
 1. команда `giga` запускает provider-native команды и административные операции;
 2. FastAPI control plane раздаёт упакованный browser Workbench через loopback.
 
+Coding Agents — это нативные coding CLI, установленные из registry ACP agents
+или пользовательские structured routes. Automation Agents остаются
+создаваемыми в проекте переиспользуемыми workflow agents в существующем
+namespace `/api/agents`. Запись registry является только discovery evidence и
+никогда не даёт authority на установку или выполнение.
+
 ## Основные границы
 
 - `gigaloom.harnesses` владеет встроенными adapters.
@@ -30,3 +36,4 @@ Approval связывается с проверенными scope и preview. П
 - [Матрица аутентификации](architecture/provider-authentication-capability-matrix.md)
 - [Сборка frontend assets](architecture/frontend-asset-build-architecture-adr.md)
 - [Provider-native CLI facade](architecture/provider-native-cli-facade-adr.md)
+- [Операционное доверие, headless execution и release identity](architecture/2026-08-01-operational-trust-headless-release-identity-adr.md)

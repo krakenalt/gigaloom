@@ -1,5 +1,11 @@
 # GigaLoom performance baseline
 
+The dated operational-foundation snapshot under `baselines/` records the
+pre-change cold CLI, API, Settings, source-inventory, and release-bump facts
+used by the 0.8 architecture decision. Its absolute timings are host evidence,
+not portable budgets; later gates must compare stable workload counters or
+reviewed environment-matched measurements.
+
 Run the bounded, hermetic CI smoke profile:
 
 ```bash
