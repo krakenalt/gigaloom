@@ -19,6 +19,7 @@ from .errors import (
     CapsuleSchemaError,
 )
 from .input_lock import build_input_lock, parse_input_lock
+from .lifecycle import RunCapsuleLifecycleService
 from .models import (
     ARTIFACT_MANIFEST_KIND,
     INPUT_LOCK_KIND,
@@ -48,6 +49,7 @@ from .ports import (
     capture_run_capsule_from_ports,
 )
 from .export import export_run_capsule
+from .repository import FilesystemRunCapsuleRepository, RunCapsuleRecordV1
 from .signatures import CapsuleSigner, Ed25519Signer
 from .verification import verify_run_capsule
 
@@ -69,6 +71,7 @@ __all__ = [
     "CostKnowledge",
     "Ed25519Signer",
     "FindingStatus",
+    "FilesystemRunCapsuleRepository",
     "InputLock",
     "OmissionManifest",
     "OutputReceipt",
@@ -77,7 +80,9 @@ __all__ = [
     "RunCapsuleCapturePortsV1",
     "RunCapsuleEvidencePort",
     "RunCapsuleInputPort",
+    "RunCapsuleLifecycleService",
     "RunCapsuleOutputPort",
+    "RunCapsuleRecordV1",
     "SignatureStatus",
     "VerificationFinding",
     "VerificationStatus",
