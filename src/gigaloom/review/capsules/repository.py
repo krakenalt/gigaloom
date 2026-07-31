@@ -16,7 +16,7 @@ from .canonical import (
     require_identity,
     require_string,
 )
-from .errors import CapsuleIntegrityError, CapsuleSchemaError
+from .errors import CapsuleArchiveError, CapsuleIntegrityError, CapsuleSchemaError
 from .export import export_run_capsule
 from .models import RunCapsuleBundle, SignatureStatus
 from .verification import verify_run_capsule
@@ -211,6 +211,29 @@ class FilesystemRunCapsuleRepository:
     def archive_for_run(self, run_id: str) -> Path:
         """Resolve a verified retained archive for later export or inspection."""
         return self.archive_path(self.get_by_run(run_id).capsule_id)
+
+    def export_run(
+        self,
+        run_id: str,
+        destination: str | os.PathLike[str],
+    ) -> Path:
+        """Atomically copy one verified retained archive to an operator path."""
+        record = self.get_by_run(run_id)
+        source = self.archive_path(record.capsule_id)
+        target = Path(destination).expanduser()
+        if target.is_dir():
+            target = target / f"{record.capsule_id}.zip"
+        if target.exists():
+            raise CapsuleArchiveError("capsule export target already exists")
+        if not target.parent.is_dir():
+            raise CapsuleArchiveError("capsule export parent directory does not exist")
+        data = source.read_bytes()
+        if hashlib.sha256(data).hexdigest() != record.archive_sha256:
+            raise CapsuleIntegrityError(
+                "stored run capsule archive digest does not match"
+            )
+        _atomic_write(target, data)
+        return target
 
     def archive_path(self, capsule_id: str) -> Path:
         """Return the repository path for one exact capsule id."""
