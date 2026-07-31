@@ -888,44 +888,22 @@ def test_cli_init_alias_writes_project_config(capsys, tmp_path):
     assert (tmp_path / ".giga" / "agents" / "planner.yaml").exists()
 
 
-def test_cli_agent_list_show_validate_and_run(capsys, tmp_path, monkeypatch):
+def test_cli_agent_inventory_does_not_execute_project_automation_agents(
+    capsys, tmp_path, monkeypatch
+):
     monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
     assert cli.main(["init", "--workspace", str(tmp_path), "--json"]) == 0
     capsys.readouterr()
 
-    assert cli.main(["agent", "list", "--workspace", str(tmp_path), "--json"]) == 0
+    assert cli.main(["agent", "list", "--json"]) == 0
     listing = json.loads(capsys.readouterr().out)
-    assert {item["id"] for item in listing["agents"]} >= {"planner", "reviewer"}
-
-    assert (
-        cli.main(["agent", "show", "planner", "--workspace", str(tmp_path), "--json"])
-        == 0
-    )
-    assert json.loads(capsys.readouterr().out)["title"] == "Planner"
-
-    path = tmp_path / ".giga" / "agents" / "planner.yaml"
-    assert cli.main(["agent", "validate", str(path), "--json"]) == 0
-    assert json.loads(capsys.readouterr().out)["valid"] is True
-
-    assert (
-        cli.main(
-            [
-                "agent",
-                "run",
-                "planner",
-                "--workspace",
-                str(tmp_path),
-                "--prompt",
-                "Plan this",
-                "--dry-run",
-                "--json",
-            ]
-        )
-        == 0
-    )
-    run = json.loads(capsys.readouterr().out)["run"]
-    assert run["metadata"]["agent_id"] == "planner"
-    assert run["metadata"]["agent_profile_snapshot"]["title"] == "Planner"
+    assert [item["agent_id"] for item in listing["agents"]] == [
+        "claude",
+        "codex",
+        "gemini",
+    ]
+    assert "planner" not in {item["agent_id"] for item in listing["agents"]}
+    assert (tmp_path / ".giga" / "agents" / "planner.yaml").exists()
 
 
 def test_cli_preset_list_and_run_dry_run_json(capsys, tmp_path, monkeypatch):
