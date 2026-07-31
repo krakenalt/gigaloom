@@ -82,7 +82,7 @@ def test_registration_dry_run_apply_idempotency_and_remove_are_explicit(
             data_dir,
             collision_contract=COLLISIONS,
         ).registry.profiles
-    ] == ["claude", "codex", "gemini"]
+    ] == ["claude", "codex", "gemini", "pi"]
 
 
 def test_registered_digest_drift_is_excluded_until_explicit_recovery(

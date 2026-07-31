@@ -39,10 +39,10 @@ def _registry(*, include_fake: bool = False) -> AgentProfileRegistry:
         profiles.append(
             replace(
                 codex,
-                agent_id="pi",
-                display_name="Pi",
-                aliases=("p",),
-                native=replace(codex.native, executable_names=("pi",)),
+                agent_id="test-agent",
+                display_name="Test Agent",
+                aliases=("ta",),
+                native=replace(codex.native, executable_names=("test-agent",)),
             )
         )
     return AgentProfileRegistry.build(
@@ -81,13 +81,15 @@ def test_dynamic_profile_and_alias_route_without_provider_hardcoding(monkeypatch
     )
 
     assert (
-        entrypoint.main(["p", "--future", "value"], context=PTY, registry=registry)
+        entrypoint.main(["ta", "--future", "value"], context=PTY, registry=registry)
         == 41
     )
 
     arguments, kwargs = calls[0]
-    assert arguments == ["p", "--future", "value"]
-    assert kwargs["registry"].get("pi").native.executable_names == ("pi",)
+    assert arguments == ["ta", "--future", "value"]
+    assert kwargs["registry"].get("test-agent").native.executable_names == (
+        "test-agent",
+    )
     assert kwargs["context"] is PTY
 
 
@@ -200,9 +202,9 @@ def test_launcher_summary_uses_path_lookup_without_provider_execution(monkeypatc
         platform="darwin",
     )
 
-    assert [item[0] for item in lookups] == ["claude", "codex", "gemini"]
+    assert [item[0] for item in lookups] == ["claude", "codex", "gemini", "pi"]
     assert all(item[1] == {"path": "/fixture/bin"} for item in lookups)
-    assert output.count("not found") == 3
+    assert output.count("not found") == 4
 
 
 def test_root_help_is_static_and_teaches_native_vs_structured_split():

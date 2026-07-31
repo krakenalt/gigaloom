@@ -57,6 +57,7 @@ def test_agent_cli_add_list_inspect_probe_remove_without_provider_execution(
         "claude",
         "codex",
         "gemini",
+        "pi",
         "test-agent",
     ]
     assert inspected["aliases"] == ["ta"]
