@@ -21,7 +21,7 @@ WORKLOADS: Final[tuple[WorkloadSpec, ...]] = (
         variants=("tail_20_of_5000", "first_page", "next_page"),
         required_metrics=("wall_ms", "cpu_ms", "rss_bytes"),
         required_counters=("bytes_read", "files_opened", "rows_parsed"),
-        future_gate="G-PERF",
+        future_gate="performance-regression-followup",
     ),
 )
 

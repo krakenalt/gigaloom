@@ -48,7 +48,7 @@ from .installer_support import *  # noqa: F403
 
 
 class _InstallerActionsMixin:
-    """Implementation slice for the transactional installer."""
+    """Internal transactional-installer actions."""
 
     def apply(
         self,

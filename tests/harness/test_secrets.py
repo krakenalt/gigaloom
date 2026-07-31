@@ -89,7 +89,7 @@ def test_reference_schema_rejects_invalid_or_value_bearing_sources(payload) -> N
 def test_resolution_is_owner_bound_and_all_public_evidence_is_content_free(
     caplog,
 ) -> None:
-    canary = "n1-02-secret-canary-value"
+    canary = "secret-canary-value"
     reference = SecretReference(SecretReferenceKind.ENVIRONMENT, "PROVIDER_TOKEN")
     service = SecretResolutionService(
         EnvironmentSecretResolver({"PROVIDER_TOKEN": canary})

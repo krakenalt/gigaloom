@@ -1,6 +1,6 @@
 # ADR: Ограниченный сетевой доступ
 
-Статус: принят для slice G4-02 roadmap GigaLoom 2026-07-27.
+Статус: решение по scoped network access v1 принято 2026-07-27.
 
 ## Контекст
 
@@ -76,7 +76,7 @@ credentials или resolved addresses. Peer evidence содержит тольк
 
 ## Последствия
 
-G4-02 даёт повторно используемый fail-closed seam для будущих Harness-owned
+Контракт даёт повторно используемый fail-closed seam для будущих Harness-owned
 network consumers, сохраняя delegated provider sandboxes отдельной enforcement
 boundary. Одного approval request недостаточно: consumer обязан пройти этот
 контракт и применить ticket при connect и bounded read.

@@ -1,4 +1,4 @@
-"""I2 central composition regression coverage after all Wave B merges."""
+"""Central native-agent gateway composition regression coverage."""
 
 from __future__ import annotations
 
@@ -69,7 +69,7 @@ def test_local_route_source_persists_honest_no_execution_receipt(
     )
     project = ProjectCatalogService(repository).add_project(
         workspace,
-        display_name="I2 fixture",
+        display_name="composition fixture",
     )
     args = build_parser().parse_args(
         [

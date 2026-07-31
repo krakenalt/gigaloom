@@ -26,6 +26,6 @@ Use bounded claims/maintenance and ratchet every listed legacy module.
 
 `uv run pytest tests/harness -k 'runtime or worker or lease' -n 0`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T03/T04/T05/T20; `@krakenalt`.
+Owner: `@krakenalt`.

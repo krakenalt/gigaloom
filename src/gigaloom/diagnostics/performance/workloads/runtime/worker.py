@@ -51,7 +51,7 @@ WORKLOADS: Final[tuple[WorkloadSpec, ...]] = (
             "sqlite_statements",
             "maintenance_cycles",
         ),
-        future_gate="G-PERF",
+        future_gate="performance-regression-followup",
     ),
 )
 

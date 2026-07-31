@@ -1,6 +1,6 @@
 # ADR: Product vocabulary and capability admission
 
-Status: accepted for GigaLoom roadmap slice G0-01 on 2026-07-23.
+Status: accepted as the product-capability admission decision on 2026-07-23.
 
 ## Context
 
@@ -42,7 +42,7 @@ must derive from its versioned manifest rather than duplicate provider claims.
 
 ## Compatibility window
 
-Machine API and CLI fields remain readable during the G0/G1/G2 migration:
+Machine API and CLI fields remain readable during the staged inventory and admission migration:
 
 | Legacy field/value | Product mapping | Rule |
 | --- | --- | --- |
@@ -75,7 +75,7 @@ source of truth; the golden request/receipt fixtures lock the machine contract.
 
 ## Consequences
 
-G1 and G2 may consume this contract but must not add local vocabulary variants.
+Later inventory and UI consumers may use this contract but must not add local vocabulary variants.
 This ADR does not change existing machine payloads, migrate stored sessions,
 select a provider route, grant a tool, or repair Automation. Those changes
 remain owned by their later roadmap slices.

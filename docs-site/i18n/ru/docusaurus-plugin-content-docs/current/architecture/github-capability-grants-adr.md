@@ -1,6 +1,6 @@
 # ADR: Ограниченные GitHub capabilities
 
-Статус: принят для slice G4-03 roadmap GigaLoom 2026-07-27.
+Статус: решение по GitHub capability grants принято 2026-07-27.
 
 ## Контекст
 
@@ -48,8 +48,8 @@ repository identity, pull-request state, counts issues/checks и recent Actions
 доступны для ориентации без hosted write grant.
 
 Для реального transport по-прежнему отдельно нужны admitted network/CLI
-execution. Контракт G4-03 — только semantic authorization; он не обращается к
-GitHub и не ослабляет network controls G4-02.
+execution. Контракт capability grants — только semantic authorization; он не
+обращается к GitHub и не ослабляет scoped-network controls.
 
 ## Hosted writes
 
@@ -69,7 +69,7 @@ payload, credential identity или permission set, просроченный pre
 просроченный/отозванный grant требуют нового preview и решения.
 
 Существующее создание pull request остаётся во владении immutable-state
-service. G4-03 даёт общий semantic seam, но не переавторизует и не исполняет
+service. Контракт capability grants даёт общий semantic seam, но не переавторизует и не исполняет
 этот старый flow автоматически.
 
 ## Audit и privacy

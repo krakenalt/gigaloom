@@ -5,7 +5,7 @@ already happened. Record only non-secret evidence. Keep recovery codes,
 personal contact details, tokens, and private advisory content outside the
 repository.
 
-## S5-02 — GitHub backup and repository protection
+## GitHub backup and repository protection
 
 - [ ] A human account distinct from `@krakenalt` has accepted the named
       `backup-github-maintainer` role.
@@ -25,7 +25,7 @@ repository.
 - [ ] The primary and backup owners can open the private reporting channel and
       identify the first containment steps in `SECURITY.md`.
 
-## S5-04 — PyPI backup and publisher handoff
+## PyPI backup and publisher handoff
 
 - [ ] PyPI shows the exact accepted service username for Ruslan Yakupov in the
       named `primary-pypi-owner` role; no GitHub-to-PyPI username inference is
@@ -56,6 +56,7 @@ repository.
       the service, 2FA confirmation, exact policy commit, and result without
       storing secrets.
 
-Public push remains blocked until S5-01 authority. Repository protection and
-GitHub backup acceptance remain blocked until S5-02. Publisher mutation, PyPI
-backup acceptance, tags, releases, and publication remain blocked until S5-04.
+Public push remains blocked until repository authority is approved. Repository
+protection and GitHub backup acceptance remain blocked until the GitHub backup
+accepts access. Publisher mutation, PyPI backup acceptance, tags, releases, and
+publication remain blocked until the PyPI backup accepts ownership.

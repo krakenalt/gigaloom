@@ -113,7 +113,7 @@ class NextActionReference:
 
 @dataclass(frozen=True, slots=True)
 class EvidenceWorkspaceProjection:
-    """Canonical, digest-bound projection consumed by Web and TUI."""
+    """Canonical, digest-bound projection consumed by product surfaces."""
 
     run: EvidenceWorkspaceRun
     references: tuple[EvidenceReference, ...]

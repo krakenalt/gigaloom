@@ -21,7 +21,7 @@ their behavior deliberately and verify claims against the YAML itself.
   target policy. The candidate workflow may build and attest but must not
   publish. The protected publish workflow may only consume an exact retained
   candidate after registry-state verification. Trusted Publisher registration
-  remains an external S5-04 gate.
+  remains an external PyPI owner-acceptance gate.
 - Minimize `permissions:`; never expose secrets to untrusted pull-request code
   or print secret values.
 - Keep action versions explicit. Review third-party actions and permission

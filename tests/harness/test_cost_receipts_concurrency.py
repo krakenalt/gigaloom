@@ -1,4 +1,4 @@
-"""Final receipt, concurrency, and transaction-budget tests for W5."""
+"""Final receipt, concurrency, and transaction-budget tests."""
 
 from __future__ import annotations
 

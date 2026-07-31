@@ -1242,7 +1242,7 @@ issue или диагностический архив.
 diagnostics, screenshots или project files.
 
 Remote binding реализует ограниченный single-issuer OIDC/BFF identity contract
-из G3-04. Non-loopback listener требует полной статической конфигурации issuer,
+из контракта remote identity. Non-loopback listener требует полной статической конфигурации issuer,
 client, публичного HTTPS origin, точного subject-to-role mapping и явного
 `--allow-remote`. Authorization Code + PKCE `S256`, nonce/signature/audience
 validation, opaque server-side sessions, exact-origin CSRF, роли

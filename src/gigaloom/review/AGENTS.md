@@ -26,6 +26,6 @@ Bound replay and evidence reads; new modules stay below 600 lines.
 
 `uv run pytest tests/harness -k 'evidence or review or provenance or replay' -n 0`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T18/T20; `@krakenalt`.
+Owner: `@krakenalt`.

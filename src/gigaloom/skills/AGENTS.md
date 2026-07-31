@@ -26,6 +26,6 @@ Keep catalog operations bounded and new modules below 600 lines.
 
 `uv run pytest tests/harness -k skill -n 0`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T16/T20; `@krakenalt`.
+Owner: `@krakenalt`.

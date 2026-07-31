@@ -1,4 +1,4 @@
-"""I1 composition checks for the six Wave A foundations."""
+"""Composition checks for the native-agent gateway foundations."""
 
 from __future__ import annotations
 

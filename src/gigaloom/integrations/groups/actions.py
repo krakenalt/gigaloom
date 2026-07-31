@@ -1,5 +1,5 @@
 # ruff: noqa: E402, F401, F403, F405
-"""Internal grouped integration implementation slice."""
+"""Internal grouped-integration actions."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from .models import *  # noqa: F403
 
 
 class _GroupActionsMixin:
-    """Implementation slice for grouped integration transactions."""
+    """Internal grouped-integration transaction operations."""
 
     def apply(
         self,

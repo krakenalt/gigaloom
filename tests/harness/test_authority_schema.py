@@ -215,7 +215,7 @@ def test_stale_preview_target_redirect_and_retry_force_revalidation():
     )
 
 
-def test_manifest_freezes_required_g4_00_invariants():
+def test_manifest_freezes_required_authority_invariants():
     assert authority_schema_manifest() == {
         "schema_version": 1,
         "resource_kinds": [

@@ -122,7 +122,7 @@ def build_builtin_skill_installation_request(
     scope: InstallationScope,
     root: str | Path,
 ) -> tuple[InstallationRequest, GeneratedSkillPackage]:
-    """Create an N4-02 handoff bound to one exact first-party catalog entry."""
+    """Create a handoff bound to one exact first-party catalog entry."""
     if (
         not isinstance(entry, CatalogEntry)
         or entry.source_id != BUILTIN_SKILL_SOURCE_ID

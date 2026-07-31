@@ -35,5 +35,4 @@ Approval связывается с проверенными scope и preview. П
 - [GitHub capability grants](architecture/github-capability-grants-adr.md)
 - [Матрица аутентификации](architecture/provider-authentication-capability-matrix.md)
 - [Сборка frontend assets](architecture/frontend-asset-build-architecture-adr.md)
-- [Provider-native CLI facade](architecture/provider-native-cli-facade-adr.md)
 - [Операционное доверие, headless execution и release identity](architecture/2026-08-01-operational-trust-headless-release-identity-adr.md)

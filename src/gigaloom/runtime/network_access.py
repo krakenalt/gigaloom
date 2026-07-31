@@ -483,7 +483,7 @@ def authorize_scoped_network_access(
 
 
 def network_access_manifest() -> dict[str, Any]:
-    """Return the source-owned G4-02 security and UX contract."""
+    """Return the source-owned scoped-network security and UX contract."""
     return {
         "schema_version": NETWORK_ACCESS_SCHEMA_VERSION,
         "default_sandbox_network_access": "deny",

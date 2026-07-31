@@ -25,7 +25,7 @@ from gigaloom.diagnostics.performance.workloads.sessions.cases import (
 
 
 SCHEMA_VERSION: Final[str] = "gigaloom.session-storage-baseline.v1"
-FIXTURE_SET_VERSION: Final[str] = "t01-2.v1"
+FIXTURE_SET_VERSION: Final[str] = "session-workload.v1"
 
 
 @dataclass(frozen=True, slots=True)

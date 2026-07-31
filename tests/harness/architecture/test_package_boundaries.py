@@ -126,8 +126,8 @@ def test_stale_import_allowlist_entry_is_rejected(
         {
             "source": "runtime/removed.py",
             "target": "gigaloom.sessions.store",
-            "owner": "T04",
-            "removal_gate": "T04-C1",
+            "owner": "runtime-queue",
+            "removal_gate": "runtime-ownership",
         }
     ]
 

@@ -35,5 +35,4 @@ authority. Sensitive values are redacted before persistence and serialization.
 - [GitHub capability grants](architecture/github-capability-grants-adr.md)
 - [Provider authentication matrix](architecture/provider-authentication-capability-matrix.md)
 - [Frontend asset build](architecture/frontend-asset-build-architecture-adr.md)
-- [Provider-native CLI facade](architecture/provider-native-cli-facade-adr.md)
 - [Operational trust, headless execution, and release identity](architecture/2026-08-01-operational-trust-headless-release-identity-adr.md)

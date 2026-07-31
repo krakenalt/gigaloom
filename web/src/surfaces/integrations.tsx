@@ -989,7 +989,7 @@ function ExtensionPackDrawer({
     <div className="plugin-add-backdrop" onMouseDown={onClose} role="presentation">
       <section aria-label={locale === "ru" ? "Portable Extension Pack" : "Portable Extension Pack"} aria-modal="true" className="plugin-add-drawer extension-pack-drawer" onMouseDown={(event) => event.stopPropagation()} role="dialog">
         <header>
-          <div><span className="section-kicker">N7 workflow</span><h2>Portable Extension Pack</h2></div>
+          <div><span className="section-kicker">Extension workflow</span><h2>Portable Extension Pack</h2></div>
           <button aria-label={message(locale, "closeDetails")} onClick={onClose} type="button"><CloseIcon /></button>
         </header>
         <p className="extension-pack-intro">

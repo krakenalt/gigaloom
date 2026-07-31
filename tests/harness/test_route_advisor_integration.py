@@ -1,4 +1,4 @@
-"""B3 integration tests for manual route authority and exact execution."""
+"""Integration tests for manual route authority and exact execution."""
 
 from __future__ import annotations
 

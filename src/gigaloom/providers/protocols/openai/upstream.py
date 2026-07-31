@@ -187,7 +187,7 @@ def _validate_execution_profile(
     if provider.protocol is not ProviderProtocol.OPENAI_COMPATIBLE:
         raise ValueError("provider is not OpenAI-compatible")
     if provider.dialect != "openai-chat-completions-v1":
-        raise ValueError("G7-01 admits only OpenAI Chat Completions upstream")
+        raise ValueError("upstream contract admits only OpenAI Chat Completions")
     if (
         route.provider != provider.ref
         or route.protocol is not provider.protocol

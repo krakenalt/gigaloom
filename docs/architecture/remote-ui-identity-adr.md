@@ -1,8 +1,8 @@
 # ADR: Remote UI identity boundary
 
-Status: accepted for GigaLoom roadmap slice G3-04 on 2026-07-26.
+Status: accepted as the remote UI identity decision on 2026-07-26.
 
-Implementation status: implemented by G3-05 on 2026-07-26. Deployment and live
+Implementation status: implemented by the remote identity runtime on 2026-07-26. Deployment and live
 identity-provider configuration remain external gates.
 
 ## Context
@@ -26,7 +26,7 @@ security boundary.
 ## Decision
 
 Remote multi-user UI remains in the current roadmap scope, subject to a
-separate G3-05 implementation and deployment gate. The supported identity
+separate remote identity implementation and deployment gate. The supported identity
 boundary is one deployment-owned, statically configured OpenID Connect issuer
 per GigaLoom deployment.
 
@@ -42,7 +42,7 @@ GigaLoom will act as a confidential Backend for Frontend (BFF):
 - use the exact configured issuer, client identifier, external HTTPS origin,
   and registered callback URI.
 
-The deployment profile admits only issuer metadata and algorithms that G3-05
+The deployment profile admits only issuer metadata and algorithms that the identity runtime
 explicitly reviews. There is no user-selected issuer, dynamic client
 registration, implicit flow, password flow, local password database, social
 login aggregation, or bearer-token paste form.
@@ -53,7 +53,7 @@ The stable remote actor is the exact `(iss, sub)` pair from a validated ID
 token. Email address, display name, domain, and other mutable claims never
 become identity keys.
 
-G3-05 will implement two roles:
+The remote identity runtime implements two roles:
 
 - `viewer`: authenticated read access to bounded product state, with no
   mutation, execution, approval, secret resolution, or integration change;
@@ -100,7 +100,7 @@ Local logout revokes the GigaLoom server-side session before any provider
 redirect. RP-initiated logout may then be used when the configured issuer
 advertises and passes the reviewed capability contract.
 
-G3-05 must support deployment-wide and actor/session-specific revocation. A
+The remote identity runtime must support deployment-wide and actor/session-specific revocation. A
 validated OpenID Connect back-channel logout token may revoke sessions by
 issuer plus `sid` or `sub`; replayed, unsigned, mistyped, or incorrectly
 audienced logout tokens fail closed. A provider without the admitted logout
@@ -131,7 +131,7 @@ first-run doctor before remote mode can start.
 
 | Threat | Required control |
 | --- | --- |
-| Shared bootstrap disclosure or replay | Remove it as a remote authenticator; reject non-loopback startup until G3-05 is configured. |
+| Shared bootstrap disclosure or replay | Remove it as a remote authenticator; reject non-loopback startup until the remote identity runtime is configured. |
 | Authorization-code interception or injection | Exact redirect URI, one-use transaction state, Authorization Code flow, PKCE `S256`, and nonce validation. |
 | Issuer mix-up or token substitution | One exact issuer; validate `iss`, signature, algorithm, `aud`, `azp`, nonce, and key provenance. |
 | CSRF or login CSRF | Browser-bound one-use login state, PKCE/nonce, exact Origin, strict cookie, and custom header on mutations. |
@@ -157,7 +157,7 @@ password recovery, or live provider onboarding. Those remain out of scope.
 
 ## Transition and gates
 
-G3-05 implements this profile with hermetic issuer fixtures. Non-loopback
+The remote identity runtime implements this profile with hermetic issuer fixtures. Non-loopback
 startup now requires complete static OIDC configuration plus explicit
 `--allow-remote`; partial configuration, legacy bootstrap-token input, and Host
 allowlists fail closed. Discovery redirects and endpoints outside the configured
@@ -181,7 +181,7 @@ identity provider remain explicit external gates.
 ## Consequences
 
 The shared remote bearer exchange is no longer an available product mode.
-G3-05 supplies the accepted identity/session boundary but does not itself
+The remote identity runtime supplies the accepted identity/session boundary but does not itself
 register or configure an issuer, deploy a proxy, expose a listener, grant
 action authority, enable network/GitHub access, or authorize live OIDC traffic.
 Local first-run, logout, rotation, and recovery are unchanged.

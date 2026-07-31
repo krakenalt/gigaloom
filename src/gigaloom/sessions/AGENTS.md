@@ -26,6 +26,6 @@ Bound scans and page queries; ratchet every listed legacy module.
 
 `uv run pytest tests/harness -k 'session or catalog' -n 0`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T02/T20; `@krakenalt`.
+Owner: `@krakenalt`.

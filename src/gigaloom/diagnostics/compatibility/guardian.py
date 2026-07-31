@@ -39,7 +39,7 @@ from gigaloom.runtime.structured import (
 )
 
 COMPATIBILITY_GUARDIAN_SCHEMA_VERSION = 1
-COMPATIBILITY_FIXTURE_VERSION = "n7-05-v1"
+COMPATIBILITY_FIXTURE_VERSION = "compatibility-guardian.v1"
 
 _PASSED = "passed"
 _BLOCKED = "blocked"

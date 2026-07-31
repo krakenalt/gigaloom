@@ -1,7 +1,7 @@
 # ADR: Фасад нативных CLI провайдеров и границы интеграции Workbench
 
 Статус: заменён 31 июля 2026 года
-[ADR о владении terminal surface нативных агентов](https://github.com/krakenalt/gigaloom/blob/main/release/adr/2026-07-31-native-agent-terminal-ownership-dynamic-profiles.md).
+[ADR о владении terminal surface нативных агентов](https://github.com/krakenalt/gigaloom/blob/main/docs/archive/release/adr/2026-07-31-native-agent-terminal-ownership-dynamic-profiles.md).
 Текущий контракт использует декларативные agent profiles, разделяет нативные
 вызовы агентов и governed structured execution и оставляет Web единственным
 интерактивным Workbench во владении GigaLoom. Остальная часть документа —

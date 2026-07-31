@@ -26,6 +26,6 @@ Benchmark schemas stay stable; new implementation modules stay below 600 lines.
 
 `uv run pytest tests/harness/test_diagnostics_tree.py tests/harness/test_doctor.py -n 0`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T20/T00; `@krakenalt`.
+Owner: `@krakenalt`.

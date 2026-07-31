@@ -597,7 +597,7 @@ older sessions before claiming a new one. Browser mutations also require the
 same-origin CSRF marker. No local access token is placed in a URL,
 `localStorage`, `sessionStorage`, diagnostics, screenshots, or project files.
 
-Remote binding implements the bounded G3-04 single-issuer OIDC/BFF identity
+Remote binding implements the bounded single-issuer OIDC/BFF identity
 contract. A non-loopback listener requires the complete static issuer, client,
 public HTTPS origin, exact subject-to-role map, and explicit `--allow-remote`.
 Authorization Code + PKCE `S256`, nonce/signature/audience validation, opaque

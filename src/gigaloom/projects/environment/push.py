@@ -408,7 +408,7 @@ class EnvironmentPushService:
 
 @dataclass(frozen=True)
 class EnvironmentPushOutcome:
-    """One governed push outcome shared by Web and TUI transports."""
+    """One governed push outcome shared by product surfaces."""
 
     preview: EnvironmentPushPreview
     result: EnvironmentPushResult | None = None

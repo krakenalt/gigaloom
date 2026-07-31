@@ -1,4 +1,4 @@
-"""Bounded, content-free G6 durable runtime performance profiling."""
+"""Bounded, content-free durable runtime performance profiling."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ from .runtime_surfaces import _fixture_registry
 
 
 SCHEMA_VERSION: Final[str] = "gigaloom.runtime-performance-profile.v3"
-FIXTURE_SET_VERSION: Final[str] = "g6-02.v1"
+FIXTURE_SET_VERSION: Final[str] = "runtime-performance.v1"
 MAX_SAMPLES: Final[int] = 100
 QUEUE_SCALE: Final[int] = 16
 RUN_UPDATE_SCALE: Final[int] = 16

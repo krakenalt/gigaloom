@@ -1,4 +1,4 @@
-"""A2 closure: dynamic namespace parity, collisions, bounds, and recovery."""
+"""Dynamic agent-profile namespace parity, collisions, bounds, and recovery."""
 
 from __future__ import annotations
 

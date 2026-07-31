@@ -281,7 +281,7 @@ class CodexAppServerDriver:
         return StructuredTurnResult(turn_id, status)
 
     def respond_to_input(self, request_id: str, answer: str) -> None:
-        """Reject unproven provider input requests in the N2-00 driver."""
+        """Reject unproven provider input requests in the app-server driver."""
         del request_id, answer
         raise UnsupportedSessionCapability("interactive input is not supported")
 

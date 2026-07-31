@@ -50,7 +50,7 @@ class ProviderAuthenticationEvidence:
 
 
 def load_provider_authentication_evidence() -> ProviderAuthenticationEvidence:
-    """Load the packaged G3-00 evidence without reading native provider state."""
+    """Load packaged auth evidence without reading native provider state."""
     resource = files("gigaloom").joinpath(PROVIDER_AUTH_EVIDENCE_PATH)
     try:
         payload = json.loads(resource.read_text(encoding="utf-8"))
@@ -100,7 +100,7 @@ def build_provider_authentication_capability_matrix(
     *,
     evidence: ProviderAuthenticationEvidence | None = None,
 ) -> dict[str, Any]:
-    """Build the G3-00 matrix without starting, reading, or mutating login state."""
+    """Build the auth matrix without starting, reading, or mutating login state."""
     evidence = evidence or load_provider_authentication_evidence()
     snapshots = cli_snapshots or {}
     providers = []
@@ -135,14 +135,14 @@ def render_provider_authentication_capability_matrix_markdown(
         "# Provider-owned authentication capability matrix",
         "",
         (
-            "Status: accepted for GigaLoom roadmap slice G3-00 on "
+            "Status: accepted as the GigaLoom provider authentication matrix on "
             f"{matrix.get('reviewed_at', 'unknown')}."
         ),
         "",
         (
             "> Generated from packaged schema-v1 primary-source evidence. "
             "It describes provider-owned surfaces; it does not authorize a login, "
-            "credential read, browser launch, or G3-01 broker."
+            "credential read, browser launch, or embedded login broker."
         ),
         "",
         "## Frozen matrix",
@@ -190,7 +190,8 @@ def render_provider_authentication_capability_matrix_markdown(
                 "browser callbacks, or unredacted command output.",
             ),
             _join_markdown_fragments(
-                "- Version drift is fail-closed. G3-01 must re-review the exact CLI",
+                "- Version drift is fail-closed. A broker implementation must re-review",
+                "the exact CLI",
                 "version before enabling a broker path.",
             ),
             _join_markdown_fragments(
@@ -242,9 +243,9 @@ def render_provider_authentication_capability_matrix_markdown(
             "## Consequences",
             "",
             _join_markdown_fragments(
-                "G3-01 may consume this matrix to design a bounded native login broker.",
-                "That later slice still requires isolated homes, bounded subprocesses,",
-                "typed status, cancellation and recovery tests. This slice does not",
+                "A bounded native login broker may consume this matrix.",
+                "That implementation still requires isolated homes, bounded subprocesses,",
+                "typed status, cancellation and recovery tests. This matrix does not",
                 "launch provider commands, authenticate, inspect native homes, or bind",
                 "accounts to sessions.",
             ),

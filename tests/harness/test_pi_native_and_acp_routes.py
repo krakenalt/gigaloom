@@ -1,4 +1,4 @@
-"""B1 acceptance for independent native Pi and generic ACP routes."""
+"""Acceptance coverage for independent native Pi and generic ACP routes."""
 
 from __future__ import annotations
 

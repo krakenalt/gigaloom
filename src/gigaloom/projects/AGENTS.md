@@ -26,6 +26,6 @@ Bound filesystem/Git scans and keep new modules below 600 lines.
 
 `uv run pytest tests/harness -k 'project or environment or worktree' -n 0`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T19/T20; `@krakenalt`.
+Owner: `@krakenalt`.

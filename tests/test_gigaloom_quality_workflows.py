@@ -46,7 +46,6 @@ def test_required_quality_jobs_are_independent_and_standalone():
     for forbidden in (
         "git push",
         "packages/gpt2giga/",
-        "blocked_pending_S5_03B",
     ):
         assert forbidden not in text
     assert "Public registry / exact gateway lock" in text

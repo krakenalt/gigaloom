@@ -1,4 +1,4 @@
-"""Bounded, content-free G6 durable runtime performance profiling."""
+"""Bounded, content-free durable runtime performance profiling."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from gigaloom.runtime.worker import (
 
 
 SCHEMA_VERSION: Final[str] = "gigaloom.runtime-performance-profile.v3"
-FIXTURE_SET_VERSION: Final[str] = "g6-02.v1"
+FIXTURE_SET_VERSION: Final[str] = "runtime-performance.v1"
 MAX_SAMPLES: Final[int] = 100
 QUEUE_SCALE: Final[int] = 16
 RUN_UPDATE_SCALE: Final[int] = 16
@@ -270,8 +270,8 @@ def run_runtime_performance_profile(*, samples: int) -> dict[str, Any]:
             "rss_semantics": "process_peak_rss",
             "wakeup_semantics": "voluntary_plus_involuntary_context_switch_delta",
             "optimization_performed": True,
-            "g6_01_authorized": True,
-            "g6_02_authorized": True,
+            "runtime_measurement_authorized": True,
+            "filesystem_scan_repair_authorized": True,
             "session_run_update_scale": RUN_UPDATE_SCALE,
             "accepted_budgets": {
                 "worker_idle_loop": {
@@ -304,7 +304,7 @@ def run_runtime_performance_profile(*, samples: int) -> dict[str, Any]:
                     "sqlite_lock_contention",
                     "worker_active_echo",
                 ],
-                "status": "not_selected_by_G6-01",
+                "status": "not_selected_by_runtime_policy",
             },
             {
                 "id": "ranked_request_hot_path_repairs",

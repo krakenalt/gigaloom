@@ -1,5 +1,5 @@
 # ruff: noqa: E402, F401, F403, F405
-"""Internal integration flow implementation slice."""
+"""Internal integration-flow package resolution."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from .state import *  # noqa: F403
 
 
 class _FlowResolutionMixin:
-    """Implementation slice for application-owned integration flows."""
+    """Internal application-owned integration-flow operations."""
 
     def _resolve_preview(
         self,
