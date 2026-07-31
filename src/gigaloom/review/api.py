@@ -18,6 +18,7 @@ _ROUTE_DECISION_EXPORTS = (
 )
 _CAPSULE_EXPORTS = (
     "ArtifactManifest",
+    "CapsuleError",
     "CapsuleVerificationReport",
     "FilesystemRunCapsuleRepository",
     "InputLock",
