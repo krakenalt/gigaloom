@@ -22,7 +22,7 @@ terminals additionally use `tmux` on Linux and macOS; systems without it keep
 provider-native passthrough.
 
 ```sh
-uv tool install --prerelease allow 'gigaloom==0.6.0a1'
+uv tool install --prerelease allow 'gigaloom==0.7.0a1'
 giga doctor
 giga --version
 ```
@@ -40,6 +40,7 @@ changing their remaining arguments:
 giga codex exec --json "review this repository"
 giga claude -p "review this repository"
 giga gemini -p "review this repository"
+giga pi
 ```
 
 See [Installation](./docs/installation.md) and
@@ -50,7 +51,7 @@ See [Installation](./docs/installation.md) and
 | Topic | Guide |
 |---|---|
 | Product overview | [Documentation home](./docs/index.md) |
-| Installation, 0.6 migration, and first run | [Installation](./docs/installation.md) · [Quickstart](./docs/quickstart.md) |
+| Installation, 0.6→0.7 migration, and first run | [Installation](./docs/installation.md) · [Quickstart](./docs/quickstart.md) |
 | Architecture and safety boundaries | [Architecture](./docs/architecture.md) · [Durability and performance](./docs/architecture/durability-performance-contracts.md) · [Security](./docs/security.md) |
 | Runtime, backup, and troubleshooting | [Operations](./docs/operations.md) |
 | Optional gpt2giga gateway | [Gateway integration](./docs/gateway-integration.md) |
@@ -68,7 +69,7 @@ not require a gateway source checkout. Direct Chat and the legacy local-gateway
 preset are optional:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.6.0a1'
+uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.7.0a1'
 ```
 
 The optional extra consumes the released `gpt2giga` distribution. Its

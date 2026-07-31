@@ -1,6 +1,7 @@
 # Установка
 
-GigaLoom 0.6 — ломающий clean cut альфа-линии. Поддерживается Python 3.11–3.14.
+GigaLoom 0.7 — alpha Native Agent Gateway, основанная на ломающем clean cut
+0.6. Поддерживается Python 3.11–3.14.
 Отдельно установите хотя бы один provider-native CLI и завершите собственный
 flow аутентификации провайдера.
 
@@ -15,13 +16,13 @@ flow аутентификации провайдера.
 Через `uv`:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom==0.6.0a1'
+uv tool install --prerelease allow 'gigaloom==0.7.0a1'
 ```
 
 Или в изолированном Python-окружении:
 
 ```sh
-python -m pip install --pre 'gigaloom==0.6.0a1'
+python -m pip install --pre 'gigaloom==0.7.0a1'
 ```
 
 Проверьте установленный артефакт:
@@ -34,20 +35,20 @@ giga doctor
 `doctor` сообщает состояние возможностей и конфигурации, не читая содержимое
 prompts и не обращаясь к провайдерам.
 
-## Обновление до 0.6
+## Обновление до 0.7
 
 Точное ограничение `uv tool install` остаётся закреплённым при
 `uv tool upgrade`. Для перехода с предыдущего preview пересоздайте tool
 environment с новой точной версией:
 
 ```sh
-uv tool install --force --prerelease allow 'gigaloom==0.6.0a1'
+uv tool install --force --prerelease allow 'gigaloom==0.7.0a1'
 ```
 
 Если использовался optional gateway extra, сохраните его явно:
 
 ```sh
-uv tool install --force --prerelease allow 'gigaloom[gpt2giga]==0.6.0a1'
+uv tool install --force --prerelease allow 'gigaloom[gpt2giga]==0.7.0a1'
 ```
 
 Перед обновлением остановите все процессы GigaLoom и сохраните
@@ -62,7 +63,7 @@ uv tool install --force --prerelease allow 'gigaloom[gpt2giga]==0.6.0a1'
 
 ```sh
 uv tool uninstall gpt2giga-harness
-uv tool install --prerelease allow 'gigaloom==0.6.0a1'
+uv tool install --prerelease allow 'gigaloom==0.7.0a1'
 ```
 
 Обновите extensions, imports, scripts и frontend consumers как единый clean
@@ -161,7 +162,7 @@ Downgrade пакета отделён от rollback релиза: опублик
 legacy preset локального gateway:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.6.0a1'
+uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.7.0a1'
 ```
 
 Устанавливается закреплённый публичный дистрибутив gateway. Репозиторий gateway,
@@ -174,7 +175,7 @@ sibling checkout, editable dependency или submodule не нужны. См.
 установить соответствующий npm release:
 
 ```sh
-npm install --save-exact @gigaloom/web@0.6.0-alpha.1
+npm install --save-exact @gigaloom/web@0.7.0-alpha.1
 ```
 
 Смонтируйте `dist/` package по `/web/assets/` и обслуживайте

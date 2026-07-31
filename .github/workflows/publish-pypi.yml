@@ -90,6 +90,9 @@ jobs:
           cp src/gigaloom/ui/web/assets/_build/licenses.json dist/release-candidate/licenses.json
           cp src/gigaloom/ui/web/assets/_build/provenance.json dist/release-candidate/web-provenance.json
           cp src/gigaloom/ui/web/assets/_build/sbom.cdx.json dist/release-candidate/sbom.cdx.json
+          cp release/0.7-external-evidence.json dist/release-candidate/external-evidence.json
+          cp release/0.7-native-agent-gateway-candidate-report.md dist/release-candidate/native-agent-gateway-report.md
+          cp tests/fixtures/run_capsules/read_only_run.json dist/release-candidate/run-capsule-fixture.json
 
       - name: Verify immutable multi-registry candidate
         run: |

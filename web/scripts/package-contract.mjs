@@ -15,7 +15,10 @@ const requiredPublishedFiles = new Set([
 ]);
 const inspectedExtensions = new Set([".css", ".html", ".js", ".json", ".md"]);
 const localPathPatterns = [
-  { label: "file URL", pattern: /file:\/\//iu },
+  {
+    label: "local file URL",
+    pattern: /file:\/\/\/(?:Users|home|private|tmp|var|etc)(?:\/|\\)|file:\/\/\/[A-Za-z]:[\\/]/iu,
+  },
   { label: "macOS user path", pattern: /\/Users\/[^/\s"'<>]+(?:\/|\\)/u },
   { label: "Linux user path", pattern: /\/home\/[^/\s"'<>]+(?:\/|\\)/u },
   {
@@ -38,7 +41,7 @@ export function assertPackageMetadata(packageJson) {
   assertEqual(packageJson.name, expectedName, "Unexpected npm package name");
   if (
     typeof packageJson.version !== "string"
-    || !/^0\.6\.0-alpha\.1$/u.test(packageJson.version)
+    || !/^0\.7\.0-alpha\.1$/u.test(packageJson.version)
   ) {
     throw new Error(`Unexpected npm package version: ${JSON.stringify(packageJson.version)}`);
   }

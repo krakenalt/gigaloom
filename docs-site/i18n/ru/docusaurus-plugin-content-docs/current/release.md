@@ -1,14 +1,14 @@
 # Релиз
 
 Один release GigaLoom связывает Python, npm, Git и embedded Web assets через
-`release/release.json`. Для первой alpha 0.6 точная identity такова:
+`release/release.json`. Для alpha Native Agent Gateway точная identity такова:
 
 | Поверхность | Identity |
 |---|---|
-| Canonical release | `0.6.0-alpha.1` |
-| Git tag | `v0.6.0-alpha.1` |
-| PyPI | `gigaloom==0.6.0a1` |
-| npm | `@gigaloom/web@0.6.0-alpha.1` |
+| Canonical release | `0.7.0-alpha.1` |
+| Git tag | `v0.7.0-alpha.1` |
+| PyPI | `gigaloom==0.7.0a1` |
+| npm | `@gigaloom/web@0.7.0-alpha.1` |
 
 Python и npm используют собственный prerelease syntax, но представляют один
 release. Root Python metadata и `web/package.json` должны совпадать с manifest.
@@ -22,7 +22,7 @@ checksum, denylist и attestation gates immutable candidate. Publish workflow
 не исправляет теги.
 
 Исторические prefix-shaped tags остаются историей. Не используйте эти prefixes
-для 0.6. После принятия версии хотя бы одним registry tag нельзя перемещать или
+для новых releases. После принятия версии хотя бы одним registry tag нельзя перемещать или
 удалять. Ошибочный неопубликованный tag исправляется по audited repository
 policy, а не обходится workflow.
 

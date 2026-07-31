@@ -5,6 +5,36 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 и проект придерживается [Семантического версионирования](https://semver.org/lang/ru/).
 
+## [0.7.0a1] - 2026-07-31
+
+### Добавлено
+
+- **Native Agent Gateway**: declarative agent profiles, встроенный профиль Pi,
+  ACP client, явные launch plans и provider-native terminal ownership заменяют
+  удалённый путь GigaLoom TUI.
+- **Operator composition**: Project Catalog, детерминированный Route Advisor,
+  project-bound runs, reviewed MCP Apps и подписанные offline-verifiable run
+  capsules образуют единый evidence-preserving workflow в Web UI и CLI.
+- **Upgrade и recovery**: `giga state upgrade` переносит состояние 0.6 в native
+  agent profiles и projects через backup-first, journaled, idempotent
+  transaction с восстановлением после прерывания.
+
+### Изменено
+
+- **Только Web UI GigaLoom**: GigaLoom больше не владеет интерактивным terminal
+  UI. Терминал принадлежит native agents; GigaLoom предоставляет Web control
+  plane, структурированные CLI-команды и protocol surfaces.
+- **Release evidence**: immutable candidate теперь содержит внешние pins ACP,
+  Pi и MCP Apps, read-only capsule fixture и единый отчёт по tests, migration,
+  recovery, performance и security.
+
+### Безопасность
+
+- Для native launch, ACP transport, route selection, MCP Apps, migration,
+  evidence, capsules и release boundaries выполнен threat-model review;
+  authority, provenance, digest, workspace и source-revision checks остаются
+  fail-closed.
+
 ## [0.6.0a1] - 2026-07-31
 
 ### Добавлено
@@ -247,6 +277,7 @@
 - **Диагностика и документация**: добавлены `giga doctor`, inspect/config/session/native команды, alpha quickstart, migration guide и описание ограничений первого релиза.
 ---
 
+[0.7.0a1]: https://github.com/krakenalt/gigaloom/compare/v0.6.0-alpha.1...v0.7.0-alpha.1
 [0.6.0a1]: https://github.com/krakenalt/gigaloom/compare/gigaloom-v0.5.1a2...v0.6.0-alpha.1
 [0.5.1a2]: https://github.com/krakenalt/gigaloom/compare/gigaloom-v0.5.1a1...gigaloom-v0.5.1a2
 [0.5.1a1]: https://github.com/krakenalt/gigaloom/compare/gpt2giga-harness-v0.5.0a1...gigaloom-v0.5.1a1

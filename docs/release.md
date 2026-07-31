@@ -1,14 +1,14 @@
 # Release
 
 One GigaLoom release binds Python, npm, Git, and embedded Web assets through
-`release/release.json`. For the first 0.6 alpha the exact identity is:
+`release/release.json`. For the Native Agent Gateway alpha the exact identity is:
 
 | Surface | Identity |
 |---|---|
-| Canonical release | `0.6.0-alpha.1` |
-| Git tag | `v0.6.0-alpha.1` |
-| PyPI | `gigaloom==0.6.0a1` |
-| npm | `@gigaloom/web@0.6.0-alpha.1` |
+| Canonical release | `0.7.0-alpha.1` |
+| Git tag | `v0.7.0-alpha.1` |
+| PyPI | `gigaloom==0.7.0a1` |
+| npm | `@gigaloom/web@0.7.0-alpha.1` |
 
 Python and npm use their native prerelease syntax but represent one release.
 The root Python metadata and `web/package.json` must match the manifest.
@@ -22,7 +22,7 @@ publish workflow requires that tag to resolve to the candidate SHA; it never
 creates, moves, or repairs a tag.
 
 Historical prefix-shaped tags remain history. Do not reuse those prefixes for
-0.6. Never move or delete a tag after either registry accepts the version. A
+new releases. Never move or delete a tag after either registry accepts the version. A
 bad unpublished tag is an audited repository-policy correction, not something
 the workflow guesses around.
 

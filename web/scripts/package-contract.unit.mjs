@@ -14,7 +14,7 @@ const validMetadata = {
   name: "@gigaloom/web",
   private: false,
   publishConfig: { access: "public" },
-  version: "0.6.0-alpha.1",
+  version: "0.7.0-alpha.1",
 };
 
 test("accepts the frozen public package metadata", () => {
@@ -62,6 +62,19 @@ test("rejects source maps and local absolute paths", () => {
   assert.throws(
     () => assertPublishedContentIsPrivacySafe("dist/assets/app.js.map", Buffer.from("{}")),
     /Source map/u,
+  );
+  assert.throws(
+    () => assertPublishedContentIsPrivacySafe(
+      "dist/assets/app.js",
+      Buffer.from('const local = "file:///Users/operator/work/gigaloom";'),
+    ),
+    /local file URL/u,
+  );
+  assert.doesNotThrow(
+    () => assertPublishedContentIsPrivacySafe(
+      "dist/assets/app.js",
+      Buffer.from('const schemaPrefix = "file://";'),
+    ),
   );
   assert.throws(
     () => assertPublishedContentIsPrivacySafe(

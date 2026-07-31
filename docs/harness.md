@@ -126,8 +126,8 @@ binary, Node.js runtime, credentials, or provider configuration. Both `uv tool`
 and `pipx` create an isolated Harness environment:
 
 ```sh
-uv tool install 'gigaloom==0.6.0a1'
-pipx install 'gigaloom==0.6.0a1'
+uv tool install 'gigaloom==0.7.0a1'
+pipx install 'gigaloom==0.7.0a1'
 ```
 
 Upgrade an existing Textual prerelease in place; do not retain or add a
@@ -137,10 +137,10 @@ archive when a state migration occurred:
 
 ```sh
 giga state backup /safe/path/harness-before-upgrade.zip
-uv tool install --force 'gigaloom==0.6.0a1'
+uv tool install --force 'gigaloom==0.7.0a1'
 uv tool install --force 'gpt2giga-harness==0.5.0a1'
 uv tool uninstall gigaloom
-uv tool install 'gigaloom==0.6.0a1'
+uv tool install 'gigaloom==0.7.0a1'
 ```
 
 Uninstalling the package does not delete `~/.gigaloom`, project
@@ -196,17 +196,17 @@ If the standalone preview is available in your package index, the shorter
 install path is:
 
 ```bash
-uv tool install 'gigaloom==0.6.0a1'
+uv tool install 'gigaloom==0.7.0a1'
 giga doctor
 ```
 
 For Direct Chat and the `gpt2giga` provider preset, install the explicit extra:
 
 ```bash
-uv tool install 'gigaloom[gpt2giga]==0.6.0a1'
+uv tool install 'gigaloom[gpt2giga]==0.7.0a1'
 ```
 
-The current `gigaloom==0.6.0a1` distribution provides only the `giga` command;
+The current `gigaloom==0.7.0a1` distribution provides only the `giga` command;
 its explicit `gpt2giga` extra pins `gpt2giga==0.2.6a1`.
 
 Requirements are Python 3.11–3.14 and `uv`. Direct GigaChat runs also need the
@@ -267,7 +267,7 @@ To migrate from an older TUI prerelease, upgrade the standard package and
 remove `[tui]` from historical install commands:
 
 ```bash
-uv tool install --force 'gigaloom==0.6.0a1'
+uv tool install --force 'gigaloom==0.7.0a1'
 giga --version
 giga
 ```
@@ -2849,7 +2849,7 @@ Remove the old combined wheel before installing the split packages so stale
 
 ```bash
 python -m pip uninstall -y gpt2giga gpt2giga-harness
-python -m pip install 'gigaloom==0.6.0a1'
+python -m pip install 'gigaloom==0.7.0a1'
 ```
 
 For `uv` tool installations, recreate both tool environments:
@@ -2858,10 +2858,10 @@ For `uv` tool installations, recreate both tool environments:
 uv tool uninstall gpt2giga
 uv tool uninstall gpt2giga-harness
 uv tool install --prerelease allow gpt2giga
-uv tool install 'gigaloom==0.6.0a1'
+uv tool install 'gigaloom==0.7.0a1'
 ```
 
-The current `gigaloom==0.6.0a1` metadata keeps
+The current `gigaloom==0.7.0a1` metadata keeps
 `gpt2giga==0.2.6a1` in the explicit `gpt2giga` optional extra.
 
 Package uninstall/reinstall does not move or rewrite Harness state. Preserve

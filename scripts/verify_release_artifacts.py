@@ -41,6 +41,13 @@ EVIDENCE_FILES = {
     "sbom.cdx.json": "_build/sbom.cdx.json",
     "web-provenance.json": "_build/provenance.json",
 }
+SOURCE_EVIDENCE_FILES = {
+    "external-evidence.json": Path("release/0.7-external-evidence.json"),
+    "native-agent-gateway-report.md": Path(
+        "release/0.7-native-agent-gateway-candidate-report.md"
+    ),
+    "run-capsule-fixture.json": Path("tests/fixtures/run_capsules/read_only_run.json"),
+}
 _MAX_MEMBER_BYTES = 32 * 1024 * 1024
 
 
@@ -212,6 +219,7 @@ def verify_candidate(
         sdist.name,
         npm.name,
         *EVIDENCE_FILES,
+        *SOURCE_EVIDENCE_FILES,
         "candidate-manifest.json",
         "SHA256SUMS",
     }
@@ -312,6 +320,31 @@ def verify_candidate(
         if evidence_content != expected:
             raise ReleaseArtifactError(
                 f"candidate evidence differs from embedded bytes: {filename}"
+            )
+        evidence_records.append(_artifact_record(evidence, kind="evidence"))
+
+    repository_root = release_path.parent.parent
+    for filename, source_relative in sorted(SOURCE_EVIDENCE_FILES.items()):
+        source = repository_root / source_relative
+        evidence = artifact_dir / filename
+        if source.is_symlink() or not source.is_file():
+            raise ReleaseArtifactError(
+                f"candidate source evidence is unavailable: {source_relative}"
+            )
+        try:
+            source_content = source.read_bytes()
+            evidence_content = evidence.read_bytes()
+        except OSError as exc:
+            raise ReleaseArtifactError(
+                f"candidate evidence is unavailable: {filename}"
+            ) from exc
+        if evidence.is_symlink() or not evidence.is_file():
+            raise ReleaseArtifactError(
+                f"candidate evidence must be a regular file: {filename}"
+            )
+        if evidence_content != source_content:
+            raise ReleaseArtifactError(
+                f"candidate evidence differs from source bytes: {filename}"
             )
         evidence_records.append(_artifact_record(evidence, kind="evidence"))
 
