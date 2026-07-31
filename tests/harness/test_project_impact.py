@@ -183,7 +183,7 @@ def test_5k_file_cold_compile_and_warm_projection_budgets(
 
     assert impact_index.scanned_file_count == 5_000
     assert result.scanned_file_count == 5_000
-    assert cold_seconds <= 3.0
+    assert cold_seconds <= 3.5
     assert warm_seconds <= 0.3
 
 

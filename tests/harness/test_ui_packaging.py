@@ -94,7 +94,7 @@ def test_harness_sdist_seals_assets_and_rebuilds_identical_node_free_wheel(tmp_p
 
     with tarfile.open(archive, "r:gz") as source:
         members = source.getnames()
-        source.extractall(tmp_path / "source")
+        source.extractall(tmp_path / "source", filter="data")
 
     assert not any("/frontend/" in name for name in members)
     assert not any("/ui/assets/" in name for name in members)

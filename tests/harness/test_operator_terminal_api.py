@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 from queue import Empty, Queue
+from threading import Event
 
 import pytest
 from fastapi.testclient import TestClient
@@ -38,6 +39,8 @@ class _Client:
         self.inputs: list[bytes] = []
         self.resizes: list[tuple[int, int]] = []
         self.close_calls = 0
+        self.input_received = Event()
+        self.resize_received = Event()
 
     def read_line(self) -> bytes:
         try:
@@ -47,9 +50,11 @@ class _Client:
 
     def send_input(self, data: bytes) -> None:
         self.inputs.append(data)
+        self.input_received.set()
 
     def resize(self, *, rows: int, columns: int) -> None:
         self.resizes.append((rows, columns))
+        self.resize_received.set()
 
     def close(self) -> None:
         self.close_calls += 1
@@ -141,6 +146,8 @@ def test_terminal_websocket_streams_binary_and_revision_bound_resize(
         )
         backend.client.outputs.put(b"%output %1 echo\\012\n")
         assert socket.receive_bytes() == b"echo\n"
+        assert backend.client.input_received.wait(timeout=2)
+        assert backend.client.resize_received.wait(timeout=2)
 
     assert b"".join(backend.client.inputs) == b"\x00input"
     assert backend.client.resizes == [(40, 120)]

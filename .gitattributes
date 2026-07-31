@@ -1,2 +1,3 @@
 web/branding/** text eol=lf
 web/** text eol=lf
+release/release.json text eol=lf

@@ -119,10 +119,32 @@ async def _run_bounded(
             limiter=_limiter(workload),
         )
 
-    if deadline is None:
-        return await invoke()
-    with anyio.fail_after(deadline):
-        return await invoke()
+    async def invoke_with_deadline() -> Any:
+        if deadline is None:
+            return await invoke()
+        with anyio.fail_after(deadline):
+            return await invoke()
+
+    if not atomic:
+        return await invoke_with_deadline()
+
+    operation = asyncio.create_task(invoke_with_deadline())
+    cancellation: asyncio.CancelledError | None = None
+    while True:
+        try:
+            result = await asyncio.shield(operation)
+        except asyncio.CancelledError as exc:
+            if operation.done():
+                raise
+            cancellation = cancellation or exc
+            continue
+        except BaseException:
+            if cancellation is not None:
+                raise cancellation
+            raise
+        if cancellation is not None:
+            raise cancellation
+        return result
 
 
 @dataclass

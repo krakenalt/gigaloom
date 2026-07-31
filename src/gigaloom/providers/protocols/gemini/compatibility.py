@@ -344,6 +344,8 @@ def _semantic_revision(value: Mapping[str, Any]) -> str:
         separators=(",", ":"),
         ensure_ascii=True,
     ).encode("utf-8")
+    # This is a deterministic identifier over reference metadata, not a password hash.
+    # codeql[py/weak-sensitive-data-hashing]
     return hashlib.sha256(encoded).hexdigest()
 
 
