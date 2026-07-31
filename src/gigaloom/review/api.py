@@ -8,6 +8,8 @@ from typing import Any
 
 _ROUTE_DECISION_EXPORTS = (
     "RouteDecisionBindingsV1",
+    "RouteDecisionError",
+    "RouteDecisionNotFoundError",
     "RouteDecisionReceiptV1",
     "RouteDecisionRepository",
     "RouteDecisionOverrideError",
