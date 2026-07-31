@@ -6,6 +6,7 @@ export * from "./api/integrations";
 export * from "./api/operator";
 export * from "./api/providers";
 export * from "./api/reviewedArena";
+export * from "./api/runCapsules";
 export * from "./api/runs";
 export * from "./api/sessions";
 export * from "./api/settings";

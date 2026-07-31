@@ -22,10 +22,8 @@ from gigaloom.execution.attachments import (
     message_attachment_metadata,
     run_attachment_metadata,
 )
-from gigaloom.execution.continuation import (
-    build_continuation_plan,
-)
-from gigaloom.execution.finalization import RunFinalizationService
+from gigaloom.execution.continuation import build_continuation_plan
+from gigaloom.execution.finalization import RunCompletionHook, RunFinalizationService
 from gigaloom.execution.invocation import (
     HarnessExecutionService,
     InvocationAccumulator,
@@ -72,9 +70,7 @@ from gigaloom.runtime.structured import (
     requested_execution_transport,
 )
 from gigaloom.runtime.policy import PermissionAction, permission_profile
-from gigaloom.sessions.conversation import (
-    edited_message_metadata,
-)
+from gigaloom.sessions.conversation import edited_message_metadata
 from gigaloom.sessions.models import (
     HarnessMessage,
     HarnessRun,
@@ -207,6 +203,7 @@ class HarnessSessionRunner:
         attachment_store: FilesystemAttachmentStore | None = None,
         memory_store: FilesystemProjectMemoryStore | None = None,
         provider_account_provider: ProviderAccountBindingProvider | None = None,
+        run_completion_hook: RunCompletionHook | None = None,
     ) -> None:
         self.registry = registry
         self.config = config
@@ -224,7 +221,7 @@ class HarnessSessionRunner:
             id_factory=new_id,
             clock=utc_now,
         )
-        self.finalization_service = RunFinalizationService()
+        self.finalization_service = RunFinalizationService(run_completion_hook)
 
     def preflight(
         self,
@@ -939,7 +936,7 @@ class HarnessSessionRunner:
             updated_at=run.updated_at,
             invocation_mode=options["invocation_mode"],
             started_at=run.started_at,
-            finished_at=utc_now(),
+            finished_at=(finished_at := utc_now()),
             error=error,
             command=result.command,
             native_session_id=run.native_session_id,
@@ -958,7 +955,7 @@ class HarnessSessionRunner:
             run_id=run.id,
             run_patch={
                 "status": status,
-                "finished_at": utc_now(),
+                "finished_at": finished_at,
                 "error": error,
                 "command": result.command,
                 "metadata": metadata,
@@ -967,6 +964,7 @@ class HarnessSessionRunner:
             events=tuple(terminal_events),
         )
         updated_run = terminal_result.runs[-1]
+        completion_metadata = self.finalization_service.capture(run.id, finished_at)
         session_patch: dict[str, Any] = {
             "default_harness_id": options["harness_id"],
             "default_model": options["model"],
@@ -1023,6 +1021,7 @@ class HarnessSessionRunner:
         )
         metadata = {
             **dict(updated_run.metadata),
+            **completion_metadata,
             "provenance": run_provenance_to_dict(provenance),
         }
         provenance_result = self.persistence_service.persist_milestone(

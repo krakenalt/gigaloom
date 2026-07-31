@@ -4,4 +4,5 @@ export * from "./api/queries/inbox";
 export * from "./api/queries/operator";
 export * from "./api/queries/providers";
 export * from "./api/queries/runs";
+export * from "./api/queries/runCapsules";
 export * from "./api/queries/sessions";

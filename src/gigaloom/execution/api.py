@@ -7,6 +7,10 @@ from gigaloom.execution.context_projection import (
     NativeCodexContextProjection,
     compile_native_codex_context,
 )
+from gigaloom.execution.finalization import (
+    RunCompletionArtifactV1,
+    RunCompletionHook,
+)
 from gigaloom.execution.route_advisor import (
     CapabilityEvidence,
     CompatibilityGrade,
@@ -89,6 +93,8 @@ __all__ = [
     "RouteRecommendationResultV1",
     "RouteRecommendationSnapshotV1",
     "RouteRecommendationSource",
+    "RunCompletionArtifactV1",
+    "RunCompletionHook",
     "SourceToSinkGuard",
     "StructuredRouteCandidateV1",
     "admit_sink_request",

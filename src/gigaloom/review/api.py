@@ -31,7 +31,9 @@ _ROUTE_DECISION_EXPORTS = (
 )
 _CAPSULE_EXPORTS = (
     "ArtifactManifest",
+    "CapsuleError",
     "CapsuleVerificationReport",
+    "FilesystemRunCapsuleRepository",
     "InputLock",
     "OmissionManifest",
     "OutputReceipt",
@@ -39,7 +41,9 @@ _CAPSULE_EXPORTS = (
     "RunCapsuleCapturePortsV1",
     "RunCapsuleEvidencePort",
     "RunCapsuleInputPort",
+    "RunCapsuleLifecycleService",
     "RunCapsuleOutputPort",
+    "RunCapsuleRecordV1",
     "build_artifact_manifest",
     "build_input_lock",
     "build_omission_manifest",

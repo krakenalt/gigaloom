@@ -16,6 +16,7 @@ from gigaloom.projects.api import (
 
 
 _STATE_CUTOVER_HANDLERS = frozenset({"_handle_state_migrate", "_handle_state_rollback"})
+_STATE_FREE_HANDLERS = frozenset({"_handle_capsule_verify"})
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -39,7 +40,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _config_from_args(args: argparse.Namespace) -> HarnessConfig:
     reject_legacy_state_override()
-    if args.handler not in _STATE_CUTOVER_HANDLERS:
+    if args.handler not in _STATE_CUTOVER_HANDLERS | _STATE_FREE_HANDLERS:
         prepare_runtime_state()
     config = HarnessConfig.from_env()
     return config.with_overrides(

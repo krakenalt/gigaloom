@@ -439,7 +439,7 @@
       },
       {
         "path": "session_runner.py",
-        "max_lines": 1858,
+        "max_lines": 1857,
         "owner": "T06/T20",
         "removal_gate": "session-runner-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
