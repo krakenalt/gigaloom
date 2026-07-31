@@ -1,0 +1,56 @@
+.mcp-app-loading,
+.mcp-app-fallback,
+.mcp-app-frame-shell {
+  min-width: 0;
+  width: 100%;
+}
+
+.mcp-app-loading,
+.mcp-app-fallback {
+  border: 1px solid var(--border-subtle, #3a3a3a);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.mcp-app-eyebrow,
+.mcp-app-channel-status {
+  color: var(--text-muted, #737373);
+  font-size: 0.8125rem;
+  margin: 0;
+}
+
+.mcp-app-fallback h3 {
+  margin: 0.25rem 0 0;
+}
+
+.mcp-app-fallback pre {
+  max-height: 14rem;
+  max-width: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.mcp-app-frame {
+  background: transparent;
+  border: 1px solid var(--border-subtle, #3a3a3a);
+  border-radius: 0.75rem;
+  display: block;
+  min-height: 16rem;
+  width: 100%;
+}
+
+.mcp-app-frame:focus-visible {
+  outline: 2px solid var(--accent, #7c9cff);
+  outline-offset: 2px;
+}
+
+.mcp-app-channel-status {
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 30rem) {
+  .mcp-app-frame {
+    min-height: 12rem;
+  }
+}
