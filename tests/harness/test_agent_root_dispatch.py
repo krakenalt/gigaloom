@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import subprocess
 import sys
 
 import pytest
@@ -90,6 +91,22 @@ def test_dynamic_profile_and_alias_route_without_provider_hardcoding(monkeypatch
     assert kwargs["context"] is PTY
 
 
+def test_codex_root_resolves_the_declarative_native_profile(monkeypatch):
+    registry = _registry()
+    calls = []
+
+    def run_native(arguments, **kwargs):
+        profile = kwargs["registry"].get("codex")
+        assert profile.native is not None
+        calls.append((arguments, profile.native.executable_names))
+        return 29
+
+    monkeypatch.setattr(entrypoint, "run_native_namespace", run_native)
+
+    assert entrypoint.main(["codex", "--help"], context=PTY, registry=registry) == 29
+    assert calls == [(["codex", "--help"], ("codex",))]
+
+
 @pytest.mark.parametrize("command", ("chat", "run", "session"))
 def test_human_tty_core_commands_remain_plain_cli(command, monkeypatch):
     calls = []
@@ -139,6 +156,35 @@ def test_bare_entrypoint_is_plain_ansi_free_and_does_not_import_cli_or_tui(
     assert "\x1b" not in output
     assert "gigaloom.cli" not in sys.modules
     assert "gigaloom.tui.entrypoint" not in sys.modules
+
+
+def test_bare_entrypoint_does_not_import_terminal_control_modules():
+    source = """
+import contextlib
+import io
+import sys
+
+from gigaloom import entrypoint
+
+with contextlib.redirect_stdout(io.StringIO()):
+    assert entrypoint.main([]) == 0
+blocked = sorted(
+    name
+    for name in sys.modules
+    if name in {'pty', 'termios', 'textual', 'tty'}
+    or name.startswith('gigaloom.native.terminal')
+)
+print(','.join(blocked))
+"""
+
+    completed = subprocess.run(
+        (sys.executable, "-c", source),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert completed.stdout == "\n"
 
 
 def test_launcher_summary_uses_path_lookup_without_provider_execution(monkeypatch):
@@ -195,6 +241,14 @@ def test_root_help_is_static_and_teaches_native_vs_structured_split():
             True,
             NativeLaunchMode.DIRECT_NATIVE,
             NativeLaunchReason.HEADLESS_FORM,
+        ),
+        (
+            "codex",
+            ("--help",),
+            PTY,
+            True,
+            NativeLaunchMode.DIRECT_NATIVE,
+            NativeLaunchReason.METADATA_FORM,
         ),
         (
             "claude",

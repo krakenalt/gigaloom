@@ -383,6 +383,61 @@ assert (restored / "runtime.sqlite3").is_file()
 """
 
 
+HARNESS_NATIVE_ROOT_SMOKE = """
+import contextlib
+import importlib.metadata
+import importlib.util
+import io
+import sys
+
+from gigaloom import entrypoint
+from gigaloom.harnesses.agent_profiles import (
+    AgentProfileRegistry,
+    build_core_command_collision_contract,
+    load_builtin_agent_profiles,
+)
+from gigaloom.native.api import TerminalContext
+from gigaloom.native_cli_facade import run_native_namespace
+
+distribution = importlib.metadata.distribution("gigaloom")
+requirements = distribution.requires or ()
+assert not any(item.casefold().startswith("textual") for item in requirements)
+assert importlib.util.find_spec("gigaloom.tui") is None
+
+registry = AgentProfileRegistry.build(
+    load_builtin_agent_profiles(),
+    collision_contract=build_core_command_collision_contract(()),
+)
+context = TerminalContext(False, False, False, "dumb", platform="darwin")
+output = io.StringIO()
+with contextlib.redirect_stdout(output):
+    assert entrypoint.main([], context=context, registry=registry) == 0
+assert "Native agents" in output.getvalue()
+
+codex = registry.get("codex")
+assert codex.native is not None
+assert codex.structured_routes
+calls = []
+
+def direct_runner(spec, suffix, **_kwargs):
+    calls.append((spec.executable, suffix))
+    return 47
+
+assert run_native_namespace(
+    ("codex", "--help"),
+    registry=registry,
+    context=context,
+    runner=direct_runner,
+) == 47
+assert calls == [(codex.native.executable_names[0], ("--help",))]
+assert not any(
+    name in {"pty", "termios", "textual", "tty"}
+    or name.startswith("gigaloom.native.terminal")
+    for name in sys.modules
+)
+"""
+
+
 GPT2GIGA_PRESET_SMOKE = """
 import importlib.metadata
 import os

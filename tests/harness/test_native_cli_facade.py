@@ -142,12 +142,37 @@ def test_codex_root_never_probes_or_enters_structured_workbench(monkeypatch):
     assert "gigaloom.tui.entrypoint" not in sys.modules
 
 
+def test_structured_route_cannot_intercept_native_codex_namespace():
+    matched = match_native_namespace(("codex", "--help"))
+    assert matched is not None
+    profile, _suffix = matched
+    assert profile.native is not None
+    assert profile.structured_routes
+    calls = []
+
+    result = run_native_namespace(
+        ("codex", "--help"),
+        context=PTY,
+        runner=lambda spec, suffix, **_kwargs: (
+            calls.append((spec.executable, suffix)) or 43
+        ),
+        managed_runner=lambda *_args, **_kwargs: pytest.fail(
+            "metadata form must stay on the direct native route"
+        ),
+    )
+
+    assert result == 43
+    assert calls == [(profile.native.executable_names[0], ("--help",))]
+
+
 @pytest.mark.parametrize(
     ("context", "argv"),
     (
         (PIPE, ("codex",)),
         (PIPE, ("claude", "-c")),
         (PIPE, ("gemini", "-r", "latest")),
+        (PTY, ("codex", "--help")),
+        (PTY, ("codex", "exec", "--json", "inspect")),
         (PTY, ("claude", "-c", "-p", "inspect")),
         (PTY, ("gemini", "-p", "inspect")),
     ),

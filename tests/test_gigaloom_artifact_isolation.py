@@ -9,6 +9,7 @@ from package_isolation_support import (
     BuiltArtifacts,
     HARNESS_BASE_SMOKE,
     HARNESS_MEMBER,
+    HARNESS_NATIVE_ROOT_SMOKE,
     HARNESS_VERSION,
     _artifact_members,
     _build_artifacts,
@@ -45,6 +46,15 @@ def test_gigaloom_base_artifact_runs_without_gateway(
     installed = tmp_path / "installed"
     _install_artifacts(installed, artifact)
     _run_clean_python(installed, HARNESS_BASE_SMOKE)
+
+
+def test_installed_wheel_enforces_native_agent_frontend_boundaries(
+    built_artifacts: BuiltArtifacts,
+    tmp_path,
+):
+    installed = tmp_path / "installed-native-root"
+    _install_artifacts(installed, built_artifacts.harness_wheel)
+    _run_clean_python(installed, HARNESS_NATIVE_ROOT_SMOKE)
 
 
 def test_editable_gigaloom_member_resolves_to_gigaloom_source():
