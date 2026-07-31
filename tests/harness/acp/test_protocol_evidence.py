@@ -33,9 +33,7 @@ def test_acp_sdk_dependency_and_evidence_are_exact() -> None:
         "commit": "02b6f874525927a501daf8004cae8a30f91723a2",
     }
     assert evidence["protocol"]["wire_version"] == 1
-    assert evidence["protocol"]["generated_schema_ref"] == (
-        "refs/tags/schema-v1.16.0"
-    )
+    assert evidence["protocol"]["generated_schema_ref"] == ("refs/tags/schema-v1.16.0")
     assert evidence["reviewed_contract"] == {
         "transport": "local_stdio_json_lines",
         "wire_compatibility_source": "initialize.protocolVersion",
