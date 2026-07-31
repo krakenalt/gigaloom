@@ -71,7 +71,16 @@ from .catalog.models import (
     ProjectLocationRef,
     ProjectRelocationPreviewV1,
 )
+from .catalog.migration import (
+    MAX_MIGRATION_SESSIONS,
+    PROJECT_CATALOG_MIGRATION_ID,
+    PROJECT_CATALOG_MIGRATION_SCHEMA_VERSION,
+    InjectedProjectCatalogMigrationCrash,
+    ProjectCatalogMigrationReceiptV1,
+    ProjectCatalogMigrationService,
+)
 from .catalog.repository import FilesystemProjectCatalogRepository
+from .catalog.session_bindings import SessionCatalogBindingService
 from .catalog.service import ProjectCatalogService, resolved_project_location
 from .launch_profiles.codec import (
     launch_profile_digest,
@@ -473,6 +482,7 @@ __all__ = [
     "ImpactUncertainty",
     "ImpactUncertaintyKind",
     "ImpactedPythonFile",
+    "InjectedProjectCatalogMigrationCrash",
     "InjectedStateMigrationCrash",
     "GitHubEnvironmentService",
     "GitHubEnvironmentSnapshot",
@@ -493,10 +503,13 @@ __all__ = [
     "MAX_CATALOG_PAGE_SIZE",
     "MAX_LAUNCH_PROFILES",
     "MAX_LAUNCH_PROFILE_PAGE_SIZE",
+    "MAX_MIGRATION_SESSIONS",
     "MIGRATION_SUPPORT_RELATIVE_PATH",
     "PRESET_WORKSPACE_POLICIES",
     "PROJECT_CONFIG_RELATIVE_PATH",
     "PROJECT_CATALOG_SCHEMA_VERSION",
+    "PROJECT_CATALOG_MIGRATION_ID",
+    "PROJECT_CATALOG_MIGRATION_SCHEMA_VERSION",
     "PROJECT_LAUNCH_PROFILE_SCHEMA_VERSION",
     "PROJECT_MEMORY_FILE",
     "PROJECT_STATE_FILE",
@@ -505,6 +518,8 @@ __all__ = [
     "ProjectCatalogConflictError",
     "ProjectCatalogEntryV1",
     "ProjectCatalogError",
+    "ProjectCatalogMigrationReceiptV1",
+    "ProjectCatalogMigrationService",
     "ProjectCatalogNotFoundError",
     "ProjectCatalogPageV1",
     "ProjectCatalogService",
@@ -529,6 +544,7 @@ __all__ = [
     "LaunchProfilePageV1",
     "LaunchResolutionContextV1",
     "RunDiffReview",
+    "SessionCatalogBindingService",
     "STATE_MIGRATION_ID",
     "STATE_MIGRATION_SCHEMA_VERSION",
     "STATE_LAYOUT_VERSION",

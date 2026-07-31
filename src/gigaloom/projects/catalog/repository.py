@@ -112,6 +112,22 @@ class FilesystemProjectCatalogRepository:
         """Return the bounded authoritative set for an explicit migration."""
         return self._read_all()
 
+    def delete_migration_entry(
+        self,
+        catalog_project_id: str,
+        *,
+        expected_digest: str,
+    ) -> None:
+        """Remove an unchanged migration-created entry during guarded rollback."""
+        with _exclusive_file_lock(self.lock_path):
+            current = self.get(catalog_project_id)
+            if current.revision != 1 or current.digest != expected_digest:
+                raise ProjectCatalogConflictError(
+                    "project catalog changed after migration"
+                )
+            self._entry_path(catalog_project_id).unlink()
+            _fsync_directory(self.entries_dir)
+
     def _read_all(self) -> tuple[ProjectCatalogEntryV1, ...]:
         if not self.entries_dir.exists():
             return ()
