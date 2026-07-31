@@ -5,7 +5,7 @@
 
 ## Контекст
 
-GigaLoom — модульный монолит с долговечным локальным состоянием, тремя
+GigaLoom — модульный монолит с долговечным локальным состоянием, двумя
 пользовательскими интерфейсами, встроенными адаптерами coding agents, слоями
 совместимости провайдеров и инструментами расширения. Существующий Python-пакет
 вырос преимущественно как плоское пространство имён. Несколько корневых модулей
@@ -44,7 +44,7 @@ py.typed
 attachments/  automation/  cli/          contracts/   core/
 diagnostics/  execution/   harnesses/    integrations/ native/
 projects/     providers/   review/       runtime/      sessions/
-skills/       tools/       tui/          ui/
+skills/       tools/       ui/
 ```
 
 Директория появляется только вместе с реальным поведением и focused tests.
@@ -71,7 +71,6 @@ skills/       tools/       tui/          ui/
 | `review` | Provenance, reviewed evidence, artifacts, replay, promotions, handoffs и support exports | Явные read и reviewed-mutation contracts |
 | `diagnostics` | Doctor checks, compatibility evidence, inventory и performance tooling | Diagnostic report и export contracts |
 | `cli` | Ленивая обработка командной строки, dispatch, errors и адаптация output | `cli/main.py`; не владеет бизнес-логикой |
-| `tui` | Textual state, clients, controllers, projections, widgets, screens и rendering | Application client protocols; не владеет storage |
 | `ui` | FastAPI composition, dependencies, routers, projections, streaming и доставка Cockpit | Application services и transport schemas; не владеет storage |
 
 На время опубликованного migration window root files или directories вне
@@ -177,11 +176,6 @@ cli/
   main.py  parser.py  registry.py  context.py  errors.py  output.py
   completion.py  commands/
 
-tui/
-  entrypoint.py  app.py  contracts.py  state.py  i18n.py
-  commands/  clients/  controllers/  projections/  widgets/  screens/
-  rendering/
-
 ui/
   app.py  container.py  dependencies.py
   security/  schemas/  services/  streaming/  routers/  web/
@@ -196,7 +190,7 @@ authoritative и derived применяется к индексам и projectio
 First-party imports направлены так:
 
 ```text
-cli tui ui diagnostics -> public application APIs
+cli ui diagnostics     -> public application APIs
 automation review      -> execution runtime sessions projects
 execution              -> sessions runtime harnesses projects attachments
 harnesses              -> providers native contracts
@@ -212,7 +206,7 @@ core                   -> stdlib and approved technical dependencies
 
 1. `core` не импортирует продуктовые контексты.
 2. `contracts` импортирует только `core`, stdlib и typing.
-3. Runtime и доменные контексты не импортируют `cli`, `tui` или `ui`.
+3. Runtime и доменные контексты не импортируют `cli` или `ui`.
 4. Межконтекстные импорты используют `api.py`, `contracts.py` целевого
    контекста или другой явно названный public port, но не repositories,
    storage, routers, widgets и другие internals.
@@ -222,7 +216,7 @@ core                   -> stdlib and approved technical dependencies
    attachment APIs, не присваивая их persistence.
 7. `automation` и `review` используют bounded execution, runtime, session и
    project APIs.
-8. CLI, TUI и Web адаптируют ввод и вывод к application APIs, не дублируют
+8. CLI и Web адаптируют ввод и вывод к application APIs, не дублируют
    policy и не обращаются к concrete filesystem/SQLite repositories.
 9. `__init__.py` остаются import-light и не создают circular re-export chains.
 
@@ -267,7 +261,7 @@ Feature не импортирует internal-файл другой feature. Об
 ```text
 tests/harness/
   architecture/
-  unit/{sessions,runtime,execution,providers,harnesses,integrations,automation,projects,cli,tui,ui}/
+  unit/{sessions,runtime,execution,providers,harnesses,integrations,automation,projects,cli,ui}/
   contract/{adapters,api,cli,sse,storage}/
   integration/{durable_runtime,session_execution,application_surfaces}/
   migrations/{sessions,runtime}/
@@ -370,8 +364,6 @@ compatibility surface в `execution/__init__.py`, `safe_paths.py` и
 | Runner и новые `execution` modules | T06 |
 | FastAPI composition, services, streaming и routers | T07 |
 | CLI и entrypoint | T08 |
-| TUI clients, contracts и projections | T09 |
-| TUI application и rendering | T10 |
 | Frontend API и query contracts | T11 |
 | Frontend Workbench | T12 |
 | Frontend streaming и bounded rendering | T13 |
@@ -391,7 +383,7 @@ surfaces, изменяются только через integration owner. Тре
 
 Решение меняет организацию пакета, но не поведение продукта. CLI commands,
 flags, output, exit codes, REST paths, response shapes, SSE events/cursors,
-plugin entry points, provider-native passthrough, persisted state и TUI/Web
+plugin entry points, provider-native passthrough, persisted state и Web
 semantics остаются compatibility contracts.
 
 Каждый structural commit можно независимо откатить. Compatibility shims и

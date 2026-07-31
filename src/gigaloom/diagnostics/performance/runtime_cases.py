@@ -76,7 +76,6 @@ REQUIRED_COVERAGE: Final[dict[str, tuple[str, ...]]] = {
         "api_session_events",
         "sse_terminal_attach",
         "web_payload_projection",
-        "tui_navigation_load",
     ),
     "filesystem": ("session_run_update",),
 }

@@ -20,7 +20,6 @@ REQUIRED_WORKLOAD_FAMILIES: Final[tuple[str, ...]] = (
     "sessions/events",
     "sessions/messages",
     "sessions/runs",
-    "tui/render",
     "web/read-paths",
 )
 

@@ -15,16 +15,17 @@ describe("PrimaryRailIcon", () => {
     expect(markup).not.toContain("g2");
   });
 
-  it("renders the accepted five pictorial metaphors without letter placeholders", () => {
+  it("renders the accepted six pictorial metaphors without letter placeholders", () => {
     const markup = primarySurfaces.map(({ id }) => renderToStaticMarkup(
       <PrimaryRailIcon surface={id} />,
     ));
 
-    expect(markup).toHaveLength(5);
-    expect(markup.join(" ")).not.toMatch(/>\s*[WRAEI]\s*</u);
+    expect(markup).toHaveLength(6);
+    expect(markup.join(" ")).not.toMatch(/>\s*[WRPAEI]\s*</u);
     expect(markup.map((icon) => icon.match(/data-icon="([^"]+)"/u)?.[1])).toEqual([
       "workbench",
       "runs",
+      "projects",
       "automation",
       "evaluation",
       "integrations",

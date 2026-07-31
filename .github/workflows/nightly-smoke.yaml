@@ -50,11 +50,6 @@ jobs:
         run: .venv/bin/giga benchmark performance --profile local-detail --samples 5 --output performance-artifacts/local-detail.json
         continue-on-error: true
 
-      - name: Capture bounded TUI detail profile
-        if: always()
-        run: .venv/bin/giga benchmark performance --profile tui-detail --samples 5 --output performance-artifacts/tui-detail.json
-        continue-on-error: true
-
       - name: Capture bounded runtime detail profile
         if: always()
         run: .venv/bin/giga benchmark performance --profile runtime-detail --samples 5 --output performance-artifacts/runtime-detail.json

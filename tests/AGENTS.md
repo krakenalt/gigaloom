@@ -36,6 +36,23 @@ from an old directory inventory.
 - Markers are selective, not exhaustive. Do not use `pytest -m unit` as a
   substitute for the relevant path or full suite.
 
+## Parallel execution
+
+- Keep tests parallel when every writable path, store, subprocess home, and
+  server endpoint is isolated per test. `tmp_path` already gives each xdist
+  worker a distinct root; CPU pressure alone is not a reason to serialize a
+  test.
+- Synchronize threads and subprocess readers with `Event`, `Condition`, a
+  protocol acknowledgement, or another observable state transition. Do not use
+  `sleep()` as a readiness barrier.
+- Join every non-daemon test thread with a bounded timeout, assert that it
+  stopped, and surface exceptions in the test thread. Close owned clients and
+  subprocesses in `finally` when an assertion can otherwise bypass cleanup.
+- Use an xdist group only for a named resource that genuinely cannot be made
+  worker-local, and enable `--dist=loadgroup` in the invoking command. A group
+  keeps its members on one worker; it does not provide global exclusivity. Put
+  tests that require no concurrent workers in a separate `-n 0` gate.
+
 ## Validation
 
 During iteration, run the narrowest relevant pytest node with

@@ -10,7 +10,7 @@ categories:
   - title: Cockpit and frontend
     labels:
       - frontend
-  - title: Terminal and TUI
+  - title: Native terminals
     labels:
       - terminal
   - title: Performance

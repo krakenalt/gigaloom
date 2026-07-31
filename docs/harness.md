@@ -14,7 +14,7 @@ one place to run a task through direct GigaChat, Codex CLI, Claude Code, Gemini
 CLI, or a plugin harness; compare the results; inspect what happened; and decide
 which changes are allowed back into your project.
 
-The product name shown by the Web UI, TUI, and human-facing CLI output is
+The product name shown by the Web UI and human-facing CLI output is
 **GigaLoom**. The distribution and Python namespace are `gigaloom`; its single
 public console command is `giga`.
 
@@ -74,6 +74,7 @@ provider command. Harness does not invent one shared execution grammar.
 giga codex exec --json "inspect this repository"
 giga claude -p "inspect this repository"
 giga gemini -p "inspect this repository"
+giga pi "inspect this repository"
 ```
 
 After the provider token, argv is opaque. Provider-scoped `--help` and
@@ -83,18 +84,23 @@ working without waiting for a Harness parser update.
 
 | Situation | Example | Result |
 | --- | --- | --- |
-| Human TTY | `giga codex` | Admitted Workbench L2, or a visible provider-owned L1 handoff on drift. |
+| Human TTY | `giga codex` | The real provider CLI owns the terminal through direct or managed native launch. |
 | Pipe/stdin | `printf 'task' \| giga claude -p -` | Native L0 descriptors and bytes. |
 | Redirect | `giga gemini -p task >result.txt` | Provider stdout is written directly. |
 | JSON | `giga codex exec --json task` | Provider JSON/JSONL remains unchanged. |
 | CI | `CI=1 giga gemini -p task` | Prompt-free native L0 execution. |
-| Resume | `giga codex resume --last` | Exact provider selector; admitted L2 or visible L1. |
-| Structured drift | version outside the reviewed window | Only L2 degrades; valid L0 commands remain available. |
+| Resume | `giga codex resume --last` | Exact provider selector and opaque suffix; no structured interception. |
+| Structured drift | version outside the reviewed window | Structured routes may degrade, but valid native commands remain independent. |
 | Missing runtime | `giga claude --version` without Claude | Actionable startup failure before provider side effects. |
 
+Pi uses the same declarative native path. Its separate `pi.acp` structured
+route is available only when the reviewed `pi-acp` executable already exists
+locally and runtime capability negotiation succeeds. GigaLoom never downloads
+the adapter, runs `npx`, or falls back from native Pi to ACP implicitly.
+
 Inspect the local truth with `giga doctor --json`. Each native provider entry
-reports the executable and source, version evidence, L0/L1/L2 state, structured
-transport, fallback, degradation reason, and remediation. The report is
+reports the declarative profile, executable and source, native launch evidence,
+structured routes, degradation reason, and remediation. The report is
 content-free and does not retain provider argv, prompts, or output.
 
 ### Shell completion
@@ -110,31 +116,31 @@ giga completion powershell
 ```
 
 The scripts intentionally do not mirror upstream provider parsers. Once
-`codex`, `claude`, or `gemini` is selected, the suffix and `--` remain untouched
-and the shell's default completion applies.
+`codex`, `claude`, `gemini`, or `pi` is selected, the suffix and `--` remain
+untouched and the shell's default completion applies.
 
 ### Install, migrate, and roll back
 
-The standard wheel/sdist contains the TUI and native facade but no provider
+The standard wheel/sdist contains the Web control plane and native facade but no provider
 binary, Node.js runtime, credentials, or provider configuration. Both `uv tool`
 and `pipx` create an isolated Harness environment:
 
 ```sh
-uv tool install 'gigaloom==0.6.0a1'
-pipx install 'gigaloom==0.6.0a1'
+uv tool install 'gigaloom==0.7.0a1'
+pipx install 'gigaloom==0.7.0a1'
 ```
 
-Upgrade an existing optional-TUI prerelease in place; do not retain or add a
-`[tui]` extra. Before an upgrade, back up user-owned Harness state. Rollback is
+Upgrade an existing Textual prerelease in place; do not retain or add a
+historical `[tui]` extra. Before an upgrade, back up user-owned Harness state. Rollback is
 an exact package reinstall plus restoration of a verified pre-upgrade state
 archive when a state migration occurred:
 
 ```sh
 giga state backup /safe/path/harness-before-upgrade.zip
-uv tool install --force 'gigaloom==0.6.0a1'
+uv tool install --force 'gigaloom==0.7.0a1'
 uv tool install --force 'gpt2giga-harness==0.5.0a1'
 uv tool uninstall gigaloom
-uv tool install 'gigaloom==0.6.0a1'
+uv tool install 'gigaloom==0.7.0a1'
 ```
 
 Uninstalling the package does not delete `~/.gigaloom`, project
@@ -190,17 +196,17 @@ If the standalone preview is available in your package index, the shorter
 install path is:
 
 ```bash
-uv tool install 'gigaloom==0.6.0a1'
+uv tool install 'gigaloom==0.7.0a1'
 giga doctor
 ```
 
 For Direct Chat and the `gpt2giga` provider preset, install the explicit extra:
 
 ```bash
-uv tool install 'gigaloom[gpt2giga]==0.6.0a1'
+uv tool install 'gigaloom[gpt2giga]==0.7.0a1'
 ```
 
-The current `gigaloom==0.6.0a1` distribution provides only the `giga` command;
+The current `gigaloom==0.7.0a1` distribution provides only the `giga` command;
 its explicit `gpt2giga` extra pins `gpt2giga==0.2.6a1`.
 
 Requirements are Python 3.11–3.14 and `uv`. Direct GigaChat runs also need the
@@ -244,27 +250,24 @@ The source-checkout `uv sync --all-extras --dev` command installs
 development tooling and repository integration fixtures, so it is not a base
 footprint measurement.
 
-#### Terminal TUI and automation cutover
+#### Native agents and governed automation
 
-The standard install includes the canonical terminal workbench. Bare `giga` and
-the compatibility alias `giga tui` open it on a supported interactive terminal.
-Human `giga chat`, `giga run --agent`, and `giga session list|show|create|turn`
-deep-link into the same TUI while preserving the explicit workspace, session,
-Harness, model, mode, transport, and prompt intent.
+Bare `giga` prints an ANSI-free launcher summary. `giga <agent>` starts the
+provider's real CLI with its opaque arguments and terminal ownership intact;
+it never enters a structured Workbench. `giga run` and the Web surface own
+explicit governed execution, while `giga chat` and `giga session` remain plain
+CLI commands suitable for scripts and administration.
 
-Use the non-interactive CLI for scripts and administration. `--non-interactive`,
-`--json`, `--dry-run`, redirected streams, pipes, CI, help/version, admin
-commands, and session event/approval inspection do not initialize Textual,
-prompt, or emit terminal-control sequences. `giga open ...` remains an explicit
-external handoff. An explicitly requested TUI fails before import under
-`TERM=dumb` or an unsupported terminal; a redirected human command keeps its
-established CLI schema, bytes, exit code, and stdout/stderr discipline.
+The standard install has no GigaLoom terminal frontend or `tui` extra. Help,
+version, JSON, dry-run, redirected streams, pipes, CI, and admin commands retain
+their CLI schema, bytes, exit code, and stdout/stderr discipline. `giga open ...`
+remains an explicit external handoff.
 
-To migrate from the optional-TUI prerelease, upgrade the standard package and
-remove `[tui]` from install commands:
+To migrate from an older TUI prerelease, upgrade the standard package and
+remove `[tui]` from historical install commands:
 
 ```bash
-uv tool install --force 'gigaloom==0.6.0a1'
+uv tool install --force 'gigaloom==0.7.0a1'
 giga --version
 giga
 ```
@@ -1502,7 +1505,7 @@ same specs and durable execution path rather than introducing another evaluator.
 
 ### Git and GitHub environments
 
-For a session with a Git workspace, Workbench and TUI show a bounded environment
+For a session with a Git workspace, Workbench shows a bounded environment
 snapshot containing the worktree identity, branch and HEAD, staged, unstaged,
 and untracked counts, upstream/base/ahead readiness, and credential-free hosted
 repository hint. With an authenticated `gh` executable, Harness can enrich that
@@ -1523,9 +1526,8 @@ was part of the preview. Pull-request creation requires the source branch to be
 attached and already present at the reviewed remote head. Changed local or
 remote state, detached HEAD, repository mismatch, stale approval, unsupported
 hosted state, and ambiguous network failure all fail closed or reconcile to
-content-free evidence. The TUI exposes the same operations through `/commit`,
-`/push`, and `/pr`; neither UI stages files, merges a pull request, or bypasses
-branch protection.
+content-free evidence. The Web UI exposes the reviewed operations; it does not
+stage files, merge a pull request, or bypass branch protection.
 
 The authenticated API surface is:
 
@@ -2847,7 +2849,7 @@ Remove the old combined wheel before installing the split packages so stale
 
 ```bash
 python -m pip uninstall -y gpt2giga gpt2giga-harness
-python -m pip install 'gigaloom==0.6.0a1'
+python -m pip install 'gigaloom==0.7.0a1'
 ```
 
 For `uv` tool installations, recreate both tool environments:
@@ -2856,10 +2858,10 @@ For `uv` tool installations, recreate both tool environments:
 uv tool uninstall gpt2giga
 uv tool uninstall gpt2giga-harness
 uv tool install --prerelease allow gpt2giga
-uv tool install 'gigaloom==0.6.0a1'
+uv tool install 'gigaloom==0.7.0a1'
 ```
 
-The current `gigaloom==0.6.0a1` metadata keeps
+The current `gigaloom==0.7.0a1` metadata keeps
 `gpt2giga==0.2.6a1` in the explicit `gpt2giga` optional extra.
 
 Package uninstall/reinstall does not move or rewrite Harness state. Preserve

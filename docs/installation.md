@@ -1,6 +1,7 @@
 # Installation
 
-GigaLoom 0.6 is a breaking alpha clean cut. It supports Python 3.11–3.14.
+GigaLoom 0.7 is the Native Agent Gateway alpha and builds on the 0.6 breaking
+clean cut. It supports Python 3.11–3.14.
 Install at least one provider-native CLI separately and complete that
 provider's own authentication flow.
 
@@ -8,21 +9,20 @@ Managed provider terminals additionally require a POSIX host and a discoverable
 `tmux` whose `tmux -V` output can be probed. Install `tmux` with the operating
 system package manager on Linux or macOS. Windows and POSIX systems without a
 usable `tmux` retain provider-native passthrough; GigaLoom does not substitute
-an emulated terminal. The `giga` TUI itself only requires a supported
-interactive terminal.
+an emulated terminal UI.
 
 ## Install the preview
 
 With `uv`:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom==0.6.0a1'
+uv tool install --prerelease allow 'gigaloom==0.7.0a1'
 ```
 
 Or in an isolated Python environment:
 
 ```sh
-python -m pip install --pre 'gigaloom==0.6.0a1'
+python -m pip install --pre 'gigaloom==0.7.0a1'
 ```
 
 Confirm the installed artifact:
@@ -35,20 +35,20 @@ giga doctor
 `doctor` reports capability and configuration status without reading prompt
 content or contacting providers.
 
-## Upgrade to 0.6
+## Upgrade to 0.7
 
 An exact `uv tool install` constraint remains pinned during `uv tool upgrade`.
-To move an existing preview installation to 0.6, recreate the tool environment
+To move an existing preview installation to 0.7, recreate the tool environment
 with the new exact requirement:
 
 ```sh
-uv tool install --force --prerelease allow 'gigaloom==0.6.0a1'
+uv tool install --force --prerelease allow 'gigaloom==0.7.0a1'
 ```
 
 If the optional gateway extra was previously installed, retain it explicitly:
 
 ```sh
-uv tool install --force --prerelease allow 'gigaloom[gpt2giga]==0.6.0a1'
+uv tool install --force --prerelease allow 'gigaloom[gpt2giga]==0.7.0a1'
 ```
 
 Before upgrading, stop every GigaLoom process and back up `~/.gigaloom`, the
@@ -63,7 +63,7 @@ existing state directories:
 
 ```sh
 uv tool uninstall gpt2giga-harness
-uv tool install --prerelease allow 'gigaloom==0.6.0a1'
+uv tool install --prerelease allow 'gigaloom==0.7.0a1'
 ```
 
 Update extensions, imports, scripts, and frontend consumers as one clean cut:
@@ -103,6 +103,39 @@ restore the verified backup to the legacy root while preserving
 Set `GIGALOOM_DATA_DIR` to use a custom canonical root. A custom root does not
 trigger migration of the two default roots.
 
+## Upgrade 0.6 state for the Native Agent Gateway
+
+The 0.6→0.7 state change is a separate explicit offline migration. Stop the Web
+server, workers, native sessions, and every other process using the data
+directory, then choose a backup path outside that directory:
+
+```sh
+giga state upgrade --backup ../gigaloom-before-0.7.zip --json
+```
+
+The command first creates and verifies the complete state archive. It then runs
+the fixed `project_catalog_v1` and `textual_preferences_retirement_v1` steps in
+that order. Legacy session project bindings become catalog bindings. Historical
+Textual-only preferences are omitted instead of being copied into browser
+preferences. Project repositories, `.giga/` directories, provider homes,
+credentials, prompts, and provider output are not read or changed.
+
+The migration is resumable after every durable boundary and emits a
+content-free receipt under the active state `migrations/` directory. Keep the
+archive and its adjacent private migration support directory together until the
+candidate is accepted. Re-running the exact command with the same backup path
+returns the same verified receipt.
+
+To recover, stop GigaLoom and atomically restore the pre-upgrade archive:
+
+```sh
+giga state verify ../gigaloom-before-0.7.zip --json
+giga state restore ../gigaloom-before-0.7.zip --replace --json
+```
+
+Restore the archive before reinstalling 0.6. Reverse schema migration and
+merging old and new state trees are not supported.
+
 ## Roll back an upgrade
 
 Before state migration, stop GigaLoom and reinstall the exact previously used
@@ -130,7 +163,7 @@ The base package does not require gpt2giga. Install the optional extra only for
 Direct Chat or the legacy local-gateway preset:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.6.0a1'
+uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.7.0a1'
 ```
 
 This installs a pinned public gateway distribution. It does not require a
@@ -143,7 +176,7 @@ Services that host the verified static Cockpit assets independently can install
 the matching npm release:
 
 ```sh
-npm install --save-exact @gigaloom/web@0.6.0-alpha.1
+npm install --save-exact @gigaloom/web@0.7.0-alpha.1
 ```
 
 Mount the package's `dist/` directory at `/web/assets/` and serve

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 
+from gigaloom.cli_commands.commands.route_advisor import add_run_binding_arguments
 from gigaloom.runtime.policy import ApprovalDecision
 from gigaloom.types import HarnessCapability
 
@@ -27,6 +28,7 @@ def register(
     run.add_argument("--native", action="store_true")
     run.add_argument("--json", action="store_true")
     run.add_argument("--dry-run", action="store_true")
+    add_run_binding_arguments(run)
     run.add_argument("prompt", nargs="*")
     run.set_defaults(handler="_handle_run_command")
 
@@ -132,6 +134,11 @@ def register(
     state_migrate = state_subparsers.add_parser("migrate")
     state_migrate.add_argument("--json", action="store_true")
     state_migrate.set_defaults(handler="_handle_state_migrate")
+
+    state_upgrade = state_subparsers.add_parser("upgrade")
+    state_upgrade.add_argument("--backup", required=True)
+    state_upgrade.add_argument("--json", action="store_true")
+    state_upgrade.set_defaults(handler="_handle_state_upgrade")
 
     state_rollback = state_subparsers.add_parser("rollback")
     state_rollback.add_argument("--json", action="store_true")

@@ -42,9 +42,7 @@ def test_product_inventory_joins_runtime_owners_without_readiness_guessing(
     )
     assert inventory["content_sha256"]
     assert "harness capabilities" in inventory["interfaces"]["cli_commands"]
-    assert "/diagnostics" in {
-        item["slash"] for item in inventory["interfaces"]["tui_commands"]
-    }
+    assert set(inventory["interfaces"]) == {"cli_commands", "api_operations"}
     assert {
         (item["method"], item["path"])
         for item in inventory["interfaces"]["api_operations"]

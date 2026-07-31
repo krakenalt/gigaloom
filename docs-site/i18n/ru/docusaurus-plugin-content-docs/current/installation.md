@@ -1,28 +1,28 @@
 # Установка
 
-GigaLoom 0.6 — ломающий clean cut альфа-линии. Поддерживается Python 3.11–3.14.
+GigaLoom 0.7 — alpha Native Agent Gateway, основанная на ломающем clean cut
+0.6. Поддерживается Python 3.11–3.14.
 Отдельно установите хотя бы один provider-native CLI и завершите собственный
 flow аутентификации провайдера.
 
 Для managed provider terminals также нужны POSIX-система и доступный `tmux` с
 корректным выводом `tmux -V`. На Linux или macOS установите `tmux` через
 системный package manager. Windows и POSIX-системы без рабочего `tmux`
-сохраняют provider-native passthrough; GigaLoom не подменяет его эмуляцией
-терминала. Для самого TUI `giga` достаточно поддерживаемого интерактивного
-терминала.
+сохраняют provider-native passthrough; GigaLoom не подменяет его собственным
+эмулированным terminal UI.
 
 ## Установка preview
 
 Через `uv`:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom==0.6.0a1'
+uv tool install --prerelease allow 'gigaloom==0.7.0a1'
 ```
 
 Или в изолированном Python-окружении:
 
 ```sh
-python -m pip install --pre 'gigaloom==0.6.0a1'
+python -m pip install --pre 'gigaloom==0.7.0a1'
 ```
 
 Проверьте установленный артефакт:
@@ -35,20 +35,20 @@ giga doctor
 `doctor` сообщает состояние возможностей и конфигурации, не читая содержимое
 prompts и не обращаясь к провайдерам.
 
-## Обновление до 0.6
+## Обновление до 0.7
 
 Точное ограничение `uv tool install` остаётся закреплённым при
 `uv tool upgrade`. Для перехода с предыдущего preview пересоздайте tool
 environment с новой точной версией:
 
 ```sh
-uv tool install --force --prerelease allow 'gigaloom==0.6.0a1'
+uv tool install --force --prerelease allow 'gigaloom==0.7.0a1'
 ```
 
 Если использовался optional gateway extra, сохраните его явно:
 
 ```sh
-uv tool install --force --prerelease allow 'gigaloom[gpt2giga]==0.6.0a1'
+uv tool install --force --prerelease allow 'gigaloom[gpt2giga]==0.7.0a1'
 ```
 
 Перед обновлением остановите все процессы GigaLoom и сохраните
@@ -63,7 +63,7 @@ uv tool install --force --prerelease allow 'gigaloom[gpt2giga]==0.6.0a1'
 
 ```sh
 uv tool uninstall gpt2giga-harness
-uv tool install --prerelease allow 'gigaloom==0.6.0a1'
+uv tool install --prerelease allow 'gigaloom==0.7.0a1'
 ```
 
 Обновите extensions, imports, scripts и frontend consumers как единый clean
@@ -104,6 +104,38 @@ legacy root и сохраняет `~/.gigaloom` для диагностики.
 Для собственного canonical root задайте `GIGALOOM_DATA_DIR`. При таком
 override default roots автоматически не мигрируются.
 
+## Обновление состояния 0.6 для Native Agent Gateway
+
+Изменение state 0.6→0.7 выполняется отдельной явной offline-миграцией.
+Остановите Web server, workers, native sessions и все остальные процессы,
+использующие data directory, затем выберите путь backup вне этого каталога:
+
+```sh
+giga state upgrade --backup ../gigaloom-before-0.7.zip --json
+```
+
+Команда сначала создаёт и проверяет полный state archive, затем в фиксированном
+порядке выполняет `project_catalog_v1` и
+`textual_preferences_retirement_v1`. Legacy project bindings у sessions
+становятся catalog bindings. Старые Textual-only preferences исключаются, а не
+копируются в browser preferences. Project repositories, `.giga/`, provider
+homes, credentials, prompts и provider output не читаются и не меняются.
+
+Миграция возобновляется после каждой durable boundary и сохраняет content-free
+receipt в `migrations/` активного state. Сохраняйте archive и соседний private
+migration support directory вместе до приёмки candidate. Повтор команды с тем
+же backup path возвращает тот же проверенный receipt.
+
+Для recovery остановите GigaLoom и атомарно восстановите pre-upgrade archive:
+
+```sh
+giga state verify ../gigaloom-before-0.7.zip --json
+giga state restore ../gigaloom-before-0.7.zip --replace --json
+```
+
+Восстановите archive до переустановки 0.6. Reverse schema migration и
+объединение старого и нового state tree не поддерживаются.
+
 ## Откат обновления
 
 До миграции state остановите GigaLoom и переустановите точную предыдущую
@@ -130,7 +162,7 @@ Downgrade пакета отделён от rollback релиза: опублик
 legacy preset локального gateway:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.6.0a1'
+uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.7.0a1'
 ```
 
 Устанавливается закреплённый публичный дистрибутив gateway. Репозиторий gateway,
@@ -143,7 +175,7 @@ sibling checkout, editable dependency или submodule не нужны. См.
 установить соответствующий npm release:
 
 ```sh
-npm install --save-exact @gigaloom/web@0.6.0-alpha.1
+npm install --save-exact @gigaloom/web@0.7.0-alpha.1
 ```
 
 Смонтируйте `dist/` package по `/web/assets/` и обслуживайте

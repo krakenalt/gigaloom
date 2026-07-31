@@ -28,6 +28,9 @@ const runsComponent = lazyRouteComponent(() => import("./surfaces/runs"), "RunsS
 const automationComponent = lazyRouteComponent(() => import("./surfaces/automation"), "AutomationSurface");
 const evaluationComponent = lazyRouteComponent(() => import("./surfaces/evaluation"), "EvaluationSurface");
 const integrationsComponent = lazyRouteComponent(() => import("./surfaces/integrations"), "IntegrationsSurface");
+const projectsComponent = lazyRouteComponent(() => import("./surfaces/projects"), "ProjectsSurface");
+const routeAdvisorComponent = lazyRouteComponent(() => import("./surfaces/projects"), "RouteAdvisorSurface");
+const mcpAppComponent = lazyRouteComponent(() => import("./surfaces/projects"), "McpAppSurface");
 
 const routes = [
   cockpitRoute,
@@ -45,6 +48,9 @@ const routes = [
   }),
   createRoute({ getParentRoute: () => rootRoute, path: "/web/runs", component: runsComponent }),
   createRoute({ getParentRoute: () => rootRoute, path: "/web/runs/$runId", component: runsComponent }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/web/projects", component: projectsComponent }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/web/projects/routes/$routeDecisionId", component: routeAdvisorComponent }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/web/projects/mcp-apps/$serverId/$resourceSha256", component: mcpAppComponent }),
   createRoute({ beforeLoad: () => { throw redirect({ to: "/web/automation/workflows" }); }, getParentRoute: () => rootRoute, path: "/web/automation" }),
   createRoute({ getParentRoute: () => rootRoute, path: "/web/automation/agents", component: automationComponent, validateSearch: validateOperationalSearch }),
   createRoute({ getParentRoute: () => rootRoute, path: "/web/automation/workflows", component: automationComponent, validateSearch: validateOperationalSearch }),

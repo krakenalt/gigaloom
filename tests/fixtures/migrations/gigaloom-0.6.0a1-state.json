@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "source_version": "0.6.0a1",
+  "source_commit": "3d75388e651debf58a078957e6c3a2926095cb4d",
+  "sessions": [
+    {
+      "title": "Legacy alpha review",
+      "workspace": "repository",
+      "metadata": {
+        "project_id": "legacy_project_fixture",
+        "safe_marker": "preserved"
+      }
+    },
+    {
+      "title": "Legacy unfiled session",
+      "workspace": null,
+      "metadata": {
+        "safe_marker": "unfiled"
+      }
+    }
+  ],
+  "textual_preferences": {
+    "schema_version": 1,
+    "preferences": {
+      "keymap": "vim",
+      "mouse": false,
+      "notifications": true,
+      "reduced_motion": true,
+      "screen_mode": "inline",
+      "screen_reader": false,
+      "status_fields": [
+        "provider",
+        "model"
+      ],
+      "theme": "dark"
+    }
+  }
+}

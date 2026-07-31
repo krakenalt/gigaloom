@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "8308a02f4ad33e3cddad8af56f88c8626ac21cce9141537e69d92eca2fc20d48",
+  "content_sha256": "9c0b611e83006409e093878d5b7a0f3d6830777fd15ad5a51b09969c00a6c1c5",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -689,8 +689,6 @@
     "tests/harness/test_product_capabilities.py",
     "tests/harness/test_product_inventory.py",
     "tests/harness/test_provider_profiles.py",
-    "tests/harness/test_terminal_dispatch.py",
-    "tests/harness/test_tui_app.py",
     "tests/harness/test_ui.py"
   ],
   "deprecations": {
@@ -957,7 +955,7 @@
       "value": "gigaloom.provider_profiles:gemini_legacy_compatibility"
     }
   ],
-  "generated_from": "schemas+registries+entry_points+provider_profiles+cli+tui+api+contract_tests",
+  "generated_from": "schemas+registries+entry_points+provider_profiles+cli+api+contract_tests",
   "harnesses": [
     {
       "capabilities": [
@@ -1478,6 +1476,31 @@
         "path": "/api/integrations/source-detail"
       },
       {
+        "method": "POST",
+        "name": "create_frame",
+        "path": "/api/mcp-apps/frames"
+      },
+      {
+        "method": "DELETE",
+        "name": "destroy_frame",
+        "path": "/api/mcp-apps/frames/{instance_id}"
+      },
+      {
+        "method": "GET",
+        "name": "frame_descriptor",
+        "path": "/api/mcp-apps/frames/{instance_id}"
+      },
+      {
+        "method": "POST",
+        "name": "frame_message",
+        "path": "/api/mcp-apps/frames/{instance_id}/messages"
+      },
+      {
+        "method": "GET",
+        "name": "frame_resource",
+        "path": "/api/mcp-apps/frames/{instance_id}/resource"
+      },
+      {
         "method": "GET",
         "name": "models",
         "path": "/api/models"
@@ -1564,6 +1587,16 @@
       },
       {
         "method": "GET",
+        "name": "capsule_evidence",
+        "path": "/api/operator/runs/{run_id}/capsule"
+      },
+      {
+        "method": "GET",
+        "name": "export_capsule",
+        "path": "/api/operator/runs/{run_id}/capsule/export"
+      },
+      {
+        "method": "GET",
         "name": "run_evidence",
         "path": "/api/operator/runs/{run_id}/evidence"
       },
@@ -1591,6 +1624,61 @@
         "method": "GET",
         "name": "project",
         "path": "/api/project"
+      },
+      {
+        "method": "GET",
+        "name": "list_projects",
+        "path": "/api/project-catalog"
+      },
+      {
+        "method": "POST",
+        "name": "create_project",
+        "path": "/api/project-catalog"
+      },
+      {
+        "method": "POST",
+        "name": "move_session",
+        "path": "/api/project-catalog/sessions/{session_id}/move"
+      },
+      {
+        "method": "DELETE",
+        "name": "remove_project",
+        "path": "/api/project-catalog/{catalog_project_id}"
+      },
+      {
+        "method": "GET",
+        "name": "project_detail",
+        "path": "/api/project-catalog/{catalog_project_id}"
+      },
+      {
+        "method": "PATCH",
+        "name": "rename_project",
+        "path": "/api/project-catalog/{catalog_project_id}"
+      },
+      {
+        "method": "POST",
+        "name": "create_profile",
+        "path": "/api/project-catalog/{catalog_project_id}/launch-profiles"
+      },
+      {
+        "method": "POST",
+        "name": "relocate_project",
+        "path": "/api/project-catalog/{catalog_project_id}/relocate"
+      },
+      {
+        "method": "POST",
+        "name": "preview_relocation",
+        "path": "/api/project-catalog/{catalog_project_id}/relocation-preview"
+      },
+      {
+        "method": "DELETE",
+        "name": "delete_profile",
+        "path": "/api/project-launch-profiles/{launch_profile_id}"
+      },
+      {
+        "method": "PATCH",
+        "name": "update_profile",
+        "path": "/api/project-launch-profiles/{launch_profile_id}"
       },
       {
         "method": "GET",
@@ -1706,6 +1794,21 @@
         "method": "POST",
         "name": "test_provider_settings",
         "path": "/api/providers/{provider_id}/test"
+      },
+      {
+        "method": "POST",
+        "name": "recommend",
+        "path": "/api/route-decisions/recommend"
+      },
+      {
+        "method": "GET",
+        "name": "inspect",
+        "path": "/api/route-decisions/{route_decision_id}"
+      },
+      {
+        "method": "POST",
+        "name": "override",
+        "path": "/api/route-decisions/{route_decision_id}/override"
       },
       {
         "method": "POST",
@@ -2205,10 +2308,12 @@
     ],
     "cli_commands": [
       "agent",
+      "agent add",
+      "agent discover",
+      "agent inspect",
       "agent list",
-      "agent run",
-      "agent show",
-      "agent validate",
+      "agent probe",
+      "agent remove",
       "benchmark",
       "benchmark performance",
       "bootstrap",
@@ -2216,6 +2321,9 @@
       "bootstrap preview",
       "bootstrap rollback",
       "bootstrap status",
+      "capsule",
+      "capsule export",
+      "capsule verify",
       "chat",
       "compatibility",
       "compatibility check",
@@ -2271,8 +2379,20 @@
       "preset list",
       "preset run",
       "project",
+      "project add",
       "project info",
       "project init",
+      "project launch",
+      "project list",
+      "project move-session",
+      "project profile",
+      "project profile create",
+      "project profile delete",
+      "project profile list",
+      "project profile update",
+      "project relocate",
+      "project remove",
+      "project rename",
       "provider",
       "provider add",
       "provider discover",
@@ -2282,6 +2402,10 @@
       "provider migrate-legacy",
       "provider show",
       "provider test",
+      "route",
+      "route override",
+      "route recommend",
+      "route show",
       "run",
       "runtime",
       "runtime export",
@@ -2311,6 +2435,7 @@
       "state migrate-providers",
       "state restore",
       "state rollback",
+      "state upgrade",
       "state verify",
       "ui",
       "ui-identity",
@@ -2327,236 +2452,6 @@
       "workflow show",
       "workflow status",
       "workflow validate"
-    ],
-    "tui_commands": [
-      {
-        "action": "command_palette",
-        "id": "commands",
-        "requires_session": false,
-        "slash": "/commands"
-      },
-      {
-        "action": "context_drawer",
-        "id": "context",
-        "requires_session": false,
-        "slash": "/context"
-      },
-      {
-        "action": "status_view",
-        "id": "status",
-        "requires_session": false,
-        "slash": "/status"
-      },
-      {
-        "action": "choose_project",
-        "id": "project",
-        "requires_session": false,
-        "slash": "/project"
-      },
-      {
-        "action": "new_session",
-        "id": "new-session",
-        "requires_session": false,
-        "slash": "/new"
-      },
-      {
-        "action": "sessions",
-        "id": "sessions",
-        "requires_session": false,
-        "slash": "/sessions"
-      },
-      {
-        "action": "rename_session",
-        "id": "rename-session",
-        "requires_session": true,
-        "slash": "/rename"
-      },
-      {
-        "action": "archive_session",
-        "id": "archive-session",
-        "requires_session": true,
-        "slash": "/archive"
-      },
-      {
-        "action": "delete_session",
-        "id": "delete-session",
-        "requires_session": true,
-        "slash": "/delete"
-      },
-      {
-        "action": "fork_session",
-        "id": "fork-session",
-        "requires_session": true,
-        "slash": "/fork"
-      },
-      {
-        "action": "transcript_search",
-        "id": "transcript-search",
-        "requires_session": true,
-        "slash": "/search"
-      },
-      {
-        "action": "export_session",
-        "id": "export-session",
-        "requires_session": true,
-        "slash": "/export"
-      },
-      {
-        "action": "tasks",
-        "id": "tasks",
-        "requires_session": false,
-        "slash": "/tasks"
-      },
-      {
-        "action": "processes",
-        "id": "processes",
-        "requires_session": false,
-        "slash": "/processes"
-      },
-      {
-        "action": "usage",
-        "id": "usage",
-        "requires_session": false,
-        "slash": "/usage"
-      },
-      {
-        "action": "preferences",
-        "id": "preferences",
-        "requires_session": false,
-        "slash": "/preferences"
-      },
-      {
-        "action": "integrations",
-        "id": "integrations",
-        "requires_session": false,
-        "slash": "/integrations"
-      },
-      {
-        "action": "environment_view",
-        "id": "environment",
-        "requires_session": false,
-        "slash": "/environment"
-      },
-      {
-        "action": "status_view",
-        "id": "diagnostics",
-        "requires_session": false,
-        "slash": "/diagnostics"
-      },
-      {
-        "action": "advanced_transport",
-        "id": "advanced-transport",
-        "requires_session": false,
-        "slash": "/advanced"
-      },
-      {
-        "action": "refresh",
-        "id": "refresh",
-        "requires_session": false,
-        "slash": "/refresh"
-      },
-      {
-        "action": "environment_commit",
-        "id": "environment-commit",
-        "requires_session": true,
-        "slash": "/commit"
-      },
-      {
-        "action": "environment_push",
-        "id": "environment-push",
-        "requires_session": true,
-        "slash": "/push"
-      },
-      {
-        "action": "environment_pull_request",
-        "id": "environment-pull-request",
-        "requires_session": true,
-        "slash": "/pr"
-      },
-      {
-        "action": "files",
-        "id": "files",
-        "requires_session": true,
-        "slash": "/files"
-      },
-      {
-        "action": "evidence",
-        "id": "evidence",
-        "requires_session": true,
-        "slash": "/evidence"
-      },
-      {
-        "action": "native_terminal",
-        "id": "terminal",
-        "requires_session": true,
-        "slash": "/terminal"
-      },
-      {
-        "action": "provider_handoff",
-        "id": "provider-handoff",
-        "requires_session": true,
-        "slash": "/provider-ui"
-      },
-      {
-        "action": "web_handoff",
-        "id": "web-handoff",
-        "requires_session": true,
-        "slash": "/web"
-      },
-      {
-        "action": "runtime_control('harness')",
-        "id": "harness",
-        "requires_session": false,
-        "slash": "/harness"
-      },
-      {
-        "action": "runtime_control('model')",
-        "id": "model",
-        "requires_session": false,
-        "slash": "/model"
-      },
-      {
-        "action": "runtime_control('effort')",
-        "id": "effort",
-        "requires_session": false,
-        "slash": "/effort"
-      },
-      {
-        "action": "runtime_control('mode')",
-        "id": "mode",
-        "requires_session": false,
-        "slash": "/mode"
-      },
-      {
-        "action": "runtime_control('permission')",
-        "id": "permission",
-        "requires_session": false,
-        "slash": "/permission"
-      },
-      {
-        "action": "runtime_control('policy')",
-        "id": "policy",
-        "requires_session": false,
-        "slash": "/policy"
-      },
-      {
-        "action": "runtime_control('sandbox')",
-        "id": "sandbox",
-        "requires_session": false,
-        "slash": "/sandbox"
-      },
-      {
-        "action": "help",
-        "id": "help",
-        "requires_session": false,
-        "slash": "/help"
-      },
-      {
-        "action": "quit",
-        "id": "quit",
-        "requires_session": false,
-        "slash": "/quit"
-      }
     ]
   },
   "kind": "gigaloom_product_inventory",
@@ -2584,7 +2479,7 @@
     "distribution": "gigaloom",
     "name": "GigaLoom",
     "repository": "https://github.com/krakenalt/gigaloom",
-    "version": "0.6.0a1"
+    "version": "0.7.0a1"
   },
   "protocols": [
     "openai_compatible",
@@ -2593,7 +2488,7 @@
   ],
   "provider_compatibility_profiles": [
     {
-      "adapter_version": "0.6.0a1",
+      "adapter_version": "0.7.0a1",
       "capabilities": [
         "chat",
         "streaming",
@@ -2607,7 +2502,7 @@
       "evidence": [
         {
           "id": "anthropic-cloud-claude-code-fixture",
-          "revision": "847936428e2f76a21a7fa32e3c91d1ae563f1bc7943150165532a46edf03379a",
+          "revision": "965c00d8d44ce3c245388bb1e4f6618d5250e985849f908fdfd1509876fa06b4",
           "source": "built-in-contract",
           "status": "supported"
         }
@@ -2616,14 +2511,14 @@
       "id": "anthropic-cloud-claude-code",
       "native_auth": true,
       "protocol": "anthropic_compatible",
-      "revision": "847936428e2f76a21a7fa32e3c91d1ae563f1bc7943150165532a46edf03379a",
+      "revision": "965c00d8d44ce3c245388bb1e4f6618d5250e985849f908fdfd1509876fa06b4",
       "transports": [
         "native_terminal",
         "one_shot"
       ]
     },
     {
-      "adapter_version": "0.6.0a1",
+      "adapter_version": "0.7.0a1",
       "capabilities": [
         "chat",
         "streaming",
@@ -2635,7 +2530,7 @@
       "evidence": [
         {
           "id": "anthropic-compatible-claude-code-fixture",
-          "revision": "a3a917afc5d2341713ed6c316a8ccc55b0293b6919fb4e6232282e0ff7744fac",
+          "revision": "6ccebfe5b320aa52aa3921c227b526ae10fe5b125b0a9e82303751580571a659",
           "source": "built-in-contract",
           "status": "supported"
         }
@@ -2644,14 +2539,14 @@
       "id": "anthropic-compatible-claude-code",
       "native_auth": false,
       "protocol": "anthropic_compatible",
-      "revision": "a3a917afc5d2341713ed6c316a8ccc55b0293b6919fb4e6232282e0ff7744fac",
+      "revision": "6ccebfe5b320aa52aa3921c227b526ae10fe5b125b0a9e82303751580571a659",
       "transports": [
         "native_terminal",
         "one_shot"
       ]
     },
     {
-      "adapter_version": "0.6.0a1",
+      "adapter_version": "0.7.0a1",
       "capabilities": [
         "chat",
         "streaming",
@@ -2663,7 +2558,7 @@
       "evidence": [
         {
           "id": "gemini-compatible-gemini-cli-fixture",
-          "revision": "65b1dad0b93c71500c7e714ae69108926519465a3082c1af340608e83342fd8d",
+          "revision": "9f78378c3592c9e0243a0699be9d91c25816e7b75d11fca007dac2c1029ff678",
           "source": "built-in-gemini-cli-0.46-contract",
           "status": "supported"
         }
@@ -2672,7 +2567,7 @@
       "id": "gemini-compatible-gemini-cli",
       "native_auth": false,
       "protocol": "gemini_compatible",
-      "revision": "65b1dad0b93c71500c7e714ae69108926519465a3082c1af340608e83342fd8d",
+      "revision": "9f78378c3592c9e0243a0699be9d91c25816e7b75d11fca007dac2c1029ff678",
       "transports": [
         "native_structured",
         "native_terminal",
@@ -2680,7 +2575,7 @@
       ]
     },
     {
-      "adapter_version": "0.6.0a1",
+      "adapter_version": "0.7.0a1",
       "capabilities": [
         "chat",
         "streaming",
@@ -2692,7 +2587,7 @@
       "evidence": [
         {
           "id": "gemini-vertex-gemini-cli-fixture",
-          "revision": "36fbf0a933b90e9ddb3fdabd72fba65c5853b69f3938b4fea46253192a356aa0",
+          "revision": "74dce6fbcf90a0f544385a9a5088fe7e3bccdf48827cff3a272d835266d06ee2",
           "source": "built-in-gemini-cli-0.46-contract",
           "status": "supported"
         }
@@ -2701,7 +2596,7 @@
       "id": "gemini-vertex-gemini-cli",
       "native_auth": true,
       "protocol": "gemini_compatible",
-      "revision": "36fbf0a933b90e9ddb3fdabd72fba65c5853b69f3938b4fea46253192a356aa0",
+      "revision": "74dce6fbcf90a0f544385a9a5088fe7e3bccdf48827cff3a272d835266d06ee2",
       "transports": [
         "native_structured",
         "native_terminal",
@@ -2709,7 +2604,7 @@
       ]
     },
     {
-      "adapter_version": "0.6.0a1",
+      "adapter_version": "0.7.0a1",
       "capabilities": [
         "chat",
         "streaming",
@@ -2722,7 +2617,7 @@
       "evidence": [
         {
           "id": "legacy-claude-code-compatibility",
-          "revision": "eccf6e0bd46414d770c81b5bf49b6968d5ee99ae5d9ddcafc089f3bf157d45ef",
+          "revision": "96169d47ec16c3fbf2b14b05a1178277c762fb522987ab89a322302f1968503a",
           "source": "built-in-contract",
           "status": "supported"
         }
@@ -2731,14 +2626,14 @@
       "id": "legacy-gpt2giga-claude-code",
       "native_auth": false,
       "protocol": "anthropic_compatible",
-      "revision": "eccf6e0bd46414d770c81b5bf49b6968d5ee99ae5d9ddcafc089f3bf157d45ef",
+      "revision": "96169d47ec16c3fbf2b14b05a1178277c762fb522987ab89a322302f1968503a",
       "transports": [
         "native_terminal",
         "one_shot"
       ]
     },
     {
-      "adapter_version": "0.6.0a1",
+      "adapter_version": "0.7.0a1",
       "capabilities": [
         "chat",
         "streaming",
@@ -2751,7 +2646,7 @@
       "evidence": [
         {
           "id": "legacy-codex-cli-compatibility",
-          "revision": "dc4cf5baa92977950d55f9fff154079fb12001dd2fda9b80461c4442bedfc901",
+          "revision": "711675204d81688dafb810b356d43f03e24b9357af551a5f399d846b0c0a5653",
           "source": "built-in-contract",
           "status": "supported"
         }
@@ -2760,7 +2655,7 @@
       "id": "legacy-gpt2giga-codex-cli",
       "native_auth": false,
       "protocol": "openai_compatible",
-      "revision": "dc4cf5baa92977950d55f9fff154079fb12001dd2fda9b80461c4442bedfc901",
+      "revision": "711675204d81688dafb810b356d43f03e24b9357af551a5f399d846b0c0a5653",
       "transports": [
         "native_structured",
         "native_terminal",
@@ -2768,7 +2663,7 @@
       ]
     },
     {
-      "adapter_version": "0.6.0a1",
+      "adapter_version": "0.7.0a1",
       "capabilities": [
         "chat",
         "streaming",
@@ -2781,7 +2676,7 @@
       "evidence": [
         {
           "id": "legacy-direct-chat-compatibility",
-          "revision": "e203531f42b8607e99b946347b584c69aec975167e77835b6eb027f9833c7549",
+          "revision": "b0a44bfed2d42cc2e248121c0d4abbf45755b056333656529bfd860fd1f7afc3",
           "source": "built-in-contract",
           "status": "supported"
         }
@@ -2790,13 +2685,13 @@
       "id": "legacy-gpt2giga-direct-chat",
       "native_auth": false,
       "protocol": "openai_compatible",
-      "revision": "e203531f42b8607e99b946347b584c69aec975167e77835b6eb027f9833c7549",
+      "revision": "b0a44bfed2d42cc2e248121c0d4abbf45755b056333656529bfd860fd1f7afc3",
       "transports": [
         "one_shot"
       ]
     },
     {
-      "adapter_version": "0.6.0a1",
+      "adapter_version": "0.7.0a1",
       "capabilities": [
         "chat",
         "streaming",
@@ -2809,7 +2704,7 @@
       "evidence": [
         {
           "id": "legacy-gemini-cli-compatibility",
-          "revision": "6e9f631c03715fa242aeaab8624d28dbb2205b2fd491055f6b38a724cc4a67e0",
+          "revision": "967dbbb41502e3b26e237259c73c036d35a144dad734d650ed44d89c2ae6128b",
           "source": "built-in-contract",
           "status": "supported"
         }
@@ -2818,7 +2713,7 @@
       "id": "legacy-gpt2giga-gemini-cli",
       "native_auth": true,
       "protocol": "gemini_compatible",
-      "revision": "6e9f631c03715fa242aeaab8624d28dbb2205b2fd491055f6b38a724cc4a67e0",
+      "revision": "967dbbb41502e3b26e237259c73c036d35a144dad734d650ed44d89c2ae6128b",
       "transports": [
         "native_structured",
         "native_terminal",
@@ -2826,7 +2721,7 @@
       ]
     },
     {
-      "adapter_version": "0.6.0a1",
+      "adapter_version": "0.7.0a1",
       "capabilities": [
         "chat",
         "streaming",
@@ -2838,7 +2733,7 @@
       "evidence": [
         {
           "id": "codex-cli-openai-compatible-fixture",
-          "revision": "37e4d89b08f9f2ca2f5636ba0a9f7abc1f25681a5eee2bacd92780d3584f6094",
+          "revision": "2b7b6b092c950e425e50d892c7c395fcc9858f78f2f409abc3c3959de77375b8",
           "source": "built-in-contract",
           "status": "supported"
         }
@@ -2847,7 +2742,7 @@
       "id": "openai-compatible-codex-cli",
       "native_auth": false,
       "protocol": "openai_compatible",
-      "revision": "37e4d89b08f9f2ca2f5636ba0a9f7abc1f25681a5eee2bacd92780d3584f6094",
+      "revision": "2b7b6b092c950e425e50d892c7c395fcc9858f78f2f409abc3c3959de77375b8",
       "transports": [
         "native_structured",
         "native_terminal",
@@ -2855,7 +2750,7 @@
       ]
     },
     {
-      "adapter_version": "0.6.0a1",
+      "adapter_version": "0.7.0a1",
       "capabilities": [
         "chat",
         "streaming",
@@ -2867,7 +2762,7 @@
       "evidence": [
         {
           "id": "direct-chat-openai-compatible-fixture",
-          "revision": "558aced2780f1531680cd844648127dd025fcbd5567fc000b4e3f01130c9f2fa",
+          "revision": "259f007538038e885b593f496a38ca648aa5e9e1883055beae4a10bc2caaea8d",
           "source": "built-in-contract",
           "status": "supported"
         }
@@ -2876,7 +2771,7 @@
       "id": "openai-compatible-direct-chat",
       "native_auth": false,
       "protocol": "openai_compatible",
-      "revision": "558aced2780f1531680cd844648127dd025fcbd5567fc000b4e3f01130c9f2fa",
+      "revision": "259f007538038e885b593f496a38ca648aa5e9e1883055beae4a10bc2caaea8d",
       "transports": [
         "one_shot"
       ]
@@ -2949,7 +2844,6 @@
     "ProviderCompatibilityRegistry.with_builtins",
     "installed GigaLoom entry points",
     "cli.build_parser",
-    "tui.commands.COMMAND_REGISTRY",
     "ui.app.create_app routes",
     "contract tests"
   ],

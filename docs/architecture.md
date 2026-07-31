@@ -1,11 +1,10 @@
 # Architecture
 
-GigaLoom is a standalone Python distribution with three local surfaces:
+GigaLoom is a standalone Python distribution with two local surfaces:
 
 1. the `giga` command dispatches provider-native commands and administrative
    operations;
-2. the Textual terminal UI presents local runs and approvals;
-3. the FastAPI control plane serves the packaged browser cockpit on loopback.
+2. the FastAPI control plane serves the packaged browser Workbench on loopback.
 
 ## Main boundaries
 

@@ -213,7 +213,7 @@ Arena сейчас доступна через Web/API, отдельной ко�
 
 Versioned product inventory строится из product schemas, встроенных registries,
 установленных entry points, provider compatibility profiles, CLI parser,
-registry команд TUI, API routes и contract tests. First-run doctor включает
+API routes и contract tests. First-run doctor включает
 его schema, version, digest, provider contracts и documentation ids:
 
 ```bash
@@ -228,6 +228,6 @@ giga harness capabilities --agents
 ```
 
 CI запускает `giga harness capabilities --inventory --check` и проверяет
-inventory digest, CLI/TUI/API surfaces, protocol, transport, mode и deprecation
+inventory digest, CLI/API surfaces, protocol, transport, mode и deprecation
 records, локальные documentation targets, contract-test evidence и
 сгенерированные ячейки английской и русской матриц.

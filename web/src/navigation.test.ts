@@ -6,10 +6,11 @@ import { primarySurfaces, surfaceForPath } from "./navigation";
 import { validateOperationalSearch } from "./operational-navigation";
 
 describe("Cockpit V2 route contract", () => {
-  it("keeps the accepted five-surface order", () => {
+  it("keeps the accepted native-agent gateway surface order", () => {
     expect(primarySurfaces.map((surface) => surface.label)).toEqual([
       "Workbench",
       "Runs",
+      "Projects",
       "Automation",
       "Evaluation",
       "Plugins",
@@ -18,6 +19,7 @@ describe("Cockpit V2 route contract", () => {
 
   it("maps exact and deep links without claiming unknown routes", () => {
     expect(surfaceForPath("/web/work/session_123")).toBe("work");
+    expect(surfaceForPath("/web/projects/routes/route_123")).toBe("projects");
     expect(surfaceForPath("/web/runs/run_123/")).toBe("runs");
     expect(surfaceForPath("/web/automation/workflows")).toBe("automation");
     expect(surfaceForPath("/web/evaluation/baselines")).toBe("evaluation");

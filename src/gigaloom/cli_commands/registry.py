@@ -21,6 +21,16 @@ _PROVIDER_HANDLERS = frozenset(
     }
 )
 _HARNESS_HANDLERS = frozenset({"_handle_harness_list"})
+_AGENT_PROFILE_HANDLERS = frozenset(
+    {
+        "_handle_agent_probe_plan",
+        "_handle_agent_profile_add",
+        "_handle_agent_profile_discover",
+        "_handle_agent_profile_inspect",
+        "_handle_agent_profile_list",
+        "_handle_agent_profile_remove",
+    }
+)
 _UI_HANDLERS = frozenset(
     {
         "_handle_ui",
@@ -41,14 +51,39 @@ _STATE_HANDLERS = frozenset(
         "_handle_state_migrate",
         "_handle_state_restore",
         "_handle_state_rollback",
+        "_handle_state_upgrade",
         "_handle_state_verify",
     }
 )
+_PROJECT_CATALOG_HANDLERS = frozenset(
+    {
+        "_handle_project_catalog_add",
+        "_handle_project_catalog_list",
+        "_handle_project_catalog_move_session",
+        "_handle_project_catalog_relocate",
+        "_handle_project_catalog_remove",
+        "_handle_project_catalog_rename",
+        "_handle_project_profile_create",
+        "_handle_project_profile_delete",
+        "_handle_project_profile_list",
+        "_handle_project_profile_update",
+    }
+)
+_ROUTE_ADVISOR_HANDLERS = frozenset(
+    {
+        "_handle_route_override",
+        "_handle_route_recommend",
+        "_handle_route_show",
+    }
+)
+_CAPSULE_HANDLERS = frozenset({"_handle_capsule_export", "_handle_capsule_verify"})
 
 
 def resolve_handler(name: str) -> CommandHandler:
     """Import and return one registered command handler."""
-    if name in _PROVIDER_HANDLERS:
+    if name in _AGENT_PROFILE_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.agent_profiles"
+    elif name in _PROVIDER_HANDLERS:
         module_name = "gigaloom.cli_commands.handlers.provider"
     elif name in _HARNESS_HANDLERS:
         module_name = "gigaloom.cli_commands.handlers.harness"
@@ -58,6 +93,17 @@ def resolve_handler(name: str) -> CommandHandler:
         module_name = "gigaloom.cli_commands.handlers.worker"
     elif name in _STATE_HANDLERS:
         module_name = "gigaloom.cli_commands.handlers.state"
+    elif name in _PROJECT_CATALOG_HANDLERS:
+        module = import_module("gigaloom.cli_commands.handlers.projects")
+        return module.resolve_project_command_handler(name)
+    elif name == "_handle_project_launch":
+        module_name = "gigaloom.cli_commands.handlers.project_launch"
+    elif name in _ROUTE_ADVISOR_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.route_advisor"
+    elif name in _CAPSULE_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.capsules"
+    elif name == "_handle_run_command":
+        module_name = "gigaloom.cli_commands.handlers.runs"
     else:
         module_name = "gigaloom.cli"
     handler = getattr(import_module(module_name), name)

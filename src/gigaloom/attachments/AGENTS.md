@@ -12,7 +12,7 @@ Use package exports; add an `api.py` before exposing cross-context internals.
 
 # Forbidden imports
 
-No CLI, TUI, FastAPI, or concrete runtime repository imports.
+No CLI, FastAPI, or concrete runtime repository imports.
 
 # Persistence/security invariants
 

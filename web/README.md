@@ -9,7 +9,7 @@ component library, and it does not include the Python server or runtime.
 Install the exact release alongside the service that will host the assets:
 
 ```bash
-npm install --save-exact @gigaloom/web@0.6.0-alpha.1
+npm install --save-exact @gigaloom/web@0.7.0-alpha.1
 ```
 
 Mount the package's `dist/` directory at `/web/assets/`, preserving filenames,

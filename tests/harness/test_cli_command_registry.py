@@ -65,7 +65,7 @@ def test_console_metadata_commands_do_not_import_domain_graph():
 
         cases = (
             (["--version"], False),
-            (["--help"], True),
+            (["--help"], False),
             (["--non-interactive", "--help"], True),
             (["completion", "bash"], False),
             (["config", "path"], False),
@@ -227,7 +227,7 @@ def test_non_ui_domain_imports_defer_ui_frameworks():
 
         import gigaloom.doctor
         import gigaloom.performance_baseline
-        import gigaloom.tui.commands
+        import gigaloom.native.api
         import gigaloom.ui.local_access
 
         assert not any(

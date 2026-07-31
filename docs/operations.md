@@ -8,7 +8,6 @@ project-scoped state lives under `.giga/` in a registered project.
 ```sh
 giga doctor
 giga ui
-giga tui
 ```
 
 The browser UI binds to `127.0.0.1:8091` by default. Do not expose it on an
@@ -34,7 +33,7 @@ giga doctor
 ```
 
 If tmux is missing, invalid, or later disabled, GigaLoom must report that
-capability honestly. It does not restore an emulated Textual provider terminal
+capability honestly. It does not restore a GigaLoom-owned provider terminal UI
 or claim structured resume. Existing content-free terminal lifecycle records
 remain readable; cleanup and recovery stay scoped to the exact managed
 instance.
@@ -58,6 +57,15 @@ Run state rollback with the 0.6 executable before reinstalling an older
 package. Never make an older executable read `~/.gigaloom` as a substitute for
 restoring the verified historical root. See
 [Installation](installation.md#roll-back-an-upgrade) for the exact order.
+
+For the 0.6→0.7 Native Agent Gateway upgrade, stop all state owners and run
+`giga state upgrade --backup <outside-data-dir>.zip --json`. This is distinct
+from the earlier root cutover: it creates a full verified archive, migrates
+legacy session project bindings, retires Textual-only preferences without
+converting them into Web settings, and records a content-free ordered receipt.
+An interrupted invocation is resumed with the same backup path. If recovery is
+required, keep GigaLoom stopped, verify the archive, then use
+`giga state restore <archive> --replace --json` before reinstalling 0.6.
 
 ## Troubleshooting
 

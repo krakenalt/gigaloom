@@ -1,0 +1,59 @@
+{
+  "bindings": {
+    "task_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "context_manifest_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "project_catalog_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "launch_profile_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+    "capability_catalog_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+    "cost_policy_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+  },
+  "requirements": {
+    "intent": "read",
+    "required_capabilities": ["structured_output"],
+    "required_transport_classes": ["acp_stdio_v1"],
+    "workspace_policy": "read_only",
+    "network_policy": "denied",
+    "cost_policy_ref": "budget.read",
+    "platform": "linux",
+    "context_manifest_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "project_id": "prj_fixture",
+    "launch_profile_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+    "require_known_cost": true
+  },
+  "candidates": [
+    {
+      "route_id": "agent-b.acp",
+      "agent_id": "agent-b",
+      "profile_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "capability_snapshot_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "account_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "capabilities": ["session_load", "structured_output"],
+      "compatibility_grade": "verified",
+      "policy_priority": 0,
+      "cost": {
+        "knowledge": "estimated",
+        "currency": "USD",
+        "amount": "1.00",
+        "headroom": "9.00"
+      },
+      "latency_ms": 20
+    },
+    {
+      "route_id": "agent-a.acp",
+      "agent_id": "agent-a",
+      "profile_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "capability_snapshot_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "account_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "capabilities": ["structured_output"],
+      "compatibility_grade": "ready",
+      "policy_priority": 10,
+      "cost": {
+        "knowledge": "exact",
+        "currency": "USD",
+        "amount": "1.25",
+        "headroom": "8.75"
+      },
+      "latency_ms": 50
+    }
+  ]
+}

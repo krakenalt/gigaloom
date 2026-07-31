@@ -5,21 +5,15 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 
-_NATIVE_NAMESPACES = frozenset({"claude", "codex", "gemini"})
-
-
 def run_metadata_command(argv: Sequence[str]) -> int | None:
     """Run one metadata-only command or return control to normal dispatch."""
     arguments = tuple(argv)
     command_path = _command_path(arguments)
-    if command_path and command_path[0] in _NATIVE_NAMESPACES:
-        return None
-
     if arguments in {("--help",), ("-h",)}:
-        from gigaloom.tui.entrypoint import build_parser
+        from gigaloom.cli_commands.launcher import render_root_help
 
-        build_parser().parse_args(list(arguments))
-        raise AssertionError("argparse help action did not exit")
+        print(render_root_help(), end="")
+        return 0
 
     if arguments == ("--version",):
         from gigaloom import __version__

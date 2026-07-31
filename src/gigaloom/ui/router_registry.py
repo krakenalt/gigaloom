@@ -52,6 +52,9 @@ from gigaloom.ui.routers.operator_terminal import (
 from gigaloom.ui.routers.project_memory import (
     create_router as create_project_memory_router,
 )
+from gigaloom.ui.routers.project_catalog import (
+    create_router as create_project_catalog_router,
+)
 from gigaloom.ui.routers.project_tools import (
     create_router as create_project_tools_router,
 )
@@ -60,6 +63,13 @@ from gigaloom.ui.routers.provider_handoffs import create_provider_handoff_router
 from gigaloom.ui.routers.run_history import (
     create_router as create_run_history_router,
 )
+from gigaloom.ui.routers.route_advisor import (
+    create_router as create_route_advisor_router,
+)
+from gigaloom.ui.routers.run_capsules import (
+    create_router as create_run_capsules_router,
+)
+from gigaloom.ui.routers.mcp_apps import create_router as create_mcp_apps_router
 from gigaloom.ui.routers.run_streams import (
     create_router as create_run_streams_router,
 )
@@ -78,7 +88,7 @@ from gigaloom.ui.routers.settings import router as settings_router
 from gigaloom.ui.routers.shell import create_shell_router
 from gigaloom.ui.routers.tools import router as tools_router
 from gigaloom.ui.routers.trace_replays import router as trace_replays_router
-from gigaloom.ui.routers.tui_actions import router as tui_actions_router
+from gigaloom.ui.routers.run_actions import router as run_actions_router
 from gigaloom.ui.routers.workbench_resources import (
     router as workbench_resources_router,
 )
@@ -124,7 +134,7 @@ def install_application_routers(
     app.include_router(environments_router)
     app.include_router(integrations_router)
     app.include_router(tools_router)
-    app.include_router(tui_actions_router)
+    app.include_router(run_actions_router)
     app.include_router(workbench_state_router)
     app.include_router(workbench_resources_router)
     app.include_router(workflows_router)
@@ -138,6 +148,10 @@ def install_application_routers(
     app.include_router(create_operator_workspace_router(services))
     app.include_router(create_file_preview_router(services.config.data_dir))
     app.include_router(create_provider_handoff_router(services.registry))
+    app.include_router(create_project_catalog_router(services.project_catalog_service))
+    app.include_router(create_route_advisor_router(services.route_advisor_service))
+    app.include_router(create_mcp_apps_router(services.mcp_app_host_service))
+    app.include_router(create_run_capsules_router(services.run_capsule_evidence_query))
     # The shell catch-all must remain last so unknown API and asset paths never
     # become HTML responses.
     app.include_router(create_shell_router(services.ui_security))

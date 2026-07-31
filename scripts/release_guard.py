@@ -94,6 +94,17 @@ def _expected_python_version(release: str) -> str:
     return f"{match.group('base')}{python_stage}{number}"
 
 
+def _release_channels(release: str) -> dict[str, str]:
+    match = RELEASE_RE.fullmatch(release)
+    if match is None:
+        raise ReleaseGuardError(f"release {release!r} is not supported SemVer")
+    is_prerelease = match.group("stage") is not None
+    return {
+        "is_prerelease": "true" if is_prerelease else "false",
+        "npm_dist_tag": "next" if is_prerelease else "latest",
+    }
+
+
 def _release_identity(
     *,
     release_manifest_path: Path,
@@ -223,6 +234,7 @@ def validate_release(
 
     return {
         "commit": commit,
+        **_release_channels(identity["release"]),
         "mode": mode,
         "npm_package": identity["npm_package"],
         "npm_version": identity["npm_version"],

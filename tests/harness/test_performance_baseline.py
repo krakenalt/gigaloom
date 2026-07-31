@@ -505,157 +505,6 @@ def test_local_detail_profile_keeps_bounded_content_free_samples():
     )
 
 
-def test_tui_detail_profile_is_ranked_bounded_and_content_free():
-    report = run_performance_baseline(samples=1, profile="tui-detail")
-
-    _assert_g6_03_report_contract(report, profile="tui-detail")
-    assert report["schema_version"] == "gigaloom.tui-performance-profile.v4"
-    assert report["fixture_set_version"] == "t10-render.v1"
-    assert report["privacy"] == {
-        "content_captured": False,
-        "secrets_captured": False,
-        "native_homes_accessed": False,
-        "provider_traffic": False,
-        "network_accessed": False,
-        "temporary_state_only": True,
-    }
-    assert (
-        report["current_contract"]["timeline_render_strategy"]
-        == "bounded_incremental_window"
-    )
-    assert report["current_contract"]["timeline_visible_card_limit"] == 40
-    assert report["current_contract"]["timeline_row_limit"] == 200
-    assert report["current_contract"]["timeline_widget_character_limit"] == 64_000
-    assert report["current_contract"]["run_poll_rerenders_unchanged_snapshot"] is False
-    assert report["current_contract"]["run_delivery"].startswith(
-        "persistent_event_stream"
-    )
-    assert report["current_contract"]["native_delivery"].startswith(
-        "persistent_event_stream"
-    )
-    assert report["retention"]["max_retained_events_observed"] == 100
-    assert report["closure_workloads"] == {
-        "cold_start": {
-            "samples": 1,
-            "evidence": ["cold_tui_import"],
-        },
-        "warm_start": {
-            "samples": 1,
-            "evidence": ["startup_to_paint", "first_input_to_paint"],
-        },
-        "long_session": {
-            "retained_event_limit": 100,
-            "retained_character_limit": 65_536,
-            "evidence": [
-                "timeline_full_100_projection",
-                "timeline_incremental_1_projection",
-                "timeline_batch_10_projection",
-                "timeline_navigation_1_projection",
-                "timeline_full_10000_projection",
-                "timeline_retained_memory",
-            ],
-        },
-    }
-    assert {item["id"] for item in report["accepted_repairs"]} == {
-        "event_driven_run_delivery",
-        "event_driven_native_output",
-        "differential_timeline_rendering",
-        "lazy_tui_startup",
-    }
-    assert set(report["implemented_repairs"]) == {
-        "event_driven_run_delivery",
-        "event_driven_native_output",
-        "unchanged_snapshot_suppression",
-        "differential_timeline_rendering",
-        "lazy_tui_startup",
-    }
-    metrics = {item["id"] for item in report["results"]}
-    assert {
-        "cold_tui_import",
-        "startup_to_paint",
-        "first_input_to_paint",
-        "timeline_full_100_projection",
-        "timeline_incremental_1_projection",
-        "timeline_navigation_1_projection",
-        "timeline_full_10000_projection",
-        "unchanged_run_poll_projection",
-        "timeline_retained_memory",
-        "run_timer_wakeup_rate",
-        "run_active_request_rate",
-        "native_active_request_rate",
-    } <= metrics
-    by_metric = {item["id"]: item for item in report["results"]}
-    for metric in (
-        "cold_tui_import",
-        "startup_to_paint",
-        "first_input_to_paint",
-        "timeline_full_100_projection",
-        "timeline_incremental_1_projection",
-        "timeline_navigation_1_projection",
-        "timeline_full_10000_projection",
-        "unchanged_run_poll_projection",
-        "run_timer_wakeup_rate",
-        "run_active_request_rate",
-        "native_active_request_rate",
-    ):
-        assert by_metric[metric]["target_status"] in {
-            "within_target",
-            "over_target",
-        }
-    accepted_metrics = {
-        metric for repair in report["accepted_repairs"] for metric in repair["evidence"]
-    }
-    expected_status = (
-        "passed"
-        if all(
-            by_metric[metric]["target_status"] == "within_target"
-            for metric in accepted_metrics
-        )
-        else "failed"
-    )
-    assert report["status"] == expected_status
-    for metric in (
-        "run_timer_wakeup_rate",
-        "run_active_request_rate",
-        "native_active_request_rate",
-    ):
-        assert by_metric[metric]["target_status"] == "within_target"
-    assert report["startup_imports"]["module_count_p95"] > 0
-    by_workload = {item["id"]: item for item in report["render_workloads"]}
-    assert (
-        by_workload["timeline_full_10000_projection"]["counters"]["events_inspected"][
-            "max"
-        ]
-        == 40
-    )
-    assert (
-        by_workload["timeline_incremental_1_projection"]["counters"]["cards_rendered"][
-            "max"
-        ]
-        == 1
-    )
-    assert (
-        by_workload["timeline_incremental_1_projection"]["counters"]["widget_updates"][
-            "max"
-        ]
-        == 1
-    )
-    assert (
-        by_workload["timeline_navigation_1_projection"]["counters"]["cards_rendered"][
-            "max"
-        ]
-        == 0
-    )
-    assert all(
-        item["counters"]["chars_produced"]["max"] <= 64_000
-        for item in report["render_workloads"]
-    )
-    assert [item["rank"] for item in report["ranked_bottlenecks"]] == list(
-        range(1, len(report["ranked_bottlenecks"]) + 1)
-    )
-    assert report["profile_top"]
-
-
 def test_runtime_detail_profile_is_ranked_bounded_and_content_free():
     report = run_performance_baseline(samples=1, profile="runtime-detail")
 
@@ -694,13 +543,11 @@ def test_runtime_detail_profile_is_ranked_bounded_and_content_free():
         "api_defaults",
         "api_session_events",
         "sse_terminal_attach",
-        "tui_navigation_load",
         "session_run_update",
     } <= metrics
     by_metric = {item["id"]: item for item in report["results"]}
     assert by_metric["worker_active_echo"]["sqlite"]["observed"] is True
     assert by_metric["worker_active_echo"]["sqlite"]["writes"]["p95"] > 0
-    assert by_metric["tui_navigation_load"]["sqlite"]["observed"] is False
     assert by_metric["queue_claim_many"]["details"]["claimed_jobs"]["p95"] == 16
     assert by_metric["queue_claim_many"]["details"]["duplicate_claims"]["p95"] == 0
     assert by_metric["worker_idle_loop"]["details"]["cycles"]["p95"] >= 2
@@ -768,7 +615,6 @@ def test_performance_cli_writes_private_report(tmp_path, capsys):
     (
         ("ci-smoke", ["session_projection"], 1),
         ("local-detail", [], 0),
-        ("tui-detail", [], 0),
         ("runtime-detail", [], 0),
     ),
 )
@@ -817,34 +663,9 @@ def test_performance_workflows_split_ci_and_detailed_profiles():
         "--output performance-artifacts/ci-smoke.json"
     ) in ci
     assert "retention-days: 7" in ci
-    for profile in ("local-detail", "tui-detail", "runtime-detail"):
+    for profile in ("local-detail", "runtime-detail"):
         assert f"giga benchmark performance --profile {profile}" in nightly
     assert "retention-days: 14" in nightly
-
-
-def test_performance_cli_writes_private_tui_profile(tmp_path, capsys):
-    output = tmp_path / "tui-report.json"
-
-    assert (
-        cli.main(
-            [
-                "benchmark",
-                "performance",
-                "--profile",
-                "tui-detail",
-                "--samples",
-                "1",
-                "--output",
-                str(output),
-            ]
-        )
-        == 0
-    )
-
-    payload = json.loads(output.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "gigaloom.tui-performance-profile.v4"
-    assert stat.S_IMODE(output.stat().st_mode) == 0o600
-    assert "Wrote private performance report" in capsys.readouterr().out
 
 
 def test_performance_cli_writes_private_runtime_profile(tmp_path, capsys):

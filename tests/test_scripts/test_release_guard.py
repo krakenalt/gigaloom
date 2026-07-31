@@ -32,7 +32,14 @@ def git(root: Path, *arguments: str) -> str:
     return result.stdout.strip()
 
 
-def release_repository(tmp_path: Path) -> dict[str, str | Path]:
+def release_repository(
+    tmp_path: Path,
+    *,
+    release: str = "0.6.0-alpha.1",
+) -> dict[str, str | Path]:
+    python_version = (
+        release.replace("-alpha.", "a").replace("-beta.", "b").replace("-rc.", "rc")
+    )
     root = tmp_path / "repository"
     root.mkdir()
     git(root, "init", "-b", "main")
@@ -51,7 +58,7 @@ def release_repository(tmp_path: Path) -> dict[str, str | Path]:
 
     python_metadata = root / "pyproject.toml"
     python_metadata.write_text(
-        '[project]\nname = "gigaloom"\nversion = "0.6.0a1"\n',
+        f'[project]\nname = "gigaloom"\nversion = "{python_version}"\n',
         encoding="utf-8",
     )
     web = root / "web"
@@ -63,23 +70,23 @@ def release_repository(tmp_path: Path) -> dict[str, str | Path]:
                 "name": "@gigaloom/web",
                 "private": False,
                 "publishConfig": {"access": "public"},
-                "version": "0.6.0-alpha.1",
+                "version": release,
             }
         ),
         encoding="utf-8",
     )
-    release = root / "release"
-    release.mkdir()
-    release_manifest = release / "release.json"
+    release_dir = root / "release"
+    release_dir.mkdir()
+    release_manifest = release_dir / "release.json"
     release_manifest.write_text(
         json.dumps(
             {
-                "git_tag": "v0.6.0-alpha.1",
+                "git_tag": f"v{release}",
                 "npm_package": "@gigaloom/web",
-                "npm_version": "0.6.0-alpha.1",
+                "npm_version": release,
                 "python_distribution": "gigaloom",
-                "python_version": "0.6.0a1",
-                "release": "0.6.0-alpha.1",
+                "python_version": python_version,
+                "release": release,
             }
         ),
         encoding="utf-8",
@@ -98,7 +105,7 @@ def release_repository(tmp_path: Path) -> dict[str, str | Path]:
     git(root, "add", ".")
     git(root, "commit", "-m", "release identity")
     commit = git(root, "rev-parse", "HEAD")
-    tag = "v0.6.0-alpha.1"
+    tag = f"v{release}"
     git(root, "tag", tag)
     return {
         "commit": commit,
@@ -138,7 +145,9 @@ def test_release_guard_accepts_exact_release_and_candidate(tmp_path: Path):
 
     assert validate(module, repository) == {
         "commit": repository["commit"],
+        "is_prerelease": "true",
         "mode": "tagged",
+        "npm_dist_tag": "next",
         "npm_package": "@gigaloom/web",
         "npm_version": "0.6.0-alpha.1",
         "python_distribution": "gigaloom",
@@ -160,6 +169,16 @@ def test_release_guard_accepts_exact_release_and_candidate(tmp_path: Path):
     publish = validate(module, repository, event_name="publish")
     assert publish["mode"] == "publish"
     assert publish["commit"] == repository["commit"]
+
+
+def test_release_guard_selects_stable_channels(tmp_path: Path):
+    module = load_release_guard_module()
+    repository = release_repository(tmp_path, release="0.6.0")
+
+    result = validate(module, repository)
+
+    assert result["is_prerelease"] == "false"
+    assert result["npm_dist_tag"] == "latest"
 
 
 @pytest.mark.parametrize(

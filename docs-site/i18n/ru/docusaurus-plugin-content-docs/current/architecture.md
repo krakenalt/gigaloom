@@ -1,10 +1,9 @@
 # Архитектура
 
-GigaLoom — самостоятельный Python-дистрибутив с тремя локальными поверхностями:
+GigaLoom — самостоятельный Python-дистрибутив с двумя локальными поверхностями:
 
 1. команда `giga` запускает provider-native команды и административные операции;
-2. терминальный UI на Textual показывает локальные runs и approvals;
-3. FastAPI control plane раздаёт упакованный browser cockpit через loopback.
+2. FastAPI control plane раздаёт упакованный browser Workbench через loopback.
 
 ## Основные границы
 

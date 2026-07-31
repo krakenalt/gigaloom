@@ -1,6 +1,9 @@
 name: GigaLoom protected release publication
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       candidate_run_id:
@@ -34,12 +37,180 @@ permissions:
   contents: read
 
 concurrency:
-  group: gigaloom-protected-release-${{ inputs.git_tag }}
+  group: gigaloom-protected-release-${{ github.event_name == 'push' && github.ref_name || inputs.git_tag }}
   cancel-in-progress: false
 
 jobs:
+  resolve:
+    name: Release publish / resolve retained candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      candidate_manifest_sha256: ${{ steps.candidate.outputs.candidate_manifest_sha256 }}
+      candidate_run_id: ${{ steps.candidate.outputs.candidate_run_id }}
+      candidate_sha: ${{ steps.candidate.outputs.candidate_sha }}
+      git_tag: ${{ steps.candidate.outputs.git_tag }}
+      recovery_mode: ${{ steps.candidate.outputs.recovery_mode }}
+
+    steps:
+      - name: Checkout pushed release tag
+        if: github.event_name == 'push'
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Resolve pushed tag to its commit
+        if: github.event_name == 'push'
+        id: tag
+        shell: bash
+        run: echo "commit=$(git rev-parse 'HEAD^{commit}')" >> "${GITHUB_OUTPUT}"
+
+      - name: Resolve manual recovery or tag-bound candidate
+        id: candidate
+        uses: actions/github-script@v8
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_CANDIDATE_MANIFEST_SHA256: ${{ inputs.candidate_manifest_sha256 }}
+          INPUT_CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+          INPUT_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          INPUT_GIT_TAG: ${{ inputs.git_tag }}
+          INPUT_RECOVERY_MODE: ${{ inputs.recovery_mode }}
+          TAG_COMMIT: ${{ steps.tag.outputs.commit }}
+          TAG_NAME: ${{ github.ref_name }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const eventName = process.env.EVENT_NAME;
+            const shaPattern = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+            const digestPattern = /^[0-9a-f]{64}$/;
+            const runPattern = /^[1-9][0-9]*$/;
+            const tagPattern = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-(?:alpha|beta|rc)\.[1-9][0-9]*)?$/;
+            const recoveryModes = new Set([
+              'initial',
+              'recover-pypi',
+              'recover-npm',
+              'release-assets-only',
+            ]);
+            const { owner, repo } = context.repo;
+            let releaseEnvironment;
+            try {
+              releaseEnvironment = await github.rest.repos.getEnvironment({
+                owner,
+                repo,
+                environment_name: 'release-production',
+              });
+            } catch (error) {
+              core.setFailed(`release-production environment is unavailable: ${error.message}`);
+              return;
+            }
+            const requiredReviewers = releaseEnvironment.data.protection_rules?.find(
+              rule => rule.type === 'required_reviewers',
+            )?.reviewers ?? [];
+            if (requiredReviewers.length === 0) {
+              core.setFailed('release-production has no required reviewers');
+              return;
+            }
+
+            if (eventName === 'workflow_dispatch') {
+              const values = {
+                candidate_manifest_sha256: process.env.INPUT_CANDIDATE_MANIFEST_SHA256,
+                candidate_run_id: process.env.INPUT_CANDIDATE_RUN_ID,
+                candidate_sha: process.env.INPUT_CANDIDATE_SHA,
+                git_tag: process.env.INPUT_GIT_TAG,
+                recovery_mode: process.env.INPUT_RECOVERY_MODE,
+              };
+              if (!digestPattern.test(values.candidate_manifest_sha256)) {
+                core.setFailed('candidate manifest digest must be a lowercase SHA-256');
+                return;
+              }
+              if (!runPattern.test(values.candidate_run_id)) {
+                core.setFailed('candidate run ID must be a positive integer');
+                return;
+              }
+              if (!shaPattern.test(values.candidate_sha)) {
+                core.setFailed('candidate SHA must be a full lowercase Git SHA');
+                return;
+              }
+              if (!tagPattern.test(values.git_tag)) {
+                core.setFailed('release tag does not match the supported v<release> form');
+                return;
+              }
+              if (!recoveryModes.has(values.recovery_mode)) {
+                core.setFailed('unsupported recovery mode');
+                return;
+              }
+              for (const [name, value] of Object.entries(values)) {
+                core.setOutput(name, value);
+              }
+              return;
+            }
+
+            if (eventName !== 'push' || !context.ref.startsWith('refs/tags/v')) {
+              core.setFailed(`unsupported release trigger: ${eventName} ${context.ref}`);
+              return;
+            }
+            const candidateSha = process.env.TAG_COMMIT;
+            const gitTag = process.env.TAG_NAME;
+            if (!shaPattern.test(candidateSha) || !tagPattern.test(gitTag)) {
+              core.setFailed('pushed release tag or resolved commit is malformed');
+              return;
+            }
+
+            const response = await github.rest.actions.listWorkflowRuns({
+              owner,
+              repo,
+              workflow_id: 'publish-pypi.yml',
+              event: 'workflow_dispatch',
+              status: 'success',
+              head_sha: candidateSha,
+              per_page: 100,
+            });
+            const expectedArtifact = `gigaloom-release-candidate-${candidateSha}`;
+            let candidateRunId = null;
+            for (const run of response.data.workflow_runs) {
+              const runRepository = run.head_repository?.full_name ?? run.repository?.full_name;
+              if (
+                run.status !== 'completed' ||
+                run.conclusion !== 'success' ||
+                run.event !== 'workflow_dispatch' ||
+                run.head_sha !== candidateSha ||
+                runRepository !== `${owner}/${repo}`
+              ) {
+                continue;
+              }
+              const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+                owner,
+                repo,
+                run_id: run.id,
+                per_page: 100,
+              });
+              const retained = artifacts.data.artifacts.filter(
+                artifact => artifact.name === expectedArtifact && !artifact.expired,
+              );
+              if (retained.length === 1) {
+                candidateRunId = String(run.id);
+                break;
+              }
+            }
+            if (candidateRunId === null) {
+              core.setFailed(`no successful retained candidate exists for ${candidateSha}`);
+              return;
+            }
+
+            core.setOutput('candidate_manifest_sha256', '');
+            core.setOutput('candidate_run_id', candidateRunId);
+            core.setOutput('candidate_sha', candidateSha);
+            core.setOutput('git_tag', gitTag);
+            core.setOutput('recovery_mode', 'initial');
+            core.info(`selected candidate run ${candidateRunId} for ${gitTag} at ${candidateSha}`);
+
   publish:
     name: Release publish / protected registries
+    needs: resolve
     environment: release-production
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -53,7 +224,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ inputs.candidate_sha }}
+          ref: ${{ needs.resolve.outputs.candidate_sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -63,10 +234,10 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Set up Node.js 22.13
+      - name: Set up Node.js 22.14
         uses: actions/setup-node@v7
         with:
-          node-version: "22.13.0"
+          node-version: "22.14.0"
           registry-url: https://registry.npmjs.org
 
       - name: Install OIDC-capable npm 11.17
@@ -74,7 +245,7 @@ jobs:
 
       - name: Fetch guarded main and release tag
         env:
-          RELEASE_TAG: ${{ inputs.git_tag }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.git_tag }}
         run: |
           git fetch --no-tags origin main:refs/remotes/origin/main
           git fetch --no-tags origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
@@ -82,8 +253,8 @@ jobs:
       - name: Verify protected tag, identity, commit, and ancestry
         id: guard
         env:
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          RELEASE_TAG: ${{ inputs.git_tag }}
+          CANDIDATE_SHA: ${{ needs.resolve.outputs.candidate_sha }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.git_tag }}
         run: >-
           python3 scripts/release_guard.py
           --policy .github/release-policy.json
@@ -102,22 +273,23 @@ jobs:
       - name: Download exact retained candidate bundle
         uses: actions/download-artifact@v8
         with:
-          name: gigaloom-release-candidate-${{ inputs.candidate_sha }}
+          name: gigaloom-release-candidate-${{ needs.resolve.outputs.candidate_sha }}
           path: dist/release-candidate
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.candidate_run_id }}
+          run-id: ${{ needs.resolve.outputs.candidate_run_id }}
           github-token: ${{ github.token }}
 
-      - name: Verify retained checksums and operator-provided manifest digest
+      - name: Verify retained checksums and optional recovery digest
+        id: manifest
         env:
-          EXPECTED_MANIFEST_SHA256: ${{ inputs.candidate_manifest_sha256 }}
+          EXPECTED_MANIFEST_SHA256: ${{ needs.resolve.outputs.candidate_manifest_sha256 }}
         run: |
           (cd dist/release-candidate && sha256sum --check SHA256SUMS)
-          python3 -c 'import hashlib, os, pathlib, re, sys; expected = os.environ["EXPECTED_MANIFEST_SHA256"]; actual = hashlib.sha256(pathlib.Path("dist/release-candidate/candidate-manifest.json").read_bytes()).hexdigest(); sys.exit(0 if re.fullmatch(r"[0-9a-f]{64}", expected) and actual == expected else "candidate manifest digest mismatch")'
+          python3 -c 'import hashlib, os, pathlib, re, sys; expected = os.environ["EXPECTED_MANIFEST_SHA256"]; actual = hashlib.sha256(pathlib.Path("dist/release-candidate/candidate-manifest.json").read_bytes()).hexdigest(); valid = not expected or (re.fullmatch(r"[0-9a-f]{64}", expected) and actual == expected); print(f"sha256={actual}", file=open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8")); sys.exit(0 if valid else "candidate manifest digest mismatch")'
 
       - name: Reverify retained candidate without rebuilding
         env:
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          CANDIDATE_SHA: ${{ needs.resolve.outputs.candidate_sha }}
         run: |
           python3 scripts/verify_release_artifacts.py \
             --release release/release.json \
@@ -130,7 +302,7 @@ jobs:
 
       - name: Prove requested recovery mode against public registries
         env:
-          RECOVERY_MODE: ${{ inputs.recovery_mode }}
+          RECOVERY_MODE: ${{ needs.resolve.outputs.recovery_mode }}
         run: >-
           python3 scripts/release_registry_guard.py
           --release release/release.json
@@ -138,13 +310,13 @@ jobs:
           --mode "${RECOVERY_MODE}"
 
       - name: Publish only a missing npm version with OIDC provenance
-        if: inputs.recovery_mode == 'initial' || inputs.recovery_mode == 'recover-npm'
-        run: npm publish dist/release-candidate/*.tgz --provenance --access public
+        if: needs.resolve.outputs.recovery_mode == 'initial' || needs.resolve.outputs.recovery_mode == 'recover-npm'
+        run: npm publish dist/release-candidate/*.tgz --provenance --access public --tag "${{ steps.guard.outputs.npm_dist_tag }}"
 
       - name: Verify registry state after npm publication
-        if: inputs.recovery_mode == 'initial' || inputs.recovery_mode == 'recover-npm'
+        if: needs.resolve.outputs.recovery_mode == 'initial' || needs.resolve.outputs.recovery_mode == 'recover-npm'
         env:
-          RECOVERY_MODE: ${{ inputs.recovery_mode }}
+          RECOVERY_MODE: ${{ needs.resolve.outputs.recovery_mode }}
         run: |
           if [[ "${RECOVERY_MODE}" == "initial" ]]; then
             expected_mode=recover-pypi
@@ -159,7 +331,7 @@ jobs:
             --retry-seconds 10
 
       - name: Publish only a missing PyPI version with trusted publishing
-        if: inputs.recovery_mode == 'initial' || inputs.recovery_mode == 'recover-pypi'
+        if: needs.resolve.outputs.recovery_mode == 'initial' || needs.resolve.outputs.recovery_mode == 'recover-pypi'
         run: uv publish dist/release-candidate/*.whl dist/release-candidate/*.tar.gz
 
       - name: Prove both registries contain the retained candidate bytes
@@ -174,10 +346,16 @@ jobs:
       - name: Create GitHub Release last from the retained bundle
         env:
           GH_TOKEN: ${{ github.token }}
+          IS_PRERELEASE: ${{ steps.guard.outputs.is_prerelease }}
           RELEASE_TAG: ${{ steps.guard.outputs.tag }}
-        run: >-
-          gh release create "${RELEASE_TAG}"
-          dist/release-candidate/*
-          --verify-tag
-          --title "GigaLoom ${{ steps.guard.outputs.release }}"
-          --generate-notes
+        run: |
+          release_flags=(--latest)
+          if [[ "${IS_PRERELEASE}" == "true" ]]; then
+            release_flags=(--prerelease --latest=false)
+          fi
+          gh release create "${RELEASE_TAG}" \
+            dist/release-candidate/* \
+            --verify-tag \
+            --title "GigaLoom ${{ steps.guard.outputs.release }}" \
+            --generate-notes \
+            "${release_flags[@]}"

@@ -10,13 +10,12 @@ import sys
 import pytest
 
 from gigaloom import entrypoint
-from gigaloom.native_cli_contracts import NATIVE_NAMESPACE_SPECS
+from gigaloom.native.api import TerminalContext
 from gigaloom.native_cli_facade import (
     match_native_namespace,
     run_native_namespace,
 )
-from gigaloom.terminal_dispatch import TerminalContext
-from gigaloom.terminal_intent import parse_native_tui_launch_intent
+from gigaloom.native_cli_process import NativeProcessSpec
 
 
 PTY = TerminalContext(True, True, True, "xterm-256color")
@@ -29,7 +28,12 @@ def test_facade_matches_only_reviewed_root_namespaces_with_opaque_suffix(namespa
 
     invocation = match_native_namespace((namespace, *suffix))
 
-    assert invocation == (NATIVE_NAMESPACE_SPECS[namespace], suffix)
+    assert invocation is not None
+    profile, forwarded = invocation
+    assert profile.agent_id == namespace
+    assert profile.native is not None
+    assert profile.native.executable_names == (namespace,)
+    assert forwarded == suffix
 
 
 @pytest.mark.parametrize(
@@ -58,7 +62,7 @@ def test_facade_passes_provider_suffix_without_generic_option_parsing():
     assert result == 23
     assert calls == [
         (
-            NATIVE_NAMESPACE_SPECS["claude"],
+            NativeProcessSpec(namespace="claude", executable="claude"),
             ("--help", "--json", "unknown", "--", "-prompt"),
             {
                 "environment": environment,
@@ -68,7 +72,7 @@ def test_facade_passes_provider_suffix_without_generic_option_parsing():
     ]
 
 
-def test_console_entrypoint_routes_native_namespace_before_terminal_or_cli(monkeypatch):
+def test_console_entrypoint_routes_native_namespace_before_plain_cli(monkeypatch):
     calls = []
     monkeypatch.setattr(
         entrypoint,
@@ -77,83 +81,17 @@ def test_console_entrypoint_routes_native_namespace_before_terminal_or_cli(monke
     )
     monkeypatch.setattr(
         entrypoint,
-        "plan_terminal_dispatch",
-        lambda *_args, **_kwargs: pytest.fail("terminal routing must not run"),
+        "_run_core_command",
+        lambda *_args, **_kwargs: pytest.fail("core CLI must not own agent route"),
     )
 
     assert entrypoint.main(["gemini", "-p", "inspect", "--json"], context=PTY) == 37
-    assert calls == [
-        (
-            ["gemini", "-p", "inspect", "--json"],
-            {"facade_executable": sys.argv[0], "context": PTY},
-        )
-    ]
-
-
-@pytest.mark.parametrize(
-    ("namespace", "suffix", "expected"),
-    (
-        (
-            "codex",
-            ("resume", "--last"),
-            {
-                "provider_namespace": "codex",
-                "native_session_selector": "--last",
-                "session_operation": "resume",
-                "harness_id": "codex-cli",
-                "provider_transport": "app-server",
-            },
-        ),
-        (
-            "claude",
-            ("--fork-session", "-r", "fixture-session"),
-            {
-                "provider_namespace": "claude",
-                "native_session_selector": "fixture-session",
-                "session_operation": "fork",
-                "fork_session": True,
-                "harness_id": "claude-code",
-            },
-        ),
-        (
-            "claude",
-            ("--permission-mode", "plan"),
-            {
-                "provider_namespace": "claude",
-                "permission_mode": "plan",
-                "harness_id": "claude-code",
-            },
-        ),
-        (
-            "gemini",
-            ("-i", "inspect"),
-            {
-                "provider_namespace": "gemini",
-                "prompt": "inspect",
-                "harness_id": "gemini-cli",
-                "provider_transport": "acp",
-            },
-        ),
-    ),
-)
-def test_affirmative_native_human_forms_decode_to_lossless_typed_intent(
-    namespace, suffix, expected
-):
-    from gigaloom.native_cli_contracts import classify_native_route
-
-    decision = classify_native_route(
-        namespace,
-        suffix,
-        stdin_is_tty=True,
-        stdout_is_tty=True,
-        structured_transport_ready=False,
-    )
-    intent = parse_native_tui_launch_intent(namespace, suffix, decision)
-
-    assert intent is not None
-    assert intent.persistence == "provider_native"
-    for field, value in expected.items():
-        assert getattr(intent, field) == value
+    assert len(calls) == 1
+    arguments, kwargs = calls[0]
+    assert arguments == ["gemini", "-p", "inspect", "--json"]
+    assert kwargs["facade_executable"] == sys.argv[0]
+    assert kwargs["context"] is PTY
+    assert kwargs["registry"].get("gemini").agent_id == "gemini"
 
 
 def test_affirmative_human_route_uses_visible_l1_handoff_without_l0_exec():
@@ -185,40 +123,46 @@ def test_affirmative_human_route_uses_visible_l1_handoff_without_l0_exec():
     ]
 
 
-def test_admitted_codex_root_enters_canonical_workbench_with_exact_cwd(tmp_path):
-    intents = []
+def test_codex_root_never_probes_or_enters_structured_workbench(monkeypatch):
+    calls = []
+    monkeypatch.delitem(sys.modules, "gigaloom.harnesses.codex_cli", raising=False)
+    monkeypatch.delitem(sys.modules, "gigaloom.tui.entrypoint", raising=False)
 
     result = run_native_namespace(
         ("codex",),
         context=PTY,
-        structured_probe=lambda _spec, _suffix: ("0.144.5", True),
-        structured_runner=lambda intent: intents.append(intent) or 29,
-        managed_runner=lambda *_args, **_kwargs: pytest.fail("L1 must not own L2"),
-        runner=lambda *_args, **_kwargs: pytest.fail("L0 must not own L2"),
-    )
-
-    assert result == 29
-    assert len(intents) == 1
-    assert intents[0].workspace == os.getcwd()
-    assert intents[0].provider_namespace == "codex"
-    assert intents[0].provider_transport == "app-server"
-
-
-def test_codex_app_server_drift_degrades_only_human_route_to_l1():
-    calls = []
-
-    result = run_native_namespace(
-        ("codex", "resume", "fixture-thread"),
-        context=PTY,
-        structured_probe=lambda _spec, _suffix: ("0.145.0", False),
-        structured_runner=lambda _intent: pytest.fail("drift must disable L2"),
         managed_runner=lambda spec, suffix, **_kwargs: (
             calls.append((spec.namespace, suffix)) or 31
         ),
     )
 
     assert result == 31
-    assert calls == [("codex", ("resume", "fixture-thread"))]
+    assert calls == [("codex", ())]
+    assert "gigaloom.harnesses.codex_cli" not in sys.modules
+    assert "gigaloom.tui.entrypoint" not in sys.modules
+
+
+def test_structured_route_cannot_intercept_native_codex_namespace():
+    matched = match_native_namespace(("codex", "--help"))
+    assert matched is not None
+    profile, _suffix = matched
+    assert profile.native is not None
+    assert profile.structured_routes
+    calls = []
+
+    result = run_native_namespace(
+        ("codex", "--help"),
+        context=PTY,
+        runner=lambda spec, suffix, **_kwargs: (
+            calls.append((spec.executable, suffix)) or 43
+        ),
+        managed_runner=lambda *_args, **_kwargs: pytest.fail(
+            "metadata form must stay on the direct native route"
+        ),
+    )
+
+    assert result == 43
+    assert calls == [(profile.native.executable_names[0], ("--help",))]
 
 
 @pytest.mark.parametrize(
@@ -227,6 +171,8 @@ def test_codex_app_server_drift_degrades_only_human_route_to_l1():
         (PIPE, ("codex",)),
         (PIPE, ("claude", "-c")),
         (PIPE, ("gemini", "-r", "latest")),
+        (PTY, ("codex", "--help")),
+        (PTY, ("codex", "exec", "--json", "inspect")),
         (PTY, ("claude", "-c", "-p", "inspect")),
         (PTY, ("gemini", "-p", "inspect")),
     ),
@@ -277,24 +223,6 @@ def test_lossy_or_unknown_human_shapes_remain_exact_l0_passthrough(namespace, su
 
     assert result == 7
     assert calls[0][1] == suffix
-
-
-def test_attach_and_in_process_entry_paths_share_one_native_intent_decoder():
-    from gigaloom.native_cli_contracts import classify_native_route
-
-    suffix = ("-r", "latest")
-    decision = classify_native_route(
-        "gemini",
-        suffix,
-        stdin_is_tty=True,
-        stdout_is_tty=True,
-        structured_transport_ready=False,
-    )
-
-    in_process = parse_native_tui_launch_intent("gemini", suffix, decision)
-    attached = parse_native_tui_launch_intent("gemini", suffix, decision)
-
-    assert in_process == attached
 
 
 def test_native_console_import_path_avoids_argparse_textual_and_full_cli():

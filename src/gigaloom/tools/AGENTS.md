@@ -12,7 +12,7 @@ Cross-context callers use `tools/api.py` and declared subpackage APIs.
 
 # Forbidden imports
 
-No CLI, TUI, UI, or concrete session/runtime repository imports.
+No CLI, UI, or concrete session/runtime repository imports.
 
 # Persistence/security invariants
 

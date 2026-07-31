@@ -1,6 +1,6 @@
 {
   "name": "@gigaloom/web",
-  "version": "0.6.0-alpha.1",
+  "version": "0.7.0-alpha.1",
   "description": "Verified static Web operator assets for GigaLoom",
   "license": "MIT",
   "private": false,
@@ -45,6 +45,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@modelcontextprotocol/ext-apps": "1.7.5",
     "@tanstack/react-query": "5.101.4",
     "@tanstack/react-router": "1.170.18",
     "@xterm/addon-fit": "0.11.0",

@@ -7,7 +7,7 @@ gateway и не требует checkout его репозитория.
 preset локального gateway:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.6.0a1'
+uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.7.0a1'
 ```
 
 Extra закрепляет проверенный публичный дистрибутив `gpt2giga`. Candidate testing

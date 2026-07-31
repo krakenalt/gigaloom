@@ -24,7 +24,7 @@ from gigaloom.runtime.store import (
     InvalidStateTransitionError,
     RuntimeCoordinationStore,
 )
-from gigaloom.ui.routers.tui_actions import validate_run_action_binding
+from gigaloom.ui.routers.run_actions import validate_run_action_binding
 
 
 router = ContractAPIRouter()

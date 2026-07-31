@@ -184,7 +184,7 @@ def test_cli_ui_starts_and_stops_worker_when_none_is_online(
         "Popen",
         lambda command, **kwargs: popen_calls.append((command, kwargs)) or process,
     )
-    monkeypatch.setattr(ui_handlers, "create_app", lambda _config: "app")
+    monkeypatch.setattr(ui_handlers, "create_app", lambda _config, **_kwargs: "app")
     uvicorn_calls = []
     monkeypatch.setattr(
         ui_handlers.uvicorn,
@@ -234,7 +234,7 @@ def test_cli_ui_reuses_online_worker_or_allows_autostart_opt_out(
         "Popen",
         lambda *args, **kwargs: pytest.fail("must not start another worker"),
     )
-    monkeypatch.setattr(ui_handlers, "create_app", lambda _config: "app")
+    monkeypatch.setattr(ui_handlers, "create_app", lambda _config, **_kwargs: "app")
     monkeypatch.setattr(ui_handlers.uvicorn, "run", lambda *args, **kwargs: None)
 
     assert cli.main(["ui"]) == 0
@@ -269,7 +269,7 @@ def test_cli_ui_starts_missing_workers_to_reach_target_pool(
 
     monkeypatch.setattr(ui_handlers, "worker_status", fake_worker_status)
     monkeypatch.setattr(ui_handlers.subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(ui_handlers, "create_app", lambda _config: "app")
+    monkeypatch.setattr(ui_handlers, "create_app", lambda _config, **_kwargs: "app")
     monkeypatch.setattr(ui_handlers.uvicorn, "run", lambda *args, **kwargs: None)
 
     assert cli.main(["ui", "--worker-count", "4"]) == 0
@@ -888,44 +888,23 @@ def test_cli_init_alias_writes_project_config(capsys, tmp_path):
     assert (tmp_path / ".giga" / "agents" / "planner.yaml").exists()
 
 
-def test_cli_agent_list_show_validate_and_run(capsys, tmp_path, monkeypatch):
+def test_cli_agent_inventory_does_not_execute_project_automation_agents(
+    capsys, tmp_path, monkeypatch
+):
     monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
     assert cli.main(["init", "--workspace", str(tmp_path), "--json"]) == 0
     capsys.readouterr()
 
-    assert cli.main(["agent", "list", "--workspace", str(tmp_path), "--json"]) == 0
+    assert cli.main(["agent", "list", "--json"]) == 0
     listing = json.loads(capsys.readouterr().out)
-    assert {item["id"] for item in listing["agents"]} >= {"planner", "reviewer"}
-
-    assert (
-        cli.main(["agent", "show", "planner", "--workspace", str(tmp_path), "--json"])
-        == 0
-    )
-    assert json.loads(capsys.readouterr().out)["title"] == "Planner"
-
-    path = tmp_path / ".giga" / "agents" / "planner.yaml"
-    assert cli.main(["agent", "validate", str(path), "--json"]) == 0
-    assert json.loads(capsys.readouterr().out)["valid"] is True
-
-    assert (
-        cli.main(
-            [
-                "agent",
-                "run",
-                "planner",
-                "--workspace",
-                str(tmp_path),
-                "--prompt",
-                "Plan this",
-                "--dry-run",
-                "--json",
-            ]
-        )
-        == 0
-    )
-    run = json.loads(capsys.readouterr().out)["run"]
-    assert run["metadata"]["agent_id"] == "planner"
-    assert run["metadata"]["agent_profile_snapshot"]["title"] == "Planner"
+    assert [item["agent_id"] for item in listing["agents"]] == [
+        "claude",
+        "codex",
+        "gemini",
+        "pi",
+    ]
+    assert "planner" not in {item["agent_id"] for item in listing["agents"]}
+    assert (tmp_path / ".giga" / "agents" / "planner.yaml").exists()
 
 
 def test_cli_preset_list_and_run_dry_run_json(capsys, tmp_path, monkeypatch):

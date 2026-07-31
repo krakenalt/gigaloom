@@ -268,10 +268,10 @@ jobs:
           uv venv --python ${{ matrix.python-version }} .venv-terminal
           uv pip install --python .venv-terminal dist/terminal/gigaloom-*.whl
 
-      - name: Smoke terminal dispatch and CLI
+      - name: Smoke native launcher and CLI
         run: |
-          uv run --python .venv-terminal --no-project python -I -c "import importlib.metadata as m; assert any(r.casefold().startswith('textual') for r in m.requires('gigaloom')); assert all(x != 'tui' for x in (m.metadata('gigaloom').get_all('Provides-Extra') or ()))"
-          uv run --python .venv-terminal --no-project python -I -c "from gigaloom.terminal_dispatch import TerminalContext, plan_terminal_dispatch; from gigaloom.terminal_intent import parse_tui_launch_intent; p=plan_terminal_dispatch(('run','--agent','codex','inspect'), context=TerminalContext(True,True,True,'xterm-256color')); i,_=parse_tui_launch_intent(('run','--agent','codex','inspect')); assert p.initialize_textual and i.harness_id == 'codex-cli' and i.prompt == 'inspect'"
+          uv run --python .venv-terminal --no-project python -I -c "import importlib.metadata as m, importlib.util as u; assert all(not r.casefold().startswith('textual') for r in m.requires('gigaloom')); assert u.find_spec('gigaloom.tui') is None"
+          uv run --python .venv-terminal --no-project giga
           uv run --python .venv-terminal --no-project giga --help
           uv run --python .venv-terminal --no-project giga --version
           uv run --python .venv-terminal --no-project giga --non-interactive --help

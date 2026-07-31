@@ -1,5 +1,7 @@
 """Public project configuration, workspace, and environment boundary."""
 
+# ruff: noqa: F401
+
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
@@ -51,6 +53,56 @@ from .serialization import (
     project_tool_profile_to_dict,
     rendered_project_preset_to_dict,
 )
+from .catalog.codec import (
+    catalog_entry_digest,
+    catalog_entry_from_dict,
+    catalog_entry_to_dict,
+)
+from .catalog.errors import (
+    ProjectCatalogCapacityError,
+    ProjectCatalogConflictError,
+    ProjectCatalogError,
+    ProjectCatalogNotFoundError,
+)
+from .catalog.models import (
+    MAX_CATALOG_ENTRIES,
+    MAX_CATALOG_PAGE_SIZE,
+    PROJECT_CATALOG_SCHEMA_VERSION,
+    ProjectCatalogEntryV1,
+    ProjectCatalogPageV1,
+    ProjectLocationRef,
+    ProjectRelocationPreviewV1,
+)
+from .catalog.migration import (
+    MAX_MIGRATION_SESSIONS,
+    PROJECT_CATALOG_MIGRATION_ID,
+    PROJECT_CATALOG_MIGRATION_SCHEMA_VERSION,
+    InjectedProjectCatalogMigrationCrash,
+    ProjectCatalogMigrationReceiptV1,
+    ProjectCatalogMigrationService,
+)
+from .catalog.repository import FilesystemProjectCatalogRepository
+from .catalog.session_bindings import SessionCatalogBindingService
+from .catalog.service import ProjectCatalogService, resolved_project_location
+from .launch_profiles.codec import (
+    launch_profile_digest,
+    launch_profile_from_dict,
+    launch_profile_to_dict,
+)
+from .launch_profiles.models import (
+    MAX_LAUNCH_PROFILES,
+    MAX_LAUNCH_PROFILE_PAGE_SIZE,
+    PROJECT_LAUNCH_PROFILE_SCHEMA_VERSION,
+    LaunchProfilePageV1,
+    LaunchResolutionContextV1,
+    ProjectLaunchProfileV1,
+    ResolvedProjectLaunchProfileV1,
+    TerminalModeHint,
+    UnsatisfiedLaunchHintV1,
+)
+from .launch_profiles.repository import FilesystemLaunchProfileRepository
+from .launch_profiles.resolution import resolve_launch_profile
+from .launch_profiles.service import ProjectLaunchProfileService
 
 if TYPE_CHECKING:
     from .backup import (
@@ -185,6 +237,10 @@ if TYPE_CHECKING:
     )
 
 _LAZY_EXPORT_MODULES = {
+    **dict.fromkeys(
+        "MIGRATION_REGISTRY_SCHEMA_VERSION NATIVE_AGENT_GATEWAY_MIGRATION_SEQUENCE_V1 MigrationRegistrationV1 validate_migration_sequence PROJECT_LAUNCH_READ_MODEL_SCHEMA_VERSION LaunchProfileReadPort ProjectCatalogReadPort ProjectLaunchReadModelV1 ProjectLaunchReadService InjectedNativeAgentGatewayMigrationCrash NATIVE_AGENT_GATEWAY_MIGRATION_ID NATIVE_AGENT_GATEWAY_MIGRATION_SCHEMA_VERSION NativeAgentGatewayMigrationReceiptV1 NativeAgentGatewayMigrationService TEXTUAL_PREFERENCES_RETIREMENT_ID".split(),
+        "integration",
+    ),
     **dict.fromkeys(
         {
             "PythonImpactIndexCache",
@@ -528,4 +584,14 @@ __all__ = [
     "verify_state_backup",
     "workspace_file_metadata",
     "workspace_tree",
+    *(
+        "InjectedProjectCatalogMigrationCrash MAX_CATALOG_ENTRIES MAX_CATALOG_PAGE_SIZE MAX_LAUNCH_PROFILES MAX_LAUNCH_PROFILE_PAGE_SIZE MAX_MIGRATION_SESSIONS "
+        "PROJECT_CATALOG_SCHEMA_VERSION PROJECT_CATALOG_MIGRATION_ID PROJECT_CATALOG_MIGRATION_SCHEMA_VERSION PROJECT_LAUNCH_PROFILE_SCHEMA_VERSION "
+        "ProjectCatalogCapacityError ProjectCatalogConflictError ProjectCatalogEntryV1 ProjectCatalogError ProjectCatalogMigrationReceiptV1 ProjectCatalogMigrationService ProjectCatalogNotFoundError ProjectCatalogPageV1 ProjectCatalogService "
+        "ProjectLocationRef ProjectLaunchProfileService ProjectLaunchProfileV1 ProjectRelocationPreviewV1 ResolvedProjectLaunchProfileV1 FilesystemProjectCatalogRepository FilesystemLaunchProfileRepository "
+        "LaunchProfilePageV1 LaunchResolutionContextV1 SessionCatalogBindingService TerminalModeHint UnsatisfiedLaunchHintV1 catalog_entry_digest catalog_entry_from_dict catalog_entry_to_dict "
+        "launch_profile_digest launch_profile_from_dict launch_profile_to_dict resolve_launch_profile resolved_project_location"
+        " MIGRATION_REGISTRY_SCHEMA_VERSION NATIVE_AGENT_GATEWAY_MIGRATION_SEQUENCE_V1 MigrationRegistrationV1 validate_migration_sequence"
+        " PROJECT_LAUNCH_READ_MODEL_SCHEMA_VERSION LaunchProfileReadPort ProjectCatalogReadPort ProjectLaunchReadModelV1 ProjectLaunchReadService InjectedNativeAgentGatewayMigrationCrash NATIVE_AGENT_GATEWAY_MIGRATION_ID NATIVE_AGENT_GATEWAY_MIGRATION_SCHEMA_VERSION NativeAgentGatewayMigrationReceiptV1 NativeAgentGatewayMigrationService TEXTUAL_PREFERENCES_RETIREMENT_ID"
+    ).split(),
 ]

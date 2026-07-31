@@ -44,6 +44,9 @@ def test_release_candidate_workflow_builds_and_attests_without_publishing():
     assert "actions/attest-build-provenance@v4" in text
     assert "./scripts/ci-base.sh sync-all-extras" in text
     assert "./scripts/ci-public-gateway.sh" in text
+    assert text.index("npm --prefix web run build:npm:release") < text.index(
+        "./scripts/ci-base.sh sync-all-extras"
+    )
     for forbidden in (
         "gh release",
         "npm publish",
@@ -56,6 +59,7 @@ def test_release_candidate_workflow_builds_and_attests_without_publishing():
 
 def test_protected_publish_consumes_one_retained_candidate_without_rebuilding():
     workflow = _workflow("release-publish.yml")
+    assert workflow["on"]["push"] == {"tags": ["v*"]}
     inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert set(inputs) == {
         "candidate_manifest_sha256",
@@ -71,8 +75,12 @@ def test_protected_publish_consumes_one_retained_candidate_without_rebuilding():
         "release-assets-only",
     ]
     assert workflow["permissions"] == {"contents": "read"}
-    assert set(workflow["jobs"]) == {"publish"}
+    assert set(workflow["jobs"]) == {"publish", "resolve"}
+    resolver = workflow["jobs"]["resolve"]
+    assert resolver["permissions"] == {"actions": "read", "contents": "read"}
+    assert resolver.get("environment") is None
     job = workflow["jobs"]["publish"]
+    assert job["needs"] == "resolve"
     assert job["environment"] == "release-production"
     assert job["permissions"] == {
         "actions": "read",
@@ -84,16 +92,23 @@ def test_protected_publish_consumes_one_retained_candidate_without_rebuilding():
         encoding="utf-8"
     )
     for contract in (
-        "run-id: ${{ inputs.candidate_run_id }}",
-        "gigaloom-release-candidate-${{ inputs.candidate_sha }}",
+        "workflow_id: 'publish-pypi.yml'",
+        "head_sha: candidateSha",
+        "release-production has no required reviewers",
+        "no successful retained candidate exists",
+        "run-id: ${{ needs.resolve.outputs.candidate_run_id }}",
+        "gigaloom-release-candidate-${{ needs.resolve.outputs.candidate_sha }}",
         "candidate-manifest.json",
         "--event-name publish",
         "scripts/verify_release_artifacts.py",
         "scripts/release_registry_guard.py",
-        "npm publish dist/release-candidate/*.tgz --provenance --access public",
+        "npm publish dist/release-candidate/*.tgz --provenance --access public --tag",
+        "steps.guard.outputs.npm_dist_tag",
         "uv publish dist/release-candidate/*.whl",
         "--mode release-assets-only",
         'gh release create "${RELEASE_TAG}"',
+        "--prerelease --latest=false",
+        "release_flags=(--latest)",
     ):
         assert contract in text
     assert text.index("npm publish") < text.index("uv publish")

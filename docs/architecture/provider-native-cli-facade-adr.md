@@ -1,8 +1,11 @@
 # ADR: Provider-native CLI facade and Workbench integration boundaries
 
-Status: accepted locally for Slice C-00 on 2026-07-21. This is an
-architecture-only decision. Runtime dispatch and executable contracts remain
-unimplemented until later slices are activated.
+Status: superseded on 2026-07-31 by the
+[native agent terminal ownership ADR](https://github.com/krakenalt/gigaloom/blob/main/release/adr/2026-07-31-native-agent-terminal-ownership-dynamic-profiles.md).
+The current contract uses declarative agent profiles, keeps native agent
+invocations separate from governed structured execution, and leaves Web as the
+only GigaLoom-owned interactive Workbench. The remainder of this document is a
+historical record of the retired Slice C-00 decision.
 
 ## Context and scope
 

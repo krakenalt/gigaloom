@@ -1,11 +1,11 @@
 # Документация GigaLoom
 
 GigaLoom — локальный, нейтральный к провайдеру управляющий слой для coding
-agents. CLI, терминальный интерфейс и браузерный cockpit запускают нативных
+agents. Provider-native CLI, structured automation и браузерный cockpit запускают нативных
 агентов, а worktrees, approvals, evidence, schedules и сохранённое состояние
 остаются под явной локальной политикой.
 
-Линия `0.6.0a1` — alpha preview. Начните с [Установки](installation.md), затем
+Линия `0.7.0a1` — alpha preview. Начните с [Установки](installation.md), затем
 пройдите [Быстрый старт](quickstart.md).
 
 ## Выберите путь

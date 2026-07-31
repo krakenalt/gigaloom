@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 from pathlib import Path
 from typing import Any, Final, Mapping
@@ -77,7 +76,6 @@ REQUIRED_COVERAGE: Final[dict[str, tuple[str, ...]]] = {
         "api_session_events",
         "sse_terminal_attach",
         "web_payload_projection",
-        "tui_navigation_load",
     ),
     "filesystem": ("session_run_update",),
 }
@@ -149,14 +147,7 @@ def _profile_request_path(root: Path) -> list[_OperationSample]:
             lambda: _web_payload_projection(payload),
         )
 
-    tui_config = HarnessConfig(data_dir=root / "tui-data")
-    workspace = root / "workspace"
-    workspace.mkdir()
-    tui_load = _measure(
-        "tui_navigation_load",
-        lambda: _load_tui_navigation(tui_config, registry, workspace),
-    )
-    return [startup, defaults, session_events, sse, web_projection, tui_load]
+    return [startup, defaults, session_events, sse, web_projection]
 
 
 def _create_profile_app(
@@ -206,22 +197,6 @@ def _web_payload_projection(payload: Mapping[str, Any]) -> Mapping[str, float]:
     return {
         "payload_bytes": float(len(encoded.encode("utf-8"))),
         "top_level_fields": float(len(decoded)),
-    }
-
-
-def _load_tui_navigation(
-    config: HarnessConfig,
-    registry: Any,
-    workspace: Path,
-) -> Mapping[str, float]:
-    from gigaloom.tui.client import InProcessWorkbenchClient
-
-    client = InProcessWorkbenchClient(config, registry=registry)
-    snapshot = asyncio.run(client.load(str(workspace)))
-    return {
-        "projects": float(len(snapshot.projects)),
-        "sessions": float(len(snapshot.sessions)),
-        "harnesses": float(len(snapshot.harnesses)),
     }
 
 

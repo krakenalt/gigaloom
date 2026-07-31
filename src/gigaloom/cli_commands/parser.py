@@ -7,11 +7,13 @@ import argparse
 from gigaloom import __version__
 from gigaloom.cli_commands.commands import (
     automation,
+    capsules,
     execution,
     harness,
     integrations,
     operations,
     provider,
+    route_advisor,
     system,
     ui,
     worker,
@@ -56,4 +58,6 @@ def build_parser() -> argparse.ArgumentParser:
     operations.register(subparsers, common)
     automation.register(subparsers, common)
     harness.register(subparsers, common)
+    route_advisor.register(subparsers, common)
+    capsules.register(subparsers)
     return parser

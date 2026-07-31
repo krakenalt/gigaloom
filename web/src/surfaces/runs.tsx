@@ -42,6 +42,9 @@ type RunTab = "timeline" | "evidence" | "review" | "reuse";
 const OperatorEvidenceWorkspace = lazy(
   () => import("../features/operator-workspace/OperatorEvidenceWorkspace"),
 );
+const RunCapsuleEvidence = lazy(
+  () => import("../features/run-capsules/RunCapsuleEvidence"),
+);
 
 interface DiffProjection {
   patch: TextProjection;
@@ -276,6 +279,11 @@ export function RunsSurface() {
                   ) : (
                     <Suspense fallback={<ListSkeleton rows={4} />}>
                       <OperatorEvidenceWorkspace
+                        locale={locale}
+                        runId={selectedRunId}
+                        workspaceId={settings.data.workspace.project_id}
+                      />
+                      <RunCapsuleEvidence
                         locale={locale}
                         runId={selectedRunId}
                         workspaceId={settings.data.workspace.project_id}

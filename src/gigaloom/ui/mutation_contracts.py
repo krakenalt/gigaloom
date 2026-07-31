@@ -8,7 +8,6 @@ New routes must still declare exact controls, owners, and conformance evidence.
 """
 
 from __future__ import annotations
-
 from typing import Iterable, Sequence
 
 from gigaloom.runtime.policy import (
@@ -27,6 +26,7 @@ from gigaloom.environment_push import ENVIRONMENT_PUSH_OWNER
 from gigaloom.environment_pull_requests import (
     ENVIRONMENT_PULL_REQUEST_OWNER,
 )
+from gigaloom.ui import native_gateway_mutation_contracts as native_gateway
 from gigaloom.ui.mutation_contract_models import (
     ConformanceBehavior,
     ConformanceEvidence,
@@ -36,8 +36,6 @@ from gigaloom.ui.mutation_contract_models import (
 )
 
 UNSAFE_HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
-
-
 CONFORMANCE_EVIDENCE = {
     item.id: item
     for item in (
@@ -306,6 +304,7 @@ CONFORMANCE_EVIDENCE = {
                 "tests/harness/test_integration_flows.py::test_flow_rejects_secret_values_stale_approval_and_records_failure",
             ),
         ),
+        *native_gateway.CONFORMANCE_EVIDENCE,
         ConformanceEvidence(
             id="auth.local_access",
             behaviors=frozenset(
@@ -392,6 +391,7 @@ def _many(
 
 
 MUTATION_ROUTE_CONTRACTS = (
+    *native_gateway.MUTATION_ROUTE_CONTRACTS,
     *_many(
         "POST",
         (

@@ -216,7 +216,7 @@ command. Open **Evaluation → Arena** in `giga ui`, or use the authenticated
 
 The versioned product inventory is generated from product schemas, built-in
 registries, installed entry points, provider compatibility profiles, the CLI
-parser, TUI command registry, API routes, and contract tests. The first-run
+parser, API routes, and contract tests. The first-run
 doctor includes its schema, version, digest, provider contracts, and
 documentation ids. Inspect it with:
 
@@ -232,6 +232,6 @@ giga harness capabilities --agents
 ```
 
 CI runs `giga harness capabilities --inventory --check`. It verifies the
-packaged inventory digest, CLI/TUI/API surfaces, protocol, transport, mode and
+packaged inventory digest, CLI/API surfaces, protocol, transport, mode and
 deprecation records, local documentation targets, contract-test evidence, and
 the generated English/Russian matrix cells.

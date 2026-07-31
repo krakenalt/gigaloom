@@ -69,7 +69,14 @@ def _handle_ui(args: argparse.Namespace, config: HarnessConfig) -> int:
         else ()
     )
     try:
-        app = create_app(config)
+        from gigaloom.cli_commands.handlers.route_advisor import (
+            build_local_route_source,
+        )
+
+        app = create_app(
+            config,
+            route_recommendation_source=build_local_route_source(config),
+        )
         uvicorn.run(
             app,
             host=config.ui_host,

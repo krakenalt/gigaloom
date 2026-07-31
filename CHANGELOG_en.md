@@ -5,6 +5,35 @@ All notable changes to GigaLoom are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0a1] - 2026-07-31
+
+### Added
+
+- **Native Agent Gateway**: declarative agent profiles, the built-in Pi profile,
+  ACP client support, explicit launch plans, and provider-native terminal
+  ownership replace the removed GigaLoom TUI path.
+- **Operator composition**: the Project Catalog, deterministic Route Advisor,
+  project-bound runs, reviewed MCP Apps, and signed offline-verifiable run
+  capsules form one evidence-preserving workflow in the Web UI and CLI.
+- **Upgrade and recovery**: `giga state upgrade` migrates 0.6 state into native
+  agent profiles and projects through a backup-first, journaled, idempotent
+  transaction with interruption recovery.
+
+### Changed
+
+- **Web-only GigaLoom UI**: GigaLoom no longer owns an interactive terminal UI.
+  Native agents own their terminal experience; GigaLoom provides the Web
+  control plane, structured CLI commands, and protocol surfaces.
+- **Release evidence**: the immutable candidate now carries the external ACP,
+  Pi, and MCP Apps pins, the read-only capsule fixture, and one combined test,
+  migration, recovery, performance, and security report.
+
+### Security
+
+- Native launch, ACP transport, route selection, MCP Apps, migration, evidence,
+  capsule, and release boundaries were threat-modeled and retain fail-closed
+  authority, provenance, digest, workspace, and source-revision checks.
+
 ## [0.6.0a1] - 2026-07-31
 
 ### Added
@@ -248,6 +277,7 @@ considered stable.
 
 ---
 
+[0.7.0a1]: https://github.com/krakenalt/gigaloom/compare/v0.6.0-alpha.1...v0.7.0-alpha.1
 [0.6.0a1]: https://github.com/krakenalt/gigaloom/compare/gigaloom-v0.5.1a2...v0.6.0-alpha.1
 [0.5.1a2]: https://github.com/krakenalt/gigaloom/compare/gigaloom-v0.5.1a1...gigaloom-v0.5.1a2
 [0.5.1a1]: https://github.com/krakenalt/gigaloom/compare/gpt2giga-harness-v0.5.0a1...gigaloom-v0.5.1a1

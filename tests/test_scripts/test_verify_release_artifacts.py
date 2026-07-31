@@ -115,7 +115,8 @@ def _candidate(tmp_path: Path) -> dict[str, Path | str]:
         "release": "0.6.0-alpha.1",
     }
     release_content = _canonical_json(release)
-    release_path = tmp_path / "release.json"
+    release_path = tmp_path / "release" / "release.json"
+    release_path.parent.mkdir()
     release_path.write_bytes(release_content)
     source_revision = "a" * 40
     files = _web_tree(release_content, source_revision)
@@ -172,6 +173,31 @@ def _candidate(tmp_path: Path) -> dict[str, Path | str]:
         ("web-provenance.json", "_build/provenance.json"),
     ):
         (artifacts / filename).write_bytes(files[embedded])
+    source_evidence = {
+        "release/0.7-external-evidence.json": b'{"evidence":"external"}\n',
+        "release/0.7-native-agent-gateway-candidate-report.md": (
+            b"# Candidate report\n"
+        ),
+        "tests/fixtures/run_capsules/read_only_run.json": (
+            b'{"schema_version":"fixture"}\n'
+        ),
+    }
+    for relative, content in source_evidence.items():
+        source = tmp_path / relative
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(content)
+    for filename, relative in (
+        ("external-evidence.json", "release/0.7-external-evidence.json"),
+        (
+            "native-agent-gateway-report.md",
+            "release/0.7-native-agent-gateway-candidate-report.md",
+        ),
+        (
+            "run-capsule-fixture.json",
+            "tests/fixtures/run_capsules/read_only_run.json",
+        ),
+    ):
+        (artifacts / filename).write_bytes(source_evidence[relative])
     return {
         "artifact_dir": artifacts,
         "release": release_path,
@@ -297,4 +323,24 @@ def test_candidate_rejects_changed_evidence_or_source_revision(tmp_path: Path):
             release_path=fixture["release"],
             artifact_dir=fixture["artifact_dir"],
             expected_source_revision="b" * 40,
+        )
+
+
+def test_candidate_rejects_changed_source_evidence(tmp_path: Path):
+    module = _module()
+    fixture = _candidate(tmp_path)
+    artifact_dir = fixture["artifact_dir"]
+    assert isinstance(artifact_dir, Path)
+    (artifact_dir / "external-evidence.json").write_text(
+        '{"changed":true}\n', encoding="utf-8"
+    )
+
+    with pytest.raises(
+        module.ReleaseArtifactError,
+        match="differs from source bytes",
+    ):
+        module.verify_candidate(
+            release_path=fixture["release"],
+            artifact_dir=artifact_dir,
+            expected_source_revision=fixture["source_revision"],
         )

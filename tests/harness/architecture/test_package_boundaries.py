@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from copy import deepcopy
 from pathlib import Path
 from types import ModuleType
@@ -20,6 +21,29 @@ def test_current_imports_follow_frozen_direction(
         )
         == []
     )
+
+
+def test_first_party_source_has_no_textual_import_or_tui_package(
+    package_root: Path,
+) -> None:
+    violations: list[str] = []
+    for path in package_root.rglob("*.py"):
+        relative = path.relative_to(package_root)
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                imported = [node.module or ""]
+            else:
+                continue
+            if any(
+                name == "textual" or name.startswith("textual.") for name in imported
+            ):
+                violations.append(f"{relative}:{node.lineno}")
+
+    assert violations == []
+    assert not (package_root / "tui").exists()
 
 
 def test_domain_cannot_import_presentation_surface(

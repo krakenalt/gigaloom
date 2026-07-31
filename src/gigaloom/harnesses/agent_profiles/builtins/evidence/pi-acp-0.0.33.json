@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-07-31",
+  "agent_id": "pi",
+  "route_id": "pi.acp",
+  "registry_snapshot": {
+    "repository": "https://github.com/agentclientprotocol/registry",
+    "commit": "6c27fde1cdbed382b35989e758532c44619cb760",
+    "distribution_id": "pi-acp",
+    "distribution_kind": "npx",
+    "package": "pi-acp",
+    "version": "0.0.33",
+    "executable": "pi-acp"
+  },
+  "reviewed_contract": {
+    "transport": "local_stdio_json_lines",
+    "wire_version": 1,
+    "command": [
+      "pi-acp"
+    ],
+    "requires_existing_local_executable": true,
+    "automatic_install": false,
+    "npx_fallback": false,
+    "remote_transport_admitted": false,
+    "probe_sends_prompt": false,
+    "probe_creates_persistent_session": false,
+    "native_pi_remains_independent": true,
+    "hidden_fallback_route": null
+  },
+  "first_slice_authority": {
+    "workspace": "read_only",
+    "network": "denied",
+    "filesystem_write": "denied",
+    "terminal_tool": "denied",
+    "permission_requests": "fail_closed",
+    "mcp": "unsupported"
+  },
+  "capability_policy": {
+    "structured_prompt": "requires_runtime_negotiation",
+    "session_new": "requires_runtime_negotiation",
+    "session_load": "requires_runtime_negotiation",
+    "session_resume": "requires_runtime_negotiation",
+    "cancellation": "requires_runtime_negotiation",
+    "usage_context": "requires_runtime_negotiation",
+    "monetary_cost": "unknown"
+  }
+}

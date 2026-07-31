@@ -575,7 +575,7 @@ def test_run_event_stream_polls_cross_process_filesystem_appends(
     api_mode,
 ):
     config = HarnessConfig(data_dir=str(tmp_path))
-    store = FilesystemHarnessSessionStore(tmp_path)
+    store = _ObservedFilesystemHarnessSessionStore(tmp_path)
     external_store = FilesystemHarnessSessionStore(tmp_path)
     session = store.create_session(
         title="Cross process stream",
@@ -594,41 +594,61 @@ def test_run_event_stream_polls_cross_process_filesystem_appends(
     )
     client = TestClient(create_app(config, store=store))
 
-    def append_from_worker() -> None:
-        time.sleep(0.15)
-        external_store.append_event(
-            HarnessStoredEvent(
-                id="evt-cross-process-delta",
-                session_id=session.id,
-                run_id=run.id,
-                type=HarnessEventType.MESSAGE_DELTA.value,
-                message="delta",
-                payload={"delta": "streamed"},
-                created_at=utc_now(),
-            )
-        )
-        external_store.update_run(run.id, status="succeeded", finished_at=utc_now())
-        external_store.append_event(
-            HarnessStoredEvent(
-                id="evt-cross-process-finished",
-                session_id=session.id,
-                run_id=run.id,
-                type=HarnessEventType.RUN_FINISHED.value,
-                message="finished",
-                payload={"status": "succeeded"},
-                created_at=utc_now(),
-            )
-        )
+    writer_result: dict[str, object] = {}
 
-    writer = threading.Thread(target=append_from_worker)
-    started_at = time.monotonic()
+    def append_from_worker() -> None:
+        writer_result["stream_read_started"] = store.event_tail_read.wait(timeout=5)
+        try:
+            external_store.append_event(
+                HarnessStoredEvent(
+                    id="evt-cross-process-delta",
+                    session_id=session.id,
+                    run_id=run.id,
+                    type=HarnessEventType.MESSAGE_DELTA.value,
+                    message="delta",
+                    payload={"delta": "streamed"},
+                    created_at=utc_now(),
+                )
+            )
+            # Keep this test scoped to cross-process tail polling. The separate
+            # legacy test owns the synthetic terminal fallback when status
+            # precedes the event.
+            external_store.append_event(
+                HarnessStoredEvent(
+                    id="evt-cross-process-finished",
+                    session_id=session.id,
+                    run_id=run.id,
+                    type=HarnessEventType.RUN_FINISHED.value,
+                    message="finished",
+                    payload={"status": "succeeded"},
+                    created_at=utc_now(),
+                )
+            )
+        except Exception as exc:  # pragma: no cover - asserted in caller
+            writer_result["error"] = exc
+        finally:
+            try:
+                external_store.update_run(
+                    run.id,
+                    status="succeeded",
+                    finished_at=utc_now(),
+                )
+            except Exception as exc:  # pragma: no cover - asserted in caller
+                writer_result.setdefault("error", exc)
+
+    writer = threading.Thread(
+        target=append_from_worker,
+        name="cross-process-event-writer",
+    )
     writer.start()
     with client.stream("GET", f"/api/runs/{run.id}/events/stream") as response:
         assert response.status_code == 200
         text = "".join(response.iter_text())
-    writer.join(timeout=1)
+    writer.join(timeout=5)
 
-    assert time.monotonic() - started_at < 2
+    assert writer_result["stream_read_started"] is True
+    assert not writer.is_alive()
+    assert "error" not in writer_result
     assert [frame["data"]["id"] for frame in _sse_frames(text)] == [
         "evt-cross-process-delta",
         "evt-cross-process-finished",
@@ -1723,6 +1743,17 @@ class _ObservedSessionUpdateStore(InMemoryHarnessSessionStore):
         page = super().list_event_tail_page(session_id, **kwargs)
         if any(item.event.type == "session.updated" for item in page.items):
             self.title_revision_read.set()
+        return page
+
+
+class _ObservedFilesystemHarnessSessionStore(FilesystemHarnessSessionStore):
+    def __init__(self, root: Path) -> None:
+        super().__init__(root)
+        self.event_tail_read = threading.Event()
+
+    def list_event_tail_page(self, session_id: str, **kwargs):
+        page = super().list_event_tail_page(session_id, **kwargs)
+        self.event_tail_read.set()
         return page
 
 

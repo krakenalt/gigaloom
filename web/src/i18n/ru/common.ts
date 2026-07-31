@@ -119,6 +119,7 @@ export const ruCommon = {
   noItems: "В этом представлении нет подходящих сохранённых элементов.",
   presentationOnly: "Только настройки представления",
   project: "Рабочая область Harness",
+  projects: "Проекты",
   openRun: "Открыть запуск",
   owner: "Владелец",
   permissionProfile: "Профиль разрешений",

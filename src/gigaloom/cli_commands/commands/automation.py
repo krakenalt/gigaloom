@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 
+from gigaloom.cli_commands.commands import agent_profiles
+
 
 def register(
     subparsers: argparse._SubParsersAction,
@@ -38,32 +40,7 @@ def register(
     eval_run.add_argument("--json", action="store_true")
     eval_run.set_defaults(handler="_handle_eval_run")
 
-    agent = subparsers.add_parser("agent")
-    agent_subparsers = agent.add_subparsers(dest="agent_command")
-
-    agent_list = agent_subparsers.add_parser("list")
-    agent_list.add_argument("--workspace", default=None)
-    agent_list.add_argument("--json", action="store_true")
-    agent_list.set_defaults(handler="_handle_agent_list")
-
-    agent_show = agent_subparsers.add_parser("show")
-    agent_show.add_argument("agent_id")
-    agent_show.add_argument("--workspace", default=None)
-    agent_show.add_argument("--json", action="store_true")
-    agent_show.set_defaults(handler="_handle_agent_show")
-
-    agent_validate = agent_subparsers.add_parser("validate")
-    agent_validate.add_argument("path")
-    agent_validate.add_argument("--json", action="store_true")
-    agent_validate.set_defaults(handler="_handle_agent_validate")
-
-    agent_run = agent_subparsers.add_parser("run", parents=[common])
-    agent_run.add_argument("agent_id")
-    agent_run.add_argument("--workspace", default=None)
-    agent_run.add_argument("--prompt", required=True)
-    agent_run.add_argument("--dry-run", action="store_true")
-    agent_run.add_argument("--json", action="store_true")
-    agent_run.set_defaults(handler="_handle_agent_profile_run")
+    agent_profiles.register(subparsers)
 
     workflow = subparsers.add_parser("workflow")
     workflow_subparsers = workflow.add_subparsers(dest="workflow_command")

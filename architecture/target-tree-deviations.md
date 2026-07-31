@@ -55,7 +55,6 @@ all of:
 | T06/T20 | `application/`, execution/workbench root implementations, and `execution/__init__.py` | `execution-application-facade-completion` and hard-limit fission |
 | T07/T20 | workbench protocol/resources and over-budget UI modules | `workbench-application-api-migration` and UI hard-limit fission |
 | T08/T20 | `cli_commands/` and root CLI implementation | `cli-package-migration` and CLI hard-limit fission |
-| T10/T20 | over-budget TUI composition and i18n modules | TUI hard-limit fission |
 | T16/T20 | SDK authoring root modules and installed SDK preview resources | `integration-sdk-package-migration` and post-1.0 resource-layout window |
 | T17/T20 | `protocols/`, native/provider target root modules, and over-budget native modules | provider package migration and hard-limit fission |
 | T18/T20 | installed evidence resources | post-1.0 evidence resource-layout window |

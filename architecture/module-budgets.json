@@ -29,7 +29,6 @@
       "sessions",
       "skills",
       "tools",
-      "tui",
       "ui"
     ],
     "compatibility_context_groups": [
@@ -53,8 +52,7 @@
           "performance_baseline.py",
           "product_capabilities.py",
           "product_inventory.py",
-          "runtime_performance_profile.py",
-          "tui_performance_profile.py"
+          "runtime_performance_profile.py"
         ]
       },
       {
@@ -258,9 +256,7 @@
         "paths": [
           "cli.py",
           "cli_capabilities.py",
-          "completion.py",
-          "terminal_dispatch.py",
-          "terminal_intent.py"
+          "completion.py"
         ]
       },
       {
@@ -319,7 +315,7 @@
     ]
   },
   "module_budgets": {
-    "python_module_hard_limit": 600,
+    "python_module_hard_limit": 597,
     "ratchet_reduction_percent": 15,
     "legacy_modules": [
       {
@@ -443,7 +439,7 @@
       },
       {
         "path": "session_runner.py",
-        "max_lines": 1858,
+        "max_lines": 1857,
         "owner": "T06/T20",
         "removal_gate": "session-runner-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
@@ -474,20 +470,6 @@
         "max_lines": 1209,
         "owner": "T06/T20",
         "removal_gate": "structured-sessions-hard-limit-fission",
-        "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
-      },
-      {
-        "path": "tui/app.py",
-        "max_lines": 2910,
-        "owner": "T10/T20",
-        "removal_gate": "tui-hard-limit-fission",
-        "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
-      },
-      {
-        "path": "tui/i18n.py",
-        "max_lines": 625,
-        "owner": "T10/T20",
-        "removal_gate": "tui-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
@@ -581,7 +563,6 @@
         ],
         "forbidden_targets": [
           "cli",
-          "tui",
           "ui"
         ]
       },

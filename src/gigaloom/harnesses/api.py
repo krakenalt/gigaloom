@@ -11,14 +11,42 @@ claude_code_custom_headers: Any
 cli_args_from_attachments: Any
 gemini_cli_custom_headers: Any
 prompt_with_attachments: Any
+AgentProfileV1: Any
+AcpCapabilitySnapshotV1: Any
+CapabilityCatalogFactState: Any
+CapabilityCatalogFactV1: Any
+CapabilityCatalogRouteV1: Any
+CapabilityCatalogV1: Any
+CapabilitySnapshotState: Any
+RouteCapabilitySnapshotV1: Any
+StructuredRouteDescriptorV1: Any
+bind_structured_route_descriptors: Any
+build_capability_catalog: Any
+load_agent_profile_registry: Any
+load_builtin_agent_profiles: Any
+project_acp_capability_snapshot: Any
 
 __all__ = [
     "attachment_raw_metadata",
+    "AcpCapabilitySnapshotV1",
+    "AgentProfileV1",
     "build_safe_env",
+    "bind_structured_route_descriptors",
+    "build_capability_catalog",
+    "CapabilityCatalogFactState",
+    "CapabilityCatalogFactV1",
+    "CapabilityCatalogRouteV1",
+    "CapabilityCatalogV1",
+    "CapabilitySnapshotState",
     "claude_code_custom_headers",
     "cli_args_from_attachments",
     "gemini_cli_custom_headers",
+    "load_agent_profile_registry",
+    "load_builtin_agent_profiles",
     "prompt_with_attachments",
+    "project_acp_capability_snapshot",
+    "RouteCapabilitySnapshotV1",
+    "StructuredRouteDescriptorV1",
 ]
 
 _LAZY_EXPORTS = {
@@ -46,6 +74,37 @@ _LAZY_EXPORTS = {
         "gigaloom.harnesses.attachment_plan",
         "prompt_with_attachments",
     ),
+    "AcpCapabilitySnapshotV1": (
+        "gigaloom.harnesses.acp.api",
+        "AcpCapabilitySnapshotV1",
+    ),
+    "AgentProfileV1": (
+        "gigaloom.harnesses.agent_profiles.api",
+        "AgentProfileV1",
+    ),
+    "load_agent_profile_registry": (
+        "gigaloom.harnesses.agent_profiles.api",
+        "load_agent_profile_registry",
+    ),
+    "load_builtin_agent_profiles": (
+        "gigaloom.harnesses.agent_profiles.api",
+        "load_builtin_agent_profiles",
+    ),
+    **{
+        name: ("gigaloom.harnesses.capability_catalog", name)
+        for name in (
+            "CapabilityCatalogFactState",
+            "CapabilityCatalogFactV1",
+            "CapabilityCatalogRouteV1",
+            "CapabilityCatalogV1",
+            "CapabilitySnapshotState",
+            "RouteCapabilitySnapshotV1",
+            "StructuredRouteDescriptorV1",
+            "bind_structured_route_descriptors",
+            "build_capability_catalog",
+            "project_acp_capability_snapshot",
+        )
+    },
 }
 
 

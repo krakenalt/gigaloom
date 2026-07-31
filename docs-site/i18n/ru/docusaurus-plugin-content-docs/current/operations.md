@@ -9,7 +9,6 @@ GigaLoom работает local-first. Runtime state хранится в
 ```sh
 giga doctor
 giga ui
-giga tui
 ```
 
 Browser UI по умолчанию слушает `127.0.0.1:8091`. Не открывайте его в
@@ -34,8 +33,8 @@ giga doctor
 ```
 
 Если tmux отсутствует, некорректен или позже отключён, GigaLoom должен честно
-сообщить unavailable capability. Он не возвращает эмулированный Textual
-provider terminal и не заявляет structured resume. Существующие content-free
+сообщить unavailable capability. Он не возвращает GigaLoom-owned provider
+terminal UI и не заявляет structured resume. Существующие content-free
 terminal lifecycle records остаются читаемыми; cleanup и recovery ограничены
 точным managed instance.
 
@@ -58,6 +57,15 @@ backup в legacy root и намеренно оставляет canonical root д
 пакета. Не заставляйте старый executable читать `~/.gigaloom` вместо
 восстановления проверенного historical root. Точный порядок приведён в
 [Установке](installation.md#откат-обновления).
+
+Для upgrade Native Agent Gateway 0.6→0.7 остановите всех владельцев state и
+запустите `giga state upgrade --backup <outside-data-dir>.zip --json`. Эта
+операция отличается от прежнего root cutover: она создаёт полный проверенный
+archive, мигрирует legacy project bindings sessions, исключает Textual-only
+preferences без преобразования в Web settings и записывает content-free
+ordered receipt. Прерванный запуск возобновляется с тем же backup path. Для
+recovery остановите GigaLoom, проверьте archive и выполните
+`giga state restore <archive> --replace --json` до переустановки 0.6.
 
 ## Диагностика
 
