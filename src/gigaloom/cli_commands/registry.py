@@ -21,6 +21,16 @@ _PROVIDER_HANDLERS = frozenset(
     }
 )
 _HARNESS_HANDLERS = frozenset({"_handle_harness_list"})
+_AGENT_PROFILE_HANDLERS = frozenset(
+    {
+        "_handle_agent_probe_plan",
+        "_handle_agent_profile_add",
+        "_handle_agent_profile_discover",
+        "_handle_agent_profile_inspect",
+        "_handle_agent_profile_list",
+        "_handle_agent_profile_remove",
+    }
+)
 _UI_HANDLERS = frozenset(
     {
         "_handle_ui",
@@ -48,7 +58,9 @@ _STATE_HANDLERS = frozenset(
 
 def resolve_handler(name: str) -> CommandHandler:
     """Import and return one registered command handler."""
-    if name in _PROVIDER_HANDLERS:
+    if name in _AGENT_PROFILE_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.agent_profiles"
+    elif name in _PROVIDER_HANDLERS:
         module_name = "gigaloom.cli_commands.handlers.provider"
     elif name in _HARNESS_HANDLERS:
         module_name = "gigaloom.cli_commands.handlers.harness"

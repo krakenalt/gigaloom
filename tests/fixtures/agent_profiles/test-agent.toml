@@ -1,0 +1,47 @@
+schema_version = 1
+agent_id = "test-agent"
+display_name = "Test Agent"
+aliases = ["ta"]
+profile_version = "1.0.0"
+auth_owner = "provider"
+platform_support = ["darwin", "linux", "win32"]
+compatibility_profiles = []
+structured_routes = []
+
+[source]
+kind = "local_manifest"
+origin = "local:test-agent.toml"
+revision = "1.0.0"
+trust_class = "local"
+reviewed = false
+
+[native]
+executable_names = ["test-agent", "test-agent-alt"]
+provider_home_markers = []
+provider_config_markers = []
+version_probe = ["--version"]
+supports_managed_terminal = true
+
+[[native.interactive_matchers]]
+matcher_id = "test-agent.root"
+kind = "empty_suffix"
+tokens = []
+precedence = 10
+
+[[native.interactive_matchers]]
+matcher_id = "test-agent.prompt"
+kind = "single_positional"
+tokens = []
+precedence = 20
+
+[[native.metadata_matchers]]
+matcher_id = "test-agent.metadata"
+kind = "any_option"
+tokens = ["--help", "--version"]
+precedence = 10
+
+[[native.headless_matchers]]
+matcher_id = "test-agent.headless"
+kind = "first_token"
+tokens = ["exec"]
+precedence = 10
