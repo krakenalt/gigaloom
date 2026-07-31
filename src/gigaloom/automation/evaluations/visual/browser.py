@@ -12,8 +12,10 @@ from gigaloom.automation.evaluations.visual.contracts import (
     BrowserFingerprint,
     VisualBrowserAdmission,
 )
+from gigaloom.automation.evaluations.visual.redaction import ScreenshotRedactionSpec
 from gigaloom.contracts import VisualViewportV1
 from gigaloom.contracts.operational_validation import (
+    normalize_identities,
     validate_digest,
     validate_identity,
     validate_text,
@@ -128,6 +130,7 @@ class BrowserCaptureRequest:
     admission: VisualBrowserAdmission
     viewport: VisualViewportV1
     assertions: tuple[DomAssertionSpec, ...] = ()
+    redactions: tuple[ScreenshotRedactionSpec, ...] = ()
 
     def __post_init__(self) -> None:
         if self.viewport not in self.admission.viewports:
@@ -141,6 +144,18 @@ class BrowserCaptureRequest:
         ids = [item.assertion_id for item in self.assertions]
         if len(ids) != len(set(ids)):
             raise ValueError("visual DOM assertion ids must be unique")
+        if (
+            not isinstance(self.redactions, tuple)
+            or len(self.redactions) > 64
+            or any(
+                not isinstance(item, ScreenshotRedactionSpec)
+                for item in self.redactions
+            )
+        ):
+            raise ValueError("visual redactions must be a bounded tuple")
+        redaction_ids = [item.redaction_id for item in self.redactions]
+        if len(redaction_ids) != len(set(redaction_ids)):
+            raise ValueError("visual redaction ids must be unique")
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +173,8 @@ class BrowserCaptureResult:
     client_width: int
     scroll_width: int
     timing_ms: int
+    masked_redaction_ids: tuple[str, ...] = ()
+    screenshot_secret_scan_passed: bool = False
 
     def __post_init__(self) -> None:
         validate_identity(self.viewport_id, field_name="visual capture viewport id")
@@ -205,6 +222,14 @@ class BrowserCaptureResult:
                 or not 0 <= value <= 1_000_000
             ):
                 raise ValueError(f"{field_name} is invalid")
+        normalized_redactions = normalize_identities(
+            self.masked_redaction_ids,
+            field_name="visual masked redaction ids",
+            maximum=64,
+        )
+        object.__setattr__(self, "masked_redaction_ids", normalized_redactions)
+        if not isinstance(self.screenshot_secret_scan_passed, bool):
+            raise ValueError("visual screenshot secret scan state is invalid")
 
     @property
     def overflow_pixels(self) -> int:

@@ -218,3 +218,10 @@ def test_capture_and_request_count_ceiling_fail_closed():
             _capture(BrowserCaptureRequest(_admission(), _admission().viewports[0])),
             screenshot_png=b"not-png",
         )
+
+    class SlowBrowser(FakeBrowser):
+        def capture(self, request: BrowserCaptureRequest) -> BrowserCaptureResult:
+            return replace(_capture(request), timing_ms=20_000)
+
+    with pytest.raises(ValueError, match="browser lifetime"):
+        collect_browser_evidence(browser=SlowBrowser(), admission=_admission())

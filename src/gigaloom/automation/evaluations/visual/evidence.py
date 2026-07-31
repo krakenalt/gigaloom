@@ -16,6 +16,7 @@ from gigaloom.automation.evaluations.visual.browser import (
     VisualBrowserPort,
 )
 from gigaloom.automation.evaluations.visual.contracts import VisualBrowserAdmission
+from gigaloom.automation.evaluations.visual.redaction import VisualRedactionPolicy
 from gigaloom.contracts import (
     OperationalEvidenceStatus,
     OperationalEvidenceV1,
@@ -48,10 +49,12 @@ def collect_browser_evidence(
     browser: VisualBrowserPort,
     admission: VisualBrowserAdmission,
     assertions: tuple[DomAssertionSpec, ...] = (),
+    redaction_policy: VisualRedactionPolicy | None = None,
 ) -> CollectedVisualEvidence:
     """Capture both admitted viewports and fail closed on authority drift."""
     if browser.identity.digest != admission.browser.digest:
         raise ValueError("visual browser identity differs from admission")
+    effective_redaction = redaction_policy or VisualRedactionPolicy()
     captures: list[BrowserCaptureResult] = []
     evidence: list[OperationalEvidenceV1] = []
     for viewport in admission.viewports:
@@ -60,6 +63,7 @@ def collect_browser_evidence(
                 admission=admission,
                 viewport=viewport,
                 assertions=assertions,
+                redactions=effective_redaction.selectors,
             )
         )
         _validate_capture(
@@ -76,6 +80,8 @@ def collect_browser_evidence(
         > MAX_ATTEMPT_SCREENSHOT_BYTES
     ):
         raise ValueError("visual screenshots exceed the attempt byte limit")
+    if sum(item.timing_ms for item in captures) > admission.browser_lifetime_ms:
+        raise ValueError("visual capture exceeded the browser lifetime")
     requests = tuple(item for capture in captures for item in capture.requests)
     if len(requests) > admission.max_requests:
         raise ValueError("visual capture exceeded the request limit")
