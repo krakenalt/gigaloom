@@ -73,6 +73,25 @@ from .catalog.models import (
 )
 from .catalog.repository import FilesystemProjectCatalogRepository
 from .catalog.service import ProjectCatalogService, resolved_project_location
+from .launch_profiles.codec import (
+    launch_profile_digest,
+    launch_profile_from_dict,
+    launch_profile_to_dict,
+)
+from .launch_profiles.models import (
+    MAX_LAUNCH_PROFILES,
+    MAX_LAUNCH_PROFILE_PAGE_SIZE,
+    PROJECT_LAUNCH_PROFILE_SCHEMA_VERSION,
+    LaunchProfilePageV1,
+    LaunchResolutionContextV1,
+    ProjectLaunchProfileV1,
+    ResolvedProjectLaunchProfileV1,
+    TerminalModeHint,
+    UnsatisfiedLaunchHintV1,
+)
+from .launch_profiles.repository import FilesystemLaunchProfileRepository
+from .launch_profiles.resolution import resolve_launch_profile
+from .launch_profiles.service import ProjectLaunchProfileService
 
 if TYPE_CHECKING:
     from .backup import (
@@ -472,10 +491,13 @@ __all__ = [
     "MINIMUM_READER_SCHEMA_VERSION",
     "MAX_CATALOG_ENTRIES",
     "MAX_CATALOG_PAGE_SIZE",
+    "MAX_LAUNCH_PROFILES",
+    "MAX_LAUNCH_PROFILE_PAGE_SIZE",
     "MIGRATION_SUPPORT_RELATIVE_PATH",
     "PRESET_WORKSPACE_POLICIES",
     "PROJECT_CONFIG_RELATIVE_PATH",
     "PROJECT_CATALOG_SCHEMA_VERSION",
+    "PROJECT_LAUNCH_PROFILE_SCHEMA_VERSION",
     "PROJECT_MEMORY_FILE",
     "PROJECT_STATE_FILE",
     "ProjectAttachmentSettings",
@@ -491,15 +513,21 @@ __all__ = [
     "ProjectMemoryEntry",
     "ProjectMemoryNotFoundError",
     "ProjectLocationRef",
+    "ProjectLaunchProfileService",
+    "ProjectLaunchProfileV1",
     "ProjectPreset",
     "ProjectToolProfile",
     "ProjectRelocationPreviewV1",
+    "ResolvedProjectLaunchProfileV1",
     "PublicContractMarker",
     "PythonImpactIndex",
     "PythonImpactIndexCache",
     "PythonImpactResult",
     "RenderedProjectPreset",
     "FilesystemProjectCatalogRepository",
+    "FilesystemLaunchProfileRepository",
+    "LaunchProfilePageV1",
+    "LaunchResolutionContextV1",
     "RunDiffReview",
     "STATE_MIGRATION_ID",
     "STATE_MIGRATION_SCHEMA_VERSION",
@@ -507,6 +535,8 @@ __all__ = [
     "StateBackupResult",
     "StateRestoreResult",
     "StateMigrationResult",
+    "TerminalModeHint",
+    "UnsatisfiedLaunchHintV1",
     "StalePythonImpactIndexError",
     "TOOL_PROFILE_NAME_PATTERN",
     "TOOL_PROFILE_RESERVED_KEYS",
@@ -529,6 +559,9 @@ __all__ = [
     "init_project_config",
     "load_project_config",
     "load_project_state",
+    "launch_profile_digest",
+    "launch_profile_from_dict",
+    "launch_profile_to_dict",
     "memory_entries_to_context",
     "memory_entries_to_prompt",
     "memory_entry_from_dict",
@@ -555,6 +588,7 @@ __all__ = [
     "reject_legacy_state_override",
     "restore_state_backup",
     "resolve_project",
+    "resolve_launch_profile",
     "resolved_project_location",
     "resolve_workspace",
     "review_run_diff",
