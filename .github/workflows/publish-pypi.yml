@@ -62,16 +62,8 @@ jobs:
           --main-ref origin/main
           --github-output "${GITHUB_OUTPUT}"
 
-      - name: Install standalone build dependencies
-        run: |
-          npm --prefix web ci --ignore-scripts
-          ./scripts/ci-base.sh sync-all-extras
-
-      - name: Run release-facing non-live checks
-        run: |
-          npm --prefix web run check
-          ./scripts/ci-public-gateway.sh
-          python3 scripts/check_legacy_identifiers.py --source-root .
+      - name: Install pinned frontend dependencies
+        run: npm --prefix web ci --ignore-scripts
 
       - name: Build canonical Web assets once
         env:
@@ -80,6 +72,15 @@ jobs:
           npm --prefix web run build:npm:release
           npm --prefix web run pack:verify
           python3 scripts/asset_contract.py --require-clean
+
+      - name: Install standalone build dependencies
+        run: ./scripts/ci-base.sh sync-all-extras
+
+      - name: Run release-facing non-live checks
+        run: |
+          npm --prefix web run check
+          ./scripts/ci-public-gateway.sh
+          python3 scripts/check_legacy_identifiers.py --source-root .
 
       - name: Build Python and npm candidate artifacts
         run: |

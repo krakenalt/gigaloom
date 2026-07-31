@@ -52,7 +52,7 @@
   },
   "rulesets": {
     "main": {
-      "bypass": "repository_admin_emergency_only_with_audit",
+      "bypass": "none",
       "enforcement": "active_after_S5-02",
       "name": "protect-main",
       "required_checks": [

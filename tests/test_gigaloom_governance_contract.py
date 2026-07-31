@@ -166,6 +166,7 @@ def test_ruleset_checks_match_the_always_running_quality_workflow():
 
     main_ruleset = policy["rulesets"]["main"]
     assert main_ruleset["name"] == "protect-main"
+    assert main_ruleset["bypass"] == "none"
     assert set(main_ruleset["required_checks"]) == required
     assert main_ruleset["target"] == "refs/heads/main"
     assert main_ruleset["block_deletions"] is True
@@ -175,6 +176,9 @@ def test_ruleset_checks_match_the_always_running_quality_workflow():
 
     tag_ruleset = policy["rulesets"]["release_tags"]
     assert tag_ruleset["name"] == "protect-gigaloom-release-tags"
+    assert tag_ruleset["bypass"] == (
+        "release_workflow_and_repository_admin_emergency_only_with_audit"
+    )
     assert tag_ruleset["target"] == "refs/tags/v*"
     assert tag_ruleset["restrict_creation"] is True
     assert tag_ruleset["restrict_updates"] is True

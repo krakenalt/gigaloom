@@ -43,22 +43,28 @@ the workflow guesses around.
    repository, publish workflow, and `release-production` environment. Confirm
    its required reviewers are ready.
 8. Record the candidate run ID, full source SHA, and
-   `candidate-manifest.json` SHA-256 out of band.
-9. Create the protected standard tag at that exact source SHA.
-10. Dispatch the protected publish workflow with the recorded candidate
-    identity and the correct recovery mode.
+   `candidate-manifest.json` SHA-256 out of band for recovery.
+9. Create the protected standard tag at that exact source SHA. The tag push
+   starts the protected publish workflow and selects the latest successful,
+   unexpired candidate artifact for that SHA.
+10. Review the selected run and SHA at the `release-production` approval gate,
+    then monitor the registry checks and GitHub Release creation.
 
 ## Two-phase workflow
 
 `.github/workflows/publish-pypi.yml` is manually dispatched to build and attest
 one retained candidate. It has no registry or GitHub Release publication step.
 
-`.github/workflows/release-publish.yml` is a separate manual workflow protected
-by the `release-production` environment. It downloads the retained candidate
-by run ID and full SHA, verifies the operator-provided manifest digest,
-rechecks the tag, ancestry, metadata, checksums, byte parity, and legacy
-denylist, and does not rebuild. It then checks public registry state before
-requesting OIDC credentials.
+`.github/workflows/release-publish.yml` is a separate workflow protected by the
+`release-production` environment. A `v*` tag push resolves the tag to a commit,
+finds the latest successful candidate workflow run for that exact SHA, and
+requires one unexpired artifact with the exact SHA-bound name. The protected
+path refuses to start unless `release-production` exists with at least one
+required reviewer. The protected job rechecks the tag, ancestry, metadata,
+checksums, byte parity, and legacy denylist and does not rebuild. It then checks
+public registry state before requesting OIDC credentials. Manual dispatch
+remains available for recovery; it additionally requires the recorded run ID,
+SHA, tag, manifest digest, and recovery mode.
 
 Choose exactly one mode:
 
@@ -71,6 +77,22 @@ Choose exactly one mode:
 Any unexpected existing filename or digest, malformed registry response, or
 registry outage stops the workflow. A successful registry is never
 republished during recovery.
+
+## Release channels
+
+The release guard derives channels from the canonical manifest version. Alpha,
+beta, and release-candidate versions publish npm under the `next` dist-tag and
+create a GitHub Pre-release with `Latest` explicitly disabled. A stable version
+publishes npm under `latest` and explicitly marks its GitHub Release as
+`Latest`. PyPI keeps the manifest's native PEP 440 prerelease or stable version.
+
+If `@gigaloom/web` does not yet exist and npm therefore cannot bind a Trusted
+Publisher, the primary npm owner must bootstrap only the exact retained `.tgz`
+once from a trusted local session, with 2FA and the derived non-stable tag (for
+the current alpha, `--tag next`). Do not put that token in GitHub. The protected
+workflow must then resume with `recover-pypi`, and the owner must bind
+`release-publish.yml` plus the `release-production` environment before any
+later npm release.
 
 ## Rollback and recovery
 

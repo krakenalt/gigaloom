@@ -18,7 +18,8 @@ repository.
 - [ ] Required checks exactly match the successful job names emitted by
       `.github/workflows/ci.yaml`.
 - [ ] Main and protected release tags reject deletion and force-push; the
-      emergency admin bypass produces an audit event.
+      main ruleset has no bypass, while any protected-tag release or emergency
+      bypass produces an audit event.
 - [ ] Secret scanning and push protection are enabled without copying any
       source-organization secret.
 - [ ] The primary and backup owners can open the private reporting channel and
@@ -35,7 +36,7 @@ repository.
 - [ ] The pending Trusted Publisher names PyPI project `gigaloom` and binds
       only `krakenalt/gigaloom`, the exact publish workflow, and the protected
       release environment.
-- [ ] Manual workflow dispatch cannot publish.
+- [ ] Manual dispatch of the candidate workflow cannot publish.
 - [ ] The source workflow is incapable of publishing before the target
       publisher is used.
 - [ ] Both owners can freeze or remove a compromised publisher and can explain
