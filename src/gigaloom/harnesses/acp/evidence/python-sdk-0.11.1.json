@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-07-31",
+  "package": {
+    "name": "agent-client-protocol",
+    "version": "0.11.1",
+    "python_requires": ">=3.10,<3.15",
+    "repository": "https://github.com/agentclientprotocol/python-sdk",
+    "tag": "0.11.1",
+    "commit": "02b6f874525927a501daf8004cae8a30f91723a2"
+  },
+  "artifacts": {
+    "wheel": {
+      "filename": "agent_client_protocol-0.11.1-py3-none-any.whl",
+      "sha256": "42790f0a25b8fd24f5c9b27b7e0c34123fc1a980024ad8ef965d1d169a5e42d4"
+    },
+    "sdist": {
+      "filename": "agent_client_protocol-0.11.1.tar.gz",
+      "sha256": "96b02a94de53e05ec20f64cedd1b83744b64f3f94dd2b82ae5d0af88388239ea"
+    }
+  },
+  "protocol": {
+    "wire_version": 1,
+    "generated_schema_ref": "refs/tags/schema-v1.16.0",
+    "generated_schema_module": "src/acp/schema.py",
+    "generated_schema_sha256": "cc4f86682fe8f5a0bcec8d5100323fdfb6d8608437799b88c6fa53b4d41bd7f3",
+    "generated_meta_module": "src/acp/meta.py",
+    "generated_meta_sha256": "d6d976eac97f5c828bd94960fd014b1c89cb2280652e00e89d2c712507158352"
+  },
+  "reviewed_contract": {
+    "transport": "local_stdio_json_lines",
+    "wire_compatibility_source": "initialize.protocolVersion",
+    "optional_feature_source": "initialize.agentCapabilities",
+    "unstable_protocol_enabled": false,
+    "remote_transport_admitted": false
+  }
+}
