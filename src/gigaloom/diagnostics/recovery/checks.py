@@ -64,7 +64,7 @@ def check_sqlite(
         )
     source_digest = _sha256_file(observation.path)
     try:
-        with _read_only_sqlite(
+        with read_only_sqlite(
             observation.path,
             timeout_seconds=limits.sqlite_timeout_seconds,
         ) as connection:
@@ -185,7 +185,11 @@ def check_jsonl(
     failure: str | None = None
     sequences: dict[str, int] = {}
     ids: set[str] = set()
-    expected_owner = _session_owner(observation.path, data_root)
+    expected_owner = (
+        None
+        if observation.path.name == "run_order.jsonl"
+        else _session_owner(observation.path, data_root)
+    )
     try:
         with observation.path.open("r", encoding="utf-8") as handle:
             for line_number, line in enumerate(handle, start=1):
@@ -481,7 +485,7 @@ def _attachment_failure(
 
 
 @contextmanager
-def _read_only_sqlite(
+def read_only_sqlite(
     path: Path,
     *,
     timeout_seconds: float,

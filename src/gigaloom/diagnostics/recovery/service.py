@@ -19,11 +19,14 @@ from gigaloom.diagnostics.recovery.checks import (
     terminal_event_check,
 )
 from gigaloom.diagnostics.recovery.models import (
+    RecoveryPreviewReport,
     RecoveryCheckResult,
     RecoveryCheckStatus,
     RecoveryScanLimits,
     RecoveryScanReport,
 )
+from gigaloom.diagnostics.recovery.quarantine import preview_quarantines
+from gigaloom.diagnostics.recovery.rebuild import preview_derived_rebuilds
 
 
 CHECK_CATALOG = (
@@ -109,6 +112,19 @@ class RecoveryCheckService:
             checks=ordered,
             files_observed=files_seen,
             bytes_observed=bytes_seen,
+        )
+
+    def preview(self, data_root: str | Path) -> RecoveryPreviewReport:
+        """Describe rebuild and quarantine actions without mutating state."""
+        scan = self.check(data_root)
+        return RecoveryPreviewReport(
+            scan=scan,
+            rebuilds=preview_derived_rebuilds(
+                scan.data_root,
+                scan,
+                limits=self.limits,
+            ),
+            quarantines=preview_quarantines(scan),
         )
 
 
