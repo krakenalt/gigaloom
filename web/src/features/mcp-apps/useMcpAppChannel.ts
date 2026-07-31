@@ -51,6 +51,7 @@ export function useMcpAppChannel({
           controller.signal,
         )
         .then((acknowledgement) => {
+          if (controller.signal.aborted) return;
           if (
             acknowledgement.request_id !== requestId ||
             acknowledgement.method !== decision.request.envelope.method

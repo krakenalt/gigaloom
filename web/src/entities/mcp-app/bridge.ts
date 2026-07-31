@@ -112,6 +112,7 @@ export function inspectMcpAppMessage(
 export class McpAppRequestWindow {
   readonly limit = MCP_APP_MAX_OUTSTANDING_REQUESTS;
   readonly #pending = new Map<string, AbortController>();
+  readonly #seen = new Set<string>();
 
   get size(): number {
     return this.#pending.size;
@@ -119,8 +120,15 @@ export class McpAppRequestWindow {
 
   admit(requestId: string | number): AbortController | null {
     const key = typedRequestId(requestId);
-    if (this.#pending.has(key) || this.#pending.size >= this.limit) return null;
+    if (
+      this.#seen.has(key) ||
+      this.#seen.size >= this.limit * 256 ||
+      this.#pending.size >= this.limit
+    ) {
+      return null;
+    }
     const controller = new AbortController();
+    this.#seen.add(key);
     this.#pending.set(key, controller);
     return controller;
   }
@@ -132,6 +140,7 @@ export class McpAppRequestWindow {
   cancelAll(): void {
     for (const controller of this.#pending.values()) controller.abort();
     this.#pending.clear();
+    this.#seen.clear();
   }
 }
 
