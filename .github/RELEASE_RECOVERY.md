@@ -63,3 +63,34 @@ required registry identities and protected environments are ready.
 Rollback means reverting release automation before any registry publication.
 After either registry succeeds, recovery is forward-only with a new immutable
 version or a byte-identical retry of only the missing registry operation.
+
+## Protected publication procedure
+
+Use `.github/workflows/release-publish.yml` only after the
+`release-production` environment has required reviewers and the PyPI and npm
+trusted-publisher bindings are ready. Record the candidate workflow run ID, the
+full candidate commit SHA, the SHA-256 of its `candidate-manifest.json`, and the
+already-created protected `v<release>` tag. The workflow downloads that exact
+retained bundle, verifies its checksums, manifest digest, tag, ancestry,
+metadata, parity, and legacy-identifier guard, and never runs a build command.
+
+Select exactly one recovery mode:
+
+- `initial`: both versions must be absent. Publish npm first, prove its SHA-1
+  and SHA-512 integrity match the retained tarball, then publish PyPI and prove
+  the wheel and sdist SHA-256 digests match.
+- `recover-pypi`: npm must already contain the exact retained tarball and the
+  PyPI version must be absent. Only PyPI is published.
+- `recover-npm`: PyPI must already contain exactly the retained wheel and sdist
+  and the npm version must be absent. Only npm is published.
+- `release-assets-only`: both registries must already contain the exact
+  candidate bytes. Neither registry is published; the GitHub Release is
+  created last from the retained bundle.
+
+Any unexpected existing file, digest mismatch, malformed registry response, or
+registry outage stops publication. Do not change modes to bypass that failure.
+Keep the workflow run, environment approval, candidate run ID, candidate manifest
+digest, registry responses, and GitHub Release URL as the release receipt. If
+GitHub Release creation fails after both registries succeed, rerun only
+`release-assets-only` after confirming that no release for the tag exists; never
+rebuild, republish, move the tag, or overwrite a release asset.

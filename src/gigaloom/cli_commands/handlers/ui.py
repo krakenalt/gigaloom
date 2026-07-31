@@ -149,16 +149,16 @@ def _start_ui_workers(
     environment.update(
         {
             "GIGALOOM_DATA_DIR": config.data_dir,
-            "GPT2GIGA_HARNESS_PROXY_URL": config.proxy_url,
-            "GPT2GIGA_HARNESS_DEFAULT_API_MODE": config.default_api_mode.value,
-            "GPT2GIGA_HARNESS_TIMEOUT_SECONDS": str(config.timeout_seconds),
-            "GPT2GIGA_HARNESS_AUTO_START_PROXY": "false",
+            "GIGALOOM_PROXY_URL": config.proxy_url,
+            "GIGALOOM_DEFAULT_API_MODE": config.default_api_mode.value,
+            "GIGALOOM_TIMEOUT_SECONDS": str(config.timeout_seconds),
+            "GIGALOOM_AUTO_START_PROXY": "false",
         }
     )
     if config.api_key:
-        environment["GPT2GIGA_HARNESS_API_KEY"] = config.api_key
+        environment["GIGALOOM_API_KEY"] = config.api_key
     if config.default_model:
-        environment["GPT2GIGA_HARNESS_DEFAULT_MODEL"] = config.default_model
+        environment["GIGALOOM_DEFAULT_MODEL"] = config.default_model
 
     processes: list[subprocess.Popen[bytes]] = []
     try:

@@ -422,8 +422,8 @@ class GeminiCliHarness(BaseHarness):
                     model,
                 ),
                 "GEMINI_CLI_TRUST_WORKSPACE": "true",
-                "GPT2GIGA_HARNESS_PROXY_URL": context.proxy_url,
-                "GPT2GIGA_HARNESS_API_MODE": request.api_mode.value,
+                "GIGALOOM_PROXY_URL": context.proxy_url,
+                "GIGALOOM_API_MODE": request.api_mode.value,
             },
         )
 

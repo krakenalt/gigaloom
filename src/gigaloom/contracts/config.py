@@ -62,51 +62,47 @@ class HarnessConfig:
     @classmethod
     def from_env(cls) -> HarnessConfig:
         """Load config from environment variables."""
-        proxy_url = _env_first("GPT2GIGA_HARNESS_PROXY_URL") or DEFAULT_PROXY_URL
-        api_key = _env_first("GPT2GIGA_HARNESS_API_KEY", "GPT2GIGA_API_KEY")
-        harness_model_key = _env_first("GPT2GIGA_HARNESS_MODEL_KEY")
-        default_model = _env_first("GPT2GIGA_HARNESS_DEFAULT_MODEL", "GIGACHAT_MODEL")
+        proxy_url = _env_first("GIGALOOM_PROXY_URL") or DEFAULT_PROXY_URL
+        api_key = _env_first("GIGALOOM_API_KEY", "GPT2GIGA_API_KEY")
+        harness_model_key = _env_first("GIGALOOM_MODEL_KEY")
+        default_model = _env_first("GIGALOOM_DEFAULT_MODEL", "GIGACHAT_MODEL")
         default_api_mode = parse_api_mode(
             _env_first(
-                "GPT2GIGA_HARNESS_DEFAULT_API_MODE",
+                "GIGALOOM_DEFAULT_API_MODE",
                 "GPT2GIGA_GIGACHAT_API_MODE",
             )
         )
-        ui_host = _env_first("GPT2GIGA_HARNESS_UI_HOST") or DEFAULT_UI_HOST
+        ui_host = _env_first("GIGALOOM_UI_HOST") or DEFAULT_UI_HOST
         ui_port = _parse_int(
-            _env_first("GPT2GIGA_HARNESS_UI_PORT"),
+            _env_first("GIGALOOM_UI_PORT"),
             DEFAULT_UI_PORT,
         )
-        ui_bootstrap_token = _env_first("GPT2GIGA_HARNESS_UI_BOOTSTRAP_TOKEN")
-        ui_allowed_hosts = _parse_csv(_env_first("GPT2GIGA_HARNESS_UI_ALLOWED_HOSTS"))
-        ui_oidc_issuer = _env_first("GPT2GIGA_HARNESS_UI_OIDC_ISSUER")
-        ui_oidc_client_id = _env_first("GPT2GIGA_HARNESS_UI_OIDC_CLIENT_ID")
-        ui_oidc_client_secret = _env_first("GPT2GIGA_HARNESS_UI_OIDC_CLIENT_SECRET")
-        ui_oidc_public_origin = _env_first("GPT2GIGA_HARNESS_UI_OIDC_PUBLIC_ORIGIN")
-        ui_oidc_role_map = _parse_oidc_role_map(
-            _env_first("GPT2GIGA_HARNESS_UI_OIDC_ROLE_MAP")
-        )
-        ui_trusted_proxies = _parse_csv(
-            _env_first("GPT2GIGA_HARNESS_UI_TRUSTED_PROXIES")
-        )
+        ui_bootstrap_token = _env_first("GIGALOOM_UI_BOOTSTRAP_TOKEN")
+        ui_allowed_hosts = _parse_csv(_env_first("GIGALOOM_UI_ALLOWED_HOSTS"))
+        ui_oidc_issuer = _env_first("GIGALOOM_UI_OIDC_ISSUER")
+        ui_oidc_client_id = _env_first("GIGALOOM_UI_OIDC_CLIENT_ID")
+        ui_oidc_client_secret = _env_first("GIGALOOM_UI_OIDC_CLIENT_SECRET")
+        ui_oidc_public_origin = _env_first("GIGALOOM_UI_OIDC_PUBLIC_ORIGIN")
+        ui_oidc_role_map = _parse_oidc_role_map(_env_first("GIGALOOM_UI_OIDC_ROLE_MAP"))
+        ui_trusted_proxies = _parse_csv(_env_first("GIGALOOM_UI_TRUSTED_PROXIES"))
         ui_remote_absolute_ttl_seconds = _parse_int(
-            _env_first("GPT2GIGA_HARNESS_UI_REMOTE_ABSOLUTE_TTL_SECONDS"),
+            _env_first("GIGALOOM_UI_REMOTE_ABSOLUTE_TTL_SECONDS"),
             DEFAULT_UI_REMOTE_ABSOLUTE_TTL_SECONDS,
         )
         ui_remote_idle_ttl_seconds = _parse_int(
-            _env_first("GPT2GIGA_HARNESS_UI_REMOTE_IDLE_TTL_SECONDS"),
+            _env_first("GIGALOOM_UI_REMOTE_IDLE_TTL_SECONDS"),
             DEFAULT_UI_REMOTE_IDLE_TTL_SECONDS,
         )
         timeout = _parse_float(
-            _env_first("GPT2GIGA_HARNESS_TIMEOUT_SECONDS"),
+            _env_first("GIGALOOM_TIMEOUT_SECONDS"),
             DEFAULT_HARNESS_TIMEOUT_SECONDS,
         )
         auto_start_proxy = _parse_bool(
-            _env_first("GPT2GIGA_HARNESS_AUTO_START_PROXY"),
+            _env_first("GIGALOOM_AUTO_START_PROXY"),
             True,
         )
         proxy_start_timeout = _parse_float(
-            _env_first("GPT2GIGA_HARNESS_PROXY_START_TIMEOUT_SECONDS"),
+            _env_first("GIGALOOM_PROXY_START_TIMEOUT_SECONDS"),
             DEFAULT_PROXY_START_TIMEOUT_SECONDS,
         )
         data_dir = _default_data_dir()

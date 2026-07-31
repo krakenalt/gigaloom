@@ -157,6 +157,9 @@ def test_release_guard_accepts_exact_release_and_candidate(tmp_path: Path):
     )
     assert candidate["mode"] == "candidate"
     assert candidate["commit"] == repository["commit"]
+    publish = validate(module, repository, event_name="publish")
+    assert publish["mode"] == "publish"
+    assert publish["commit"] == repository["commit"]
 
 
 @pytest.mark.parametrize(

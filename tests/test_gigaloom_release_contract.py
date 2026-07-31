@@ -54,6 +54,59 @@ def test_release_candidate_workflow_builds_and_attests_without_publishing():
         assert forbidden not in text
 
 
+def test_protected_publish_consumes_one_retained_candidate_without_rebuilding():
+    workflow = _workflow("release-publish.yml")
+    inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    assert set(inputs) == {
+        "candidate_manifest_sha256",
+        "candidate_run_id",
+        "candidate_sha",
+        "git_tag",
+        "recovery_mode",
+    }
+    assert inputs["recovery_mode"]["options"] == [
+        "initial",
+        "recover-pypi",
+        "recover-npm",
+        "release-assets-only",
+    ]
+    assert workflow["permissions"] == {"contents": "read"}
+    assert set(workflow["jobs"]) == {"publish"}
+    job = workflow["jobs"]["publish"]
+    assert job["environment"] == "release-production"
+    assert job["permissions"] == {
+        "actions": "read",
+        "contents": "write",
+        "id-token": "write",
+    }
+
+    text = (REPOSITORY_ROOT / ".github/workflows/release-publish.yml").read_text(
+        encoding="utf-8"
+    )
+    for contract in (
+        "run-id: ${{ inputs.candidate_run_id }}",
+        "gigaloom-release-candidate-${{ inputs.candidate_sha }}",
+        "candidate-manifest.json",
+        "--event-name publish",
+        "scripts/verify_release_artifacts.py",
+        "scripts/release_registry_guard.py",
+        "npm publish dist/release-candidate/*.tgz --provenance --access public",
+        "uv publish dist/release-candidate/*.whl",
+        "--mode release-assets-only",
+        'gh release create "${RELEASE_TAG}"',
+    ):
+        assert contract in text
+    assert text.index("npm publish") < text.index("uv publish")
+    assert text.index("uv publish") < text.index("gh release create")
+    for forbidden in (
+        "npm pack",
+        "npm --prefix web run build",
+        "uv build",
+        "scripts/hatch_build.py",
+    ):
+        assert forbidden not in text
+
+
 def test_release_policy_freezes_target_identity_and_first_release():
     policy = json.loads(
         (REPOSITORY_ROOT / ".github/release-policy.json").read_text(encoding="utf-8")
@@ -106,8 +159,13 @@ def test_release_recovery_is_fail_closed_and_preserves_immutable_versions():
         "PyPI succeeded but npm failed",
         "never move the tag",
         "previous deployment",
+        "recover-pypi",
+        "recover-npm",
+        "release-assets-only",
+        "never runs a build command",
     ):
         assert contract in recovery
+    assert "candidate manifest digest" in " ".join(recovery.split())
 
 
 def test_release_drafter_cannot_mutate_on_first_push():

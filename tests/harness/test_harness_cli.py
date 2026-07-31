@@ -202,7 +202,7 @@ def test_cli_ui_starts_and_stops_worker_when_none_is_online(
         "start",
     ]
     assert options["env"]["GIGALOOM_DATA_DIR"] == str(tmp_path)
-    assert options["env"]["GPT2GIGA_HARNESS_AUTO_START_PROXY"] == "false"
+    assert options["env"]["GIGALOOM_AUTO_START_PROXY"] == "false"
     assert uvicorn_calls == [
         (
             ("app",),
@@ -295,20 +295,20 @@ def test_cli_remote_ui_identity_validate_and_revoke_all(
 ):
     monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path))
     monkeypatch.setenv(
-        "GPT2GIGA_HARNESS_UI_OIDC_ISSUER",
+        "GIGALOOM_UI_OIDC_ISSUER",
         "https://issuer.example",
     )
-    monkeypatch.setenv("GPT2GIGA_HARNESS_UI_OIDC_CLIENT_ID", "gigaloom")
+    monkeypatch.setenv("GIGALOOM_UI_OIDC_CLIENT_ID", "gigaloom")
     monkeypatch.setenv(
-        "GPT2GIGA_HARNESS_UI_OIDC_CLIENT_SECRET",
+        "GIGALOOM_UI_OIDC_CLIENT_SECRET",
         "client-secret",
     )
     monkeypatch.setenv(
-        "GPT2GIGA_HARNESS_UI_OIDC_PUBLIC_ORIGIN",
+        "GIGALOOM_UI_OIDC_PUBLIC_ORIGIN",
         "https://harness.example",
     )
     monkeypatch.setenv(
-        "GPT2GIGA_HARNESS_UI_OIDC_ROLE_MAP",
+        "GIGALOOM_UI_OIDC_ROLE_MAP",
         '{"operator-sub":"operator","viewer-sub":"viewer"}',
     )
 
@@ -1535,7 +1535,7 @@ def test_cli_native_dry_run_prints_command_plan_without_headless_run(
         raise AssertionError("headless run should not be called for native dry-run")
 
     monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.setenv("GPT2GIGA_HARNESS_API_KEY", secret)
+    monkeypatch.setenv("GIGALOOM_API_KEY", secret)
     monkeypatch.setattr(CodexCliHarness, "run", fail_run)
     monkeypatch.setattr(ClaudeCodeHarness, "run", fail_run)
     monkeypatch.setattr(GeminiCliHarness, "run", fail_run)

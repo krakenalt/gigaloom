@@ -128,7 +128,7 @@ def settings_read_model(
         "revision": snapshot.revision,
         "runtime": {
             "proxy_url": _public_url(config.proxy_url),
-            "proxy_source": _runtime_source("GPT2GIGA_HARNESS_PROXY_URL"),
+            "proxy_source": _runtime_source("GIGALOOM_PROXY_URL"),
             "proxy_health": "not_checked",
             "auto_start_proxy": config.auto_start_proxy,
             "change_effect": "restart_required",

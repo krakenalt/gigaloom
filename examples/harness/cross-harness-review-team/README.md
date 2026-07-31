@@ -26,7 +26,7 @@ git config user.email "harness-example@example.invalid"
 git config user.name "Harness Example"
 git add .
 git commit -m "test: seed cross-harness review example"
-export GPT2GIGA_HARNESS_DATA_DIR="$PWD/.local/harness"
+export GIGALOOM_DATA_DIR="$PWD/.local/harness"
 ```
 
 Model-backed execution requires configured Codex, Claude, and Gemini CLIs plus

@@ -886,8 +886,8 @@ def _claude_env(
     extra = {
         "ANTHROPIC_BASE_URL": context.api_base_url(api_mode),
         "ANTHROPIC_AUTH_TOKEN": context.api_key or "0",
-        "GPT2GIGA_HARNESS_PROXY_URL": context.proxy_url,
-        "GPT2GIGA_HARNESS_API_MODE": api_mode.value,
+        "GIGALOOM_PROXY_URL": context.proxy_url,
+        "GIGALOOM_API_MODE": api_mode.value,
     }
     if model is not None:
         extra["ANTHROPIC_CUSTOM_HEADERS"] = claude_code_custom_headers(

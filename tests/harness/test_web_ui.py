@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import gzip
 import json
-from urllib.parse import urlparse
 
 from fastapi.testclient import TestClient
 import pytest
@@ -91,49 +90,24 @@ def test_web_is_only_packaged_shell_and_legacy_routes_are_removed(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("legacy_path", "cockpit_path"),
+    "retired_path",
     (
-        ("/work", "/web/work"),
-        ("/work/session_123", "/web/work/session_123"),
-        ("/runs/run_123", "/web/runs/run_123"),
-        (
-            "/workflows/workflow_123",
-            "/web/automation/workflows?selected=workflow_123",
-        ),
-        (
-            "/scheduled/schedule_123",
-            "/web/automation/schedules?selected=schedule_123",
-        ),
-        ("/agents", "/web/automation/agents"),
-        ("/arena", "/web/evaluation/arena"),
-        ("/evaluate", "/web/evaluation/evals"),
-        ("/tools", "/web/plugins/mcp"),
-        ("/approvals", "/web/runs"),
+        "/work",
+        "/work/session_123",
+        "/runs/run_123",
+        "/workflows/workflow_123",
+        "/scheduled/schedule_123",
+        "/agents",
+        "/arena",
+        "/evaluate",
+        "/tools",
+        "/approvals",
     ),
 )
-def test_legacy_default_deep_links_redirect_locally(
-    legacy_path, cockpit_path, tmp_path
-):
-    response = _client(tmp_path).get(legacy_path, follow_redirects=False)
+def test_retired_default_deep_links_are_not_public_aliases(retired_path, tmp_path):
+    response = _client(tmp_path).get(retired_path, follow_redirects=False)
 
-    assert response.status_code == 307
-    assert response.headers["location"] == cockpit_path
-    assert response.headers["cache-control"] == "no-cache"
-
-
-def test_legacy_selected_deep_link_cannot_set_redirect_authority(tmp_path):
-    response = _client(tmp_path).get(
-        "/workflows/%5C%5Cevil.example",
-        follow_redirects=False,
-    )
-
-    location = response.headers["location"]
-    parsed = urlparse(location)
-    assert response.status_code == 307
-    assert parsed.scheme == ""
-    assert parsed.netloc == ""
-    assert parsed.path == "/web/automation/workflows"
-    assert parsed.query == "selected=%5C%5Cevil.example"
+    assert response.status_code == 404
 
 
 @pytest.mark.parametrize(
@@ -225,10 +199,7 @@ def test_web_manifest_failure_has_package_recovery_guidance(monkeypatch, tmp_pat
     }
     assert client.get("/legacy", follow_redirects=False).status_code == 404
     saved_link = client.get("/workflows/review-team", follow_redirects=False)
-    assert saved_link.status_code == 307
-    assert saved_link.headers["location"] == (
-        "/web/automation/workflows?selected=review-team"
-    )
+    assert saved_link.status_code == 404
 
 
 def test_web_manifest_is_content_free():

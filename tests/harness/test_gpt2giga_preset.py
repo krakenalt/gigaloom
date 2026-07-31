@@ -49,7 +49,7 @@ def test_optional_preset_loader_fails_with_bounded_install_guidance(monkeypatch)
 
 
 def test_legacy_environment_migrates_to_reference_only_preset(monkeypatch):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_PROXY_URL", "https://proxy.example/root/")
+    monkeypatch.setenv("GIGALOOM_PROXY_URL", "https://proxy.example/root/")
     monkeypatch.setenv("GPT2GIGA_GIGACHAT_API_MODE", "v1")
     monkeypatch.setenv("GIGACHAT_MODEL", "GigaChat-2-Max")
     monkeypatch.setenv("GPT2GIGA_API_KEY", "secret-value-canary")
@@ -71,5 +71,5 @@ def test_legacy_environment_migrates_to_reference_only_preset(monkeypatch):
     assert provider.route_prefix == "/v1"
     assert route.effective_base_url == "https://proxy.example/root/v1"
     assert route.model == "GigaChat-2-Max"
-    assert "GPT2GIGA_HARNESS_API_KEY" in serialized
+    assert "GIGALOOM_API_KEY" in serialized
     assert "secret-value-canary" not in serialized

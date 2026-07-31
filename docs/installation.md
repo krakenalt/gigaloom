@@ -1,20 +1,28 @@
 # Installation
 
-GigaLoom supports Python 3.11–3.14. Install at least one provider-native CLI
-separately and complete that provider's own authentication flow.
+GigaLoom 0.6 is a breaking alpha clean cut. It supports Python 3.11–3.14.
+Install at least one provider-native CLI separately and complete that
+provider's own authentication flow.
+
+Managed provider terminals additionally require a POSIX host and a discoverable
+`tmux` whose `tmux -V` output can be probed. Install `tmux` with the operating
+system package manager on Linux or macOS. Windows and POSIX systems without a
+usable `tmux` retain provider-native passthrough; GigaLoom does not substitute
+an emulated terminal. The `giga` TUI itself only requires a supported
+interactive terminal.
 
 ## Install the preview
 
 With `uv`:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom==0.5.1a2'
+uv tool install --prerelease allow 'gigaloom==0.6.0a1'
 ```
 
 Or in an isolated Python environment:
 
 ```sh
-python -m pip install --pre 'gigaloom==0.5.1a2'
+python -m pip install --pre 'gigaloom==0.6.0a1'
 ```
 
 Confirm the installed artifact:
@@ -27,7 +35,27 @@ giga doctor
 `doctor` reports capability and configuration status without reading prompt
 content or contacting providers.
 
-## Migrate from `gpt2giga-harness`
+## Upgrade to 0.6
+
+An exact `uv tool install` constraint remains pinned during `uv tool upgrade`.
+To move an existing preview installation to 0.6, recreate the tool environment
+with the new exact requirement:
+
+```sh
+uv tool install --force --prerelease allow 'gigaloom==0.6.0a1'
+```
+
+If the optional gateway extra was previously installed, retain it explicitly:
+
+```sh
+uv tool install --force --prerelease allow 'gigaloom[gpt2giga]==0.6.0a1'
+```
+
+Before upgrading, stop every GigaLoom process and back up `~/.gigaloom`, the
+historical `~/.gpt2giga/harness` root when it exists, and the `.giga/`
+directory of each registered project.
+
+## Namespace and command migration
 
 The PyPI project name changed before the first standalone target release.
 Remove the historical distribution and install `gigaloom`; do not delete the
@@ -35,12 +63,26 @@ existing state directories:
 
 ```sh
 uv tool uninstall gpt2giga-harness
-uv tool install --prerelease allow 'gigaloom==0.5.1a2'
+uv tool install --prerelease allow 'gigaloom==0.6.0a1'
 ```
 
-The standalone distribution exposes the `gigaloom` Python namespace and the
-single public command `giga`. It does not publish a legacy namespace or command
-shim.
+Update extensions, imports, scripts, and frontend consumers as one clean cut:
+
+| Historical surface | 0.6 surface |
+|---|---|
+| PyPI `gpt2giga-harness` | PyPI `gigaloom` |
+| Python `gpt2giga_harness.*` | Python `gigaloom.*` |
+| command `gpt2giga-harness` | command `giga` |
+| entry-point group `gpt2giga.harnesses` | `gigaloom.harness_adapters.v1` |
+| npm `@gpt2giga/harness-cockpit-v2` | npm `@gigaloom/web` |
+| top-level UI aliases such as `/work` and `/workflows` | canonical `/web/**` routes |
+
+External adapters must be republished against the new entry-point group; there
+is no runtime bridge for the old group. The standalone distribution exposes no
+legacy Python namespace, command, entry-point group, npm package, or Web route
+alias.
+
+## Migrate local state
 
 Before the first 0.6 startup, stop existing Harness processes, unset the removed
 `GPT2GIGA_HARNESS_DATA_DIR` override, and run:
@@ -61,23 +103,57 @@ restore the verified backup to the legacy root while preserving
 Set `GIGALOOM_DATA_DIR` to use a custom canonical root. A custom root does not
 trigger migration of the two default roots.
 
+## Roll back an upgrade
+
+Before state migration, stop GigaLoom and reinstall the exact previously used
+version. After migration has started, keep 0.6 installed long enough to restore
+the verified backup first:
+
+```sh
+giga state rollback
+uv tool install --force --prerelease allow 'gigaloom==0.5.1a2'
+```
+
+`giga state rollback` restores the historical root from
+`~/.gigaloom-migration` and preserves `~/.gigaloom` for diagnosis. Do not point
+an older executable at the canonical 0.6 root, merge the two roots manually, or
+delete either root until the rollback is verified. Project `.giga/` state and
+provider-owned homes are not migrated or rolled back by this command.
+
+Package downgrade is separate from release rollback: published registry
+versions and their `v...` tags are immutable and are never overwritten or
+moved.
+
 ## Optional gateway preset
 
 The base package does not require gpt2giga. Install the optional extra only for
 Direct Chat or the legacy local-gateway preset:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.5.1a2'
+uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.6.0a1'
 ```
 
 This installs a pinned public gateway distribution. It does not require a
 gateway repository, sibling checkout, editable dependency, or submodule. See
 [Gateway integration](gateway-integration.md).
 
-## Upgrade or remove
+## Consume the Web package without Python
+
+Services that host the verified static Cockpit assets independently can install
+the matching npm release:
 
 ```sh
-uv tool upgrade --prerelease allow gigaloom
+npm install --save-exact @gigaloom/web@0.6.0-alpha.1
+```
+
+Mount the package's `dist/` directory at `/web/assets/` and serve
+`dist/index.html` for operator routes. Preserve hashed filenames and verify the
+included content manifest; the package is not a React component library and
+does not include the Python server. The Python wheel embeds the same Web bytes.
+
+## Remove
+
+```sh
 uv tool uninstall gigaloom
 ```
 

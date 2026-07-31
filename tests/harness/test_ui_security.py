@@ -42,7 +42,7 @@ def test_local_shell_issues_strict_httponly_session_cookie(tmp_path):
     assert client.get("/api/defaults").status_code == 200
 
 
-def test_local_arena_deep_link_issues_browser_session_cookie(tmp_path):
+def test_retired_local_arena_link_is_not_a_public_alias(tmp_path):
     app = create_app(
         HarnessConfig(data_dir=str(tmp_path)),
         registry=create_default_registry(include_entry_points=False),
@@ -55,10 +55,7 @@ def test_local_arena_deep_link_issues_browser_session_cookie(tmp_path):
 
     response = client.get("/arena")
 
-    assert response.status_code == 200
-    assert response.history[0].headers["location"] == "/web/evaluation/arena"
-    assert "gigaloom_session=" in response.history[0].headers["set-cookie"]
-    assert client.get("/api/defaults").status_code == 200
+    assert response.status_code == 404
 
 
 @pytest.mark.parametrize(
@@ -218,17 +215,17 @@ def test_local_access_logout_rotate_recovery_and_csrf(tmp_path):
 def test_ui_security_config_loads_token_and_host_allowlist_without_api_exposure(
     monkeypatch,
 ):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_UI_BOOTSTRAP_TOKEN", "secret-token")
+    monkeypatch.setenv("GIGALOOM_UI_BOOTSTRAP_TOKEN", "secret-token")
     monkeypatch.setenv(
-        "GPT2GIGA_HARNESS_UI_ALLOWED_HOSTS",
+        "GIGALOOM_UI_ALLOWED_HOSTS",
         " harness.example, 10.0.0.7 ",
     )
     monkeypatch.setenv(
-        "GPT2GIGA_HARNESS_UI_OIDC_CLIENT_SECRET",
+        "GIGALOOM_UI_OIDC_CLIENT_SECRET",
         "oidc-client-secret",
     )
     monkeypatch.setenv(
-        "GPT2GIGA_HARNESS_UI_OIDC_ROLE_MAP",
+        "GIGALOOM_UI_OIDC_ROLE_MAP",
         '{"subject-1":"viewer","subject-2":"operator"}',
     )
     config = HarnessConfig.from_env()
@@ -271,7 +268,7 @@ def test_shared_remote_bearer_exchange_is_unmounted():
         },
     )
 
-    assert response.status_code == 405
+    assert response.status_code == 404
     assert "set-cookie" not in response.headers
 
 
@@ -292,8 +289,12 @@ def test_host_and_origin_validation_reject_untrusted_requests():
 def test_shell_deep_links_and_unknown_paths_fail_closed():
     client = _client()
 
+    for path in ("/", "/web/work", "/web/runs/run_123"):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/html")
+
     for path in (
-        "/",
         "/work",
         "/work/sess_123",
         "/arena",
@@ -308,9 +309,7 @@ def test_shell_deep_links_and_unknown_paths_fail_closed():
         "/scheduled",
         "/scheduled/daily-echo",
     ):
-        response = client.get(path)
-        assert response.status_code == 200
-        assert response.headers["content-type"].startswith("text/html")
+        assert client.get(path).status_code == 404
 
     unknown_api = client.get("/api/not-a-route")
     unknown_asset = client.get("/assets/nested/app.js")
