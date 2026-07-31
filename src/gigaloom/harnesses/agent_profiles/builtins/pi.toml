@@ -1,0 +1,71 @@
+schema_version = 1
+agent_id = "pi"
+display_name = "Pi"
+aliases = []
+profile_version = "1.0.0"
+auth_owner = "provider"
+platform_support = ["darwin", "linux", "win32"]
+compatibility_profiles = []
+structured_routes = []
+
+[source]
+kind = "builtin"
+origin = "gigaloom:builtin/pi.toml"
+revision = "0.7.0-alpha.1-b1-native"
+trust_class = "first_party"
+reviewed = true
+
+[native]
+executable_names = ["pi"]
+provider_home_markers = []
+provider_config_markers = []
+version_probe = ["--version"]
+supports_managed_terminal = true
+
+[[native.interactive_matchers]]
+matcher_id = "pi.root"
+kind = "empty_suffix"
+tokens = []
+precedence = 10
+
+[[native.interactive_matchers]]
+matcher_id = "pi.prompt"
+kind = "single_positional"
+tokens = []
+precedence = 20
+
+[[native.interactive_matchers]]
+matcher_id = "pi.continue"
+kind = "exact_suffix"
+tokens = ["-c"]
+precedence = 30
+
+[[native.interactive_matchers]]
+matcher_id = "pi.resume"
+kind = "exact_suffix"
+tokens = ["-r"]
+precedence = 40
+
+[[native.interactive_matchers]]
+matcher_id = "pi.session"
+kind = "first_token_with_value"
+tokens = ["--session", "--fork"]
+precedence = 50
+
+[[native.metadata_matchers]]
+matcher_id = "pi.metadata.options"
+kind = "any_option"
+tokens = ["--help", "-h", "--version"]
+precedence = 10
+
+[[native.headless_matchers]]
+matcher_id = "pi.print"
+kind = "any_option"
+tokens = ["-p"]
+precedence = 10
+
+[[native.headless_matchers]]
+matcher_id = "pi.protocol-mode"
+kind = "first_token_with_value"
+tokens = ["--mode"]
+precedence = 20

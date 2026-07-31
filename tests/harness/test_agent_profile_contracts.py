@@ -39,7 +39,12 @@ FIXTURES = Path(__file__).parents[1] / "fixtures" / "agent_profiles"
 def test_builtin_profiles_load_from_reviewed_declarative_resources() -> None:
     profiles = load_builtin_agent_profiles()
 
-    assert [profile.agent_id for profile in profiles] == ["claude", "codex", "gemini"]
+    assert [profile.agent_id for profile in profiles] == [
+        "claude",
+        "codex",
+        "gemini",
+        "pi",
+    ]
     expected_routes = {
         "codex": ("codex.app-server", "codex_app_server_v1"),
         "claude": ("claude.stream-json", "claude_stream_json_v1"),
@@ -58,6 +63,10 @@ def test_builtin_profiles_load_from_reviewed_declarative_resources() -> None:
         assert not hasattr(profile.native, "default_args")
         assert profile.native.executable_names == (profile.agent_id,)
         assert profile.native.supports_managed_terminal is True
+        if profile.agent_id == "pi":
+            assert profile.structured_routes == ()
+            assert profile.compatibility_profiles == ()
+            continue
         assert len(profile.structured_routes) == 1
         route = profile.structured_routes[0]
         assert (route.route_id, route.transport_kind) == expected_routes[
@@ -88,7 +97,7 @@ def test_builtin_loading_does_not_import_provider_implementations() -> None:
                     load_builtin_agent_profiles,
                 )
 
-                assert len(load_builtin_agent_profiles()) == 3
+                assert len(load_builtin_agent_profiles()) == 4
                 forbidden = (
                     "gigaloom.harnesses.builtins.codex",
                     "gigaloom.harnesses.builtins.claude",

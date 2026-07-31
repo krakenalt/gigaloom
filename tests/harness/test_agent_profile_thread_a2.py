@@ -96,7 +96,7 @@ def test_registered_fourth_agent_launches_without_root_router_edit_or_persistenc
     ).read_text(encoding="utf-8")
 
 
-@pytest.mark.parametrize("agent_id", ("codex", "claude", "gemini"))
+@pytest.mark.parametrize("agent_id", ("codex", "claude", "gemini", "pi"))
 def test_builtin_profiles_keep_direct_native_parity_through_generic_launcher(
     tmp_path: Path,
     agent_id: str,
