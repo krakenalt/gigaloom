@@ -35,7 +35,6 @@ from gigaloom.sessions.event_stream import (
     event_stream_size,
 )
 from gigaloom.sessions.redaction import redact_for_storage
-from gigaloom.sessions.catalog_binding import session_catalog_project_id
 from gigaloom.sessions.queries import (
     InMemoryQueryIndex,
     InMemorySessionQueryMixin,
@@ -701,7 +700,7 @@ def _matches_session(
 ) -> bool:
     if session.archived and not include_archived:
         return False
-    if project_id and session_catalog_project_id(session.metadata) != project_id:
+    if project_id and (session.metadata.get("catalog_project_id") or session.metadata.get("project_id")) != project_id:  # fmt: skip  # noqa: E501
         return False
     if workspace and session.workspace != workspace:
         return False
