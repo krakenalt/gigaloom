@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "4a374a4b1c48c92a262859ba6d76e79c2e08c2024bceb7a1c1e8c4e327674049",
+  "content_sha256": "c645122ab25b0a23f898398d193cb15290b33433a1b3989ace7294204cffdca9",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -2502,7 +2502,7 @@
       "evidence": [
         {
           "id": "anthropic-cloud-claude-code-fixture",
-          "revision": "0492fb4e8262f474826a75a71329d1c267afdc5f08b4dd097b367ccfb0c23dab",
+          "revision": "5d9ededbe9eebef0ac3317cd41e42710a80818d9d26ec98553d5b9618dcb3e7a",
           "source": "built-in-contract",
           "status": "supported"
         }
@@ -2511,7 +2511,7 @@
       "id": "anthropic-cloud-claude-code",
       "native_auth": true,
       "protocol": "anthropic_compatible",
-      "revision": "0492fb4e8262f474826a75a71329d1c267afdc5f08b4dd097b367ccfb0c23dab",
+      "revision": "5d9ededbe9eebef0ac3317cd41e42710a80818d9d26ec98553d5b9618dcb3e7a",
       "transports": [
         "native_terminal",
         "one_shot"
@@ -2530,7 +2530,7 @@
       "evidence": [
         {
           "id": "anthropic-compatible-claude-code-fixture",
-          "revision": "db5b9ec44c77aa337b2707c097541d97f47e59c095633a3811494136876c1c61",
+          "revision": "bff6506935d60a1e38481c45d4cda6258cee369ee1e2fa85222514be63d7c13a",
           "source": "built-in-contract",
           "status": "supported"
         }
@@ -2539,7 +2539,7 @@
       "id": "anthropic-compatible-claude-code",
       "native_auth": false,
       "protocol": "anthropic_compatible",
-      "revision": "db5b9ec44c77aa337b2707c097541d97f47e59c095633a3811494136876c1c61",
+      "revision": "bff6506935d60a1e38481c45d4cda6258cee369ee1e2fa85222514be63d7c13a",
       "transports": [
         "native_terminal",
         "one_shot"
