@@ -60,6 +60,28 @@ def detached_json(value: Any) -> Any:
     return json.loads(canonical_json_bytes(value))
 
 
+def parse_canonical_json_bytes(data: bytes, field: str) -> dict[str, Any]:
+    """Parse exact canonical JSON while rejecting duplicate object keys."""
+
+    def pairs_hook(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in pairs:
+            if key in value:
+                raise CapsuleSchemaError(f"{field} contains a duplicate key")
+            value[key] = item
+        return value
+
+    try:
+        value = json.loads(data.decode("utf-8"), object_pairs_hook=pairs_hook)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise CapsuleSchemaError(f"{field} is not valid UTF-8 JSON") from exc
+    if not isinstance(value, dict):
+        raise CapsuleSchemaError(f"{field} must be a JSON object")
+    if canonical_json_bytes(value) != data:
+        raise CapsuleSchemaError(f"{field} is not canonical JSON")
+    return value
+
+
 def require_mapping(value: Any, field: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise CapsuleSchemaError(f"{field} must be an object")
