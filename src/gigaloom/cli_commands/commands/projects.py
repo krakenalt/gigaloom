@@ -111,6 +111,13 @@ def register_project_catalog_commands(
     profile_delete.add_argument("--json", action="store_true")
     profile_delete.set_defaults(handler="_handle_project_profile_delete")
 
+    launch = project_subparsers.add_parser("launch")
+    launch.add_argument("catalog_project_id")
+    launch.add_argument("--profile", dest="launch_profile_id", default=None)
+    launch.add_argument("--dry-run", action="store_true")
+    launch.add_argument("--json", action="store_true")
+    launch.set_defaults(handler="_handle_project_launch")
+
 
 _PROFILE_TEXT_OPTIONS = (
     ("agent_hint", "agent-hint"),
