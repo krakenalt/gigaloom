@@ -35,10 +35,14 @@ def test_release_candidate_workflow_builds_and_attests_without_publishing():
     assert "uv build --wheel --sdist --no-sources" in text
     assert "npm pack ./web --ignore-scripts --pack-destination" in text
     assert "scripts/verify_release_artifacts.py" in text
+    assert "python3 scripts/release.py verify" in text
+    assert "python3 scripts/release.py stage --output dist/release-candidate" in text
+    assert "--release-version release/version.toml" in text
     assert "--event-name candidate" in text
     assert '--release-tag "${GITHUB_REF_NAME}"' in text
     assert "--release-target main" in text
     assert text.count("npm --prefix web run build:npm:release") == 1
+    assert "cp release/" not in text
     assert "--wheel dist/release-candidate/*.whl" in text
     assert "--sdist dist/release-candidate/*.tar.gz" in text
     assert "--npm-tarball dist/release-candidate/*.tgz" in text
@@ -108,6 +112,8 @@ def test_protected_publish_consumes_one_retained_candidate_without_rebuilding():
         "--event-name publish",
         "scripts/verify_release_artifacts.py",
         "scripts/release_registry_guard.py",
+        "python3 scripts/release.py verify",
+        "--release-version release/version.toml",
         "npm publish dist/release-candidate/*.tgz --provenance --access public --tag",
         "steps.guard.outputs.npm_dist_tag",
         "uv publish dist/release-candidate/*.whl",
@@ -175,6 +181,7 @@ def test_release_recovery_is_fail_closed_and_preserves_immutable_versions():
     )
     for contract in (
         "Candidate builds never publish",
+        "`release/version.toml` is the only hand-edited identity",
         "one retained\ncandidate artifact",
         "standard `v<release>` tag",
         "protected environments are ready",

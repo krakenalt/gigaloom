@@ -48,7 +48,7 @@ def test_historical_archive_is_an_explicit_label_exception(tmp_path: Path) -> No
     policy = _policy()
     release = tmp_path / "release"
     release.mkdir()
-    (release / "release.json").write_text('{"release":"0.7.0"}\n')
+    (release / "version.toml").write_text('version = "0.7.0"\n')
     task_label = "G" + "4-00"
 
     result = auditor.audit_entries(
@@ -77,7 +77,7 @@ def test_release_literals_require_a_declared_semantic_category(tmp_path: Path) -
     policy = _policy()
     release = tmp_path / "release"
     release.mkdir()
-    (release / "release.json").write_text('{"release":"0.7.0"}\n')
+    (release / "version.toml").write_text('version = "0.7.0"\n')
 
     result = auditor.audit_entries(
         tmp_path,

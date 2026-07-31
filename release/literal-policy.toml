@@ -40,20 +40,18 @@ id = "task_path_segment"
 regex = "(?i)(?:^|[/_.-])(?:p\\d+(?:_\\d+)?|i\\d+|b\\d+|thread[_-]?[ab]\\d+)(?=$|[/_.-])"
 
 [release_identity]
-canonical_source = "release/release.json"
-canonical_field = "release"
-current_version = "0.7.0"
-python_version = "0.7.0"
-migration_target = "release/version.toml"
+canonical_source = "release/version.toml"
+canonical_field = "version"
 
 [[release_identity.categories]]
 name = "release_projection"
 path_globs = [
   "pyproject.toml",
-  "release/literal-policy.toml",
+  "release/artifact-set.toml",
+  "release/candidate-report.md",
+  "release/external-evidence.json",
   "release/release.json",
-  "release/*candidate-report.md",
-  "release/*external-evidence.json",
+  "release/version.toml",
   "web/package.json",
   "web/package-lock.json",
 ]

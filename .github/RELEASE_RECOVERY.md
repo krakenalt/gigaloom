@@ -1,7 +1,10 @@
 # GigaLoom release recovery
 
 The release path is intentionally fail-closed and split into two phases.
-Candidate builds never publish. They bind one `release/release.json` identity,
+`release/version.toml` is the only hand-edited identity; `scripts/release.py`
+with `prepare` generates the ecosystem projections, and `verify` rejects drift
+before a candidate is built. Candidate builds never publish. They bind one
+generated `release/release.json` identity,
 one exact `main` commit, the Python wheel and sdist, the public npm tarball,
 content parity evidence, hashes, licenses, SBOMs, and provenance in one retained
 candidate artifact. A later protected publish phase may consume only that exact
@@ -10,7 +13,8 @@ artifact; it must not rebuild release files.
 The release guard accepts only the standalone `krakenalt/gigaloom` repository,
 history at or after the frozen standalone anchor in `release-policy.json`, the
 standard `v<release>` tag, and the exact Python/npm version mapping declared by
-the release manifest. Legacy tag prefixes and metadata drift fail closed.
+the canonical identity and generated release manifest. Legacy tag prefixes and
+metadata drift fail closed.
 
 The committed target lock resolves the optional gateway dependency from the
 public package index. Do not add a token secret, temporary index, local source

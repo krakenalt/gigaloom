@@ -20,6 +20,10 @@ from typing import Any, Iterable, Mapping, Sequence
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_POLICY = REPOSITORY_ROOT / "release" / "literal-policy.toml"
 MAX_ENTRY_BYTES = 8 * 1024 * 1024
+RELEASE_RE = re.compile(
+    r"(?P<base>\d+\.\d+\.\d+)"
+    r"(?:-(?P<stage>alpha|beta|rc)\.(?P<number>[1-9]\d*))?"
+)
 
 
 class LiteralAuditError(RuntimeError):
@@ -66,9 +70,6 @@ class Policy:
     path_rules: tuple[LabelRule, ...]
     canonical_source: str
     canonical_field: str
-    current_version: str
-    python_version: str
-    migration_target: str
     version_categories: tuple[VersionCategory, ...]
 
 
@@ -120,15 +121,6 @@ def load_policy(path: Path = DEFAULT_POLICY) -> Policy:
         canonical_field=_required_text(
             release.get("canonical_field"), "release canonical_field"
         ),
-        current_version=_required_text(
-            release.get("current_version"), "release current_version"
-        ),
-        python_version=_required_text(
-            release.get("python_version"), "release python_version"
-        ),
-        migration_target=_required_text(
-            release.get("migration_target"), "release migration_target"
-        ),
         version_categories=categories,
     )
 
@@ -152,8 +144,9 @@ def audit_entries(
     label_hits = 0
     release_literal_hits = 0
     category_counts = {category.name: 0 for category in policy.version_categories}
-    release_needles = tuple(
-        dict.fromkeys((policy.current_version, policy.python_version))
+    canonical_path = root / policy.canonical_source
+    release_needles = (
+        _canonical_versions(root, policy) if canonical_path.is_file() else ()
     )
     for relative, data in entries:
         files_scanned += 1
@@ -226,9 +219,16 @@ def _canonical_violations(root: Path, policy: Policy) -> set[Violation]:
             Violation(
                 policy.canonical_source,
                 "missing canonical release source",
-                policy.migration_target,
+                "single-source release identity",
             )
         }
+    _canonical_versions(root, policy)
+    return set()
+
+
+def _canonical_versions(root: Path, policy: Policy) -> tuple[str, ...]:
+    """Return canonical SemVer and PEP 440 spellings for literal scanning."""
+    path = root / policy.canonical_source
     try:
         if path.suffix == ".toml":
             payload = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -241,15 +241,17 @@ def _canonical_violations(root: Path, policy: Policy) -> set[Violation]:
     value = (
         payload.get(policy.canonical_field) if isinstance(payload, Mapping) else None
     )
-    if value == policy.current_version:
-        return set()
-    return {
-        Violation(
-            policy.canonical_source,
-            "canonical release value mismatch",
-            f"expected {policy.current_version}",
-        )
-    }
+    if not isinstance(value, str):
+        raise LiteralAuditError("canonical release value must be text")
+    match = RELEASE_RE.fullmatch(value)
+    if match is None:
+        raise LiteralAuditError("canonical release value is not supported SemVer")
+    python_version = match.group("base")
+    stage = match.group("stage")
+    if stage is not None:
+        python_stage = {"alpha": "a", "beta": "b", "rc": "rc"}[stage]
+        python_version += f"{python_stage}{match.group('number')}"
+    return tuple(dict.fromkeys((value, python_version)))
 
 
 def _git_paths(root: Path) -> tuple[str, ...]:

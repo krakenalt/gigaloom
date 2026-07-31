@@ -77,6 +77,8 @@ def release_repository(
     )
     release_dir = root / "release"
     release_dir.mkdir()
+    release_version = release_dir / "version.toml"
+    release_version.write_text(f'version = "{release}"\n', encoding="utf-8")
     release_manifest = release_dir / "release.json"
     release_manifest.write_text(
         json.dumps(
@@ -115,6 +117,7 @@ def release_repository(
         "policy": policy,
         "python_metadata": python_metadata,
         "release_manifest": release_manifest,
+        "release_version": release_version,
         "root": root,
         "tag": tag,
     }
@@ -124,6 +127,7 @@ def validate(module, repository_data, **overrides):
     values = {
         "root": repository_data["root"],
         "policy_path": repository_data["policy"],
+        "release_version_path": repository_data["release_version"],
         "release_manifest_path": repository_data["release_manifest"],
         "python_metadata_path": repository_data["python_metadata"],
         "npm_metadata_path": repository_data["npm_metadata"],
@@ -236,7 +240,13 @@ def test_release_guard_rejects_pre_standalone_history(tmp_path: Path):
     root = repository["root"]
     assert isinstance(root, Path)
     retained_paths = {}
-    for key in ("policy", "release_manifest", "python_metadata", "npm_metadata"):
+    for key in (
+        "policy",
+        "release_version",
+        "release_manifest",
+        "python_metadata",
+        "npm_metadata",
+    ):
         source = repository[key]
         assert isinstance(source, Path)
         retained = tmp_path / f"{key}{source.suffix}"
@@ -306,4 +316,15 @@ def test_release_guard_rejects_unknown_manifest_fields(tmp_path: Path):
     manifest.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(module.ReleaseGuardError, match="schema v1"):
+        validate(module, repository)
+
+
+def test_release_guard_rejects_canonical_projection_drift(tmp_path: Path):
+    module = load_release_guard_module()
+    repository = release_repository(tmp_path)
+    canonical = repository["release_version"]
+    assert isinstance(canonical, Path)
+    canonical.write_text('version = "0.6.0-alpha.2"\n', encoding="utf-8")
+
+    with pytest.raises(module.ReleaseGuardError, match="differs from canonical"):
         validate(module, repository)

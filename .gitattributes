@@ -1,3 +1,7 @@
 web/branding/** text eol=lf
 web/** text eol=lf
 release/release.json text eol=lf
+release/version.toml text eol=lf
+release/artifact-set.toml text eol=lf
+release/external-evidence.json text eol=lf
+release/candidate-report.md text eol=lf

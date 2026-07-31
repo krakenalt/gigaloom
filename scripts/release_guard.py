@@ -107,10 +107,22 @@ def _release_channels(release: str) -> dict[str, str]:
 
 def _release_identity(
     *,
+    release_version_path: Path,
     release_manifest_path: Path,
     python_metadata_path: Path,
     npm_metadata_path: Path,
 ) -> dict[str, str]:
+    try:
+        canonical = tomllib.loads(release_version_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, tomllib.TOMLDecodeError, UnicodeDecodeError) as exc:
+        raise ReleaseGuardError(
+            "canonical release identity is missing or malformed"
+        ) from exc
+    if set(canonical) != {"version"} or not isinstance(canonical["version"], str):
+        raise ReleaseGuardError("canonical release identity must contain only version")
+    canonical_release = canonical["version"]
+    _expected_python_version(canonical_release)
+
     manifest = _json_object(release_manifest_path, label="release manifest")
     if set(manifest) != EXPECTED_MANIFEST_FIELDS:
         raise ReleaseGuardError("release manifest fields do not match schema v1")
@@ -118,6 +130,10 @@ def _release_identity(
         raise ReleaseGuardError("release manifest values must be strings")
     identity = {field: manifest[field] for field in EXPECTED_MANIFEST_FIELDS}
     release = identity["release"]
+    if release != canonical_release:
+        raise ReleaseGuardError(
+            "release manifest differs from canonical release identity"
+        )
     if identity["git_tag"] != f"v{release}":
         raise ReleaseGuardError("release manifest tag must be the standard v<release>")
     if identity["npm_version"] != release:
@@ -165,6 +181,7 @@ def validate_release(
     *,
     root: Path,
     policy_path: Path,
+    release_version_path: Path,
     release_manifest_path: Path,
     python_metadata_path: Path,
     npm_metadata_path: Path,
@@ -185,6 +202,7 @@ def validate_release(
             f"repository {repository!r} is not the target {policy['repository']!r}"
         )
     identity = _release_identity(
+        release_version_path=release_version_path,
         release_manifest_path=release_manifest_path,
         python_metadata_path=python_metadata_path,
         npm_metadata_path=npm_metadata_path,
@@ -260,6 +278,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--policy", type=Path, required=True)
+    parser.add_argument("--release-version", type=Path, required=True)
     parser.add_argument("--release-manifest", type=Path, required=True)
     parser.add_argument("--python-metadata", type=Path, required=True)
     parser.add_argument("--npm-metadata", type=Path, required=True)
@@ -277,6 +296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = validate_release(
             root=args.root.resolve(),
             policy_path=args.policy.resolve(),
+            release_version_path=args.release_version.resolve(),
             release_manifest_path=args.release_manifest.resolve(),
             python_metadata_path=args.python_metadata.resolve(),
             npm_metadata_path=args.npm_metadata.resolve(),

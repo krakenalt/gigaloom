@@ -1,0 +1,44 @@
+schema_version = 1
+release = "0.7.0"
+python_version = "0.7.0"
+git_tag = "v0.7.0"
+
+[[artifacts]]
+role = "release_manifest"
+source = "release/release.json"
+target = "release.json"
+
+[[artifacts]]
+role = "artifact_manifest"
+source = "release/artifact-set.toml"
+target = "artifact-set.toml"
+
+[[artifacts]]
+role = "licenses"
+source = "src/gigaloom/ui/web/assets/_build/licenses.json"
+target = "licenses.json"
+
+[[artifacts]]
+role = "web_provenance"
+source = "src/gigaloom/ui/web/assets/_build/provenance.json"
+target = "web-provenance.json"
+
+[[artifacts]]
+role = "sbom"
+source = "src/gigaloom/ui/web/assets/_build/sbom.cdx.json"
+target = "sbom.cdx.json"
+
+[[artifacts]]
+role = "external_evidence"
+source = "release/external-evidence.json"
+target = "external-evidence.json"
+
+[[artifacts]]
+role = "candidate_report"
+source = "release/candidate-report.md"
+target = "candidate-report.md"
+
+[[artifacts]]
+role = "run_capsule_fixture"
+source = "tests/fixtures/run_capsules/read_only_run.json"
+target = "run-capsule-fixture.json"
