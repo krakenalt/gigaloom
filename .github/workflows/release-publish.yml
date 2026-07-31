@@ -1,9 +1,11 @@
 name: GigaLoom protected release publication
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_run:
+    workflows:
+      - GigaLoom release candidate
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       candidate_run_id:
@@ -37,12 +39,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: gigaloom-protected-release-${{ github.event_name == 'push' && github.ref_name || inputs.git_tag }}
+  group: gigaloom-protected-release-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.git_tag }}
   cancel-in-progress: false
 
 jobs:
   resolve:
     name: Release publish / resolve retained candidate
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -56,20 +59,14 @@ jobs:
       recovery_mode: ${{ steps.candidate.outputs.recovery_mode }}
 
     steps:
-      - name: Checkout pushed release tag
-        if: github.event_name == 'push'
+      - name: Checkout completed candidate source
+        if: github.event_name == 'workflow_run'
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ github.ref }}
+          ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Resolve pushed tag to its commit
-        if: github.event_name == 'push'
-        id: tag
-        shell: bash
-        run: echo "commit=$(git rev-parse 'HEAD^{commit}')" >> "${GITHUB_OUTPUT}"
-
-      - name: Resolve manual recovery or tag-bound candidate
+      - name: Resolve manual recovery or completed candidate
         id: candidate
         uses: actions/github-script@v8
         env:
@@ -79,11 +76,11 @@ jobs:
           INPUT_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           INPUT_GIT_TAG: ${{ inputs.git_tag }}
           INPUT_RECOVERY_MODE: ${{ inputs.recovery_mode }}
-          TAG_COMMIT: ${{ steps.tag.outputs.commit }}
-          TAG_NAME: ${{ github.ref_name }}
         with:
           github-token: ${{ github.token }}
           script: |
+            const fs = require('node:fs');
+            const { execFileSync } = require('node:child_process');
             const eventName = process.env.EVENT_NAME;
             const shaPattern = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
             const digestPattern = /^[0-9a-f]{64}$/;
@@ -96,24 +93,6 @@ jobs:
               'release-assets-only',
             ]);
             const { owner, repo } = context.repo;
-            let releaseEnvironment;
-            try {
-              releaseEnvironment = await github.rest.repos.getEnvironment({
-                owner,
-                repo,
-                environment_name: 'release-production',
-              });
-            } catch (error) {
-              core.setFailed(`release-production environment is unavailable: ${error.message}`);
-              return;
-            }
-            const requiredReviewers = releaseEnvironment.data.protection_rules?.find(
-              rule => rule.type === 'required_reviewers',
-            )?.reviewers ?? [];
-            if (requiredReviewers.length === 0) {
-              core.setFailed('release-production has no required reviewers');
-              return;
-            }
 
             if (eventName === 'workflow_dispatch') {
               const values = {
@@ -149,55 +128,60 @@ jobs:
               return;
             }
 
-            if (eventName !== 'push' || !context.ref.startsWith('refs/tags/v')) {
-              core.setFailed(`unsupported release trigger: ${eventName} ${context.ref}`);
+            if (eventName !== 'workflow_run') {
+              core.setFailed(`unsupported release trigger: ${eventName}`);
               return;
             }
-            const candidateSha = process.env.TAG_COMMIT;
-            const gitTag = process.env.TAG_NAME;
+            const run = context.payload.workflow_run;
+            const runRepository = run?.head_repository?.full_name ?? run?.repository?.full_name;
+            if (
+              run?.status !== 'completed' ||
+              run?.conclusion !== 'success' ||
+              run?.event !== 'push' ||
+              runRepository !== `${owner}/${repo}`
+            ) {
+              core.setFailed('triggering candidate run is not a successful repository tag push');
+              return;
+            }
+            const candidateSha = run.head_sha;
+            const candidateRunId = String(run.id);
+            let release;
+            try {
+              release = JSON.parse(fs.readFileSync('release/release.json', 'utf8'));
+            } catch (error) {
+              core.setFailed(`release manifest is unavailable: ${error.message}`);
+              return;
+            }
+            const gitTag = release.git_tag;
             if (!shaPattern.test(candidateSha) || !tagPattern.test(gitTag)) {
-              core.setFailed('pushed release tag or resolved commit is malformed');
+              core.setFailed('completed candidate SHA or manifest tag is malformed');
               return;
             }
-
-            const response = await github.rest.actions.listWorkflowRuns({
-              owner,
-              repo,
-              workflow_id: 'publish-pypi.yml',
-              event: 'workflow_dispatch',
-              status: 'success',
-              head_sha: candidateSha,
-              per_page: 100,
-            });
-            const expectedArtifact = `gigaloom-release-candidate-${candidateSha}`;
-            let candidateRunId = null;
-            for (const run of response.data.workflow_runs) {
-              const runRepository = run.head_repository?.full_name ?? run.repository?.full_name;
-              if (
-                run.status !== 'completed' ||
-                run.conclusion !== 'success' ||
-                run.event !== 'workflow_dispatch' ||
-                run.head_sha !== candidateSha ||
-                runRepository !== `${owner}/${repo}`
-              ) {
-                continue;
-              }
-              const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-                owner,
-                repo,
-                run_id: run.id,
-                per_page: 100,
-              });
-              const retained = artifacts.data.artifacts.filter(
-                artifact => artifact.name === expectedArtifact && !artifact.expired,
-              );
-              if (retained.length === 1) {
-                candidateRunId = String(run.id);
-                break;
-              }
+            let tagCommit;
+            try {
+              tagCommit = execFileSync(
+                'git',
+                ['rev-parse', `refs/tags/${gitTag}^{commit}`],
+                { encoding: 'utf8' },
+              ).trim();
+            } catch (error) {
+              core.setFailed(`manifest release tag is unavailable: ${error.message}`);
+              return;
             }
-            if (candidateRunId === null) {
-              core.setFailed(`no successful retained candidate exists for ${candidateSha}`);
+            if (tagCommit !== candidateSha) {
+              core.setFailed('manifest release tag does not resolve to the candidate SHA');
+              return;
+            }
+            const expectedArtifact = `gigaloom-release-candidate-${candidateSha}`;
+            const artifacts = await github.paginate(
+              github.rest.actions.listWorkflowRunArtifacts,
+              { owner, repo, run_id: run.id, per_page: 100 },
+            );
+            const retained = artifacts.filter(
+              artifact => artifact.name === expectedArtifact && !artifact.expired,
+            );
+            if (retained.length !== 1) {
+              core.setFailed('triggering candidate run must retain exactly one SHA-bound artifact');
               return;
             }
 
@@ -206,7 +190,7 @@ jobs:
             core.setOutput('candidate_sha', candidateSha);
             core.setOutput('git_tag', gitTag);
             core.setOutput('recovery_mode', 'initial');
-            core.info(`selected candidate run ${candidateRunId} for ${gitTag} at ${candidateSha}`);
+            core.info(`selected triggering candidate run ${candidateRunId} for ${gitTag} at ${candidateSha}`);
 
   publish:
     name: Release publish / protected registries

@@ -41,7 +41,7 @@ export function assertPackageMetadata(packageJson) {
   assertEqual(packageJson.name, expectedName, "Unexpected npm package name");
   if (
     typeof packageJson.version !== "string"
-    || !/^0\.7\.0-alpha\.1$/u.test(packageJson.version)
+    || !/^0\.7\.0$/u.test(packageJson.version)
   ) {
     throw new Error(`Unexpected npm package version: ${JSON.stringify(packageJson.version)}`);
   }

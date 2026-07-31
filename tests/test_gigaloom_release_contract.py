@@ -15,7 +15,7 @@ def _workflow(name: str) -> dict:
 
 def test_release_candidate_workflow_builds_and_attests_without_publishing():
     workflow = _workflow("publish-pypi.yml")
-    assert workflow["on"] == {"workflow_dispatch": ""}
+    assert workflow["on"] == {"push": {"tags": ["v*"]}}
     assert workflow["permissions"] == {"contents": "read"}
     assert set(workflow["jobs"]) == {"attest", "candidate"}
 
@@ -35,6 +35,9 @@ def test_release_candidate_workflow_builds_and_attests_without_publishing():
     assert "uv build --wheel --sdist --no-sources" in text
     assert "npm pack ./web --ignore-scripts --pack-destination" in text
     assert "scripts/verify_release_artifacts.py" in text
+    assert "--event-name candidate" in text
+    assert '--release-tag "${GITHUB_REF_NAME}"' in text
+    assert "--release-target main" in text
     assert text.count("npm --prefix web run build:npm:release") == 1
     assert "--wheel dist/release-candidate/*.whl" in text
     assert "--sdist dist/release-candidate/*.tar.gz" in text
@@ -59,7 +62,10 @@ def test_release_candidate_workflow_builds_and_attests_without_publishing():
 
 def test_protected_publish_consumes_one_retained_candidate_without_rebuilding():
     workflow = _workflow("release-publish.yml")
-    assert workflow["on"]["push"] == {"tags": ["v*"]}
+    assert workflow["on"]["workflow_run"] == {
+        "types": ["completed"],
+        "workflows": ["GigaLoom release candidate"],
+    }
     inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert set(inputs) == {
         "candidate_manifest_sha256",
@@ -92,10 +98,10 @@ def test_protected_publish_consumes_one_retained_candidate_without_rebuilding():
         encoding="utf-8"
     )
     for contract in (
-        "workflow_id: 'publish-pypi.yml'",
-        "head_sha: candidateSha",
-        "release-production has no required reviewers",
-        "no successful retained candidate exists",
+        "github.event.workflow_run.head_sha",
+        "context.payload.workflow_run",
+        "run?.conclusion !== 'success'",
+        "triggering candidate run must retain exactly one SHA-bound artifact",
         "run-id: ${{ needs.resolve.outputs.candidate_run_id }}",
         "gigaloom-release-candidate-${{ needs.resolve.outputs.candidate_sha }}",
         "candidate-manifest.json",
@@ -114,6 +120,9 @@ def test_protected_publish_consumes_one_retained_candidate_without_rebuilding():
     assert text.index("npm publish") < text.index("uv publish")
     assert text.index("uv publish") < text.index("gh release create")
     for forbidden in (
+        "getEnvironment",
+        "required reviewers",
+        "listWorkflowRuns",
         "npm pack",
         "npm --prefix web run build",
         "uv build",

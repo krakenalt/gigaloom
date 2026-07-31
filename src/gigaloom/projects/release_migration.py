@@ -29,6 +29,10 @@ from .catalog.repository import (
 
 NATIVE_AGENT_GATEWAY_MIGRATION_ID = "native_agent_gateway_v1"
 NATIVE_AGENT_GATEWAY_MIGRATION_SCHEMA_VERSION = 1
+NATIVE_AGENT_GATEWAY_TARGET_VERSION = "0.7.0"
+_ACCEPTED_NATIVE_AGENT_GATEWAY_TARGET_VERSIONS = frozenset(
+    {"0.7.0a1", NATIVE_AGENT_GATEWAY_TARGET_VERSION}
+)
 TEXTUAL_PREFERENCES_RETIREMENT_ID = "textual_preferences_retirement_v1"
 _LEGACY_WORKBENCH_PREFERENCES = Path("settings") / "workbench.json"
 _LEGACY_WORKBENCH_LOCK = Path("settings") / "workbench.lock"
@@ -224,7 +228,7 @@ class NativeAgentGatewayMigrationService:
             "migration_id": NATIVE_AGENT_GATEWAY_MIGRATION_ID,
             "phase": "planned",
             "source_version": "0.6.0a1",
-            "target_version": "0.7.0a1",
+            "target_version": NATIVE_AGENT_GATEWAY_TARGET_VERSION,
             "data_dir": str(self.data_dir),
             "backup_path": str(self.backup_path),
             "created_at": _timestamp(self._clock()),
@@ -299,7 +303,7 @@ class NativeAgentGatewayMigrationService:
             "migration_id": NATIVE_AGENT_GATEWAY_MIGRATION_ID,
             "status": "completed",
             "source_version": "0.6.0a1",
-            "target_version": "0.7.0a1",
+            "target_version": journal["target_version"],
             "backup_sha256": journal["backup_sha256"],
             "ordered_steps": [
                 PROJECT_CATALOG_MIGRATION_ID,
@@ -346,7 +350,8 @@ def _validate_journal(
         or journal.get("migration_id") != NATIVE_AGENT_GATEWAY_MIGRATION_ID
         or journal.get("phase") not in _PHASES
         or journal.get("source_version") != "0.6.0a1"
-        or journal.get("target_version") != "0.7.0a1"
+        or journal.get("target_version")
+        not in _ACCEPTED_NATIVE_AGENT_GATEWAY_TARGET_VERSIONS
         or journal.get("data_dir") != str(data_dir)
         or journal.get("backup_path") != str(backup)
     ):

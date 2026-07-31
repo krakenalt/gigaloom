@@ -7,11 +7,12 @@ gateway и не требует checkout его репозитория.
 preset локального gateway:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.7.0a1'
+uv tool install 'gigaloom[gpt2giga]==0.7.0'
 ```
 
-Extra закрепляет проверенный публичный дистрибутив `gpt2giga`. Candidate testing
-использует явный wheel URL/path и SHA-256, без editable sibling dependency.
+Extra допускает стабильные `gpt2giga>=0.2.6,<0.3.0`; committed lock разрешает
+точный проверенный публичный artifact. Release testing не создаёт editable
+sibling dependency.
 
 ## Канонические контракты gateway
 

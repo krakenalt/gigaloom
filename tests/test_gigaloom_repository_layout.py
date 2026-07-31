@@ -19,13 +19,13 @@ def test_gigaloom_is_a_root_level_project():
     assert not (REPOSITORY_ROOT / "packages/gpt2giga").exists()
 
 
-def test_standalone_metadata_has_exact_gateway_and_committed_lock():
+def test_standalone_metadata_has_stable_gateway_range_and_committed_lock():
     with (REPOSITORY_ROOT / "pyproject.toml").open("rb") as file:
         metadata = tomllib.load(file)
 
     assert metadata["project"]["name"] == "gigaloom"
     assert metadata["project"]["optional-dependencies"]["gpt2giga"][0] == (
-        "gpt2giga==0.2.6a1"
+        "gpt2giga>=0.2.6,<0.3.0"
     )
     assert "sources" not in metadata.get("tool", {}).get("uv", {})
     assert (REPOSITORY_ROOT / "uv.lock").is_file()
@@ -44,3 +44,6 @@ def test_standalone_bootstrap_scripts_are_target_owned():
     assert "gigaloom" in public_gateway
     assert "https://pypi.org/simple" in public_gateway
     assert "uv.lock" in public_gateway
+    assert 'expected_requirement == "gpt2giga>=0.2.6,<0.3.0"' in public_gateway
+    assert 'packages["gpt2giga"]["version"]' in public_gateway
+    assert 'packages["gigachat"]["version"] == "0.2.3"' in public_gateway

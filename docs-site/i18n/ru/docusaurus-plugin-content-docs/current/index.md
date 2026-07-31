@@ -5,14 +5,14 @@ agents. Provider-native CLI, structured automation и браузерный cockp
 агентов, а worktrees, approvals, evidence, schedules и сохранённое состояние
 остаются под явной локальной политикой.
 
-Линия `0.7.0a1` — alpha preview. Начните с [Установки](installation.md), затем
+Линия `0.7.0` — первый стабильный релиз GigaLoom. Начните с [Установки](installation.md), затем
 пройдите [Быстрый старт](quickstart.md).
 
 ## Выберите путь
 
 | Задача | Руководство |
 |---|---|
-| Установить или обновить preview | [Установка](installation.md) |
+| Установить или обновить GigaLoom | [Установка](installation.md) |
 | Запустить первую управляемую сессию | [Быстрый старт](quickstart.md) |
 | Понять компоненты и trust boundaries | [Архитектура](architecture.md) |
 | Сохранить состояние или устранить проблему | [Операции](operations.md) |

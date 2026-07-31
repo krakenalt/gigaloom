@@ -166,6 +166,9 @@ def test_release_guard_accepts_exact_release_and_candidate(tmp_path: Path):
     )
     assert candidate["mode"] == "candidate"
     assert candidate["commit"] == repository["commit"]
+    tagged_candidate = validate(module, repository, event_name="candidate")
+    assert tagged_candidate["mode"] == "candidate"
+    assert tagged_candidate["commit"] == repository["commit"]
     publish = validate(module, repository, event_name="publish")
     assert publish["mode"] == "publish"
     assert publish["commit"] == repository["commit"]
@@ -179,6 +182,20 @@ def test_release_guard_selects_stable_channels(tmp_path: Path):
 
     assert result["is_prerelease"] == "false"
     assert result["npm_dist_tag"] == "latest"
+
+
+def test_tagged_candidate_requires_current_main_tip(tmp_path: Path):
+    module = load_release_guard_module()
+    repository = release_repository(tmp_path)
+    root = repository["root"]
+    assert isinstance(root, Path)
+    (root / "AFTER_TAG").write_text("main advanced\n", encoding="utf-8")
+    git(root, "add", "AFTER_TAG")
+    git(root, "commit", "-m", "advance main")
+    git(root, "checkout", "--detach", str(repository["commit"]))
+
+    with pytest.raises(module.ReleaseGuardError, match="current main tip"):
+        validate(module, repository, event_name="candidate")
 
 
 @pytest.mark.parametrize(

@@ -5,6 +5,25 @@ All notable changes to GigaLoom are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-07-31
+
+### Changed
+
+- **Stable release identity**: Python, npm, the release manifest, installation
+  guidance, and packaged Web evidence now share the stable `0.7.0` identity.
+- **Stable gateway integration**: the optional gateway extra admits released
+  `gpt2giga>=0.2.6,<0.3.0`; the committed lock resolves `gpt2giga==0.2.6` and
+  `gigachat==0.2.3` from PyPI.
+- **Automatic trusted publication**: a protected `v*` tag builds and attests one
+  immutable candidate; only its successful completion starts the separate npm,
+  PyPI, and GitHub Release workflow from that exact retained artifact.
+
+### Security
+
+- Registry publication keeps job-scoped OIDC, exact workflow/environment
+  Trusted Publisher identities, SHA/tag/ancestry checks, immutable registry
+  guards, and recovery-only manual dispatch without a build path.
+
 ## [0.7.0a1] - 2026-07-31
 
 ### Added
@@ -277,6 +296,7 @@ considered stable.
 
 ---
 
+[0.7.0]: https://github.com/krakenalt/gigaloom/compare/v0.7.0-alpha.1...v0.7.0
 [0.7.0a1]: https://github.com/krakenalt/gigaloom/compare/v0.6.0-alpha.1...v0.7.0-alpha.1
 [0.6.0a1]: https://github.com/krakenalt/gigaloom/compare/gigaloom-v0.5.1a2...v0.6.0-alpha.1
 [0.5.1a2]: https://github.com/krakenalt/gigaloom/compare/gigaloom-v0.5.1a1...gigaloom-v0.5.1a2

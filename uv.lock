@@ -783,21 +783,21 @@ wheels = [
 
 [[package]]
 name = "gigachat"
-version = "0.2.3a1"
+version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8f/f3/6327bd8ad1b7067045ad79d1cbee36523bb2c1e3ea535b38915be00d24cf/gigachat-0.2.3a1.tar.gz", hash = "sha256:ceefa7de0262c17b2bc82e30169c5b3e65bd63b59312c37967693e3234ced9b5", size = 42649, upload-time = "2026-07-24T09:46:42.388Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/3e/42105fe7be2aa33907349fd177a2d8a97e14f434cfc1b8cbf3ba7b4a03f8/gigachat-0.2.3.tar.gz", hash = "sha256:b298dc70d28153e83780cdb7f40ec7273462ce497daafb1bee7e08509126aab3", size = 42631, upload-time = "2026-07-31T14:30:32.776Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/42/26/2b6f07c2e0f00dea4613e8527b8b2a445edcdab9e0967aa1e7dcab553965/gigachat-0.2.3a1-py3-none-any.whl", hash = "sha256:9ca0c39dfdfccba9301937fc3496eacad9552213b0b801a1aa6a662e4388ee14", size = 55355, upload-time = "2026-07-24T09:46:43.809Z" },
+    { url = "https://files.pythonhosted.org/packages/89/c6/cea9fd75f06c4c5a3f00a96c157c183146cb42b20e58b7580cd723c359bb/gigachat-0.2.3-py3-none-any.whl", hash = "sha256:61a51bcb9c3888c7643a9ffabe191695279f7cfca6b9d9d639e60c073a2385da", size = 55335, upload-time = "2026-07-31T14:30:34.101Z" },
 ]
 
 [[package]]
 name = "gigaloom"
-version = "0.7.0a1"
+version = "0.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "agent-client-protocol" },
@@ -817,7 +817,6 @@ claude-sdk = [
     { name = "claude-agent-sdk" },
 ]
 gpt2giga = [
-    { name = "gigachat" },
     { name = "gpt2giga" },
 ]
 
@@ -847,8 +846,7 @@ requires-dist = [
     { name = "claude-agent-sdk", marker = "extra == 'claude-sdk'", specifier = ">=0.2.122,<0.3" },
     { name = "cryptography", specifier = ">=46,<50" },
     { name = "fastapi", specifier = ">=0.133.0,<1" },
-    { name = "gigachat", marker = "extra == 'gpt2giga'", specifier = ">=0.2.2a1,<0.3.0" },
-    { name = "gpt2giga", marker = "extra == 'gpt2giga'", specifier = "==0.2.6a1" },
+    { name = "gpt2giga", marker = "extra == 'gpt2giga'", specifier = ">=0.2.6,<0.3.0" },
     { name = "pydantic", specifier = ">=2.12.0,<3" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.12.0,<3" },
     { name = "python-dateutil", specifier = ">=2.9.0,<3" },
@@ -918,7 +916,7 @@ wheels = [
 
 [[package]]
 name = "gpt2giga"
-version = "0.2.6a1"
+version = "0.2.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -938,9 +936,9 @@ dependencies = [
     { name = "tiktoken" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/78/06/545e9e3dfee97838da91ec3a361596bfd02a5a067c771bd13f12d48ab34a/gpt2giga-0.2.6a1.tar.gz", hash = "sha256:8d5897f063700f529fec883f7d33449a02f7e18b6421635f2f14fa09aaa69e81", size = 260946, upload-time = "2026-07-29T08:42:16.81Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7d/a0/6cae3119503071db5c748dfc0a36c238aaa88667808c6893898e4333133b/gpt2giga-0.2.6.tar.gz", hash = "sha256:06b469585dd73623d7b0273cb9ad37a165cd648e71f441d4da958382b106641b", size = 266507, upload-time = "2026-07-31T18:51:22.575Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/54/fb/529983226a416d04a2b3eac0f7b0ee4724deaf90066c0b813a307975032f/gpt2giga-0.2.6a1-py3-none-any.whl", hash = "sha256:dbff94acd5837182942599cee4c7c0686d571574a02733e5680bd143d3d1bcd9", size = 296270, upload-time = "2026-07-29T08:42:15.458Z" },
+    { url = "https://files.pythonhosted.org/packages/d8/ac/f9a43bac68ded08396e22a30f93bacefaedcc2356d33b04bfb3638ac02a6/gpt2giga-0.2.6-py3-none-any.whl", hash = "sha256:19fd10853f63b2ae0885caa79b23275192268301c92705ad1c3c3c4aee0ef87d", size = 305436, upload-time = "2026-07-31T18:51:21.134Z" },
 ]
 
 [[package]]

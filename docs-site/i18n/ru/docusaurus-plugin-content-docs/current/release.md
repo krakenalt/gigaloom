@@ -1,25 +1,24 @@
 # Релиз
 
 Один release GigaLoom связывает Python, npm, Git и embedded Web assets через
-`release/release.json`. Для alpha Native Agent Gateway точная identity такова:
+`release/release.json`. Для первого стабильного Native Agent Gateway точная identity такова:
 
 | Поверхность | Identity |
 |---|---|
-| Canonical release | `0.7.0-alpha.1` |
-| Git tag | `v0.7.0-alpha.1` |
-| PyPI | `gigaloom==0.7.0a1` |
-| npm | `@gigaloom/web@0.7.0-alpha.1` |
+| Canonical release | `0.7.0` |
+| Git tag | `v0.7.0` |
+| PyPI | `gigaloom==0.7.0` |
+| npm | `@gigaloom/web@0.7.0` |
 
-Python и npm используют собственный prerelease syntax, но представляют один
-release. Root Python metadata и `web/package.json` должны совпадать с manifest.
+Root Python metadata и `web/package.json` должны точно совпадать с manifest.
 
 ## Политика тегов
 
 Новые релизы используют только стандартный тег `v<release>`. Создавайте
-protected tag на точном проверенном commit из `main` только после build, parity,
-checksum, denylist и attestation gates immutable candidate. Publish workflow
-требует, чтобы tag указывал на candidate SHA; workflow не создаёт, не двигает и
-не исправляет теги.
+protected tag на точном проверенном commit из `main`. Tag запускает immutable
+candidate build; публикация начинается только после успешных build, parity,
+checksum, denylist и attestation gates. Workflows не создают, не двигают и не
+исправляют теги.
 
 Исторические prefix-shaped tags остаются историей. Не используйте эти prefixes
 для новых releases. После принятия версии хотя бы одним registry tag нельзя перемещать или
@@ -34,30 +33,31 @@ policy, а не обходится workflow.
 2. Обновите оба changelog и проверьте все identities в
    `release/release.json`, `pyproject.toml` и `web/package.json`.
 3. Соберите frontend assets и выполните полный non-live quality gate.
-4. Запустите build-only candidate workflow с текущего tip `main`.
-5. Проверьте wheel, sdist, npm tarball, metadata, общий Web content digest,
-   checksums, SBOM, licenses, isolated installs и attestation.
-6. Убедитесь, что release commit находится в `main`, а документированные
+4. Убедитесь, что release commit находится в `main`, а документированные
    main/tag rulesets активны.
-7. Убедитесь, что Trusted Publishers PyPI и npm указывают точные
+5. Убедитесь, что Trusted Publishers PyPI и npm указывают точные
    project/package, repository, publish workflow и environment
-   `release-production`, а required reviewers готовы.
-8. Отдельно зафиксируйте candidate run ID, полный source SHA и SHA-256 файла
-   `candidate-manifest.json`.
-9. Создайте protected standard tag на этом source SHA.
-10. Запустите protected publish workflow с записанной candidate identity и
-    правильным recovery mode.
+   `release-production`, а environment не требует reviewer approval.
+6. Создайте protected standard tag на этом source SHA. Tag автоматически
+   строит и аттестует candidate, затем после успеха запускает publication из
+   того же workflow run.
+7. Следите за candidate, registry checks и GitHub Release. Зафиксируйте
+   candidate run ID, полный source SHA и SHA-256 файла
+   `candidate-manifest.json` для recovery.
 
 ## Двухфазный workflow
 
-`.github/workflows/publish-pypi.yml` запускается вручную, строит и аттестует
-один retained candidate, но не публикует registry packages или GitHub Release.
+`.github/workflows/publish-pypi.yml` запускается push защищённого `v*` tag,
+строит и аттестует один retained candidate, но не публикует registry packages
+или GitHub Release.
 
-`.github/workflows/release-publish.yml` — отдельный manual workflow под защитой
-environment `release-production`. Он скачивает retained candidate по run ID и
-полному SHA, проверяет переданный оператором manifest digest, tag, ancestry,
-metadata, checksums, byte parity и legacy denylist и ничего не пересобирает.
-Затем он проверяет public registry state до запроса OIDC credentials.
+`.github/workflows/release-publish.yml` — отдельный workflow под environment
+`release-production`. Успешное завершение candidate запускает его через
+`workflow_run`; resolver использует точный triggering run ID и требует один
+непросроченный SHA-bound artifact. Protected job повторно проверяет tag,
+ancestry, metadata, checksums, byte parity и legacy denylist и ничего не
+пересобирает. Manual dispatch остаётся только для recovery и требует run ID,
+полный SHA, tag, manifest digest и recovery mode.
 
 Выберите ровно один mode:
 
