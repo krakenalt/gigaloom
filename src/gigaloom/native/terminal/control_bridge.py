@@ -200,9 +200,15 @@ class TerminalControlSession:
                 return None
             try:
                 self.queue.push(decode_tmux_escaped_bytes(parts[2]))
-            except (ValueError, TerminalBackpressureError):
+            except ValueError:
                 self._close(
                     TerminalWebSocketCloseCode.INTERNAL_ERROR,
+                    "tmux_control_output_invalid",
+                )
+                return None
+            except TerminalBackpressureError:
+                self._close(
+                    TerminalWebSocketCloseCode.BACKPRESSURE,
                     "terminal_output_backpressure",
                 )
                 return None
@@ -233,6 +239,18 @@ class TerminalControlSession:
             TerminalWebSocketCloseCode.DETACHED,
             "terminal_detached",
         )
+
+    def close_with(
+        self,
+        code: TerminalWebSocketCloseCode,
+        reason: str,
+    ) -> None:
+        """Close this client with one typed public WebSocket outcome."""
+        if not isinstance(code, TerminalWebSocketCloseCode):
+            raise ValueError("terminal WebSocket close code is invalid")
+        if not isinstance(reason, str) or not reason or len(reason) > 123:
+            raise ValueError("terminal WebSocket close reason is invalid")
+        self._close(code, reason)
 
     def _close_from_liveness(self) -> None:
         observed = self._liveness(self.record.id)

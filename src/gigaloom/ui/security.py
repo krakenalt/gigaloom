@@ -8,6 +8,7 @@ from urllib.parse import urlencode, urlsplit
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.requests import HTTPConnection
 from starlette.responses import JSONResponse, RedirectResponse
 
 from gigaloom.config import HarnessConfig
@@ -78,7 +79,7 @@ class HarnessUISecurity:
         """Return whether the configured listener is loopback-only."""
         return is_loopback_host(self.config.ui_host)
 
-    def host_allowed(self, request: Request) -> bool:
+    def host_allowed(self, request: HTTPConnection) -> bool:
         """Reject DNS-rebinding-style Host values outside the UI allowlist."""
         if not self.local_mode:
             return self._remote_origin_matches(request)
@@ -105,7 +106,7 @@ class HarnessUISecurity:
                 return False
         return False
 
-    def origin_allowed(self, request: Request) -> bool:
+    def origin_allowed(self, request: HTTPConnection) -> bool:
         """Accept absent or same-origin Origin headers only."""
         origin = request.headers.get("origin")
         if origin is None:
@@ -126,14 +127,14 @@ class HarnessUISecurity:
             return False
         return parsed.netloc.lower() == request.headers.get("host", "").lower()
 
-    def has_session(self, request: Request) -> bool:
+    def has_session(self, request: HTTPConnection) -> bool:
         """Return whether the request presents an active opaque browser cookie."""
         token = request.cookies.get(UI_SESSION_COOKIE)
         if self.local_mode:
             return self.local_access.authenticate(token)
         return self.remote_session(request) is not None
 
-    def remote_session(self, request: Request) -> RemoteBrowserSession | None:
+    def remote_session(self, request: HTTPConnection) -> RemoteBrowserSession | None:
         """Return the authenticated remote session, if any."""
         if self.local_mode or self.remote_store is None:
             return None
@@ -285,7 +286,7 @@ class HarnessUISecurity:
             path="/",
         )
 
-    def _remote_origin_matches(self, request: Request) -> bool:
+    def _remote_origin_matches(self, request: HTTPConnection) -> bool:
         settings = self.remote_settings
         if settings is None:
             return False
@@ -451,7 +452,7 @@ def request_is_loopback(request: Request) -> bool:
         return False
 
 
-def request_is_test_client(request: Request) -> bool:
+def request_is_test_client(request: HTTPConnection) -> bool:
     """Return whether Starlette's non-network TestClient marker is present."""
     return request.client is not None and request.client.host == "testclient"
 

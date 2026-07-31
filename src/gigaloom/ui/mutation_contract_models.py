@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from gigaloom.runtime.policy import PermissionAction
 
 
 class MutationClass(str, Enum):
@@ -37,3 +42,30 @@ class ConformanceBehavior(str, Enum):
     DENY = "deny"
     STALE_OR_REBOUND = "stale_or_rebound"
     REDACTION = "redaction"
+
+
+@dataclass(frozen=True)
+class ConformanceEvidence:
+    """Retained test evidence shared by one or more route contracts."""
+
+    id: str
+    behaviors: frozenset[ConformanceBehavior]
+    test_nodes: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class MutationRouteContract:
+    """One exact unsafe-method route and its real enforcement contract."""
+
+    method: str
+    path: str
+    mutation_class: MutationClass
+    control: EnforcementControl
+    enforcement_owner: str | None
+    permission_actions: tuple[PermissionAction, ...]
+    evidence_ids: tuple[str, ...]
+
+    @property
+    def identity(self) -> tuple[str, str]:
+        """Return the exact HTTP method and normalized FastAPI path."""
+        return self.method, self.path

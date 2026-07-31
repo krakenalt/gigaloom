@@ -75,6 +75,8 @@ from gigaloom.ui.services.legacy_bundles import (
     LegacyFullBundleCompatibility,
 )
 from gigaloom.ui.services.operator_workspace import OperatorEvidenceQuery
+from gigaloom.ui.services.operator_arena import ReviewedArenaOwner
+from gigaloom.ui.services.operator_terminal import TerminalBrowserOwner
 from gigaloom.ui.streaming.operator_events import OperatorEventBroker
 from gigaloom.workbench_protocol import WorkbenchBackbone
 from gigaloom.workbench_resources import (
@@ -134,6 +136,8 @@ class AppServices:
     operator_evidence_query: OperatorEvidenceQuery | None
     action_inbox_service: ActionInboxService
     operator_event_broker: OperatorEventBroker
+    reviewed_arena_owner: ReviewedArenaOwner | None = None
+    terminal_browser_owner: TerminalBrowserOwner | None = None
     active_headless_runs: dict[str, ActiveHeadlessRun] = field(default_factory=dict)
     session_navigation_mutations: dict[str, dict[str, Any]] = field(
         default_factory=dict
@@ -218,6 +222,8 @@ def build_app_services(
     operator_evidence_query: OperatorEvidenceQuery | None = None,
     action_inbox_service: ActionInboxService | None = None,
     operator_event_broker: OperatorEventBroker | None = None,
+    reviewed_arena_owner: ReviewedArenaOwner | None = None,
+    terminal_browser_owner: TerminalBrowserOwner | None = None,
 ) -> AppServices:
     """Construct the application service graph without creating the ASGI app."""
     registry = registry or create_default_registry()
@@ -418,6 +424,8 @@ def build_app_services(
         operator_evidence_query=operator_evidence_query,
         action_inbox_service=action_inbox_service or ActionInboxService(()),
         operator_event_broker=operator_event_broker or OperatorEventBroker(),
+        reviewed_arena_owner=reviewed_arena_owner,
+        terminal_browser_owner=terminal_browser_owner,
     )
 
 

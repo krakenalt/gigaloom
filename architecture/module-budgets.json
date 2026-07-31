@@ -492,7 +492,7 @@
       },
       {
         "path": "ui/mutation_contracts.py",
-        "max_lines": 1059,
+        "max_lines": 1057,
         "owner": "T07/T20",
         "removal_gate": "ui-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."

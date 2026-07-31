@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "1815a1e32a3bf0eead3c5e5e5eeb7c7aa5b2d4024149bd9e0a8cffb6e38d052f",
+  "content_sha256": "8308a02f4ad33e3cddad8af56f88c8626ac21cce9141537e69d92eca2fc20d48",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -1538,6 +1538,16 @@
         "path": "/api/native/sessions/{native_ref_id}/preview"
       },
       {
+        "method": "POST",
+        "name": "review_winner",
+        "path": "/api/operator/arenas/{arena_id}/review-winner"
+      },
+      {
+        "method": "GET",
+        "name": "reviewed_arena",
+        "path": "/api/operator/arenas/{arena_id}/reviewed"
+      },
+      {
         "method": "GET",
         "name": "operator_events",
         "path": "/api/operator/events"
@@ -1561,6 +1571,11 @@
         "method": "GET",
         "name": "native_session_context",
         "path": "/api/operator/sessions/{session_id}/context"
+      },
+      {
+        "method": "GET",
+        "name": "terminal_attach_description",
+        "path": "/api/operator/terminals/{terminal_id}/attach"
       },
       {
         "method": "GET",

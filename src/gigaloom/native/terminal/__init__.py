@@ -10,7 +10,9 @@ from gigaloom.native.terminal.contracts import (
 from gigaloom.native.terminal.control_bridge import (
     BoundedTerminalOutputQueue,
     TerminalBackpressureError,
+    TerminalControlBackend,
     TerminalControlBridge,
+    TerminalControlClient,
     TerminalControlSession,
 )
 from gigaloom.native.terminal.instance import (
@@ -73,7 +75,9 @@ __all__ = [
     "TerminalBackpressureError",
     "TerminalCloseError",
     "TerminalConflictError",
+    "TerminalControlBackend",
     "TerminalControlBridge",
+    "TerminalControlClient",
     "TerminalControlSession",
     "TerminalIdentity",
     "TerminalInputFrame",

@@ -221,7 +221,8 @@ def test_slow_client_overflow_detaches_bridge_not_terminal():
     )
 
     assert session.pump_once() is None
-    assert session.closed_code is TerminalWebSocketCloseCode.INTERNAL_ERROR
+    assert session.closed_code is TerminalWebSocketCloseCode.BACKPRESSURE
+    assert session.closed_reason == "terminal_output_backpressure"
     assert client.close_calls == 1
 
 

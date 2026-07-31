@@ -22,10 +22,12 @@ MAX_RESIZE_COLUMNS = 500
 class TerminalWebSocketCloseCode(IntEnum):
     """Application close codes for the managed terminal WebSocket."""
 
+    PROTOCOL_ERROR = 4400
     FORBIDDEN = 4403
     NOT_FOUND = 4404
     DETACHED = 4410
     EXITED = 4411
+    BACKPRESSURE = 4429
     INTERNAL_ERROR = 4500
 
 

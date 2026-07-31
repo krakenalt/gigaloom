@@ -9,7 +9,6 @@ New routes must still declare exact controls, owners, and conformance evidence.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Iterable, Sequence
 
 from gigaloom.runtime.policy import (
@@ -30,38 +29,13 @@ from gigaloom.environment_pull_requests import (
 )
 from gigaloom.ui.mutation_contract_models import (
     ConformanceBehavior,
+    ConformanceEvidence,
     EnforcementControl,
     MutationClass,
+    MutationRouteContract,
 )
 
 UNSAFE_HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
-
-
-@dataclass(frozen=True)
-class ConformanceEvidence:
-    """Retained test evidence shared by one or more route contracts."""
-
-    id: str
-    behaviors: frozenset[ConformanceBehavior]
-    test_nodes: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class MutationRouteContract:
-    """One exact unsafe-method route and its real enforcement contract."""
-
-    method: str
-    path: str
-    mutation_class: MutationClass
-    control: EnforcementControl
-    enforcement_owner: str | None
-    permission_actions: tuple[PermissionAction, ...]
-    evidence_ids: tuple[str, ...]
-
-    @property
-    def identity(self) -> tuple[str, str]:
-        """Return the exact HTTP method and normalized FastAPI path."""
-        return self.method, self.path
 
 
 CONFORMANCE_EVIDENCE = {
@@ -205,6 +179,22 @@ CONFORMANCE_EVIDENCE = {
             test_nodes=(
                 "tests/harness/test_operator_workspace_api.py::test_inbox_response_is_conflict_safe_idempotent_and_evented_once",
                 "tests/harness/test_operator_workspace_api.py::test_inbox_response_rejects_stale_cross_scope_and_secret_payloads",
+            ),
+        ),
+        ConformanceEvidence(
+            id="operator.reviewed_arena",
+            behaviors=frozenset(
+                {
+                    ConformanceBehavior.ALLOW,
+                    ConformanceBehavior.DENY,
+                    ConformanceBehavior.STALE_OR_REBOUND,
+                    ConformanceBehavior.REDACTION,
+                }
+            ),
+            test_nodes=(
+                "tests/harness/test_operator_arena_api.py::test_reviewed_arena_projection_is_exact_bounded_and_content_free",
+                "tests/harness/test_operator_arena_api.py::test_review_winner_is_digest_bound_idempotent_and_never_applies",
+                "tests/harness/test_reviewed_arena_promotion.py::test_review_owner_cannot_request_automatic_apply",
             ),
         ),
         ConformanceEvidence(
@@ -545,6 +535,14 @@ MUTATION_ROUTE_CONTRACTS = (
         EnforcementControl.EXPLICIT_OPERATOR_ACTION,
         "runtime.action_inbox.owner_dispatch",
         evidence=(*_AUTH, "operator.action_inbox"),
+    ),
+    _route(
+        "POST",
+        "/api/operator/arenas/{arena_id}/review-winner",
+        MutationClass.LOCAL_STATE,
+        EnforcementControl.EXPLICIT_OPERATOR_ACTION,
+        "review.arena.manual_handoff",
+        evidence=(*_AUTH, "operator.reviewed_arena"),
     ),
     *_many(
         "POST",
