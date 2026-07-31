@@ -45,6 +45,13 @@ export function PrimaryRailIcon({ surface }: PrimaryRailIconProps) {
           <path d="M3.75 8.25h2.1M2.75 12h2.1M3.75 15.75h2.1" />
         </svg>
       );
+    case "projects":
+      return (
+        <svg {...common} data-icon="projects">
+          <path d="M3.5 6.5h6l1.75 2h9.25v9H3.5v-11Z" />
+          <path className="rail-icon-accent" d="M3.5 9h17" />
+        </svg>
+      );
     case "automation":
       return (
         <svg {...common} data-icon="automation">

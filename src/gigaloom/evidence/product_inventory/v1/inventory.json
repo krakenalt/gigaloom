@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "f0741cb242f297cc689fd8511d49fe38493cd0f9573734454a54764d5ba3ac91",
+  "content_sha256": "86965b31e2ab4ea777c89438ce865396f48e43562d45bce444f2a60f0655b22c",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -1476,6 +1476,31 @@
         "path": "/api/integrations/source-detail"
       },
       {
+        "method": "POST",
+        "name": "create_frame",
+        "path": "/api/mcp-apps/frames"
+      },
+      {
+        "method": "DELETE",
+        "name": "destroy_frame",
+        "path": "/api/mcp-apps/frames/{instance_id}"
+      },
+      {
+        "method": "GET",
+        "name": "frame_descriptor",
+        "path": "/api/mcp-apps/frames/{instance_id}"
+      },
+      {
+        "method": "POST",
+        "name": "frame_message",
+        "path": "/api/mcp-apps/frames/{instance_id}/messages"
+      },
+      {
+        "method": "GET",
+        "name": "frame_resource",
+        "path": "/api/mcp-apps/frames/{instance_id}/resource"
+      },
+      {
         "method": "GET",
         "name": "models",
         "path": "/api/models"
@@ -1562,6 +1587,16 @@
       },
       {
         "method": "GET",
+        "name": "capsule_evidence",
+        "path": "/api/operator/runs/{run_id}/capsule"
+      },
+      {
+        "method": "GET",
+        "name": "export_capsule",
+        "path": "/api/operator/runs/{run_id}/capsule/export"
+      },
+      {
+        "method": "GET",
         "name": "run_evidence",
         "path": "/api/operator/runs/{run_id}/evidence"
       },
@@ -1589,6 +1624,61 @@
         "method": "GET",
         "name": "project",
         "path": "/api/project"
+      },
+      {
+        "method": "GET",
+        "name": "list_projects",
+        "path": "/api/project-catalog"
+      },
+      {
+        "method": "POST",
+        "name": "create_project",
+        "path": "/api/project-catalog"
+      },
+      {
+        "method": "POST",
+        "name": "move_session",
+        "path": "/api/project-catalog/sessions/{session_id}/move"
+      },
+      {
+        "method": "DELETE",
+        "name": "remove_project",
+        "path": "/api/project-catalog/{catalog_project_id}"
+      },
+      {
+        "method": "GET",
+        "name": "project_detail",
+        "path": "/api/project-catalog/{catalog_project_id}"
+      },
+      {
+        "method": "PATCH",
+        "name": "rename_project",
+        "path": "/api/project-catalog/{catalog_project_id}"
+      },
+      {
+        "method": "POST",
+        "name": "create_profile",
+        "path": "/api/project-catalog/{catalog_project_id}/launch-profiles"
+      },
+      {
+        "method": "POST",
+        "name": "relocate_project",
+        "path": "/api/project-catalog/{catalog_project_id}/relocate"
+      },
+      {
+        "method": "POST",
+        "name": "preview_relocation",
+        "path": "/api/project-catalog/{catalog_project_id}/relocation-preview"
+      },
+      {
+        "method": "DELETE",
+        "name": "delete_profile",
+        "path": "/api/project-launch-profiles/{launch_profile_id}"
+      },
+      {
+        "method": "PATCH",
+        "name": "update_profile",
+        "path": "/api/project-launch-profiles/{launch_profile_id}"
       },
       {
         "method": "GET",
@@ -1704,6 +1794,21 @@
         "method": "POST",
         "name": "test_provider_settings",
         "path": "/api/providers/{provider_id}/test"
+      },
+      {
+        "method": "POST",
+        "name": "recommend",
+        "path": "/api/route-decisions/recommend"
+      },
+      {
+        "method": "GET",
+        "name": "inspect",
+        "path": "/api/route-decisions/{route_decision_id}"
+      },
+      {
+        "method": "POST",
+        "name": "override",
+        "path": "/api/route-decisions/{route_decision_id}/override"
       },
       {
         "method": "POST",
@@ -2216,6 +2321,9 @@
       "bootstrap preview",
       "bootstrap rollback",
       "bootstrap status",
+      "capsule",
+      "capsule export",
+      "capsule verify",
       "chat",
       "compatibility",
       "compatibility check",
@@ -2271,8 +2379,20 @@
       "preset list",
       "preset run",
       "project",
+      "project add",
       "project info",
       "project init",
+      "project launch",
+      "project list",
+      "project move-session",
+      "project profile",
+      "project profile create",
+      "project profile delete",
+      "project profile list",
+      "project profile update",
+      "project relocate",
+      "project remove",
+      "project rename",
       "provider",
       "provider add",
       "provider discover",
@@ -2282,6 +2402,10 @@
       "provider migrate-legacy",
       "provider show",
       "provider test",
+      "route",
+      "route override",
+      "route recommend",
+      "route show",
       "run",
       "runtime",
       "runtime export",

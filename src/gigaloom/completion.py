@@ -9,11 +9,6 @@ from typing import Final
 
 SHELLS: Final = ("bash", "zsh", "fish", "powershell")
 
-_CORE_ROOT_COMMANDS = (
-    "agent bootstrap chat completion config doctor eval handoff harness init integration memory "
-    "native open preset project provider run runtime schedule session state tui "
-    "ui worker workflow"
-)
 _IDENTITY_RE = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}\Z")
 _MAX_COMPLETION_AGENTS = 1_000
 _ROOT_COMMANDS_MARKER = "__GIGALOOM_ROOT_COMMANDS__"
@@ -75,6 +70,7 @@ def render_completion(
 def root_completion_candidates(
     *,
     agent_ids: Iterable[str] | None = None,
+    core_commands: Iterable[str] | None = None,
 ) -> tuple[str, ...]:
     """Return bounded core commands plus declarative Agent Profile ids."""
     if agent_ids is None:
@@ -85,7 +81,17 @@ def root_completion_candidates(
         selected = tuple(agent_ids)
     if len(selected) > _MAX_COMPLETION_AGENTS:
         raise ValueError("agent completion source is too large")
-    core = tuple(_CORE_ROOT_COMMANDS.split())
+    if core_commands is None:
+        from gigaloom.cli_commands.parser import build_parser
+
+        parser = build_parser()
+        action = next(item for item in parser._actions if item.dest == "command")
+        choices = action.choices
+        if choices is None:
+            raise RuntimeError("root CLI parser has no command registry")
+        core = tuple(choices)
+    else:
+        core = tuple(sorted(set(core_commands)))
     core_set = frozenset(core)
     for agent_id in selected:
         if not isinstance(agent_id, str) or _IDENTITY_RE.fullmatch(agent_id) is None:

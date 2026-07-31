@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from gigaloom.application import SessionApplicationService
@@ -25,6 +26,12 @@ from gigaloom.environment_push import (
     GovernedEnvironmentPushService,
 )
 from gigaloom.evals import FilesystemHarnessEvalStore
+from gigaloom.execution.api import (
+    LocalRouteRecommendationSource,
+    RouteAdvisorApplicationService,
+    RouteRecommendationSource,
+)
+from gigaloom.harnesses.api import AgentProfileV1, load_builtin_agent_profiles
 from gigaloom.github_environments import GitHubEnvironmentService
 from gigaloom.handoff_capsules import HandoffCapsuleService
 from gigaloom.integration_flows import IntegrationFlowService
@@ -40,6 +47,7 @@ from gigaloom.native.store import (
     NativeSessionIndexStore,
 )
 from gigaloom.project_memory import FilesystemProjectMemoryStore
+from gigaloom.projects.api import LaunchResolutionContextV1
 from gigaloom.provider_authentication_broker import NativeLoginBroker
 from gigaloom.provider_settings import ProviderSettingsService
 from gigaloom.registry import HarnessRegistry, create_default_registry
@@ -52,6 +60,13 @@ from gigaloom.runtime.reconcile import (
 )
 from gigaloom.runtime.store import RuntimeCoordinationStore
 from gigaloom.runtime.worker import DurableJobDispatcher
+from gigaloom.review.api import RouteDecisionRepository
+from gigaloom.review.capsules import (
+    CapsuleSigner,
+    FilesystemRunCapsuleRepository,
+    RunCapsuleCapturePortsV1,
+    RunCapsuleLifecycleService,
+)
 from gigaloom.schedules import ScheduleService
 from gigaloom.session_runner import HarnessSessionRunner
 from gigaloom.sessions import (
@@ -74,9 +89,16 @@ from gigaloom.ui.services.context_impact import (
 from gigaloom.ui.services.legacy_bundles import (
     LegacyFullBundleCompatibility,
 )
+from gigaloom.ui.services.mcp_apps import MCPAppHostService
 from gigaloom.ui.services.operator_workspace import OperatorEvidenceQuery
 from gigaloom.ui.services.operator_arena import ReviewedArenaOwner
 from gigaloom.ui.services.operator_terminal import TerminalBrowserOwner
+from gigaloom.ui.services.project_catalog import ProjectCatalogWebService
+from gigaloom.ui.services.route_advisor import RouteAdvisorWebService
+from gigaloom.ui.services.run_capsules import (
+    OperatorEvidenceObservedInputsProvider,
+    RunCapsuleEvidenceQuery,
+)
 from gigaloom.ui.streaming.operator_events import OperatorEventBroker
 from gigaloom.workbench_protocol import WorkbenchBackbone
 from gigaloom.workbench_resources import (
@@ -136,6 +158,10 @@ class AppServices:
     operator_evidence_query: OperatorEvidenceQuery | None
     action_inbox_service: ActionInboxService
     operator_event_broker: OperatorEventBroker
+    project_catalog_service: ProjectCatalogWebService
+    route_advisor_service: RouteAdvisorWebService
+    mcp_app_host_service: MCPAppHostService
+    run_capsule_evidence_query: RunCapsuleEvidenceQuery
     reviewed_arena_owner: ReviewedArenaOwner | None = None
     terminal_browser_owner: TerminalBrowserOwner | None = None
     active_headless_runs: dict[str, ActiveHeadlessRun] = field(default_factory=dict)
@@ -224,6 +250,10 @@ def build_app_services(
     operator_event_broker: OperatorEventBroker | None = None,
     reviewed_arena_owner: ReviewedArenaOwner | None = None,
     terminal_browser_owner: TerminalBrowserOwner | None = None,
+    agent_profiles: tuple[AgentProfileV1, ...] | None = None,
+    route_recommendation_source: RouteRecommendationSource | None = None,
+    run_capsule_capture_ports: RunCapsuleCapturePortsV1 | None = None,
+    run_capsule_signer: CapsuleSigner | None = None,
 ) -> AppServices:
     """Construct the application service graph without creating the ASGI app."""
     registry = registry or create_default_registry()
@@ -297,6 +327,17 @@ def build_app_services(
             group_service=grouped_integration_service,
         )
     )
+    profiles = agent_profiles or load_builtin_agent_profiles()
+    capsule_repository = FilesystemRunCapsuleRepository(config.data_dir)
+    capsule_lifecycle = (
+        RunCapsuleLifecycleService(
+            ports=run_capsule_capture_ports,
+            repository=capsule_repository,
+            signer=run_capsule_signer,
+        )
+        if run_capsule_capture_ports is not None
+        else None
+    )
     runner = HarnessSessionRunner(
         registry=registry,
         config=config,
@@ -304,6 +345,7 @@ def build_app_services(
         attachment_store=attachment_store,
         memory_store=memory_store,
         provider_account_provider=native_login_broker,
+        run_completion_hook=capsule_lifecycle,
     )
     dispatcher = (
         DurableJobDispatcher(
@@ -330,6 +372,34 @@ def build_app_services(
         runtime_store=runtime_store,
         preference_store=WorkbenchPreferenceStore(config.data_dir),
         integration_service=integration_flow_service,
+    )
+    launch_context = LaunchResolutionContextV1(
+        agent_ids=frozenset(
+            profile.agent_id for profile in profiles if profile.native is not None
+        ),
+        structured_route_ids=frozenset(
+            route.route_id
+            for profile in profiles
+            for route in profile.structured_routes
+        ),
+        terminal_modes=frozenset({"direct", "managed"}),
+    )
+    project_catalog_service = ProjectCatalogWebService.from_data_dir(
+        config.data_dir,
+        session_store=session_store,
+        launch_context=launch_context,
+    )
+    route_source = route_recommendation_source or LocalRouteRecommendationSource(
+        config.data_dir,
+        profiles,
+    )
+    route_advisor_service = RouteAdvisorWebService(
+        advisor=RouteAdvisorApplicationService(route_source),
+        repository=RouteDecisionRepository(Path(config.data_dir) / "route-decisions"),
+    )
+    capsule_evidence_query = RunCapsuleEvidenceQuery(
+        capsule_repository,
+        OperatorEvidenceObservedInputsProvider(operator_evidence_query),
     )
     return AppServices(
         config=config,
@@ -424,6 +494,10 @@ def build_app_services(
         operator_evidence_query=operator_evidence_query,
         action_inbox_service=action_inbox_service or ActionInboxService(()),
         operator_event_broker=operator_event_broker or OperatorEventBroker(),
+        project_catalog_service=project_catalog_service,
+        route_advisor_service=route_advisor_service,
+        mcp_app_host_service=MCPAppHostService(),
+        run_capsule_evidence_query=capsule_evidence_query,
         reviewed_arena_owner=reviewed_arena_owner,
         terminal_browser_owner=terminal_browser_owner,
     )

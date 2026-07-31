@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import argparse
 
+from gigaloom.cli_commands.commands.projects import (
+    register_project_catalog_commands,
+)
 from gigaloom.native.models import NativeSessionStatus
 
 
@@ -95,6 +98,7 @@ def register(
     project_init.add_argument("--overwrite", action="store_true")
     project_init.add_argument("--json", action="store_true")
     project_init.set_defaults(handler="_handle_project_init")
+    register_project_catalog_commands(project_subparsers)
 
     preset = subparsers.add_parser("preset")
     preset_subparsers = preset.add_subparsers(dest="preset_command")

@@ -5,6 +5,7 @@
     "agent",
     "benchmark",
     "bootstrap",
+    "capsule",
     "chat",
     "compatibility",
     "completion",
@@ -21,6 +22,7 @@
     "preset",
     "project",
     "provider",
+    "route",
     "run",
     "runtime",
     "schedule",
@@ -31,8 +33,5 @@
     "worker",
     "workflow"
   ],
-  "release_reserved_commands": [
-    "capsule",
-    "route"
-  ]
+  "release_reserved_commands": []
 }

@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from gigaloom.harnesses.agent_profiles.models import CoreCommandCollisionContractV1
 
 
-RELEASE_RESERVED_CORE_COMMANDS = ("capsule", "route")
+RELEASE_RESERVED_CORE_COMMANDS: tuple[str, ...] = ()
 
 
 def build_core_command_collision_contract(

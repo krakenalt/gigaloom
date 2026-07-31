@@ -12,12 +12,14 @@ from gigaloom.review.api import (
     FilesystemRunCapsuleRepository,
     verify_run_capsule,
 )
+from gigaloom.review.workspace.api import EvidenceWorkspaceProjection
 from gigaloom.ui.schemas.run_capsules import (
     CapsuleDriftEvidence,
     CapsuleDriftFinding,
     CapsuleSignatureEvidence,
     RunCapsuleWebEvidence,
 )
+from gigaloom.ui.services.operator_workspace import OperatorEvidenceQuery
 
 
 class RunCapsuleObservedInputsProvider(Protocol):
@@ -77,8 +79,10 @@ class RunCapsuleEvidenceQuery:
             drift_status = "drifted"
         elif counts["unverifiable"] or counts["omitted"]:
             drift_status = "unverifiable"
-        else:
+        elif findings:
             drift_status = "current"
+        else:
+            drift_status = "unverifiable"
         return RunCapsuleWebEvidence(
             run_id=run_id,
             capsule_id=record.capsule_id,
@@ -121,4 +125,39 @@ class RunCapsuleEvidenceQuery:
         return self._repository.archive_for_run(run_id)
 
 
-__all__ = ["RunCapsuleEvidenceQuery", "RunCapsuleObservedInputsProvider"]
+class OperatorEvidenceObservedInputsProvider:
+    """Reuse the owner-bound evidence authority before capsule inspection."""
+
+    def __init__(self, evidence: OperatorEvidenceQuery | None) -> None:
+        self._evidence = evidence
+
+    def observed_inputs_for_run(
+        self,
+        *,
+        run_id: str,
+        owner_id: str,
+        workspace_id: str,
+    ) -> Mapping[str, str | None]:
+        """Authorize access and keep unsupported current facts unverifiable."""
+        if self._evidence is None:
+            raise PermissionError("run evidence authority is unavailable")
+        projection = self._evidence.get_evidence_workspace(
+            run_id=run_id,
+            owner_id=owner_id,
+            workspace_id=workspace_id,
+        )
+        checked = EvidenceWorkspaceProjection.from_dict(projection.to_dict())
+        if (
+            checked.run.run_id != run_id
+            or checked.run.owner_id != owner_id
+            or checked.run.workspace_id != workspace_id
+        ):
+            raise PermissionError("run evidence binding does not match")
+        return {}
+
+
+__all__ = [
+    "OperatorEvidenceObservedInputsProvider",
+    "RunCapsuleEvidenceQuery",
+    "RunCapsuleObservedInputsProvider",
+]

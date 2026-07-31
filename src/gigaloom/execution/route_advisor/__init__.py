@@ -8,6 +8,9 @@ from gigaloom.execution.route_advisor.application import (
     RouteRecommendationSnapshotV1,
     RouteRecommendationSource,
 )
+from gigaloom.execution.route_advisor.local_source import (
+    LocalRouteRecommendationSource,
+)
 from gigaloom.execution.route_advisor.advisor import RouteRanker, advise_routes
 from gigaloom.execution.route_advisor.candidates import canonicalize_candidates
 from gigaloom.execution.route_advisor.catalog import (
@@ -49,6 +52,7 @@ __all__ = [
     "CompatibilityGrade",
     "EligibleRouteEvidence",
     "LatencyEvidence",
+    "LocalRouteRecommendationSource",
     "POLICY_RANKER_ID",
     "POLICY_RANKER_VERSION",
     "PolicyRankerV1",

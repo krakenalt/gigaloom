@@ -23,12 +23,15 @@ Native agents:
   giga codex [args...]     Launch the real Codex CLI
   giga claude [args...]    Launch the real Claude Code CLI
   giga gemini [args...]    Launch the real Gemini CLI
+  giga pi [args...]        Launch the real Pi CLI
 
 Main commands:
   giga ui                  Open the Web control plane
   giga agent ...           Inspect declarative agent profiles
   giga project ...         Manage projects and launch profiles
+  giga route ...           Inspect governed route recommendations
   giga run ...             Start an explicit structured run
+  giga capsule ...         Export or verify content-free Run Capsules
   giga session ...         Inspect or mutate sessions as plain CLI
   giga completion <shell>  Generate shell completion
 

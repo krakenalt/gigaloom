@@ -17,6 +17,8 @@ from gigaloom.environment_push import (
     EnvironmentPushService,
 )
 from gigaloom.github_environments import GitHubEnvironmentService
+from gigaloom.execution.api import RouteRecommendationSource
+from gigaloom.harnesses.api import AgentProfileV1
 from gigaloom.integration_flows import IntegrationFlowService
 from gigaloom.integration_groups import GroupedIntegrationService
 from gigaloom.integration_lifecycle import IntegrationLifecycleService
@@ -34,6 +36,7 @@ from gigaloom.provider_settings import ProviderSettingsService
 from gigaloom.registry import HarnessRegistry
 from gigaloom.runtime.action_inbox.api import ActionInboxService
 from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.review.capsules import CapsuleSigner, RunCapsuleCapturePortsV1
 from gigaloom.sessions import (
     HarnessSessionStore,
 )
@@ -94,6 +97,10 @@ def create_app(
     operator_event_broker: OperatorEventBroker | None = None,
     reviewed_arena_owner: ReviewedArenaOwner | None = None,
     terminal_browser_owner: TerminalBrowserOwner | None = None,
+    agent_profiles: tuple[AgentProfileV1, ...] | None = None,
+    route_recommendation_source: RouteRecommendationSource | None = None,
+    run_capsule_capture_ports: RunCapsuleCapturePortsV1 | None = None,
+    run_capsule_signer: CapsuleSigner | None = None,
 ) -> FastAPI:
     """Create the Unified Harness UI app."""
     config = config or HarnessConfig.from_env()
@@ -124,6 +131,10 @@ def create_app(
         operator_event_broker=operator_event_broker,
         reviewed_arena_owner=reviewed_arena_owner,
         terminal_browser_owner=terminal_browser_owner,
+        agent_profiles=agent_profiles,
+        route_recommendation_source=route_recommendation_source,
+        run_capsule_capture_ports=run_capsule_capture_ports,
+        run_capsule_signer=run_capsule_signer,
     )
     async_diagnostics = services.async_diagnostics
 

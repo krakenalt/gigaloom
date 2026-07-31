@@ -7,12 +7,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+from pathlib import Path
 import sys
 
 from gigaloom.config import HarnessConfig
 from gigaloom.execution.api import (
     RouteAdvisorApplicationService,
     RouteIntent,
+    LocalRouteRecommendationSource,
     RouteRecommendationQueryV1,
 )
 from gigaloom.review.api import (
@@ -23,6 +25,10 @@ from gigaloom.review.api import (
     override_route_decision_receipt,
     route_decision_receipt_to_dict,
     verify_route_decision_receipt,
+)
+from gigaloom.harnesses.agent_profiles import (
+    build_core_command_collision_contract,
+    load_agent_profile_registry,
 )
 
 
@@ -104,6 +110,52 @@ class RouteCommandHandlers:
         return 0
 
 
+def _handle_route_recommend(
+    args: argparse.Namespace,
+    config: HarnessConfig,
+) -> int:
+    return _default_handlers(config).recommend(args, config)
+
+
+def _handle_route_show(args: argparse.Namespace, config: HarnessConfig) -> int:
+    return _default_handlers(config).show(args, config)
+
+
+def _handle_route_override(
+    args: argparse.Namespace,
+    config: HarnessConfig,
+) -> int:
+    return _default_handlers(config).override(args, config)
+
+
+def build_local_route_source(config: HarnessConfig) -> LocalRouteRecommendationSource:
+    """Build the shared local source from the canonical parser collision set."""
+    from gigaloom.cli_commands.parser import build_parser
+
+    parser = build_parser()
+    command_action = next(
+        action for action in parser._actions if action.dest == "command"
+    )
+    choices = command_action.choices
+    if choices is None:
+        raise RuntimeError("root CLI parser has no command registry")
+    profiles = load_agent_profile_registry(
+        config.data_dir,
+        collision_contract=build_core_command_collision_contract(choices),
+    )
+    if profiles.issues:
+        raise ValueError("agent registry has unresolved stale profiles")
+    return LocalRouteRecommendationSource(config.data_dir, profiles.registry.profiles)
+
+
+def _default_handlers(config: HarnessConfig) -> RouteCommandHandlers:
+    service = RouteCommandService(
+        advisor=RouteAdvisorApplicationService(build_local_route_source(config)),
+        repository=RouteDecisionRepository(Path(config.data_dir) / "route-decisions"),
+    )
+    return RouteCommandHandlers(service)
+
+
 def route_query_from_args(args: argparse.Namespace) -> RouteRecommendationQueryV1:
     """Build a deterministic query without reading prompt or provider content."""
     return RouteRecommendationQueryV1(
@@ -163,5 +215,6 @@ def _timestamp(value: datetime) -> str:
 __all__ = [
     "RouteCommandHandlers",
     "RouteCommandService",
+    "build_local_route_source",
     "route_query_from_args",
 ]

@@ -184,7 +184,7 @@ def test_cli_ui_starts_and_stops_worker_when_none_is_online(
         "Popen",
         lambda command, **kwargs: popen_calls.append((command, kwargs)) or process,
     )
-    monkeypatch.setattr(ui_handlers, "create_app", lambda _config: "app")
+    monkeypatch.setattr(ui_handlers, "create_app", lambda _config, **_kwargs: "app")
     uvicorn_calls = []
     monkeypatch.setattr(
         ui_handlers.uvicorn,
@@ -234,7 +234,7 @@ def test_cli_ui_reuses_online_worker_or_allows_autostart_opt_out(
         "Popen",
         lambda *args, **kwargs: pytest.fail("must not start another worker"),
     )
-    monkeypatch.setattr(ui_handlers, "create_app", lambda _config: "app")
+    monkeypatch.setattr(ui_handlers, "create_app", lambda _config, **_kwargs: "app")
     monkeypatch.setattr(ui_handlers.uvicorn, "run", lambda *args, **kwargs: None)
 
     assert cli.main(["ui"]) == 0
@@ -269,7 +269,7 @@ def test_cli_ui_starts_missing_workers_to_reach_target_pool(
 
     monkeypatch.setattr(ui_handlers, "worker_status", fake_worker_status)
     monkeypatch.setattr(ui_handlers.subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(ui_handlers, "create_app", lambda _config: "app")
+    monkeypatch.setattr(ui_handlers, "create_app", lambda _config, **_kwargs: "app")
     monkeypatch.setattr(ui_handlers.uvicorn, "run", lambda *args, **kwargs: None)
 
     assert cli.main(["ui", "--worker-count", "4"]) == 0

@@ -29,10 +29,19 @@ export default defineConfig({
     emptyOutDir: true,
     manifest: true,
     outDir: outputDirectory,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         assetFileNames: "assets/[name]-[hash][extname]",
         chunkFileNames: "assets/[name]-[hash].js",
+        codeSplitting: {
+          groups: [
+            {
+              includeDependenciesRecursively: false,
+              name: "router",
+              test: /node_modules[\\/]@tanstack[\\/](?:history|react-router|react-store|router-core|store)[\\/]/,
+            },
+          ],
+        },
         entryFileNames: "assets/[name]-[hash].js",
       },
     },

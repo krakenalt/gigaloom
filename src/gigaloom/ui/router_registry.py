@@ -52,6 +52,9 @@ from gigaloom.ui.routers.operator_terminal import (
 from gigaloom.ui.routers.project_memory import (
     create_router as create_project_memory_router,
 )
+from gigaloom.ui.routers.project_catalog import (
+    create_router as create_project_catalog_router,
+)
 from gigaloom.ui.routers.project_tools import (
     create_router as create_project_tools_router,
 )
@@ -60,6 +63,13 @@ from gigaloom.ui.routers.provider_handoffs import create_provider_handoff_router
 from gigaloom.ui.routers.run_history import (
     create_router as create_run_history_router,
 )
+from gigaloom.ui.routers.route_advisor import (
+    create_router as create_route_advisor_router,
+)
+from gigaloom.ui.routers.run_capsules import (
+    create_router as create_run_capsules_router,
+)
+from gigaloom.ui.routers.mcp_apps import create_router as create_mcp_apps_router
 from gigaloom.ui.routers.run_streams import (
     create_router as create_run_streams_router,
 )
@@ -138,6 +148,10 @@ def install_application_routers(
     app.include_router(create_operator_workspace_router(services))
     app.include_router(create_file_preview_router(services.config.data_dir))
     app.include_router(create_provider_handoff_router(services.registry))
+    app.include_router(create_project_catalog_router(services.project_catalog_service))
+    app.include_router(create_route_advisor_router(services.route_advisor_service))
+    app.include_router(create_mcp_apps_router(services.mcp_app_host_service))
+    app.include_router(create_run_capsules_router(services.run_capsule_evidence_query))
     # The shell catch-all must remain last so unknown API and asset paths never
     # become HTML responses.
     app.include_router(create_shell_router(services.ui_security))

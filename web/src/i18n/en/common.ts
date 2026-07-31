@@ -117,6 +117,7 @@ export const enCommon = {
   noItems: "No retained items match this view.",
   presentationOnly: "Presentation preferences only",
   project: "Harness workspace",
+  projects: "Projects",
   openRun: "Open run",
   owner: "Owner",
   permissionProfile: "Permission profile",
