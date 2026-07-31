@@ -64,8 +64,6 @@ def test_source_repository_links_are_limited_to_history_and_gateway_docs(
     tmp_path: Path,
 ) -> None:
     docs_module = load_docs_module()
-    package = tmp_path / "packages/gpt2giga-harness"
-    package.mkdir(parents=True)
     (tmp_path / "pyproject.toml").write_text(
         "[project]\n"
         "name='gigaloom'\n"
@@ -75,7 +73,7 @@ def test_source_repository_links_are_limited_to_history_and_gateway_docs(
         "Repository='https://github.com/krakenalt/gigaloom'\n"
         "Documentation='https://krakenalt.github.io/gigaloom/'\n"
         "Issues='https://github.com/krakenalt/gigaloom/issues'\n"
-        "Changelog='https://github.com/krakenalt/gigaloom/blob/main/packages/gpt2giga-harness/CHANGELOG_en.md'\n",
+        "Changelog='https://github.com/krakenalt/gigaloom/blob/main/CHANGELOG_en.md'\n",
         encoding="utf-8",
     )
     docs = tmp_path / "docs"

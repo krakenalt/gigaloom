@@ -11,7 +11,7 @@ from typing import Any, Mapping
 
 import pytest
 
-from gpt2giga_harness.execution import (
+from gigaloom.execution import (
     EMPTY_EXTENSION_SNAPSHOT_HASH,
     ExecutionTransport,
     InteractionMode,
@@ -20,7 +20,7 @@ from gpt2giga_harness.execution import (
     RuntimeOwnership,
     create_execution_snapshot,
 )
-from gpt2giga_harness.gemini_acp import (
+from gigaloom.gemini_acp import (
     GEMINI_ACP_PERMISSION_METHOD,
     GeminiAcpDriver,
     GeminiAcpError,
@@ -28,12 +28,12 @@ from gpt2giga_harness.gemini_acp import (
     normalize_gemini_acp_event,
     probe_gemini_acp_handshake,
 )
-from gpt2giga_harness.harnesses.gemini_cli import GeminiCliHarness
-from gpt2giga_harness.structured_processes import (
+from gigaloom.harnesses.gemini_cli import GeminiCliHarness
+from gigaloom.structured_processes import (
     StructuredProcessState,
     StructuredTransportClosed,
 )
-from gpt2giga_harness.structured_sessions import (
+from gigaloom.structured_sessions import (
     StructuredSessionConfigSnapshot,
     StructuredSessionCoordinator,
     StructuredSessionLinkStore,
@@ -41,8 +41,8 @@ from gpt2giga_harness.structured_sessions import (
     UnsupportedSessionCapability,
     structured_session_link_to_dict,
 )
-from gpt2giga_harness.types import HarnessContext, HarnessRequest
-from gpt2giga_harness.workbench_execution import workbench_transport_projection
+from gigaloom.types import HarnessContext, HarnessRequest
+from gigaloom.workbench_execution import workbench_transport_projection
 
 
 FIXTURE_ROOT = Path("tests/fixtures/harness_cli/gemini/0.46")

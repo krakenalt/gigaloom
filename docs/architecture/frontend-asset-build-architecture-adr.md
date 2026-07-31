@@ -10,7 +10,7 @@ rollback contract described here are enforced in source and tests.
 ## Context
 
 Cockpit is authored in React and TypeScript under
-`packages/gpt2giga-harness/frontend`. Its pinned npm graph produces a
+`web`. Its pinned npm graph produces a
 content-addressed, integrity-checked asset tree under the Python package. The
 installed Harness wheel serves that tree without Node.js or network access.
 

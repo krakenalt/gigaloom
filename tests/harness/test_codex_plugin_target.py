@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.codex_plugin_target import (
+from gigaloom.codex_plugin_target import (
     CODEX_PLUGIN_TARGET_ID,
     CodexPluginApproval,
     CodexPluginCommandError,
@@ -19,11 +19,11 @@ from gpt2giga_harness.codex_plugin_target import (
     codex_plugin_source_checksum,
     codex_plugin_target_plugin,
 )
-from gpt2giga_harness.integration_installer import (
+from gigaloom.integration_installer import (
     InstallationConflictError,
     InstallationScopeError,
 )
-from gpt2giga_harness.integration_packages import (
+from gigaloom.integration_packages import (
     ExtensionTargetRegistry,
     InstallationScope,
     IntegrationCompatibility,

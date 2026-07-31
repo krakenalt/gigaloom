@@ -10,36 +10,36 @@ import time
 
 import pytest
 
-from gpt2giga_harness import cli
-from gpt2giga_harness.sessions import filesystem as filesystem_sessions
-from gpt2giga_harness.harnesses.codex_cli import CodexCliHarness
-from gpt2giga_harness.harnesses.echo import EchoHarness
-from gpt2giga_harness.runtime.capabilities import negotiate_execution_capabilities
-from gpt2giga_harness.runtime.approvals import (
+from gigaloom import cli
+from gigaloom.sessions import filesystem as filesystem_sessions
+from gigaloom.harnesses.codex_cli import CodexCliHarness
+from gigaloom.harnesses.echo import EchoHarness
+from gigaloom.runtime.capabilities import negotiate_execution_capabilities
+from gigaloom.runtime.approvals import (
     ApprovalDecisionsRepository,
     ApprovalsRepository,
 )
-from gpt2giga_harness.runtime.db import DbProvider, transaction
-from gpt2giga_harness.runtime.jobs import (
+from gigaloom.runtime.db import DbProvider, transaction
+from gigaloom.runtime.jobs import (
     AttemptsRepository,
     JobClaimsRepository,
     JobsRepository,
 )
-from gpt2giga_harness.runtime.native import NativeProcessRepository
-from gpt2giga_harness.runtime.outbox import OutboxRepository
-from gpt2giga_harness.runtime.repositories.diagnostics import (
+from gigaloom.runtime.native import NativeProcessRepository
+from gigaloom.runtime.outbox import OutboxRepository
+from gigaloom.runtime.repositories.diagnostics import (
     RuntimeDiagnosticsRepository,
 )
-from gpt2giga_harness.runtime.revisions import RevisionsRepository
-from gpt2giga_harness.runtime.side_effects import SideEffectsRepository
-from gpt2giga_harness.runtime.workers import WorkersRepository
-from gpt2giga_harness.runtime.models import (
+from gigaloom.runtime.revisions import RevisionsRepository
+from gigaloom.runtime.side_effects import SideEffectsRepository
+from gigaloom.runtime.workers import WorkersRepository
+from gigaloom.runtime.models import (
     JobAttemptStatus,
     JobStatus,
     RunStatus,
     SideEffectStatus,
 )
-from gpt2giga_harness.runtime.policy import (
+from gigaloom.runtime.policy import (
     ApprovalDecision,
     EnforcementLevel,
     PermissionAction,
@@ -47,9 +47,9 @@ from gpt2giga_harness.runtime.policy import (
     PolicyDecision,
     PolicyResolution,
 )
-from gpt2giga_harness.runtime.reconcile import RuntimeReconciler
-from gpt2giga_harness.runtime.side_effects import HarnessSideEffectExecutor
-from gpt2giga_harness.runtime.store import (
+from gigaloom.runtime.reconcile import RuntimeReconciler
+from gigaloom.runtime.side_effects import HarnessSideEffectExecutor
+from gigaloom.runtime.store import (
     RUNTIME_SCHEMA_VERSION,
     AttemptNotFoundError,
     ConcurrentUpdateError,
@@ -64,15 +64,15 @@ from gpt2giga_harness.runtime.store import (
     SideEffectNotFoundError,
     _MIGRATIONS,
 )
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.sessions.models import (
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.sessions.models import (
     HarnessStoredEvent,
     event_from_dict,
     event_to_dict,
     run_from_dict,
     run_to_dict,
 )
-from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability
+from gigaloom.types import GigaChatApiMode, HarnessCapability
 
 
 def test_runtime_store_facade_composes_bounded_domain_repositories():
@@ -98,9 +98,7 @@ def test_runtime_store_facade_composes_bounded_domain_repositories():
     assert module_file is not None
     source_path = Path(module_file)
     assert len(source_path.read_text(encoding="utf-8").splitlines()) <= 350
-    assert (
-        HarnessSideEffectExecutor.__module__ == "gpt2giga_harness.runtime.side_effects"
-    )
+    assert HarnessSideEffectExecutor.__module__ == "gigaloom.runtime.side_effects"
     for error_type in (
         RuntimeStoreError,
         JobNotFoundError,
@@ -113,7 +111,7 @@ def test_runtime_store_facade_composes_bounded_domain_repositories():
         ConcurrentUpdateError,
         InvalidStateTransitionError,
     ):
-        assert error_type.__module__ == "gpt2giga_harness.runtime.store"
+        assert error_type.__module__ == "gigaloom.runtime.store"
 
 
 def test_db_provider_preserves_sqlite_contract_and_closes_resources(tmp_path):
@@ -155,11 +153,11 @@ def test_db_provider_bounds_connection_and_database_setup_counts(tmp_path, monke
         return original_connect(*args, **kwargs, factory=TracingConnection)
 
     monkeypatch.setattr(
-        "gpt2giga_harness.runtime.db.connection.sqlite3.connect",
+        "gigaloom.runtime.db.connection.sqlite3.connect",
         traced_connect,
     )
     monkeypatch.setattr(
-        "gpt2giga_harness.runtime.db.connection.getpid",
+        "gigaloom.runtime.db.connection.getpid",
         lambda: process_id,
     )
     provider = DbProvider(tmp_path / "provider-budget.sqlite3")
@@ -194,7 +192,7 @@ def test_db_transaction_instruments_wait_and_preserves_atomicity(tmp_path, monke
     provider = DbProvider(tmp_path / "transaction.sqlite3")
     measurements: list[tuple[str, float]] = []
     monkeypatch.setattr(
-        "gpt2giga_harness.runtime.db.transactions.record_duration",
+        "gigaloom.runtime.db.transactions.record_duration",
         lambda name, duration_ms: measurements.append((name, duration_ms)),
     )
 
@@ -946,7 +944,7 @@ def test_legacy_run_statuses_and_optional_trace_fields_round_trip(tmp_path):
 
 def test_runtime_cli_inspect_and_export_json(tmp_path, monkeypatch, capsys):
     data_dir = tmp_path / "data"
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(data_dir))
 
     inspect_code = cli.main(["runtime", "inspect", "--json"])
     inspected = json.loads(capsys.readouterr().out)

@@ -4,22 +4,22 @@ import subprocess
 import pytest
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness import cli
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.handoff_capsules import (
+from gigaloom import cli
+from gigaloom.config import HarnessConfig
+from gigaloom.handoff_capsules import (
     HandoffCapsule,
     HandoffCapsuleError,
 )
-from gpt2giga_harness.runtime.policy import (
+from gigaloom.runtime.policy import (
     EnforcementLevel,
     PermissionAction,
     PolicyContext,
     PolicyDecision,
     PolicyResolution,
 )
-from gpt2giga_harness.sessions.models import HarnessStoredEvent
-from gpt2giga_harness.sessions.store import new_id, utc_now
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.sessions.models import HarnessStoredEvent
+from gigaloom.sessions.store import new_id, utc_now
+from gigaloom.ui.app import create_app
 
 
 def test_handoff_capsule_api_and_cli_are_content_free_and_truthful(
@@ -141,7 +141,7 @@ def test_handoff_capsule_api_and_cli_are_content_free_and_truthful(
     )
     assert same.status_code == 409
 
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(data_dir))
     assert (
         cli.main(
             [

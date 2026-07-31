@@ -2,32 +2,32 @@ import subprocess
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.arena import FilesystemHarnessArenaStore, queue_arena
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.agents import render_starter_agent
-from gpt2giga_harness.evals import (
+from gigaloom.arena import FilesystemHarnessArenaStore, queue_arena
+from gigaloom.config import HarnessConfig
+from gigaloom.agents import render_starter_agent
+from gigaloom.evals import (
     FilesystemHarnessEvalStore,
     load_eval_spec,
     queue_eval,
     sync_durable_eval_case,
 )
-from gpt2giga_harness.execution import ExecutionTransport
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.project import init_project_config, resolve_project
-from gpt2giga_harness.registry import HarnessRegistry
-from gpt2giga_harness.runtime.models import JobAttemptStatus, JobStatus
-from gpt2giga_harness.runtime.payloads import DurableJobPayloadStore
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.runtime.structured import (
+from gigaloom.execution import ExecutionTransport
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.project import init_project_config, resolve_project
+from gigaloom.registry import HarnessRegistry
+from gigaloom.runtime.models import JobAttemptStatus, JobStatus
+from gigaloom.runtime.payloads import DurableJobPayloadStore
+from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.runtime.structured import (
     DURABLE_STRUCTURED_ADMISSION_FIELD,
     DurableStructuredAdmissionError,
 )
-from gpt2giga_harness.runtime.worker import DurableJobDispatcher, DurableJobWorker
-from gpt2giga_harness.schedules import ScheduleService, load_schedule
-from gpt2giga_harness.session_runner import HarnessSessionRunner
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.structured_sessions import AdapterCapabilitySnapshot
-from gpt2giga_harness.types import (
+from gigaloom.runtime.worker import DurableJobDispatcher, DurableJobWorker
+from gigaloom.schedules import ScheduleService, load_schedule
+from gigaloom.session_runner import HarnessSessionRunner
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.structured_sessions import AdapterCapabilitySnapshot
+from gigaloom.types import (
     Availability,
     HarnessCapability,
     HarnessContext,
@@ -35,20 +35,18 @@ from gpt2giga_harness.types import (
     HarnessResult,
     HarnessSpec,
 )
-from gpt2giga_harness.workflows import (
+from gigaloom.workflows import (
     WorkflowCoordinator,
     WorkflowRepository,
     parse_workflow_definition,
 )
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.ui.app import create_app
 
 
 def test_proven_structured_transport_is_worker_owned_and_retryable(
     tmp_path, monkeypatch
 ):
-    monkeypatch.setattr(
-        "gpt2giga_harness.runtime.worker.DEFAULT_RETRY_BACKOFF_SECONDS", 0.0
-    )
+    monkeypatch.setattr("gigaloom.runtime.worker.DEFAULT_RETRY_BACKOFF_SECONDS", 0.0)
     harness = _StructuredHarness("recoverable", durable_approval=True, fail_once=True)
     registry, dispatcher, worker, runtime, payloads, sessions = _runtime(
         tmp_path, harness
@@ -170,9 +168,7 @@ def test_native_terminal_and_unproven_handoff_are_not_durable_admitted(tmp_path)
 def test_native_workflow_step_reuses_structured_admission_across_retry(
     tmp_path, monkeypatch
 ):
-    monkeypatch.setattr(
-        "gpt2giga_harness.runtime.worker.DEFAULT_RETRY_BACKOFF_SECONDS", 0.0
-    )
+    monkeypatch.setattr("gigaloom.runtime.worker.DEFAULT_RETRY_BACKOFF_SECONDS", 0.0)
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     init_project_config(workspace)

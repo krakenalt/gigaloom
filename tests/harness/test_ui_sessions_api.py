@@ -9,19 +9,19 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 import pytest
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.project import project_id_for_root
-from gpt2giga_harness.registry import HarnessRegistry, create_default_registry
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.runtime.worker import DurableJobWorker
-from gpt2giga_harness.sessions import (
+from gigaloom.config import HarnessConfig
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.project import project_id_for_root
+from gigaloom.registry import HarnessRegistry, create_default_registry
+from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.runtime.worker import DurableJobWorker
+from gigaloom.sessions import (
     FilesystemHarnessSessionStore,
     InMemoryHarnessSessionStore,
 )
-from gpt2giga_harness.sessions.models import HarnessStoredEvent
-from gpt2giga_harness.sessions.store import utc_now
-from gpt2giga_harness.types import (
+from gigaloom.sessions.models import HarnessStoredEvent
+from gigaloom.sessions.store import utc_now
+from gigaloom.types import (
     Availability,
     GigaChatApiMode,
     HarnessCapability,
@@ -31,7 +31,7 @@ from gpt2giga_harness.types import (
     HarnessSpec,
     HarnessEventType,
 )
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.ui.app import create_app
 
 
 def _sse_frames(text: str) -> list[dict[str, object]]:
@@ -444,7 +444,7 @@ def test_headless_run_uses_title_model_from_settings(tmp_path, monkeypatch):
         return {"choices": [{"message": {"content": "Generated title"}}]}
 
     monkeypatch.setattr(
-        "gpt2giga_harness.session_runner.proxy.request_json",
+        "gigaloom.session_runner.proxy.request_json",
         request_json,
     )
     client = _client(
@@ -1251,7 +1251,7 @@ def test_arena_verdict_binds_exact_candidates_and_selected_promotion(tmp_path):
             f"/api/runs/{selected_run_id}/promotions/preview"
         ),
         "artifact_review_url": f"/api/runs/{selected_run_id}/diff",
-        "run_url": f"/cockpit-v2/runs/{selected_run_id}",
+        "run_url": f"/web/runs/{selected_run_id}",
         "automatic_apply": False,
     }
     assert (

@@ -6,18 +6,18 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.integration_flows import IntegrationFlowService
-from gpt2giga_harness.runtime.models import (
+from gigaloom.config import HarnessConfig
+from gigaloom.integration_flows import IntegrationFlowService
+from gigaloom.runtime.models import (
     NativeProcessOutputRecord,
     NativeProcessRecord,
 )
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.sessions.models import HarnessStoredEvent
-from gpt2giga_harness.sessions.store import new_id, utc_now
-from gpt2giga_harness.ui.app import create_app
-from gpt2giga_harness.workbench_resources import (
+from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.sessions.models import HarnessStoredEvent
+from gigaloom.sessions.store import new_id, utc_now
+from gigaloom.ui.app import create_app
+from gigaloom.workbench_resources import (
     WorkbenchPreferenceStore,
     WorkbenchResourceError,
     WorkbenchResourceService,

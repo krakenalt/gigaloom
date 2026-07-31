@@ -6,9 +6,9 @@ import os
 
 import pytest
 
-from gpt2giga_harness.evals import adapter_compatibility_matrix
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.types import GigaChatApiMode
+from gigaloom.evals import adapter_compatibility_matrix
+from gigaloom.registry import create_default_registry
+from gigaloom.types import GigaChatApiMode
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.live_native_cli]

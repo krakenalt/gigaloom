@@ -7,14 +7,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from gpt2giga_harness.codex_plugin_target import CODEX_PLUGIN_TARGET_ID
-from gpt2giga_harness.integration_catalog import CatalogSourceType
-from gpt2giga_harness.integration_flows import (
+from gigaloom.codex_plugin_target import CODEX_PLUGIN_TARGET_ID
+from gigaloom.integration_catalog import CatalogSourceType
+from gigaloom.integration_flows import (
     IntegrationFlowConflictError,
     IntegrationFlowError,
     IntegrationFlowService,
 )
-from gpt2giga_harness.integration_packages import (
+from gigaloom.integration_packages import (
     InstallationScope,
     IntegrationCompatibility,
     IntegrationComponent,
@@ -24,7 +24,7 @@ from gpt2giga_harness.integration_packages import (
     IntegrationTargetOverlay,
     IntegrationUpdatePolicy,
 )
-from gpt2giga_harness.portable_skills import (
+from gigaloom.portable_skills import (
     CODEX_SKILL_TARGET_ID,
     SkillActivationMode,
     SkillCapabilitySnapshot,

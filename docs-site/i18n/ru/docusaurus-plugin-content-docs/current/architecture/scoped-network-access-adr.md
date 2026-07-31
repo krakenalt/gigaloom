@@ -18,7 +18,7 @@ GigaLoom принимает эти границы без blanket-переклю�
 
 ## Решение
 
-`gpt2giga_harness.runtime.network_access` владеет schema version 1 для
+`gigaloom.runtime.network_access` владеет schema version 1 для
 Harness-enforced исходящего HTTPS. Для authorization одновременно нужны:
 
 1. явно включённая sandbox network boundary;

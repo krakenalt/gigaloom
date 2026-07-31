@@ -11,9 +11,7 @@ import pytest
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-PACKAGE_ROOT = (
-    REPOSITORY_ROOT / "packages" / "gpt2giga-harness" / "src" / "gpt2giga_harness"
-)
+PACKAGE_ROOT = REPOSITORY_ROOT / "src" / "gigaloom"
 
 LEGACY_MODULES = {
     "anthropic_compatible": "providers.protocols.anthropic.compatible",
@@ -59,11 +57,11 @@ EXPECTED_PROVIDER_REGISTRY_SHAPE = {
 
 EXPECTED_PLUGIN_ENTRY_POINTS = {
     "direct-chat-legacy": (
-        "gpt2giga_harness.provider_profiles:direct_chat_legacy_compatibility"
+        "gigaloom.provider_profiles:direct_chat_legacy_compatibility"
     ),
-    "codex-legacy": ("gpt2giga_harness.provider_profiles:codex_legacy_compatibility"),
-    "claude-legacy": ("gpt2giga_harness.provider_profiles:claude_legacy_compatibility"),
-    "gemini-legacy": ("gpt2giga_harness.provider_profiles:gemini_legacy_compatibility"),
+    "codex-legacy": ("gigaloom.provider_profiles:codex_legacy_compatibility"),
+    "claude-legacy": ("gigaloom.provider_profiles:claude_legacy_compatibility"),
+    "gemini-legacy": ("gigaloom.provider_profiles:gemini_legacy_compatibility"),
 }
 
 
@@ -72,15 +70,15 @@ def test_legacy_provider_modules_are_exact_bounded_aliases(
     legacy: str,
     bounded: str,
 ) -> None:
-    legacy_module = importlib.import_module(f"gpt2giga_harness.{legacy}")
-    bounded_module = importlib.import_module(f"gpt2giga_harness.{bounded}")
+    legacy_module = importlib.import_module(f"gigaloom.{legacy}")
+    bounded_module = importlib.import_module(f"gigaloom.{bounded}")
 
     assert legacy_module is bounded_module
     assert len((PACKAGE_ROOT / f"{legacy}.py").read_text().splitlines()) <= 30
 
 
 def test_provider_registry_public_shape_is_preserved() -> None:
-    registry = importlib.import_module("gpt2giga_harness.provider_registry")
+    registry = importlib.import_module("gigaloom.provider_registry")
 
     assert EXPECTED_PROVIDER_REGISTRY_SHAPE <= set(dir(registry))
 
@@ -91,7 +89,7 @@ def test_provider_plugin_entry_points_remain_stable() -> None:
     )
 
     assert (
-        project["project"]["entry-points"]["agent_workbench.provider_adapters.v1"]
+        project["project"]["entry-points"]["gigaloom.provider_adapters.v1"]
         == EXPECTED_PLUGIN_ENTRY_POINTS
     )
 
@@ -108,8 +106,8 @@ def test_provider_modules_do_not_import_presentation_surfaces() -> None:
             target == forbidden or target.startswith(f"{forbidden}.")
             for target in imported
             for forbidden in (
-                "gpt2giga_harness.cli",
-                "gpt2giga_harness.tui",
-                "gpt2giga_harness.ui",
+                "gigaloom.cli",
+                "gigaloom.tui",
+                "gigaloom.ui",
             )
         ), source

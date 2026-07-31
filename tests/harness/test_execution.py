@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-import gpt2giga_harness.execution as execution_module
-from gpt2giga_harness.execution import (
+import gigaloom.execution as execution_module
+from gigaloom.execution import (
     EMPTY_EXTENSION_SNAPSHOT_HASH,
     ExecutionBudgets,
     ExecutionClassification,
@@ -25,7 +25,7 @@ from gpt2giga_harness.execution import (
 
 def test_execution_package_facade_preserves_public_module_identity():
     assert execution_module.__file__.replace("\\", "/").endswith(
-        "/gpt2giga_harness/execution/__init__.py"
+        "/gigaloom/execution/__init__.py"
     )
     public_types = (
         ExecutionBudgets,
@@ -39,7 +39,7 @@ def test_execution_package_facade_preserves_public_module_identity():
         RuntimeOwnership,
         SnapshotEvidenceRef,
     )
-    assert {item.__module__ for item in public_types} == {"gpt2giga_harness.execution"}
+    assert {item.__module__ for item in public_types} == {"gigaloom.execution"}
 
 
 def test_execution_snapshot_round_trips_with_stable_semantic_hash():
@@ -65,7 +65,7 @@ def test_execution_snapshot_round_trips_with_stable_semantic_hash():
     assert payload["provider"] == {"id": "provider-main", "revision": "7"}
     assert payload["route"]["provider"] == payload["provider"]
     assert first.is_executable is True
-    assert ExecutionSnapshot.__module__ == "gpt2giga_harness.execution"
+    assert ExecutionSnapshot.__module__ == "gigaloom.execution"
 
 
 @pytest.mark.parametrize(

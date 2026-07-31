@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.safe_paths import (
+from gigaloom.safe_paths import (
     PathBoundaryError,
     resolve_operator_path,
     resolve_path_within,

@@ -23,7 +23,7 @@ and may require more than one repository permission.
 
 ## Decision
 
-`gpt2giga_harness.runtime.github_access` owns schema version 1 for the semantic
+`gigaloom.runtime.github_access` owns schema version 1 for the semantic
 GitHub authority boundary. It classifies:
 
 - `local_git` as separate, non-GitHub authority;

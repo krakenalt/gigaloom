@@ -3,19 +3,19 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.harnesses import claude_code, codex_cli, gemini_cli
-from gpt2giga_harness.harnesses.claude_code import ClaudeCodeHarness
-from gpt2giga_harness.harnesses.codex_cli import CodexCliHarness
-from gpt2giga_harness.harnesses.gemini_cli import GeminiCliHarness
-from gpt2giga_harness.managed_mcp import (
+from gigaloom.harnesses import claude_code, codex_cli, gemini_cli
+from gigaloom.harnesses.claude_code import ClaudeCodeHarness
+from gigaloom.harnesses.codex_cli import CodexCliHarness
+from gigaloom.harnesses.gemini_cli import GeminiCliHarness
+from gigaloom.managed_mcp import (
     HeadlessManagedMCPSnapshotStore,
     clear_headless_mcp_materialization,
     materialize_headless_mcp_snapshot,
     write_startup_config,
 )
-from gpt2giga_harness.mcp import descriptor_from_profile
-from gpt2giga_harness.project import ProjectToolProfile
-from gpt2giga_harness.types import (
+from gigaloom.mcp import descriptor_from_profile
+from gigaloom.project import ProjectToolProfile
+from gigaloom.types import (
     Availability,
     HarnessContext,
     HarnessRequest,

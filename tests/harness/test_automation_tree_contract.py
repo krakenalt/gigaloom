@@ -9,13 +9,7 @@ from pathlib import Path
 import pytest
 
 
-PACKAGE_ROOT = (
-    Path(__file__).resolve().parents[2]
-    / "packages"
-    / "gpt2giga-harness"
-    / "src"
-    / "gpt2giga_harness"
-)
+PACKAGE_ROOT = Path(__file__).resolve().parents[2] / "src" / "gigaloom"
 
 LEGACY_MODULES = {
     "agents": "automation.agents.api",
@@ -34,8 +28,8 @@ def test_legacy_automation_modules_are_exact_bounded_aliases(
     legacy: str,
     bounded: str,
 ) -> None:
-    legacy_module = importlib.import_module(f"gpt2giga_harness.{legacy}")
-    bounded_module = importlib.import_module(f"gpt2giga_harness.{bounded}")
+    legacy_module = importlib.import_module(f"gigaloom.{legacy}")
+    bounded_module = importlib.import_module(f"gigaloom.{bounded}")
 
     assert legacy_module is bounded_module
     assert len((PACKAGE_ROOT / f"{legacy}.py").read_text().splitlines()) <= 30
@@ -44,9 +38,9 @@ def test_legacy_automation_modules_are_exact_bounded_aliases(
 def test_automation_modules_stay_bounded_and_avoid_concrete_runtime_storage() -> None:
     automation_root = PACKAGE_ROOT / "automation"
     forbidden_imports = (
-        "gpt2giga_harness.runtime.db",
-        "gpt2giga_harness.runtime.repositories",
-        "gpt2giga_harness.runtime.store",
+        "gigaloom.runtime.db",
+        "gigaloom.runtime.repositories",
+        "gigaloom.runtime.store",
     )
 
     for source in sorted(automation_root.rglob("*.py")):

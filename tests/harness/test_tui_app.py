@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import contextmanager
 from dataclasses import replace
 import json
 import os
@@ -13,18 +14,18 @@ pytest.importorskip("textual")
 from textual import events
 from textual.widgets import Input, ListView
 
-from gpt2giga_harness.terminal_dispatch import TuiLaunchIntent
-from gpt2giga_harness.tui.app import SessionBrowserScreen, TimelinePanel, WorkbenchTui
-from gpt2giga_harness.tui.commands import (
+from gigaloom.terminal_dispatch import TuiLaunchIntent
+from gigaloom.tui.app import SessionBrowserScreen, TimelinePanel, WorkbenchTui
+from gigaloom.tui.commands import (
     COMMAND_REGISTRY,
     command_bindings,
     command_for_slash,
     slash_commands,
 )
-from gpt2giga_harness.tui.i18n import CATALOGS, translator
-from gpt2giga_harness.tui.shell_contract import minimal_shell_contract
-from gpt2giga_harness.tui.widgets.timeline import DEFAULT_VISIBLE_CARDS
-from gpt2giga_harness.tui.client import (
+from gigaloom.tui.i18n import CATALOGS, translator
+from gigaloom.tui.shell_contract import minimal_shell_contract
+from gigaloom.tui.widgets.timeline import DEFAULT_VISIBLE_CARDS
+from gigaloom.tui.client import (
     ApprovalSummary,
     ArtifactSummary,
     AttachmentSummary,
@@ -50,7 +51,7 @@ from gpt2giga_harness.tui.client import (
     SessionPreview,
     TimelineEvent,
 )
-from gpt2giga_harness.workbench_resources import (
+from gigaloom.workbench_resources import (
     InventoryProjection,
     PreferenceSnapshot,
     ProcessProjection,
@@ -592,7 +593,7 @@ class FakeClient:
         return HandoffPreview(
             "web",
             "ready",
-            f"http://127.0.0.1:8091/cockpit-v2/work/{session_id}",
+            f"http://127.0.0.1:8091/web/work/{session_id}",
             "Shared session",
             ("browser rendering is Web-owned",),
             "Open after review.",
@@ -1313,7 +1314,7 @@ async def test_tui_file_and_evidence_modals_fit_supported_terminal_matrix(size):
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("size", ((120, 40), (80, 24), (60, 20)))
-async def test_tui_contains_native_terminal_and_restores_session_view(size):
+async def test_remote_tui_offers_explicit_web_terminal_action(size):
     client = FakeClient()
     client.snapshot = replace(
         client.snapshot,
@@ -1330,20 +1331,19 @@ async def test_tui_contains_native_terminal_and_restores_session_view(size):
         await pilot.pause()
 
         assert client.native_calls[0][0] == "start"
+        assert len(app.screen.query("#native-output, #native-input")) == 0
         for widget in app.screen.query(
-            "#native-dialog, #native-output, #native-input-row, #native-actions"
+            "#native-attach-dialog, #native-attach-body, #native-attach-actions"
         ):
             assert widget.region.x >= 0
             assert widget.region.right <= size[0]
-
-        await pilot.click("#native-input")
-        await pilot.press(*"continue")
-        await pilot.press("enter")
-        await pilot.pause()
-        assert ("input", ("proc_1", "continue", True)) in client.native_calls
-        assert "provider: continue" in str(
-            app.screen.query_one("#native-output").render()
+        assert "remote session" in str(
+            app.screen.query_one("#native-attach-body").render()
         )
+
+        await pilot.click("#native-web-attach")
+        await pilot.pause()
+        assert "8091/web/work/sess_1" in app.screen.body
 
         await pilot.press("escape")
         await pilot.pause()
@@ -1351,18 +1351,30 @@ async def test_tui_contains_native_terminal_and_restores_session_view(size):
 
 
 @pytest.mark.anyio
-async def test_tui_blocks_fullscreen_provider_controls_and_stops_process():
+async def test_local_tui_suspends_and_hands_fullscreen_to_direct_attach(monkeypatch):
     client = FakeClient()
     client.snapshot = replace(
         client.snapshot,
         readiness=replace(client.snapshot.readiness, transport="native_terminal"),
     )
-    client.native_snapshot = replace(
-        client.native_snapshot,
-        output="safe\x1b]52;c;clipboard\x07\x1b[?1049howned",
-        handoff_required=True,
+    lifecycle = []
+
+    def attach(snapshot):
+        lifecycle.append(("attach", snapshot.process_id))
+
+    app = WorkbenchTui(
+        client,
+        workspace="/tmp/demo",
+        native_terminal_attach=attach,
     )
-    app = WorkbenchTui(client, workspace="/tmp/demo")
+
+    @contextmanager
+    def suspended():
+        lifecycle.append(("suspend", None))
+        yield
+        lifecycle.append(("resume", None))
+
+    monkeypatch.setattr(app, "suspend", suspended)
 
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
@@ -1372,12 +1384,16 @@ async def test_tui_blocks_fullscreen_provider_controls_and_stops_process():
         await pilot.press("enter")
         await pilot.pause()
 
-        rendered = str(app.screen.query_one("#native-output").render())
-        assert "\x1b" not in rendered
-        assert "terminal-control" in rendered
-        assert "raw terminal fallback" in rendered
-        assert ("stop", "proc_1") in client.native_calls
-        assert app.screen.query_one("#native-input").disabled is True
+        assert lifecycle == [
+            ("suspend", None),
+            ("attach", "proc_1"),
+            ("resume", None),
+        ]
+        assert len(app.screen_stack) == 1
+        assert len(app.screen.query("#native-output, #native-input")) == 0
+        assert all(
+            call[0] not in {"input", "resize", "stop"} for call in client.native_calls
+        )
 
 
 def _quality_state_snapshot(state: str) -> RunSnapshot | None:
@@ -1790,7 +1806,7 @@ async def test_tui_marks_api_loss_and_authoritative_reconnect():
 
 
 @pytest.mark.anyio
-async def test_tui_bounds_long_streams_and_coalesces_resize_storms():
+async def test_tui_bounds_long_timeline_streams():
     client = FakeClient()
     app = WorkbenchTui(client, workspace="/tmp/demo")
 
@@ -1808,30 +1824,3 @@ async def test_tui_bounds_long_streams_and_coalesces_resize_storms():
         app._apply_run_snapshot(_run_snapshot(events=events))
         assert len(app.timeline) == 100
         assert len(str(app.query_one("#timeline").render())) <= 64_000
-
-        client.snapshot = replace(
-            client.snapshot,
-            readiness=replace(client.snapshot.readiness, transport="native_terminal"),
-        )
-        app.snapshot = client.snapshot
-        app._show_native_terminal(client.native_snapshot)
-        await pilot.pause()
-        screen = app.screen
-        active = 0
-        maximum_active = 0
-        calls = 0
-
-        async def slow_resize(process_id, *, rows, columns):
-            nonlocal active, maximum_active, calls
-            active += 1
-            calls += 1
-            maximum_active = max(maximum_active, active)
-            await asyncio.sleep(0.01)
-            active -= 1
-            return replace(client.native_snapshot, output="")
-
-        client.resize_native_terminal = slow_resize
-        await asyncio.gather(*(screen._resize() for _ in range(50)))
-
-        assert maximum_active == 1
-        assert calls <= 2

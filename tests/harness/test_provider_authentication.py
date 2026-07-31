@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.cli_capabilities import invalidate_cli_probe_cache
-from gpt2giga_harness.cli_capabilities import probe_cli_capabilities
-from gpt2giga_harness.executables import ExecutableResolution
-from gpt2giga_harness.provider_authentication import (
+from gigaloom.cli_capabilities import invalidate_cli_probe_cache
+from gigaloom.cli_capabilities import probe_cli_capabilities
+from gigaloom.executables import ExecutableResolution
+from gigaloom.provider_authentication import (
     ProviderAuthenticationEvidenceError,
     build_provider_authentication_capability_matrix,
     load_provider_authentication_evidence,
@@ -82,7 +82,7 @@ def test_hermetic_command_fakes_admit_only_exact_reviewed_cli_pins(monkeypatch):
         return _Completed(stdout=output[Path(command[0]).name])
 
     monkeypatch.setattr(
-        "gpt2giga_harness.cli_capabilities.subprocess.run",
+        "gigaloom.cli_capabilities.subprocess.run",
         fake_run,
     )
     snapshots = {
@@ -122,7 +122,7 @@ def test_hermetic_command_fakes_admit_only_exact_reviewed_cli_pins(monkeypatch):
 
 def test_version_drift_and_missing_runtime_evidence_fail_closed(monkeypatch):
     monkeypatch.setattr(
-        "gpt2giga_harness.cli_capabilities.subprocess.run",
+        "gigaloom.cli_capabilities.subprocess.run",
         lambda command, **kwargs: _Completed(
             stdout=(
                 "codex-cli 0.144.4"

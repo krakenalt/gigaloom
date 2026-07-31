@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.harness_model import signed_harness_model_headers
-from gpt2giga_harness.native.base import native_command_plan_to_dict
-from gpt2giga_harness.native.claude import ClaudeNativeHistoryConnector
-from gpt2giga_harness.native.models import NativeSessionStatus
-from gpt2giga_harness.project import project_id_for_root
-from gpt2giga_harness.types import (
+from gigaloom.harness_model import signed_harness_model_headers
+from gigaloom.native.base import native_command_plan_to_dict
+from gigaloom.native.claude import ClaudeNativeHistoryConnector
+from gigaloom.native.models import NativeSessionStatus
+from gigaloom.project import project_id_for_root
+from gigaloom.types import (
     GigaChatApiMode,
     HarnessCapability,
     HarnessContext,

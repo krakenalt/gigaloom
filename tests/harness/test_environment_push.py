@@ -7,15 +7,15 @@ import subprocess
 from fastapi.testclient import TestClient
 import pytest
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.environment_push import (
+from gigaloom.config import HarnessConfig
+from gigaloom.environment_push import (
     _CommandResult,
     EnvironmentPushError,
     EnvironmentPushService,
 )
-from gpt2giga_harness.environments import HostedRepositoryHint
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.environments import HostedRepositoryHint
+from gigaloom.registry import create_default_registry
+from gigaloom.ui.app import create_app
 
 
 PUSH_CLOCK = datetime(2026, 7, 22, 12, 0, tzinfo=timezone.utc)

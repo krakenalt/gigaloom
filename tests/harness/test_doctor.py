@@ -1,17 +1,17 @@
 import json
 import stat
 
-from gpt2giga_harness import doctor, proxy
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.doctor import (
+from gigaloom import doctor, proxy
+from gigaloom.config import HarnessConfig
+from gigaloom.doctor import (
     _native_facade_evidence,
     build_doctor_report,
     format_doctor_report,
     run_doctor,
     write_doctor_support_report,
 )
-from gpt2giga_harness.registry import HarnessRegistry
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
+from gigaloom.registry import HarnessRegistry
+from gigaloom.runtime.store import RuntimeCoordinationStore
 
 
 def test_native_facade_doctor_evidence_keeps_l0_ready_when_l2_drifts():
@@ -251,7 +251,7 @@ def test_doctor_report_is_redacted_actionable_and_workspace_scoped(
     serialized = json.dumps(report)
     by_id = {check["id"]: check for check in report["checks"]}
     assert report["schema_version"] == 2
-    assert report["kind"] == "gpt2giga_harness_doctor_report"
+    assert report["kind"] == "gigaloom_doctor_report"
     assert report["privacy"] == {
         "content_free": True,
         "prompts_collected": False,
@@ -417,7 +417,7 @@ def test_doctor_support_report_is_canonical_private_and_replaceable(tmp_path):
     output = tmp_path / "support" / "doctor.json"
     report = {
         "schema_version": 1,
-        "kind": "gpt2giga_harness_doctor_report",
+        "kind": "gigaloom_doctor_report",
         "ok": False,
         "summary": {"ready": 1, "degraded": 2, "blocked": 3},
         "checks": [],

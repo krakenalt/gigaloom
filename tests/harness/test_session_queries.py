@@ -4,17 +4,17 @@ from collections.abc import Iterator
 
 import pytest
 
-import gpt2giga_harness.sessions.filesystem as filesystem_sessions
-from gpt2giga_harness.sessions import (
+import gigaloom.sessions.filesystem as filesystem_sessions
+from gigaloom.sessions import (
     EventNotFoundError,
     FilesystemHarnessSessionStore,
     InMemoryHarnessSessionStore,
     MessageNotFoundError,
     StaleReadSnapshotError,
 )
-from gpt2giga_harness.sessions.models import HarnessMessage, HarnessStoredEvent
-from gpt2giga_harness.sessions.store import new_id, utc_now
-from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability
+from gigaloom.sessions.models import HarnessMessage, HarnessStoredEvent
+from gigaloom.sessions.store import new_id, utc_now
+from gigaloom.types import GigaChatApiMode, HarnessCapability
 
 
 @pytest.fixture(params=("memory", "filesystem"))

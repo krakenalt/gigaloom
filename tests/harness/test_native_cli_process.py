@@ -11,8 +11,8 @@ import time
 
 import pytest
 
-from gpt2giga_harness.native_cli_contracts import NATIVE_NAMESPACE_SPECS
-from gpt2giga_harness.native_cli_process import (
+from gigaloom.native_cli_contracts import NATIVE_NAMESPACE_SPECS
+from gigaloom.native_cli_process import (
     NativeExecutableKind,
     NativeExecutableResolution,
     NativeProcessPlatform,
@@ -38,8 +38,8 @@ def _kernel_command(fake_path: Path, suffix: tuple[str, ...]) -> tuple[str, ...]
     source = """
 import os
 import sys
-from gpt2giga_harness.native_cli_contracts import NATIVE_NAMESPACE_SPECS
-from gpt2giga_harness.native_cli_process import run_native_l0
+from gigaloom.native_cli_contracts import NATIVE_NAMESPACE_SPECS
+from gigaloom.native_cli_process import run_native_l0
 raise SystemExit(run_native_l0(
     NATIVE_NAMESPACE_SPECS['codex'],
     sys.argv[2:],
@@ -236,7 +236,7 @@ def test_environment_overrides_are_explicit_and_do_not_mutate_input():
 def test_process_kernel_imports_no_textual_or_argparse():
     source = """
 import sys
-import gpt2giga_harness.native_cli_process
+import gigaloom.native_cli_process
 print(','.join(sorted(name for name in sys.modules if name in {'argparse', 'textual'})))
 """
     completed = subprocess.run(
@@ -490,8 +490,8 @@ raise SystemExit(31)
     source = """
 import os
 import sys
-from gpt2giga_harness.native_cli_contracts import NATIVE_NAMESPACE_SPECS
-from gpt2giga_harness.native_cli_process import run_native_l1_handoff
+from gigaloom.native_cli_contracts import NATIVE_NAMESPACE_SPECS
+from gigaloom.native_cli_process import run_native_l1_handoff
 raise SystemExit(run_native_l1_handoff(
     NATIVE_NAMESPACE_SPECS['codex'],
     (),
@@ -545,8 +545,8 @@ def test_windows_shim_round_trips_provider_arguments(tmp_path, extension):
     source = """
 import os
 import sys
-from gpt2giga_harness.native_cli_contracts import NATIVE_NAMESPACE_SPECS
-from gpt2giga_harness.native_cli_process import run_native_l0
+from gigaloom.native_cli_contracts import NATIVE_NAMESPACE_SPECS
+from gigaloom.native_cli_process import run_native_l0
 raise SystemExit(run_native_l0(
     NATIVE_NAMESPACE_SPECS['codex'],
     sys.argv[3:],

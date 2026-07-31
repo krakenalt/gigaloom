@@ -5,22 +5,22 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.cli_capabilities import CLI_PROBE_CONTRACTS
-from gpt2giga_harness.native_cli_capture import CAPTURE_OUTPUT_BYTES
-from gpt2giga_harness.native_cli_capture import build_native_cli_capture_plan
-from gpt2giga_harness.native_cli_capture import digest_native_cli_capture
-from gpt2giga_harness.native_cli_contracts import CapabilityContext
-from gpt2giga_harness.native_cli_contracts import CapabilityLevel
-from gpt2giga_harness.native_cli_contracts import CapabilityState
-from gpt2giga_harness.native_cli_contracts import NATIVE_NAMESPACE_SPECS
-from gpt2giga_harness.native_cli_contracts import NativeCommandClass
-from gpt2giga_harness.native_cli_contracts import VersionEvidenceStatus
-from gpt2giga_harness.native_cli_contracts import WORKBENCH_INTEGRATION_SPECS
-from gpt2giga_harness.native_cli_contracts import classify_native_route
-from gpt2giga_harness.native_cli_contracts import evaluate_contextual_capability
-from gpt2giga_harness.native_cli_contracts import native_namespace_spec_to_dict
-from gpt2giga_harness.native_cli_contracts import route_decision_to_dict
-from gpt2giga_harness.native_cli_contracts import workbench_integration_spec_to_dict
+from gigaloom.cli_capabilities import CLI_PROBE_CONTRACTS
+from gigaloom.native_cli_capture import CAPTURE_OUTPUT_BYTES
+from gigaloom.native_cli_capture import build_native_cli_capture_plan
+from gigaloom.native_cli_capture import digest_native_cli_capture
+from gigaloom.native_cli_contracts import CapabilityContext
+from gigaloom.native_cli_contracts import CapabilityLevel
+from gigaloom.native_cli_contracts import CapabilityState
+from gigaloom.native_cli_contracts import NATIVE_NAMESPACE_SPECS
+from gigaloom.native_cli_contracts import NativeCommandClass
+from gigaloom.native_cli_contracts import VersionEvidenceStatus
+from gigaloom.native_cli_contracts import WORKBENCH_INTEGRATION_SPECS
+from gigaloom.native_cli_contracts import classify_native_route
+from gigaloom.native_cli_contracts import evaluate_contextual_capability
+from gigaloom.native_cli_contracts import native_namespace_spec_to_dict
+from gigaloom.native_cli_contracts import route_decision_to_dict
+from gigaloom.native_cli_contracts import workbench_integration_spec_to_dict
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "native_cli_contracts"
 HARNESS_FIXTURES = Path(__file__).parents[1] / "fixtures" / "harness_cli"

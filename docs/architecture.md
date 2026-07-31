@@ -9,7 +9,7 @@ GigaLoom is a standalone Python distribution with three local surfaces:
 
 ## Main boundaries
 
-- `gpt2giga_harness.harnesses` owns built-in adapters.
+- `gigaloom.harnesses` owns built-in adapters.
 - `runtime` and `sessions` own jobs, leases, events, policy, and persistence.
 - `project`, `workspace`, and `worktrees` bound filesystem mutations.
 - `ui` projects redacted state; it does not become a second authority source.

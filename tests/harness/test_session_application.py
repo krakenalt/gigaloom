@@ -1,17 +1,17 @@
-from gpt2giga_harness.application import SessionApplicationService
-from gpt2giga_harness.cli_capabilities import CliCapabilitySnapshot
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.registry import HarnessRegistry
-from gpt2giga_harness.runtime.models import ApprovalStatus, JobStatus, RunStatus
-from gpt2giga_harness.runtime.payloads import DurableJobPayloadStore
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.runtime.worker import DurableJobDispatcher, DurableJobWorker
-from gpt2giga_harness.session_runner import HarnessSessionRunner
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.settings import HarnessSettingsStore
-from gpt2giga_harness.structured_sessions import AdapterCapabilitySnapshot
-from gpt2giga_harness.types import (
+from gigaloom.application import SessionApplicationService
+from gigaloom.cli_capabilities import CliCapabilitySnapshot
+from gigaloom.config import HarnessConfig
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.registry import HarnessRegistry
+from gigaloom.runtime.models import ApprovalStatus, JobStatus, RunStatus
+from gigaloom.runtime.payloads import DurableJobPayloadStore
+from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.runtime.worker import DurableJobDispatcher, DurableJobWorker
+from gigaloom.session_runner import HarnessSessionRunner
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.settings import HarnessSettingsStore
+from gigaloom.structured_sessions import AdapterCapabilitySnapshot
+from gigaloom.types import (
     Availability,
     HarnessCapability,
     HarnessContext,

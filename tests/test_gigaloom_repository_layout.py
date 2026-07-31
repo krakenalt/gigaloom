@@ -5,7 +5,6 @@ import tomllib
 
 REPOSITORY_OWNER = "krakenalt/gigaloom"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-HARNESS_MEMBER = REPOSITORY_ROOT / "packages/gpt2giga-harness"
 
 
 def test_gigaloom_is_a_root_level_project():
@@ -15,8 +14,8 @@ def test_gigaloom_is_a_root_level_project():
     assert metadata["project"]["name"] == "gigaloom"
     assert metadata["project"]["description"]
     assert "workspace" not in metadata.get("tool", {}).get("uv", {})
-    assert HARNESS_MEMBER.is_dir()
-    assert not (HARNESS_MEMBER / "pyproject.toml").exists()
+    assert (REPOSITORY_ROOT / "src/gigaloom").is_dir()
+    assert (REPOSITORY_ROOT / "web").is_dir()
     assert not (REPOSITORY_ROOT / "packages/gpt2giga").exists()
 
 
@@ -38,7 +37,7 @@ def test_standalone_bootstrap_scripts_are_target_owned():
         encoding="utf-8"
     )
 
-    assert "packages/gpt2giga-harness" in base
+    assert "scripts/asset_contract.py" in base
     assert 'uv sync "${sync_args[@]}"' in base
     assert "--locked" in base
     assert "--all-extras" in base

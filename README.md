@@ -17,10 +17,12 @@ authority that has not been granted.
 
 ## Install
 
-Python 3.11–3.14 and an installed provider CLI are required:
+Python 3.11–3.14 and an installed provider CLI are required. Managed provider
+terminals additionally use `tmux` on Linux and macOS; systems without it keep
+provider-native passthrough.
 
 ```sh
-uv tool install --prerelease allow 'gigaloom==0.5.1a2'
+uv tool install --prerelease allow 'gigaloom==0.6.0a1'
 giga doctor
 giga --version
 ```
@@ -48,11 +50,12 @@ See [Installation](./docs/installation.md) and
 | Topic | Guide |
 |---|---|
 | Product overview | [Documentation home](./docs/index.md) |
-| Installation and first run | [Installation](./docs/installation.md) · [Quickstart](./docs/quickstart.md) |
+| Installation, 0.6 migration, and first run | [Installation](./docs/installation.md) · [Quickstart](./docs/quickstart.md) |
 | Architecture and safety boundaries | [Architecture](./docs/architecture.md) · [Durability and performance](./docs/architecture/durability-performance-contracts.md) · [Security](./docs/security.md) |
 | Runtime, backup, and troubleshooting | [Operations](./docs/operations.md) |
 | Optional gpt2giga gateway | [Gateway integration](./docs/gateway-integration.md) |
-| Development and release | [Contributing](./docs/contributing.md) · [Release](./docs/release.md) |
+| npm Web assets | [Web package](./web/README.md) |
+| Development, tags, and release recovery | [Contributing](./docs/contributing.md) · [Release](./docs/release.md) |
 | Repository migration | [Source history](./docs/source-history.md) |
 
 The published English and Russian documentation is at
@@ -65,7 +68,7 @@ not require a gateway source checkout. Direct Chat and the legacy local-gateway
 preset are optional:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.5.1a2'
+uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.6.0a1'
 ```
 
 The optional extra consumes the released `gpt2giga` distribution. Its
@@ -76,8 +79,8 @@ normalized protocol and compatibility contracts remain owned by the
 ## Development
 
 ```sh
-npm --prefix packages/gpt2giga-harness/frontend ci --ignore-scripts
-npm --prefix packages/gpt2giga-harness/frontend run build
+npm --prefix web ci --ignore-scripts
+npm --prefix web run build
 ./scripts/ci-base.sh sync
 ./scripts/ci-base.sh ruff-check
 ./scripts/ci-base.sh pytest tests/harness -q

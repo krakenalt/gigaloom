@@ -4,19 +4,19 @@ import sys
 
 import pytest
 
-from gpt2giga_harness.cli_capabilities import (
+from gigaloom.cli_capabilities import (
     cli_capability_snapshot_to_dict,
     invalidate_cli_probe_cache,
     probe_cli_capabilities,
 )
-from gpt2giga_harness.executables import ExecutableResolution
-from gpt2giga_harness.harnesses.agent_cli import run_streaming_command
-from gpt2giga_harness.harnesses.agent_cli import normalize_usage
-from gpt2giga_harness.harnesses.claude_code import _ClaudeStreamParser
-from gpt2giga_harness.harnesses.codex_cli import _CodexStreamParser
-from gpt2giga_harness.harnesses.gemini_cli import _GeminiStreamParser
-from gpt2giga_harness.native import claude, codex, gemini
-from gpt2giga_harness.types import HarnessRequest
+from gigaloom.executables import ExecutableResolution
+from gigaloom.harnesses.agent_cli import run_streaming_command
+from gigaloom.harnesses.agent_cli import normalize_usage
+from gigaloom.harnesses.claude_code import _ClaudeStreamParser
+from gigaloom.harnesses.codex_cli import _CodexStreamParser
+from gigaloom.harnesses.gemini_cli import _GeminiStreamParser
+from gigaloom.native import claude, codex, gemini
+from gigaloom.types import HarnessRequest
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "harness_cli"
 
@@ -89,7 +89,7 @@ def test_probe_proves_required_contract_and_caches_by_command_version(
         return _Completed(stdout=output)
 
     monkeypatch.setattr(
-        "gpt2giga_harness.cli_capabilities.subprocess.run",
+        "gigaloom.cli_capabilities.subprocess.run",
         fake_run,
     )
     resolution = ExecutableResolution(
@@ -152,7 +152,7 @@ def test_usage_normalization_preserves_proven_token_details():
 def test_probe_rejects_present_binary_without_required_contract(monkeypatch):
     outputs = iter(("gemini 0.1.0", "usage: gemini"))
     monkeypatch.setattr(
-        "gpt2giga_harness.cli_capabilities.subprocess.run",
+        "gigaloom.cli_capabilities.subprocess.run",
         lambda *args, **kwargs: _Completed(stdout=next(outputs)),
     )
     resolution = ExecutableResolution(
@@ -193,7 +193,7 @@ def test_probe_fails_closed_outside_supported_version_window(
         )
     )
     monkeypatch.setattr(
-        "gpt2giga_harness.cli_capabilities.subprocess.run",
+        "gigaloom.cli_capabilities.subprocess.run",
         lambda *args, **kwargs: _Completed(stdout=next(outputs)),
     )
     resolution = ExecutableResolution(
@@ -221,7 +221,7 @@ def test_probe_fails_closed_outside_supported_version_window(
 def test_missing_required_capability_remains_unsupported_above_window(monkeypatch):
     outputs = iter(("gemini 0.47.1", "usage: gemini --output-format stream-json"))
     monkeypatch.setattr(
-        "gpt2giga_harness.cli_capabilities.subprocess.run",
+        "gigaloom.cli_capabilities.subprocess.run",
         lambda *args, **kwargs: _Completed(stdout=next(outputs)),
     )
     resolution = ExecutableResolution(
@@ -256,7 +256,7 @@ def test_claude_remote_control_auth_gate_proves_command_without_login(monkeypatc
         )
 
     monkeypatch.setattr(
-        "gpt2giga_harness.cli_capabilities.subprocess.run",
+        "gigaloom.cli_capabilities.subprocess.run",
         fake_run,
     )
     snapshot = probe_cli_capabilities(

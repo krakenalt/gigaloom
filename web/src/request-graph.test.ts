@@ -1,0 +1,365 @@
+import { QueryClient } from "@tanstack/react-query";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import type { SessionOverviewResponse } from "./api";
+import {
+  cancelRequestScope,
+  operatorEvidenceOptions,
+  operatorInboxOptions,
+  operatorTerminalOptions,
+  reviewedArenaOptions,
+  refreshSessionAfterRunStart,
+  refreshSessionRevision,
+  requestKeys,
+  runProjectionOptions,
+  sessionOverviewOptions,
+  updateSessionOverview,
+} from "./request-graph";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+function queryClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 0 } },
+  });
+}
+
+function sessionResponse(id: string, title = id): SessionOverviewResponse {
+  return {
+    projections: {},
+    session: {
+      archived: false,
+      id,
+      pinned: false,
+      title,
+      updated_at: "2026-07-16T00:00:00Z",
+    },
+    snapshot_revision: `revision-${id}`,
+  };
+}
+
+describe("Cockpit request graph", () => {
+  it("preserves domain query key identities", () => {
+    expect({
+      approvals: requestKeys.approvals(),
+      attention: requestKeys.attention(),
+      environment: requestKeys.environment("session-one"),
+      harnesses: requestKeys.harnesses(),
+      models: requestKeys.models("v2"),
+      operatorEvidence: requestKeys.operatorEvidence("run-one", "workspace-one"),
+      operatorInbox: requestKeys.operatorInbox(
+        "workspace-one",
+        "approval,run_input",
+      ),
+      operatorInboxScope: requestKeys.operatorInboxScope("workspace-one"),
+      operatorTerminal: requestKeys.operatorTerminal(
+        "terminal-one",
+        "workspace-one",
+        "session-one",
+        7,
+      ),
+      providerAccounts: requestKeys.providerAccounts(),
+      providers: requestKeys.providers(),
+      reviewedArena: requestKeys.reviewedArena("arena-one", "workspace-one"),
+      runCenterSummary: requestKeys.runCenterSummary("run-one"),
+      runOverview: requestKeys.runOverview("run-one"),
+      runProjection: requestKeys.runProjection("run-one", "report"),
+      runsCenter: requestKeys.runsCenter(),
+      runScope: requestKeys.runScope("run-one"),
+      runTrace: requestKeys.runTrace("run-one"),
+      sessionAttachments: requestKeys.sessionAttachments("session-one"),
+      sessionIndex: requestKeys.sessionIndex(),
+      sessionOverview: requestKeys.sessionOverview("session-one"),
+      sessionProjection: requestKeys.sessionProjection("session-one", "messages"),
+      sessionScope: requestKeys.sessionScope("session-one"),
+      settings: requestKeys.settings(),
+      workspaceFiles: requestKeys.workspaceFiles("session-one", "readme"),
+    }).toEqual({
+      approvals: ["cockpit", "approvals"],
+      attention: ["cockpit", "attention"],
+      environment: ["cockpit", "session", "session-one", "environment"],
+      harnesses: ["cockpit", "harnesses"],
+      models: ["cockpit", "models", "v2"],
+      operatorEvidence: [
+        "cockpit",
+        "run",
+        "run-one",
+        "operator-evidence",
+        "workspace-one",
+      ],
+      operatorInbox: [
+        "cockpit",
+        "operator-inbox",
+        "workspace-one",
+        "approval,run_input",
+      ],
+      operatorInboxScope: ["cockpit", "operator-inbox", "workspace-one"],
+      operatorTerminal: [
+        "cockpit",
+        "operator-terminal",
+        "terminal-one",
+        "workspace-one",
+        "session-one",
+        7,
+      ],
+      providerAccounts: ["cockpit", "provider-accounts"],
+      providers: ["cockpit", "providers"],
+      reviewedArena: [
+        "cockpit",
+        "reviewed-arena",
+        "arena-one",
+        "workspace-one",
+      ],
+      runCenterSummary: ["cockpit", "run", "run-one", "center-summary"],
+      runOverview: ["cockpit", "run", "run-one", "overview"],
+      runProjection: ["cockpit", "run", "run-one", "report"],
+      runsCenter: ["cockpit", "runs-center"],
+      runScope: ["cockpit", "run", "run-one"],
+      runTrace: ["cockpit", "run", "run-one", "trace"],
+      sessionAttachments: [
+        "cockpit",
+        "session",
+        "session-one",
+        "attachments",
+      ],
+      sessionIndex: ["cockpit", "session-index"],
+      sessionOverview: ["cockpit", "session", "session-one", "overview"],
+      sessionProjection: ["cockpit", "session", "session-one", "messages"],
+      sessionScope: ["cockpit", "session", "session-one"],
+      settings: ["cockpit", "settings"],
+      workspaceFiles: [
+        "cockpit",
+        "session",
+        "session-one",
+        "workspace-files",
+        "readme",
+      ],
+    });
+  });
+
+  it("deduplicates concurrent reads with one stable query key", async () => {
+    let resolveResponse: ((response: Response) => void) | undefined;
+    const response = new Promise<Response>((resolve) => {
+      resolveResponse = resolve;
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockReturnValue(response);
+    const client = queryClient();
+    const options = sessionOverviewOptions("session-one");
+
+    const first = client.fetchQuery(options);
+    const second = client.fetchQuery(options);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    resolveResponse?.(
+      new Response(JSON.stringify(sessionResponse("session-one")), {
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+  });
+
+  it("binds operator evidence reads to the selected run and workspace", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ evidence: { projection_sha256: "a".repeat(64) } })),
+    );
+    const client = queryClient();
+
+    await client.fetchQuery(operatorEvidenceOptions("run/one", "workspace one"));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/operator/runs/run%2Fone/evidence?workspace_id=workspace+one",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
+  });
+
+  it("uses bounded snapshot cursors for the typed Action Inbox", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({
+        has_more: false,
+        items: [],
+        next_cursor: null,
+        resnapshot_required: false,
+        snapshot_sha256: "a".repeat(64),
+      })),
+    );
+    const client = queryClient();
+
+    await client.fetchInfiniteQuery(
+      operatorInboxOptions("workspace-one", ["run_input", "approval"]),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/operator/inbox?workspace_id=workspace-one&limit=50&kind=approval%2Crun_input",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
+  });
+
+  it("binds terminal authorization to the exact terminal scope and revision", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ terminal: { attachable: false } })),
+    );
+    const client = queryClient();
+
+    await client.fetchQuery(
+      operatorTerminalOptions(
+        "terminal/one",
+        "workspace one",
+        "session one",
+        7,
+      ),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/operator/terminals/terminal%2Fone/attach" +
+        "?workspace_id=workspace+one&session_id=session+one&revision=7",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
+  });
+
+  it("binds Reviewed Arena evidence to the exact arena and workspace", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ arena: { projection_sha256: "a".repeat(64) } })),
+    );
+    const client = queryClient();
+
+    await client.fetchQuery(reviewedArenaOptions("arena/one", "workspace one"));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/operator/arenas/arena%2Fone/reviewed?workspace_id=workspace+one",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
+  });
+
+  it("forwards cancellation to fetch when a route scope becomes stale", async () => {
+    let observedSignal: AbortSignal | undefined;
+    vi.spyOn(globalThis, "fetch").mockImplementation((_input, init) => {
+      observedSignal = init?.signal ?? undefined;
+      return new Promise<Response>((_resolve, reject) => {
+        observedSignal?.addEventListener("abort", () => {
+          reject(new DOMException("aborted", "AbortError"));
+        });
+      });
+    });
+    const client = queryClient();
+    const pending = client.fetchQuery(sessionOverviewOptions("session-stale"));
+
+    await Promise.resolve();
+    await cancelRequestScope(client, requestKeys.sessionScope("session-stale"));
+
+    expect(observedSignal?.aborted).toBe(true);
+    await expect(pending).rejects.toBeDefined();
+  });
+
+  it("keeps out-of-order session responses isolated by identity", async () => {
+    const resolvers = new Map<string, (response: Response) => void>();
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      return new Promise<Response>((resolve) => {
+        resolvers.set(url, resolve);
+      });
+    });
+    const client = queryClient();
+    const first = client.fetchQuery(sessionOverviewOptions("first"));
+    const second = client.fetchQuery(sessionOverviewOptions("second"));
+    await Promise.resolve();
+
+    resolvers.get("/api/cockpit/sessions/second")?.(
+      new Response(JSON.stringify(sessionResponse("second"))),
+    );
+    await second;
+    resolvers.get("/api/cockpit/sessions/first")?.(
+      new Response(JSON.stringify(sessionResponse("first"))),
+    );
+    await first;
+
+    expect(
+      client.getQueryData<SessionOverviewResponse>(
+        requestKeys.sessionOverview("second"),
+      )?.session.id,
+    ).toBe("second");
+    expect(
+      client.getQueryData<SessionOverviewResponse>(
+        requestKeys.sessionOverview("first"),
+      )?.session.id,
+    ).toBe("first");
+  });
+
+  it("updates one cache entry without invalidating unrelated sessions", () => {
+    const client = queryClient();
+    client.setQueryData(requestKeys.sessionOverview("first"), sessionResponse("first"));
+    client.setQueryData(
+      requestKeys.sessionOverview("second"),
+      sessionResponse("second"),
+    );
+
+    updateSessionOverview(client, "first", (current) => ({
+      ...current,
+      session: { ...current.session, title: "updated" },
+    }));
+
+    expect(
+      client.getQueryData<SessionOverviewResponse>(
+        requestKeys.sessionOverview("first"),
+      )?.session.title,
+    ).toBe("updated");
+    expect(
+      client.getQueryData<SessionOverviewResponse>(
+        requestKeys.sessionOverview("second"),
+      )?.session.title,
+    ).toBe("second");
+  });
+
+  it("refreshes retained messages immediately after a run starts", async () => {
+    const client = queryClient();
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+
+    await refreshSessionAfterRunStart(client, "session-one");
+
+    expect(invalidate).toHaveBeenCalledTimes(2);
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: requestKeys.sessionProjection("session-one", "messages"),
+    });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: requestKeys.runsCenter(),
+    });
+  });
+
+  it("refreshes the selected title and sidebar from a session revision", async () => {
+    const client = queryClient();
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+
+    await refreshSessionRevision(client, "session-one");
+
+    expect(invalidate).toHaveBeenCalledTimes(2);
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: requestKeys.sessionOverview("session-one"),
+    });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: requestKeys.sessionIndex(),
+    });
+  });
+
+  it("keeps heavy evidence behind explicit lazy projection URLs", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ report: { text: "bounded" } })),
+    );
+    const client = queryClient();
+
+    await client.fetchQuery(runProjectionOptions("run 1", "report"));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/cockpit/runs/run%201/report",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+});

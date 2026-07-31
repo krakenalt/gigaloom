@@ -2,13 +2,13 @@ from dataclasses import replace
 
 import pytest
 
-from gpt2giga_harness.native.base import NativeCommandPlan
-from gpt2giga_harness.native.models import (
+from gigaloom.native.base import NativeCommandPlan
+from gigaloom.native.models import (
     NativeSessionRef,
     NativeSessionStatus,
     create_execution_snapshot,
 )
-from gpt2giga_harness.native.snapshots import (
+from gigaloom.native.snapshots import (
     NativeExecutionSnapshotStore,
     validate_resume_snapshot,
 )

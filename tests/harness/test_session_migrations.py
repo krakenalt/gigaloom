@@ -9,23 +9,23 @@ import threading
 
 import pytest
 
-from gpt2giga_harness.native import HarnessInvocationMode
-from gpt2giga_harness.runtime.models import RunStatus
-from gpt2giga_harness.sessions import (
+from gigaloom.native import HarnessInvocationMode
+from gigaloom.runtime.models import RunStatus
+from gigaloom.sessions import (
     FilesystemHarnessSessionStore,
     InMemoryHarnessSessionStore,
     RunCreate,
     SessionWriteBatch,
 )
-from gpt2giga_harness.sessions.models import (
+from gigaloom.sessions.models import (
     HarnessMessage,
     HarnessRun,
     HarnessStoredEvent,
     run_to_dict,
 )
-import gpt2giga_harness.sessions.storage.filesystem.runs as run_storage
-import gpt2giga_harness.sessions.storage.filesystem.write_batches as batch_storage
-from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability, REDACTED
+import gigaloom.sessions.storage.filesystem.runs as run_storage
+import gigaloom.sessions.storage.filesystem.write_batches as batch_storage
+from gigaloom.types import GigaChatApiMode, HarnessCapability, REDACTED
 
 
 def test_legacy_runs_migrate_idempotently_and_preserve_order(tmp_path):

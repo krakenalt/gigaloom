@@ -5,11 +5,11 @@ import sqlite3
 import pytest
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.reviewed_evidence import reviewed_evidence_manifest
-from gpt2giga_harness.runtime.models import ApprovalStatus, JobStatus
-from gpt2giga_harness.runtime.policy import (
+from gigaloom.config import HarnessConfig
+from gigaloom.registry import create_default_registry
+from gigaloom.reviewed_evidence import reviewed_evidence_manifest
+from gigaloom.runtime.models import ApprovalStatus, JobStatus
+from gigaloom.runtime.policy import (
     ApprovalDecision,
     EnforcementLevel,
     PermissionAction,
@@ -22,10 +22,10 @@ from gpt2giga_harness.runtime.policy import (
     approval_request_to_dict,
     permission_profile,
 )
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.runtime.worker import DurableJobWorker
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.runtime.worker import DurableJobWorker
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.ui.app import create_app
 
 
 def test_policy_profiles_are_named_and_record_enforcement_boundary():

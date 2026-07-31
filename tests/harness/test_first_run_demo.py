@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.cli import main
+from gigaloom.cli import main
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -20,7 +20,7 @@ def test_first_run_demo_initializes_and_runs_offline(tmp_path, monkeypatch, caps
     shutil.copytree(DEMO_SOURCE, workspace)
     subprocess.run((git, "init", "-b", "main"), cwd=workspace, check=True)
     monkeypatch.setenv(
-        "GPT2GIGA_HARNESS_DATA_DIR",
+        "GIGALOOM_DATA_DIR",
         str(workspace / ".local" / "harness"),
     )
 

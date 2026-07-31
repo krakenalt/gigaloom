@@ -10,7 +10,7 @@ GigaLoom package is organized into bounded contexts. It complements the
 Production behavior belongs to one named context:
 
 ```text
-gpt2giga_harness/
+gigaloom/
   attachments/  automation/  cli/          contracts/   core/
   diagnostics/  execution/   harnesses/    integrations/ native/
   projects/     providers/   review/       runtime/      sessions/
@@ -34,8 +34,8 @@ source of truth for every remaining shim, owner, and removal gate.
 | Project configuration and project-local `.giga/` state | Files in the project workspace | Back up or version separately from the Harness user-data archive |
 
 The configured user-data directory is normally
-`~/.gpt2giga/harness` and can be changed with
-`GPT2GIGA_HARNESS_DATA_DIR`. Redaction happens before authoritative
+`~/.gigaloom` and can be changed with
+`GIGALOOM_DATA_DIR`. Redaction happens before authoritative
 persistence and before API/UI serialization. A support export is content-free;
 a state backup is private user data and is not redacted.
 
@@ -122,15 +122,15 @@ absolute latency will match across machines.
 New first-party code imports public context boundaries, for example:
 
 ```python
-from gpt2giga_harness.runtime.api import RuntimeCoordinationStore
-from gpt2giga_harness.projects.api import resolve_project
-from gpt2giga_harness.integrations.api import IntegrationCatalogStore
-from gpt2giga_harness.diagnostics.performance.api import run_performance_baseline
+from gigaloom.runtime.api import RuntimeCoordinationStore
+from gigaloom.projects.api import resolve_project
+from gigaloom.integrations.api import IntegrationCatalogStore
+from gigaloom.diagnostics.performance.api import run_performance_baseline
 ```
 
-The reviewed root paths such as `gpt2giga_harness.doctor`,
-`gpt2giga_harness.product_inventory`, and
-`gpt2giga_harness.performance_baseline` remain compatibility shims during the
+The reviewed root paths such as `gigaloom.doctor`,
+`gigaloom.product_inventory`, and
+`gigaloom.performance_baseline` remain compatibility shims during the
 published migration window. They contain no business implementation. Remove a
 shim only after production, tests, examples, docs, entry points, and an
 installed wheel/sdist prove parity; otherwise retain it with an explicit owner
@@ -138,8 +138,8 @@ and removal gate.
 
 The historical combined-prerelease namespace `gpt2giga.harness.*` is different:
 the standalone distribution does not restore it. Out-of-tree adapters must use
-`gpt2giga_harness.*`, public SDK/contracts, and the existing
-`gpt2giga.harnesses` entry-point group. Validate dynamic imports and entry
+`gigaloom.*`, public SDK/contracts, and the existing
+`gigaloom.harnesses.v1` entry-point group. Validate dynamic imports and entry
 points from an installed artifact, not only from a source checkout.
 
 ## Backup and rollback
@@ -148,9 +148,9 @@ Before an upgrade or rollback, stop Cockpit processes, durable workers, and
 active runs for the selected data directory:
 
 ```bash
-giga state backup --output ../gpt2giga-harness-state.zip
-giga state verify ../gpt2giga-harness-state.zip --json
-giga state restore ../gpt2giga-harness-state.zip --replace --json
+giga state backup --output ../gigaloom-state.zip
+giga state verify ../gigaloom-state.zip --json
+giga state restore ../gigaloom-state.zip --replace --json
 ```
 
 Create the archive outside the state directory and keep it private. The backup

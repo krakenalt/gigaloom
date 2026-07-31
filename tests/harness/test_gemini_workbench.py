@@ -10,20 +10,20 @@ import sys
 
 import pytest
 
-from gpt2giga_harness.cli_capabilities import CliCapabilitySnapshot
-from gpt2giga_harness.harnesses.gemini_workbench import (
+from gigaloom.cli_capabilities import CliCapabilitySnapshot
+from gigaloom.harnesses.gemini_workbench import (
     GeminiAcpEventDecoder,
     GeminiOneShotEventDecoder,
     admit_gemini_workbench,
     gemini_contextual_capabilities,
 )
-from gpt2giga_harness.native_cli_contracts import (
+from gigaloom.native_cli_contracts import (
     CapabilityLevel,
     CapabilityState,
     NativeCommandClass,
     classify_native_route,
 )
-from gpt2giga_harness.terminal_intent import parse_native_tui_launch_intent
+from gigaloom.terminal_intent import parse_native_tui_launch_intent
 
 
 def _snapshot(
@@ -296,7 +296,7 @@ def test_direct_and_prefixed_gemini_l0_match_in_isolated_home(
         (
             sys.executable,
             "-c",
-            "from gpt2giga_harness.entrypoint import main; raise SystemExit(main())",
+            "from gigaloom.entrypoint import main; raise SystemExit(main())",
             "gemini",
             *suffix,
         ),
@@ -324,7 +324,7 @@ def test_prefixed_gemini_headless_interruption_reaches_provider(tmp_path):
         (
             sys.executable,
             "-c",
-            "from gpt2giga_harness.entrypoint import main; raise SystemExit(main())",
+            "from gigaloom.entrypoint import main; raise SystemExit(main())",
             "gemini",
             "-p",
             "--fixture-wait",

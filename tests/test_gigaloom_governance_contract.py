@@ -175,7 +175,7 @@ def test_ruleset_checks_match_the_always_running_quality_workflow():
 
     tag_ruleset = policy["rulesets"]["release_tags"]
     assert tag_ruleset["name"] == "protect-gigaloom-release-tags"
-    assert tag_ruleset["target"] == "refs/tags/gigaloom-v*"
+    assert tag_ruleset["target"] == "refs/tags/v*"
     assert tag_ruleset["restrict_creation"] is True
     assert tag_ruleset["restrict_updates"] is True
 
@@ -187,10 +187,16 @@ def test_actions_permissions_and_security_automation_are_specialized():
     assert actions["can_approve_pull_request_reviews"] is False
     assert actions["elevated_jobs"] == [
         {
-            "job": "Release / attest and trusted publish",
+            "job": "Release candidate / attest immutable bundle",
             "permissions": ["attestations:write", "id-token:write"],
-            "purpose": "PyPI trusted publishing and artifact attestations",
+            "purpose": "Candidate artifact attestations without registry publication",
             "workflow": ".github/workflows/publish-pypi.yml",
+        },
+        {
+            "job": "Release publish / protected registries",
+            "permissions": ["actions:read", "contents:write", "id-token:write"],
+            "purpose": "Protected OIDC publication from one retained candidate bundle",
+            "workflow": ".github/workflows/release-publish.yml",
         },
         {
             "job": "Deploy docs",
@@ -207,8 +213,8 @@ def test_actions_permissions_and_security_automation_are_specialized():
     }
     assert updates == {
         ("github-actions", "/"),
-        ("pip", "/packages/gpt2giga-harness"),
-        ("npm", "/packages/gpt2giga-harness/frontend"),
+        ("pip", "/"),
+        ("npm", "/web"),
         ("npm", "/docs-site"),
     }
 
@@ -217,6 +223,12 @@ def test_actions_permissions_and_security_automation_are_specialized():
         "python",
         "javascript-typescript",
     ]
+    codeql_init = next(
+        step
+        for step in codeql["jobs"]["analyze"]["steps"]
+        if step.get("uses") == "github/codeql-action/init@v4"
+    )
+    assert codeql_init["with"]["queries"] == "security-extended"
     assert codeql["permissions"] == {
         "actions": "read",
         "contents": "read",

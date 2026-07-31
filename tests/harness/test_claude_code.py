@@ -1,13 +1,13 @@
 import json
 import sys
 
-from gpt2giga_harness import proxy
-from gpt2giga_harness.harnesses.agent_cli import run_command, run_streaming_command
-from gpt2giga_harness.harnesses.claude_code import (
+from gigaloom import proxy
+from gigaloom.harnesses.agent_cli import run_command, run_streaming_command
+from gigaloom.harnesses.claude_code import (
     ClaudeCodeHarness,
     _ClaudeStreamParser,
 )
-from gpt2giga_harness.types import (
+from gigaloom.types import (
     Availability,
     GigaChatApiMode,
     HarnessContext,
@@ -40,7 +40,7 @@ def test_claude_code_sanitizes_env(monkeypatch):
         "X-GigaLoom-Model-Signature:"
         "v1:233a3bf9982a21ae07d6571616b23a8e5290922d69a92794a77997489676efe7"
     )
-    assert env["GPT2GIGA_HARNESS_API_MODE"] == "v1"
+    assert env["GIGALOOM_API_MODE"] == "v1"
 
 
 def test_claude_code_preserves_custom_headers_and_encodes_pinned_model():
@@ -331,7 +331,7 @@ def test_claude_code_proxy_preflight_failure_prevents_cli_run(monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        "gpt2giga_harness.harnesses.claude_code.run_command",
+        "gigaloom.harnesses.claude_code.run_command",
         fail_run_command,
     )
 
@@ -354,7 +354,7 @@ def test_claude_code_json_output_uses_result_as_text(monkeypatch):
         stderr = ""
 
     monkeypatch.setattr(
-        "gpt2giga_harness.harnesses.agent_cli.subprocess.run",
+        "gigaloom.harnesses.agent_cli.subprocess.run",
         lambda *args, **kwargs: Completed(),
     )
 
@@ -396,7 +396,7 @@ def test_claude_code_stream_run_uses_streaming_runner(monkeypatch):
         return HarnessResult(ok=True, text="streamed", command=kwargs["command"])
 
     monkeypatch.setattr(
-        "gpt2giga_harness.harnesses.claude_code.run_streaming_command",
+        "gigaloom.harnesses.claude_code.run_streaming_command",
         fake_streaming_runner,
     )
     request = HarnessRequest(prompt="inspect", stream=True)

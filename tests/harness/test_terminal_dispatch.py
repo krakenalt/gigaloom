@@ -5,7 +5,7 @@ import os
 
 import pytest
 
-from gpt2giga_harness.terminal_dispatch import (
+from gigaloom.terminal_dispatch import (
     CLASSIFIED_ROOT_COMMANDS,
     ConsoleSurface,
     DispatchReadiness,
@@ -229,7 +229,7 @@ def test_terminal_context_captures_real_pty_and_non_pty_streams():
 
 
 def test_console_handler_inventory_matches_the_cli_parser():
-    from gpt2giga_harness.cli import build_parser
+    from gigaloom.cli import build_parser
 
     parser = build_parser()
     command_action = next(

@@ -2,16 +2,16 @@ from dataclasses import replace
 
 import pytest
 
-from gpt2giga_harness.execution import ExecutionTransport
-from gpt2giga_harness.mcp import MCPTransport, ToolServerDescriptor
-from gpt2giga_harness.permission_simulator import (
+from gigaloom.execution import ExecutionTransport
+from gigaloom.mcp import MCPTransport, ToolServerDescriptor
+from gigaloom.permission_simulator import (
     PermissionPrediction,
     build_permission_simulation,
     extension_permission_contract,
 )
-from gpt2giga_harness.runtime.policy import PermissionAction
-from gpt2giga_harness.secrets import SecretReference, SecretReferenceKind
-from gpt2giga_harness.types import HarnessCapability, HarnessSpec
+from gigaloom.runtime.policy import PermissionAction
+from gigaloom.secrets import SecretReference, SecretReferenceKind
+from gigaloom.types import HarnessCapability, HarnessSpec
 
 
 def _spec() -> HarnessSpec:

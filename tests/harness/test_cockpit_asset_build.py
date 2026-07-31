@@ -10,21 +10,21 @@ import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-HARNESS_ROOT = REPO_ROOT / "packages/gpt2giga-harness"
-ASSET_ROOT = HARNESS_ROOT / "src/gpt2giga_harness/ui/cockpit_v2/assets"
+ASSET_ROOT = REPO_ROOT / "src/gigaloom/ui/web/assets"
 
 
 def test_authored_cockpit_inputs_use_stable_line_endings():
     attributes = (REPO_ROOT / ".gitattributes").read_text(encoding="utf-8")
 
-    assert "packages/gpt2giga-harness/branding/** text eol=lf" in attributes
-    assert "packages/gpt2giga-harness/frontend/** text eol=lf" in attributes
+    assert "web/branding/** text eol=lf" in attributes
+    assert "web/** text eol=lf" in attributes
+    assert "release/release.json text eol=lf" in attributes
 
 
 def _contract_module():
     specification = importlib.util.spec_from_file_location(
-        "gpt2giga_harness_asset_contract",
-        HARNESS_ROOT / "asset_contract.py",
+        "gigaloom_asset_contract",
+        REPO_ROOT / "scripts/asset_contract.py",
     )
     assert specification is not None and specification.loader is not None
     module = importlib.util.module_from_spec(specification)
@@ -34,7 +34,7 @@ def _contract_module():
 
 def _sealed_project(tmp_path: Path) -> Path:
     project = tmp_path / "sealed"
-    destination = project / "src/gpt2giga_harness/ui/cockpit_v2/assets"
+    destination = project / "src/gigaloom/ui/web/assets"
     shutil.copytree(ASSET_ROOT, destination)
     return project
 
@@ -42,13 +42,15 @@ def _sealed_project(tmp_path: Path) -> Path:
 def test_injected_cockpit_asset_tree_is_source_and_supply_chain_bound():
     contract = _contract_module()
 
-    evidence = contract.verify_asset_tree(HARNESS_ROOT)
+    evidence = contract.verify_asset_tree(REPO_ROOT)
 
     assert evidence["asset_count"] >= 40
     assert len(evidence["output_sha256"]) == 64
+    assert len(evidence["content_sha256"]) == 64
     assert len(evidence["frontend_input_sha256"]) == 64
     assert len(evidence["sbom_sha256"]) == 64
     assert len(evidence["licenses_sha256"]) == 64
+    assert len(evidence["release_manifest_sha256"]) == 64
     assert len(evidence["source_revision"]) in {40, 64}
 
 
@@ -92,8 +94,8 @@ def test_hatch_consumer_rejects_a_wheel_without_injected_assets(tmp_path: Path):
     package = project / "src/example"
     package.mkdir(parents=True)
     (package / "__init__.py").write_text("", encoding="utf-8")
-    shutil.copy2(HARNESS_ROOT / "asset_contract.py", project / "asset_contract.py")
-    shutil.copy2(HARNESS_ROOT / "hatch_build.py", project / "hatch_build.py")
+    shutil.copy2(REPO_ROOT / "scripts/asset_contract.py", project / "asset_contract.py")
+    shutil.copy2(REPO_ROOT / "scripts/hatch_build.py", project / "hatch_build.py")
     (project / "pyproject.toml").write_text(
         """
 [project]
@@ -124,6 +126,4 @@ path = "hatch_build.py"
     assert "Cockpit injected asset directory is unavailable" in (
         result.stdout + result.stderr
     )
-    assert "npm --prefix packages/gpt2giga-harness/frontend run build" in (
-        result.stdout + result.stderr
-    )
+    assert "npm --prefix web run build" in (result.stdout + result.stderr)

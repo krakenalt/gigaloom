@@ -3,11 +3,11 @@ import subprocess
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.sessions.models import HarnessStoredEvent
-from gpt2giga_harness.sessions.store import new_id, utc_now
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.config import HarnessConfig
+from gigaloom.registry import create_default_registry
+from gigaloom.sessions.models import HarnessStoredEvent
+from gigaloom.sessions.store import new_id, utc_now
+from gigaloom.ui.app import create_app
 
 
 def test_trace_replay_api_binds_one_axis_to_new_session_and_comparison(tmp_path):

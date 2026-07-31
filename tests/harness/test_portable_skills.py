@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.integration_installer import (
+from gigaloom.integration_installer import (
     InstallationApproval,
     TransactionalIntegrationInstaller,
 )
-from gpt2giga_harness.integration_packages import (
+from gigaloom.integration_packages import (
     InstallationScope,
     IntegrationCompatibility,
     IntegrationComponent,
@@ -20,7 +20,7 @@ from gpt2giga_harness.integration_packages import (
     IntegrationTargetOverlay,
     IntegrationUpdatePolicy,
 )
-from gpt2giga_harness.portable_skills import (
+from gigaloom.portable_skills import (
     CLAUDE_SKILL_TARGET_ID,
     CODEX_SKILL_TARGET_ID,
     GEMINI_SKILL_TARGET_ID,
@@ -42,7 +42,7 @@ from gpt2giga_harness.portable_skills import (
     portable_skill_semantic_hash,
     probe_skill_target,
 )
-from gpt2giga_harness.external_skills import ExternalSkillStore, parse_external_skill
+from gigaloom.external_skills import ExternalSkillStore, parse_external_skill
 
 
 _TARGETS = (

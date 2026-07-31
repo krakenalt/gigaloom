@@ -15,19 +15,18 @@ Unified Harness — локальный project cockpit поверх `gpt2giga`. 
 Gemini CLI или plugin harness, сравнить результаты, разобрать ход выполнения и
 решить, какие изменения разрешено вернуть в проект.
 
-В Web UI, TUI и человекочитаемом выводе CLI продукт называется
-**GigaLoom**. Дистрибутив называется `gigaloom`; namespace
-`gpt2giga_harness` и команды `giga` и `gpt2giga-harness` сохранены для
-совместимости.
+В Web UI, TUI и человекочитаемом выводе CLI продукт называется **GigaLoom**.
+Дистрибутив и Python namespace называются `gigaloom`; единственная публичная
+console-команда — `giga`.
 
 ### Визуальная идентичность и политика иконок
 
 Знак GigaLoom с мотивом ткацкого станка — оригинальная графика проекта, он не
 скопирован из брендинга GigaChat и не является его производным. Канонический
 исходник находится в
-`packages/gpt2giga-harness/branding/gigaloom-mark.svg` и распространяется на
+`web/branding/gigaloom-mark.svg` и распространяется на
 условиях лицензии репозитория. Команда
-`node packages/gpt2giga-harness/branding/generate-assets.mjs` воспроизводит
+`node web/branding/generate-assets.mjs` воспроизводит
 light, dark, mask, favicon, manifest, packaged-UI и documentation варианты.
 
 Для Skills, Plugins и MCP используются курируемые локальные пиктограммы.
@@ -121,8 +120,8 @@ Node.js runtime, credentials или provider config. `uv tool` и `pipx` соз�
 изолированное окружение Harness:
 
 ```sh
-uv tool install 'gigaloom==0.5.1a2'
-pipx install 'gigaloom==0.5.1a2'
+uv tool install 'gigaloom==0.6.0a1'
+pipx install 'gigaloom==0.6.0a1'
 ```
 
 Существующий prerelease с optional TUI обновляйте на месте без extra `[tui]`.
@@ -132,13 +131,13 @@ pipx install 'gigaloom==0.5.1a2'
 
 ```sh
 giga state backup /safe/path/harness-before-upgrade.zip
-uv tool install --force 'gigaloom==0.5.1a2'
+uv tool install --force 'gigaloom==0.6.0a1'
 uv tool install --force 'gpt2giga-harness==0.5.0a1'
 uv tool uninstall gigaloom
-uv tool install 'gigaloom==0.5.1a2'
+uv tool install 'gigaloom==0.6.0a1'
 ```
 
-Удаление пакета не удаляет `~/.gpt2giga/harness`, проектные `.giga/` или
+Удаление пакета не удаляет `~/.gigaloom`, проектные `.giga/` или
 нативные provider homes. Harness не делает reverse migration provider config,
 не устанавливает provider runtime и не выполняет authentication.
 
@@ -157,7 +156,7 @@ uv tool install 'gigaloom==0.5.1a2'
 Во время prerelease:
 
 - перед обновлением читайте release notes и делайте резервную копию
-  `~/.gpt2giga/harness` и важных определений из `.giga/`;
+  `~/.gigaloom` и важных определений из `.giga/`;
 - учитывайте, что интеграции зависят от конкретной версии Codex, Claude или
   Gemini CLI на машине;
 - оставляйте UI на loopback-адресе по умолчанию, если намеренно не настроили
@@ -194,19 +193,18 @@ giga harness list
 короткий вариант:
 
 ```bash
-uv tool install 'gigaloom==0.5.1a2'
+uv tool install 'gigaloom==0.6.0a1'
 giga doctor
 ```
 
 Для Direct Chat и provider preset `gpt2giga` установите явный extra:
 
 ```bash
-uv tool install 'gigaloom[gpt2giga]==0.5.1a2'
+uv tool install 'gigaloom[gpt2giga]==0.6.0a1'
 ```
 
-Текущий дистрибутив `gigaloom==0.5.1a2` добавляет команды `giga` и
-`gpt2giga-harness`; его явный extra `gpt2giga` закрепляет
-`gpt2giga==0.2.6a1`.
+Текущий дистрибутив `gigaloom==0.6.0a1` добавляет только команду `giga`; его
+явный extra `gpt2giga` закрепляет `gpt2giga==0.2.6a1`.
 
 Для Direct Chat понадобятся credentials из [быстрого старта gpt2giga](quickstart.md).
 Codex, Claude Code и Gemini — опциональные интеграции: соответствующий CLI
@@ -242,7 +240,7 @@ base-install environment. Окружение с намеренно устано�
 ожидаемо не пройдёт base-only audit:
 
 ```bash
-python -I -m gpt2giga_harness.base_install --json
+python -I -m gigaloom.base_install --json
 ```
 
 Команда source-checkout `uv sync --all-extras --dev`
@@ -270,7 +268,7 @@ bytes, exit code и разделение stdout/stderr CLI.
 пакет и удалите `[tui]` из команд установки:
 
 ```bash
-uv tool install --force 'gigaloom==0.5.1a2'
+uv tool install --force 'gigaloom==0.6.0a1'
 giga --version
 giga
 ```
@@ -498,23 +496,23 @@ Secret refs разрешаются только на границе создан
 CLI flags имеют приоритет над environment variables. Основные переменные:
 
 ```bash
-GPT2GIGA_HARNESS_PROXY_URL=http://127.0.0.1:8090
-GPT2GIGA_HARNESS_API_KEY=<local-proxy-api-key>
-GPT2GIGA_HARNESS_DEFAULT_MODEL=GigaChat-2-Max
-GPT2GIGA_HARNESS_DEFAULT_API_MODE=v2
-GPT2GIGA_HARNESS_UI_HOST=127.0.0.1
-GPT2GIGA_HARNESS_UI_PORT=8091
+GIGALOOM_PROXY_URL=http://127.0.0.1:8090
+GIGALOOM_API_KEY=<local-proxy-api-key>
+GIGALOOM_DEFAULT_MODEL=GigaChat-2-Max
+GIGALOOM_DEFAULT_API_MODE=v2
+GIGALOOM_UI_HOST=127.0.0.1
+GIGALOOM_UI_PORT=8091
 # Только remote deployment; secret хранится в deployment-owned secret storage:
-GPT2GIGA_HARNESS_UI_OIDC_ISSUER=https://issuer.example
-GPT2GIGA_HARNESS_UI_OIDC_CLIENT_ID=gigaloom
-GPT2GIGA_HARNESS_UI_OIDC_CLIENT_SECRET=<deployment-secret>
-GPT2GIGA_HARNESS_UI_OIDC_PUBLIC_ORIGIN=https://harness.example
-GPT2GIGA_HARNESS_UI_OIDC_ROLE_MAP='{"subject-1":"viewer","subject-2":"operator"}'
-GPT2GIGA_HARNESS_UI_TRUSTED_PROXIES=10.0.0.2
-GPT2GIGA_HARNESS_AUTO_START_PROXY=True
-GPT2GIGA_HARNESS_PROXY_START_TIMEOUT_SECONDS=15
-GPT2GIGA_HARNESS_TIMEOUT_SECONDS=3600
-GPT2GIGA_HARNESS_DATA_DIR=~/.gpt2giga/harness
+GIGALOOM_UI_OIDC_ISSUER=https://issuer.example
+GIGALOOM_UI_OIDC_CLIENT_ID=gigaloom
+GIGALOOM_UI_OIDC_CLIENT_SECRET=<deployment-secret>
+GIGALOOM_UI_OIDC_PUBLIC_ORIGIN=https://harness.example
+GIGALOOM_UI_OIDC_ROLE_MAP='{"subject-1":"viewer","subject-2":"operator"}'
+GIGALOOM_UI_TRUSTED_PROXIES=10.0.0.2
+GIGALOOM_AUTO_START_PROXY=True
+GIGALOOM_PROXY_START_TIMEOUT_SECONDS=15
+GIGALOOM_TIMEOUT_SECONDS=3600
+GIGALOOM_DATA_DIR=~/.gigaloom
 ```
 
 В Cockpit Settings модели по умолчанию для чатов и генерации заголовков
@@ -522,15 +520,15 @@ GPT2GIGA_HARNESS_DATA_DIR=~/.gpt2giga/harness
 списка, который вернул активный API route. Настройки сохраняются в
 `settings/defaults.json` внутри Harness data directory и применяются к новым
 запускам; если модель заголовков очищена, используется выбранная модель чатов.
-`GPT2GIGA_HARNESS_DEFAULT_MODEL` или `GIGACHAT_MODEL` по-прежнему блокирует
+`GIGALOOM_DEFAULT_MODEL` или `GIGACHAT_MODEL` по-прежнему блокирует
 изменение модели чатов, если значение принадлежит окружению.
 
-Если `GPT2GIGA_HARNESS_API_KEY` не задан, Harness использует
+Если `GIGALOOM_API_KEY` не задан, Harness использует
 `GPT2GIGA_API_KEY` для локального proxy. GigaChat credentials, OAuth tokens,
 certificates и содержимое `.env` не передаются внешнему agent CLI.
 
 Пути к нестандартно установленным CLI храните в пользовательском
-`~/.gpt2giga/harness/config.toml`, а не в проекте:
+`~/.gigaloom/config.toml`, а не в проекте:
 
 ```toml
 [executables]
@@ -813,7 +811,7 @@ presence источника являются только discovery evidence: о
 
 ```bash
 export VERCEL_OIDC_TOKEN=<request-scoped-token>
-giga-skills-catalog-proxy
+python -m gigaloom.skills_catalog_proxy
 
 # в процессе Harness
 export GIGA_SKILLS_PROXY_ORIGIN=http://127.0.0.1:8092
@@ -1131,8 +1129,8 @@ transcript автоматически и не переписывает homes Cod
 
 Скомпилированные Cockpit bundles не хранятся в Git. В свежем source checkout до
 первого `uv sync` или сборки Harness wheel/sdist выполните
-`npm --prefix packages/gpt2giga-harness/frontend ci --ignore-scripts`, затем
-`npm --prefix packages/gpt2giga-harness/frontend run build`. Producer атомарно
+`npm --prefix web ci --ignore-scripts`, затем
+`npm --prefix web run build`. Producer атомарно
 создаёт ignored, привязанное к commit дерево с integrity metadata, npm SBOM и
 license evidence. Python build проверяет его без Node.js и network access и
 завершается ошибкой при отсутствии, stale source, подмене или неожиданных
@@ -1226,7 +1224,7 @@ Harness не включает скрытый auto-apply, push или merge. Ст
 
 | Путь | Содержимое |
 | --- | --- |
-| `~/.gpt2giga/harness` | Runtime SQLite, sessions, attempts, redacted logs, managed native homes, worktrees и локальное UI state. |
+| `~/.gigaloom` | Runtime SQLite, sessions, attempts, redacted logs, managed native homes, worktrees и локальное UI state. |
 | `.giga/` в проекте | Non-secret project config, prompts, agents, workflows, evals и schedules. |
 
 При uninstall/reinstall не удаляйте эти каталоги автоматически. Сначала
@@ -1322,7 +1320,7 @@ home. Они не читают пользовательские history/config �
 найденный, но несовместимый binary получает явный compatibility warning в
 doctor, worker fingerprint, `giga harness inspect --json`, `/api/harnesses` и
 cockpit. Для Gemini wrapper можно задать безопасный TOML-массив argv в
-`~/.gpt2giga/harness/config.toml`; элементы передаются напрямую без `shell=True`.
+`~/.gigaloom/config.toml`; элементы передаются напрямую без `shell=True`.
 Парсеры допускают неизвестные добавочные поля из versioned fixtures, но поток
 без единого распознанного обязательного event contract завершается ошибкой.
 
@@ -1427,7 +1425,7 @@ execution snapshot.
 route-aware proxy preflight до spawn CLI. Harness сначала проверяет health, затем
 требует, чтобы точный выбранный route `GET /v1/models` или `GET /v2/models`
 принял настроенный локальный proxy key. Недоступный route, auth-enabled внешний
-proxy без `GPT2GIGA_HARNESS_API_KEY` и запрещённый remote auto-start завершаются
+proxy без `GIGALOOM_API_KEY` и запрещённый remote auto-start завершаются
 явной ошибкой до spawn. Новый loopback sidecar помечается как Harness-owned в
 безопасном plan evidence и останавливается при ошибке native startup до handoff;
 существующий proxy помечается external и никогда не останавливается. Созданный
@@ -1503,8 +1501,8 @@ UI, Smart Router и render-plan показывают это как `reference-on
 
 Проверьте:
 
-- доступен ли proxy по `GPT2GIGA_HARNESS_PROXY_URL`;
-- совпадает ли `GPT2GIGA_HARNESS_API_KEY` с ключом gateway;
+- доступен ли proxy по `GIGALOOM_PROXY_URL`;
+- совпадает ли `GIGALOOM_API_KEY` с ключом gateway;
 - есть ли GigaChat credentials для реального запроса;
 - находится ли нужный внешний CLI в `PATH`;
 - выбран ли ожидаемый backend route `v1` или `v2`;
@@ -1623,17 +1621,17 @@ giga runtime export --output /tmp/harness-runtime.json
 ## Добавление собственного Harness
 
 Новый plugin использует versioned provider-neutral entry-point group
-`agent_workbench.harness_adapters.v1`; его import target не должен находиться в
+`gigaloom.harness_adapters.v1`; его import target не должен находиться в
 gateway namespace:
 
 ```toml
-[project.entry-points."agent_workbench.harness_adapters.v1"]
+[project.entry-points."gigaloom.harness_adapters.v1"]
 my-harness = "my_package.my_harness:MyHarness"
 ```
 
-`gpt2giga.harnesses` остаётся compatibility alias. Во время миграции пакет может
-публиковать одинаковый target в обеих группах; эквивалентные aliases загружаются
-один раз, а конфликтующие adapter IDs не перезаписывают первый.
+Встроенные harnesses публикуются в `gigaloom.harnesses.v1`. Внешние adapters
+используют `gigaloom.harness_adapters.v1`; все entry-point targets и Python
+imports находятся в `gigaloom.*`.
 
 Начните со scaffold, затем проверьте metadata/capabilities и dry-run:
 
@@ -1655,10 +1653,10 @@ boundaries. Не объявляйте capability, которую не подтв
 каталога Harness state и проверьте его до изменения установленной версии:
 
 ```bash
-giga state backup --output ../gpt2giga-harness-state.zip
-giga state verify ../gpt2giga-harness-state.zip --json
+giga state backup --output ../gigaloom-state.zip
+giga state verify ../gigaloom-state.zip --json
 # после остановки Harness восстановите отсутствующий каталог или подтвердите замену
-giga state restore ../gpt2giga-harness-state.zip --replace --json
+giga state restore ../gigaloom-state.zip --replace --json
 ```
 
 Backup использует versioned content-addressed schema: относительные пути,
@@ -1678,7 +1676,7 @@ giga runtime export --output /tmp/harness-runtime.json
 ```
 
 `giga state backup` охватывает настроенный Harness user data directory
-(`GPT2GIGA_HARNESS_DATA_DIR`, обычно `~/.gpt2giga/harness`). Project-local
+(`GIGALOOM_DATA_DIR`, обычно `~/.gigaloom`). Project-local
 `.giga/` остаётся вне архива и должно входить в backup/version-control policy
 самого проекта.
 
@@ -1701,15 +1699,15 @@ project state:
 ```bash
 uv tool uninstall gpt2giga
 uv tool uninstall gpt2giga-harness
-uv tool install 'gigaloom==0.5.1a2'
+uv tool install 'gigaloom==0.6.0a1'
 giga doctor
 ```
 
-Текущая metadata `gigaloom==0.5.1a2` сохраняет
+Текущая metadata `gigaloom==0.6.0a1` сохраняет
 `gpt2giga==0.2.6a1` в явном optional extra `gpt2giga`. Старый import
 `gpt2giga.harness` больше не является
-публичным; используйте `gpt2giga_harness`. Миграция package не переносит и не
-перезаписывает `~/.gpt2giga/harness`, `.giga/` или vendor-owned CLI homes.
+публичным; используйте `gigaloom`. Миграция package не переносит и не
+перезаписывает `~/.gigaloom`, `.giga/` или vendor-owned CLI homes.
 
 ## Ручной QA checklist
 

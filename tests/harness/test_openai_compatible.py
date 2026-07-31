@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from gpt2giga_harness.execution import ExecutionTransport
-from gpt2giga_harness.openai_compatible import (
+from gigaloom.execution import ExecutionTransport
+from gigaloom.openai_compatible import (
     OPENAI_CHAT_COMPLETIONS_DIALECT,
     OPENAI_MODELS_DISCOVERY_STRATEGY,
     OPENAI_PROBE_OWNER,
@@ -24,7 +24,7 @@ from gpt2giga_harness.openai_compatible import (
     openai_compatible_route,
     parse_openai_models_response,
 )
-from gpt2giga_harness.provider_profiles import (
+from gigaloom.provider_profiles import (
     AuthenticationOwnership,
     ModelPurpose,
     ModelPurposeDefault,
@@ -36,7 +36,7 @@ from gpt2giga_harness.provider_profiles import (
     provider_profile_to_dict,
     route_profile_to_dict,
 )
-from gpt2giga_harness.provider_registry import (
+from gigaloom.provider_registry import (
     ProviderAuthenticationFailure,
     ProviderCompatibilityFailure,
     ProviderDiscoveryStatus,
@@ -49,7 +49,7 @@ from gpt2giga_harness.provider_registry import (
     ProviderRegistryEntry,
     ProviderTransportFailure,
 )
-from gpt2giga_harness.secrets import (
+from gigaloom.secrets import (
     EnvironmentSecretResolver,
     SecretReference,
     SecretReferenceKind,

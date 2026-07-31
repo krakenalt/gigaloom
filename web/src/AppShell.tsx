@@ -1,0 +1,244 @@
+import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import type { InboxKind } from "./components/InboxDrawer";
+import { PrimaryRailBrand, PrimaryRailIcon } from "./components/PrimaryRailIcon";
+import { message } from "./messages";
+import { primarySurfaces, surfaceForPath } from "./navigation";
+import { PreferencesContext } from "./preferences-context";
+import {
+  applyTheme,
+  loadPreferences,
+  savePreferences,
+  type LocalePreference,
+  type ThemePreference,
+} from "./preferences";
+import {
+  approvalsOptions,
+  attentionOptions,
+  operatorInboxOptions,
+  requestKeys,
+  settingsOptions,
+} from "./request-graph";
+import { observeOperatorEvents } from "./operator-event-stream";
+import { observeRunsCenterUpdates } from "./runs-center-update-stream";
+
+const InboxDrawer = lazy(() => import("./components/InboxDrawer"));
+const OperatorInboxDrawer = lazy(() => import("./components/OperatorInboxDrawer"));
+type ShellInboxKind = InboxKind | "operator";
+
+function ApprovalIcon() {
+  return (
+    <svg className="action-icon" aria-hidden="true" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="m8.5 12 2.2 2.2 4.8-5" />
+    </svg>
+  );
+}
+
+function AttentionIcon() {
+  return (
+    <svg className="action-icon" aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M12 4 21 20H3L12 4Z" />
+      <path d="M12 9v5M12 17.2v.1" />
+    </svg>
+  );
+}
+
+function ActionInboxIcon() {
+  return (
+    <svg className="action-icon" aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M5 5h14v14H5z" />
+      <path d="M8 9h8M8 13h5M16.5 15.5l1.2 1.2 2.3-2.5" />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg className="action-icon" aria-hidden="true" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.86 2.86-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.86-2.86.06-.06A1.7 1.7 0 0 0 4.1 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2V9.6h.4A1.7 1.7 0 0 0 4.1 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06L6.56 3.7l.06.06A1.7 1.7 0 0 0 8.5 4.1a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V2h4v.4A1.7 1.7 0 0 0 15 4.1a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.86 2.86-.06.06A1.7 1.7 0 0 0 19.4 8.5a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.9v4h-.9a1.7 1.7 0 0 0-1.7 1.1Z" />
+    </svg>
+  );
+}
+
+export function AppShell() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const activeSurface = surfaceForPath(pathname);
+  const [preferences, setPreferences] = useState(loadPreferences);
+  const [inbox, setInbox] = useState<ShellInboxKind | null>(null);
+  const queryClient = useQueryClient();
+  const approvals = useQuery(approvalsOptions());
+  const attention = useQuery(attentionOptions());
+  const settings = useQuery(settingsOptions());
+  const workspaceId = settings.data?.workspace.project_id ?? "";
+  const operatorInbox = useInfiniteQuery({
+    ...operatorInboxOptions(workspaceId),
+    enabled: workspaceId !== "",
+  });
+  const operatorPendingCount =
+    operatorInbox.data?.pages.reduce((count, page) => count + page.items.length, 0)
+    ?? 0;
+  const migratedSurface = activeSurface !== null && activeSurface !== "settings";
+
+  useEffect(() => {
+    applyTheme(preferences.theme);
+    savePreferences(preferences);
+  }, [preferences]);
+
+  useEffect(() => {
+    const root = globalThis.document.documentElement;
+    const body = globalThis.document.body;
+    const workbenchActive = activeSurface === "work";
+    root.classList.toggle("workbench-scroll-lock", workbenchActive);
+    if (workbenchActive) {
+      root.scrollTop = 0;
+      body.scrollTop = 0;
+    }
+    return () => root.classList.remove("workbench-scroll-lock");
+  }, [activeSurface]);
+
+  useEffect(() => {
+    if (typeof globalThis.EventSource !== "function") return;
+    return observeRunsCenterUpdates(() => {
+      void queryClient.invalidateQueries({ queryKey: requestKeys.runsCenter() });
+    });
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (typeof globalThis.EventSource !== "function" || workspaceId === "") return;
+    return observeOperatorEvents(workspaceId, () => {
+      void queryClient.invalidateQueries({
+        queryKey: requestKeys.operatorInboxScope(workspaceId),
+      });
+    });
+  }, [queryClient, workspaceId]);
+
+  useEffect(() => {
+    const openInbox = (event: Event) => {
+      const kind = (event as CustomEvent<ShellInboxKind>).detail;
+      if (kind === "approvals" || kind === "attention" || kind === "operator") {
+        setInbox(kind);
+      }
+    };
+    globalThis.addEventListener("cockpit:open-inbox", openInbox);
+    return () => globalThis.removeEventListener("cockpit:open-inbox", openInbox);
+  }, []);
+
+  const setLocale = (locale: LocalePreference) => {
+    setPreferences((current) => ({ ...current, locale }));
+  };
+  const setTheme = (theme: ThemePreference) => {
+    setPreferences((current) => ({ ...current, theme }));
+  };
+
+  return (
+    <PreferencesContext.Provider value={{ preferences, setLocale, setTheme }}>
+      <div className="cockpit-shell">
+      <aside className="primary-rail">
+        <Link className="brand-mark" to="/web/work" aria-label="GigaLoom">
+          <PrimaryRailBrand />
+        </Link>
+        <nav aria-label="Primary navigation">
+          {primarySurfaces.map((surface) => (
+            <Link
+              activeOptions={{ exact: false }}
+              className="rail-link"
+              key={surface.id}
+              to={surface.path}
+            >
+              <span className="rail-symbol" aria-hidden="true">
+                <PrimaryRailIcon surface={surface.id} />
+              </span>
+              <span>{message(preferences.locale, surface.messageKey)}</span>
+            </Link>
+          ))}
+        </nav>
+        <div className="rail-utility-actions" aria-label={message(preferences.locale, "workspaceUtilities")}>
+          <button
+            aria-label={message(preferences.locale, "actionInbox")}
+            className="rail-utility-control"
+            disabled={workspaceId === ""}
+            type="button"
+            onClick={() => setInbox("operator")}
+          >
+            <span className="rail-utility-symbol">
+              <ActionInboxIcon />
+              {operatorPendingCount > 0 ? (
+                <span className="count-badge attention">
+                  {operatorPendingCount}
+                  {operatorInbox.hasNextPage ? "+" : ""}
+                </span>
+              ) : null}
+            </span>
+            <span className="rail-utility-label">
+              {message(preferences.locale, "actionInbox")}
+            </span>
+          </button>
+          <button
+            aria-label={message(preferences.locale, "approvals")}
+            className="rail-utility-control"
+            type="button"
+            onClick={() => setInbox("approvals")}
+          >
+            <span className="rail-utility-symbol">
+              <ApprovalIcon />
+              {(approvals.data?.pending_count ?? 0) > 0 ? (
+                <span className="count-badge">{approvals.data?.pending_count}</span>
+              ) : null}
+            </span>
+            <span className="rail-utility-label">{message(preferences.locale, "approvals")}</span>
+          </button>
+          <button
+            aria-label={message(preferences.locale, "attention")}
+            className="rail-utility-control"
+            type="button"
+            onClick={() => setInbox("attention")}
+          >
+            <span className="rail-utility-symbol">
+              <AttentionIcon />
+              {(attention.data?.unread ?? 0) > 0 ? (
+                <span className="count-badge attention">{attention.data?.unread}</span>
+              ) : null}
+            </span>
+            <span className="rail-utility-label">{message(preferences.locale, "attention")}</span>
+          </button>
+          <Link
+            activeOptions={{ exact: true }}
+            aria-label={message(preferences.locale, "settings")}
+            className="rail-utility-control"
+            to="/web/settings"
+          >
+            <span className="rail-utility-symbol"><SettingsIcon /></span>
+            <span className="rail-utility-label">{message(preferences.locale, "settings")}</span>
+          </Link>
+        </div>
+      </aside>
+      <div className="cockpit-main">
+        {migratedSurface ? null : (
+          <div className="shell-notice">
+            <span>{message(preferences.locale, "shellNotice")}</span>
+          </div>
+        )}
+        <main className={migratedSurface ? "surface-shell migrated" : "surface-shell"}>
+          <Outlet />
+        </main>
+      </div>
+      {inbox === null ? null : (
+        <Suspense fallback={null}>
+          {inbox === "operator" ? (
+            <OperatorInboxDrawer
+              onClose={() => setInbox(null)}
+              workspaceId={workspaceId}
+            />
+          ) : (
+            <InboxDrawer kind={inbox} onClose={() => setInbox(null)} />
+          )}
+        </Suspense>
+      )}
+      </div>
+    </PreferencesContext.Provider>
+  );
+}

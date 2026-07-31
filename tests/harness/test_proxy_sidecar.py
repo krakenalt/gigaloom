@@ -4,8 +4,8 @@ from email.parser import BytesParser
 from email.policy import default
 
 import pytest
-from gpt2giga_harness import proxy
-from gpt2giga_harness.types import GigaChatApiMode, HarnessContext
+from gigaloom import proxy
+from gigaloom.types import GigaChatApiMode, HarnessContext
 
 
 def test_upload_file_sends_multipart_to_stable_v1_files_route(monkeypatch):
@@ -341,7 +341,7 @@ def test_route_preflight_reports_missing_existing_proxy_auth(monkeypatch):
 
     assert result.ok is False
     assert result.status_code == 401
-    assert "GPT2GIGA_HARNESS_API_KEY" in str(result.error)
+    assert "GIGALOOM_API_KEY" in str(result.error)
 
 
 def test_route_preflight_evidence_removes_proxy_url_userinfo():

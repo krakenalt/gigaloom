@@ -9,14 +9,14 @@ import sys
 
 import pytest
 
-from gpt2giga_harness import entrypoint
-from gpt2giga_harness.native_cli_contracts import NATIVE_NAMESPACE_SPECS
-from gpt2giga_harness.native_cli_facade import (
+from gigaloom import entrypoint
+from gigaloom.native_cli_contracts import NATIVE_NAMESPACE_SPECS
+from gigaloom.native_cli_facade import (
     match_native_namespace,
     run_native_namespace,
 )
-from gpt2giga_harness.terminal_dispatch import TerminalContext
-from gpt2giga_harness.terminal_intent import parse_native_tui_launch_intent
+from gigaloom.terminal_dispatch import TerminalContext
+from gigaloom.terminal_intent import parse_native_tui_launch_intent
 
 
 PTY = TerminalContext(True, True, True, "xterm-256color")
@@ -139,7 +139,7 @@ def test_console_entrypoint_routes_native_namespace_before_terminal_or_cli(monke
 def test_affirmative_native_human_forms_decode_to_lossless_typed_intent(
     namespace, suffix, expected
 ):
-    from gpt2giga_harness.native_cli_contracts import classify_native_route
+    from gigaloom.native_cli_contracts import classify_native_route
 
     decision = classify_native_route(
         namespace,
@@ -280,7 +280,7 @@ def test_lossy_or_unknown_human_shapes_remain_exact_l0_passthrough(namespace, su
 
 
 def test_attach_and_in_process_entry_paths_share_one_native_intent_decoder():
-    from gpt2giga_harness.native_cli_contracts import classify_native_route
+    from gigaloom.native_cli_contracts import classify_native_route
 
     suffix = ("-r", "latest")
     decision = classify_native_route(
@@ -300,8 +300,8 @@ def test_attach_and_in_process_entry_paths_share_one_native_intent_decoder():
 def test_native_console_import_path_avoids_argparse_textual_and_full_cli():
     source = """
 import sys
-import gpt2giga_harness.entrypoint
-blocked = {'argparse', 'textual', 'gpt2giga_harness.cli'}
+import gigaloom.entrypoint
+blocked = {'argparse', 'textual', 'gigaloom.cli'}
 print(','.join(sorted(name for name in sys.modules if name in blocked)))
 """
 
@@ -344,7 +344,7 @@ def test_console_black_box_execs_exact_provider_with_untouched_suffix(
     _make_provider(tmp_path / namespace)
     source = """
 import sys
-from gpt2giga_harness.entrypoint import main
+from gigaloom.entrypoint import main
 raise SystemExit(main(sys.argv[1:]))
 """
 

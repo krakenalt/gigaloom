@@ -9,7 +9,7 @@ import stat
 
 import pytest
 
-from gpt2giga_harness.integration_installer import (
+from gigaloom.integration_installer import (
     FileInstallMutation,
     InstallationApproval,
     InstallationConflictError,
@@ -20,7 +20,7 @@ from gpt2giga_harness.integration_installer import (
     InstallationVerificationError,
     TransactionalIntegrationInstaller,
 )
-from gpt2giga_harness.integration_packages import (
+from gigaloom.integration_packages import (
     InstallationScope,
     IntegrationCompatibility,
     IntegrationComponent,
@@ -236,7 +236,7 @@ def test_stale_active_symlink_and_external_drift_fail_closed(tmp_path):
         InstallationApproval(fresh.plan_id, "test-operator"),
         verifier=_verifier,
     )
-    os.chmod(root / "config" / "settings.json", 0o644)
+    os.chmod(root / "config" / "settings.json", 0o400)
     assert service.discover()[0].current is False
     with pytest.raises(InstallationConflictError, match="outside"):
         service.rollback(result.transaction_id)

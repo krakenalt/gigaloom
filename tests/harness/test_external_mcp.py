@@ -6,9 +6,9 @@ import json
 
 import pytest
 
-from gpt2giga_harness.claude_mcp_target import CLAUDE_MCP_TARGET_ID
-from gpt2giga_harness.codex_mcp_target import CODEX_MCP_TARGET_ID
-from gpt2giga_harness.external_mcp import (
+from gigaloom.claude_mcp_target import CLAUDE_MCP_TARGET_ID
+from gigaloom.codex_mcp_target import CODEX_MCP_TARGET_ID
+from gigaloom.external_mcp import (
     HARNESS_MANAGED_MCP_TARGET_ID,
     ExternalMCPArtifactResolution,
     ExternalMCPSelection,
@@ -18,8 +18,8 @@ from gpt2giga_harness.external_mcp import (
     normalize_external_mcp_candidate,
     project_external_mcp_target,
 )
-from gpt2giga_harness.gemini_mcp_target import GEMINI_MCP_TARGET_ID
-from gpt2giga_harness.integration_catalog import (
+from gigaloom.gemini_mcp_target import GEMINI_MCP_TARGET_ID
+from gigaloom.integration_catalog import (
     CatalogEntry,
     CatalogEntryStatus,
     CatalogSourceType,
@@ -27,14 +27,14 @@ from gpt2giga_harness.integration_catalog import (
     IntegrationCatalogStore,
     sync_official_mcp_registry,
 )
-from gpt2giga_harness.integration_packages import (
+from gigaloom.integration_packages import (
     IntegrationRequirementType,
     assess_integration_package,
 )
-from gpt2giga_harness.managed_mcp import HeadlessManagedMCPSnapshotStore
-from gpt2giga_harness.mcp import MCPTransport
-from gpt2giga_harness.secrets import SecretReference, SecretReferenceKind
-from gpt2giga_harness.tools import PolicyDecision
+from gigaloom.managed_mcp import HeadlessManagedMCPSnapshotStore
+from gigaloom.mcp import MCPTransport
+from gigaloom.secrets import SecretReference, SecretReferenceKind
+from gigaloom.tools import PolicyDecision
 
 
 _NOW = datetime(2026, 7, 20, 10, 0, tzinfo=timezone.utc)

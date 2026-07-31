@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from gpt2giga_harness.sessions import (
+from gigaloom.sessions import (
     FilesystemHarnessSessionStore,
     SessionCatalog,
     SessionCatalogEntry,
@@ -289,7 +289,7 @@ def test_warm_lookup_does_not_scan_manifests_or_read_legacy_index(
 
     monkeypatch.setattr(locator, "_scan_entries", fail_scan)
     monkeypatch.setattr(
-        "gpt2giga_harness.sessions.storage.filesystem.catalog._read_json",
+        "gigaloom.sessions.storage.filesystem.catalog._read_json",
         fail_legacy_read,
     )
 

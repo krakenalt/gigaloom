@@ -23,7 +23,7 @@ GigaLoom связывает grant с operation class и reviewed payload, а н�
 
 ## Решение
 
-`gpt2giga_harness.runtime.github_access` владеет schema version 1 для
+`gigaloom.runtime.github_access` владеет schema version 1 для
 семантической GitHub authority boundary. Она классифицирует:
 
 - `local_git` как отдельную, не-GitHub authority;

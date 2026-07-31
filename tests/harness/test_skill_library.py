@@ -7,8 +7,8 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.federated_catalog import (
+from gigaloom.config import HarnessConfig
+from gigaloom.federated_catalog import (
     FederatedAuditProjection,
     FederatedCatalogCandidate,
     FederatedCatalogComponent,
@@ -17,15 +17,15 @@ from gpt2giga_harness.federated_catalog import (
     FederatedSourceKind,
     FederatedTrustProjection,
 )
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.skill_library import GitCommandResult, SkillLibraryService
-from gpt2giga_harness.integration_flows import IntegrationFlowService
-from gpt2giga_harness.portable_skills import (
+from gigaloom.registry import create_default_registry
+from gigaloom.skill_library import GitCommandResult, SkillLibraryService
+from gigaloom.integration_flows import IntegrationFlowService
+from gigaloom.portable_skills import (
     SkillActivationMode,
     SkillCapabilitySnapshot,
     SkillTargetStatus,
 )
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.ui.app import create_app
 
 
 _COMMIT = "a" * 40

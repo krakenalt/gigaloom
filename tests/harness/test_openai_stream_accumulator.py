@@ -1,4 +1,4 @@
-from gpt2giga_harness.protocols.openai import (
+from gigaloom.protocols.openai import (
     OpenAIChatCompletionStreamAccumulator,
 )
 

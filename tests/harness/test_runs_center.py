@@ -2,27 +2,27 @@ import asyncio
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.runtime.policy import (
+from gigaloom.config import HarnessConfig
+from gigaloom.registry import create_default_registry
+from gigaloom.runtime.policy import (
     EnforcementLevel,
     PermissionAction,
     PolicyContext,
     PolicyResolution,
 )
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.sessions.models import HarnessStoredEvent
-from gpt2giga_harness.sessions.store import new_id, utc_now
-from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability
-from gpt2giga_harness.ui.app import create_app
-from gpt2giga_harness.ui.routers.runs import (
+from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.sessions.models import HarnessStoredEvent
+from gigaloom.sessions.store import new_id, utc_now
+from gigaloom.types import GigaChatApiMode, HarnessCapability
+from gigaloom.ui.app import create_app
+from gigaloom.ui.routers.runs import (
     _runs_center_resnapshot_sse,
     _runs_center_revision,
     _runs_center_update_sse,
     _stream_runs_center_updates,
 )
-from gpt2giga_harness.tools.policy import PolicyDecision
+from gigaloom.tools.policy import PolicyDecision
 
 
 def test_runs_center_lists_filters_and_resolves_lightweight_summary(tmp_path):

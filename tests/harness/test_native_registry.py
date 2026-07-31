@@ -2,22 +2,22 @@ from dataclasses import replace
 
 import pytest
 
-from gpt2giga_harness.native.base import (
+from gigaloom.native.base import (
     NativeCommandPlan,
     discovery_result_to_dict,
     native_command_plan_to_dict,
 )
-from gpt2giga_harness.native.models import (
+from gigaloom.native.models import (
     NativeSessionRef,
     NativeSessionStatus,
     NativeTranscriptMessage,
 )
-from gpt2giga_harness.native.registry import (
+from gigaloom.native.registry import (
     NativeHistoryConnectorRegistry,
     UnknownNativeHistoryConnectorError,
     create_default_native_registry,
 )
-from gpt2giga_harness.types import (
+from gigaloom.types import (
     GigaChatApiMode,
     HarnessCapability,
     HarnessContext,

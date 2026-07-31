@@ -3,7 +3,7 @@
   "journeys": [
     {
       "id": "ask-question",
-      "web_route": "/cockpit-v2/work",
+      "web_route": "/web/work",
       "web_surface": "work",
       "api_routes": ["POST /api/sessions/run"],
       "other_surfaces": ["cli", "tui"],
@@ -15,7 +15,7 @@
     },
     {
       "id": "review-repository",
-      "web_route": "/cockpit-v2/work",
+      "web_route": "/web/work",
       "web_surface": "work",
       "api_routes": ["POST /api/sessions/run", "GET /api/runs/{run_id}/diff"],
       "other_surfaces": ["cli", "tui"],
@@ -27,7 +27,7 @@
     },
     {
       "id": "make-isolated-change",
-      "web_route": "/cockpit-v2/runs/{run_id}",
+      "web_route": "/web/runs/{run_id}",
       "web_surface": "runs",
       "api_routes": [
         "POST /api/sessions/run",
@@ -47,7 +47,7 @@
     },
     {
       "id": "connect-or-disable-mcp",
-      "web_route": "/cockpit-v2/plugins/mcp",
+      "web_route": "/web/plugins/mcp",
       "web_surface": "integrations",
       "api_routes": [
         "POST /api/integrations/preview",
@@ -64,7 +64,7 @@
     },
     {
       "id": "run-or-author-automation",
-      "web_route": "/cockpit-v2/automation/workflows",
+      "web_route": "/web/automation/workflows",
       "web_surface": "automation",
       "api_routes": [
         "POST /api/workflows/{workflow_id}/draft",
@@ -80,7 +80,7 @@
     },
     {
       "id": "provider-login-guidance",
-      "web_route": "/cockpit-v2/settings",
+      "web_route": "/web/settings",
       "web_surface": "settings",
       "api_routes": ["GET /api/harnesses"],
       "other_surfaces": ["cli"],
@@ -92,7 +92,7 @@
     },
     {
       "id": "request-network-or-github-grant",
-      "web_route": "/cockpit-v2/work",
+      "web_route": "/web/work",
       "web_surface": "work",
       "api_routes": ["GET /api/approvals", "POST /api/approvals/{approval_id}/decision"],
       "other_surfaces": ["tui"],
@@ -104,7 +104,7 @@
     },
     {
       "id": "recover-disconnect",
-      "web_route": "/cockpit-v2/runs/{run_id}",
+      "web_route": "/web/runs/{run_id}",
       "web_surface": "runs",
       "api_routes": [
         "POST /api/workflows/{workflow_id}/run",

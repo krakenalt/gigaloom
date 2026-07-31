@@ -3,8 +3,8 @@ import json
 from fastapi.testclient import TestClient
 import pytest
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.managed_mcp import (
+from gigaloom.config import HarnessConfig
+from gigaloom.managed_mcp import (
     HEADLESS_SNAPSHOT_MARKER,
     MANAGED_MARKER,
     HeadlessManagedMCPSnapshotStore,
@@ -16,10 +16,10 @@ from gpt2giga_harness.managed_mcp import (
     materialize_headless_mcp_snapshot,
     write_startup_config,
 )
-from gpt2giga_harness.mcp import descriptor_from_profile
-from gpt2giga_harness.project import ProjectToolProfile
-from gpt2giga_harness.tools import EnvironmentSecretResolver
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.mcp import descriptor_from_profile
+from gigaloom.project import ProjectToolProfile
+from gigaloom.tools import EnvironmentSecretResolver
+from gigaloom.ui.app import create_app
 
 
 def _stdio_descriptor(*, trusted=True, harnesses=()):

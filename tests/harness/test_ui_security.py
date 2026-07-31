@@ -4,12 +4,12 @@ import os
 from fastapi.testclient import TestClient
 import pytest
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.sessions.store import InMemoryHarnessSessionStore
-from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability
-from gpt2giga_harness.ui.app import create_app
-from gpt2giga_harness.ui.local_access import (
+from gigaloom.config import HarnessConfig
+from gigaloom.registry import create_default_registry
+from gigaloom.sessions.store import InMemoryHarnessSessionStore
+from gigaloom.types import GigaChatApiMode, HarnessCapability
+from gigaloom.ui.app import create_app
+from gigaloom.ui.local_access import (
     LocalUIAccessError,
     LocalUIAccessStore,
 )
@@ -33,16 +33,16 @@ def test_local_shell_issues_strict_httponly_session_cookie(tmp_path):
     assert denied.status_code == 401
     assert automation_denied.status_code == 401
     assert response.status_code == 200
-    assert response.history[0].headers["location"] == "/cockpit-v2/work"
+    assert response.history[0].headers["location"] == "/web/work"
     cookie = response.history[0].headers["set-cookie"]
-    assert "gpt2giga_harness_session=" in cookie
+    assert "gigaloom_session=" in cookie
     assert "HttpOnly" in cookie
     assert "SameSite=strict" in cookie
     assert "Secure" not in cookie
     assert client.get("/api/defaults").status_code == 200
 
 
-def test_local_arena_deep_link_issues_browser_session_cookie(tmp_path):
+def test_retired_local_arena_link_is_not_a_public_alias(tmp_path):
     app = create_app(
         HarnessConfig(data_dir=str(tmp_path)),
         registry=create_default_registry(include_entry_points=False),
@@ -55,15 +55,12 @@ def test_local_arena_deep_link_issues_browser_session_cookie(tmp_path):
 
     response = client.get("/arena")
 
-    assert response.status_code == 200
-    assert response.history[0].headers["location"] == "/cockpit-v2/evaluation/arena"
-    assert "gpt2giga_harness_session=" in response.history[0].headers["set-cookie"]
-    assert client.get("/api/defaults").status_code == 200
+    assert response.status_code == 404
 
 
 @pytest.mark.parametrize(
     "path",
-    ["/cockpit-v2/work", "/cockpit-v2/runs/run_123"],
+    ["/web/work", "/web/runs/run_123"],
 )
 def test_local_selectable_shell_deep_links_issue_browser_session_cookie(path, tmp_path):
     app = create_app(
@@ -79,7 +76,7 @@ def test_local_selectable_shell_deep_links_issue_browser_session_cookie(path, tm
     response = client.get(path)
 
     assert response.status_code == 200
-    assert "gpt2giga_harness_session=" in response.headers["set-cookie"]
+    assert "gigaloom_session=" in response.headers["set-cookie"]
     assert client.get("/api/defaults").status_code == 200
 
 
@@ -141,14 +138,14 @@ def test_local_access_logout_rotate_recovery_and_csrf(tmp_path):
     )
 
     first = client.get("/")
-    original_cookie = client.cookies.get("gpt2giga_harness_session")
+    original_cookie = client.cookies.get("gigaloom_session")
     status = client.get("/auth/status")
     csrf_denied = client.post("/auth/local/rotate")
     rotated = client.post(
         "/auth/local/rotate",
         headers={"X-GigaLoom-CSRF": "1"},
     )
-    rotated_cookie = client.cookies.get("gpt2giga_harness_session")
+    rotated_cookie = client.cookies.get("gigaloom_session")
 
     assert first.status_code == 200
     assert original_cookie
@@ -178,7 +175,7 @@ def test_local_access_logout_rotate_recovery_and_csrf(tmp_path):
         ),
         base_url="http://127.0.0.1",
         client=("127.0.0.1", 50001),
-        cookies={"gpt2giga_harness_session": original_cookie},
+        cookies={"gigaloom_session": original_cookie},
     )
     assert stale.get("/api/defaults").status_code == 401
 
@@ -211,24 +208,24 @@ def test_local_access_logout_rotate_recovery_and_csrf(tmp_path):
     assert "token=" not in recovery_page.text
     assert cross_origin.status_code == 403
     assert recovered.status_code == 303
-    assert recovered.headers["location"] == "/cockpit-v2/settings"
+    assert recovered.headers["location"] == "/web/settings"
     assert client.get("/api/defaults").status_code == 200
 
 
 def test_ui_security_config_loads_token_and_host_allowlist_without_api_exposure(
     monkeypatch,
 ):
-    monkeypatch.setenv("GPT2GIGA_HARNESS_UI_BOOTSTRAP_TOKEN", "secret-token")
+    monkeypatch.setenv("GIGALOOM_UI_BOOTSTRAP_TOKEN", "secret-token")
     monkeypatch.setenv(
-        "GPT2GIGA_HARNESS_UI_ALLOWED_HOSTS",
+        "GIGALOOM_UI_ALLOWED_HOSTS",
         " harness.example, 10.0.0.7 ",
     )
     monkeypatch.setenv(
-        "GPT2GIGA_HARNESS_UI_OIDC_CLIENT_SECRET",
+        "GIGALOOM_UI_OIDC_CLIENT_SECRET",
         "oidc-client-secret",
     )
     monkeypatch.setenv(
-        "GPT2GIGA_HARNESS_UI_OIDC_ROLE_MAP",
+        "GIGALOOM_UI_OIDC_ROLE_MAP",
         '{"subject-1":"viewer","subject-2":"operator"}',
     )
     config = HarnessConfig.from_env()
@@ -271,7 +268,7 @@ def test_shared_remote_bearer_exchange_is_unmounted():
         },
     )
 
-    assert response.status_code == 405
+    assert response.status_code == 404
     assert "set-cookie" not in response.headers
 
 
@@ -292,8 +289,12 @@ def test_host_and_origin_validation_reject_untrusted_requests():
 def test_shell_deep_links_and_unknown_paths_fail_closed():
     client = _client()
 
+    for path in ("/", "/web/work", "/web/runs/run_123"):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/html")
+
     for path in (
-        "/",
         "/work",
         "/work/sess_123",
         "/arena",
@@ -308,9 +309,7 @@ def test_shell_deep_links_and_unknown_paths_fail_closed():
         "/scheduled",
         "/scheduled/daily-echo",
     ):
-        response = client.get(path)
-        assert response.status_code == 200
-        assert response.headers["content-type"].startswith("text/html")
+        assert client.get(path).status_code == 404
 
     unknown_api = client.get("/api/not-a-route")
     unknown_asset = client.get("/assets/nested/app.js")

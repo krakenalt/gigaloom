@@ -23,7 +23,7 @@ require_environment() {
 
 command="${1:-}"
 if [[ -z "${command}" ]]; then
-  echo "usage: $0 {sync|sync-all-extras|ruff-check|ruff-format-check|pytest} [args...]" >&2
+  echo "usage: $0 {sync|sync-all-extras|ruff-check|ruff-format-check|type-check|pytest} [args...]" >&2
   exit 2
 fi
 shift
@@ -42,7 +42,7 @@ case "${command}" in
       sync_args+=(--all-extras)
     fi
     uv sync "${sync_args[@]}"
-    "${python}" packages/gpt2giga-harness/asset_contract.py --require-clean
+    "${python}" scripts/asset_contract.py --require-clean
     require_lock
     ;;
   ruff-check)
@@ -58,6 +58,10 @@ case "${command}" in
       set -- .
     fi
     exec "${environment}/bin/ruff" format --check "$@"
+    ;;
+  type-check)
+    require_environment
+    exec "${environment}/bin/ty" check "$@"
     ;;
   pytest)
     require_environment

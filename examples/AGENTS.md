@@ -4,7 +4,7 @@
 
 - Examples demonstrate the public proxy through real OpenAI, Anthropic, Gemini,
   or Agents SDK clients. Do not import internal `gpt2giga` or
-  `gpt2giga_harness` implementation modules.
+  `gigaloom` implementation modules.
 - Keep each example small, self-contained, copyable, and visibly useful when it
   runs. Put reusable application logic and tests in their owning package.
 - Use placeholder credentials such as `api_key="0"`; never add real tokens,

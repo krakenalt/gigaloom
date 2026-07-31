@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "codex_version": "0.144.5",
+  "schema_bundle_sha256": "a1a35476587fe9bbfbe9e291b5200b8bc541df8c00241fe578d285ff26996e1c",
+  "schema_digest_algorithm": "sha256(sorted(relative_path + NUL + canonical_json))",
+  "initialize": [
+    {
+      "id": 1,
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "gigaloom",
+          "title": "GigaLoom",
+          "version": "1"
+        }
+      }
+    },
+    {
+      "id": 1,
+      "result": {
+        "userAgent": "fixture",
+        "codexHome": "/private/fixture",
+        "platformFamily": "unix",
+        "platformOs": "fixture"
+      }
+    },
+    {
+      "method": "initialized"
+    }
+  ],
+  "thread_start": [
+    {
+      "id": 2,
+      "method": "thread/start",
+      "params": {
+        "cwd": "/workspace",
+        "approvalPolicy": "on-request",
+        "approvalsReviewer": "user",
+        "sandbox": "workspace-write",
+        "ephemeral": false
+      }
+    },
+    {
+      "id": 2,
+      "result": {
+        "thread": {
+          "id": "thread-fixture",
+          "turns": []
+        }
+      }
+    }
+  ],
+  "thread_resume": [
+    {
+      "id": 3,
+      "method": "thread/resume",
+      "params": {
+        "threadId": "thread-fixture",
+        "cwd": "/workspace"
+      }
+    },
+    {
+      "id": 3,
+      "result": {
+        "thread": {
+          "id": "thread-fixture",
+          "turns": []
+        }
+      }
+    }
+  ],
+  "thread_compact": [
+    {
+      "id": 4,
+      "method": "thread/compact/start",
+      "params": {
+        "threadId": "thread-fixture"
+      }
+    },
+    {
+      "id": 4,
+      "result": {}
+    },
+    {
+      "method": "item/started",
+      "params": {
+        "threadId": "thread-fixture",
+        "turnId": "turn-compact",
+        "startedAtMs": 1,
+        "item": {
+          "id": "item-compact",
+          "type": "contextCompaction"
+        }
+      }
+    },
+    {
+      "method": "item/completed",
+      "params": {
+        "threadId": "thread-fixture",
+        "turnId": "turn-compact",
+        "completedAtMs": 2,
+        "item": {
+          "id": "item-compact",
+          "type": "contextCompaction"
+        }
+      }
+    }
+  ],
+  "unknown_notification": {
+    "method": "future/additive",
+    "params": {
+      "secret": "must-not-be-projected"
+    }
+  }
+}

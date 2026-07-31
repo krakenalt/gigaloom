@@ -3,15 +3,15 @@ from dataclasses import replace
 
 import pytest
 
-from gpt2giga_harness.harness_model import signed_harness_model_headers
-from gpt2giga_harness.native.base import native_command_plan_to_dict
-from gpt2giga_harness.native.gemini import (
+from gigaloom.harness_model import signed_harness_model_headers
+from gigaloom.native.base import native_command_plan_to_dict
+from gigaloom.native.gemini import (
     GeminiNativeHistoryConnector,
     project_hash_for_workspace,
 )
-from gpt2giga_harness.native.models import NativeSessionStatus
-from gpt2giga_harness.project import project_id_for_root
-from gpt2giga_harness.types import (
+from gigaloom.native.models import NativeSessionStatus
+from gigaloom.project import project_id_for_root
+from gigaloom.types import (
     GigaChatApiMode,
     HarnessCapability,
     HarnessContext,
@@ -834,7 +834,7 @@ def test_gemini_native_missing_executable_still_discovers_managed_files(
         raise AssertionError("gemini --list-sessions should not run")
 
     monkeypatch.setattr(
-        "gpt2giga_harness.executables.shutil.which",
+        "gigaloom.executables.shutil.which",
         lambda executable: None,
     )
     connector = GeminiNativeHistoryConnector(

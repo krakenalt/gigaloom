@@ -3,9 +3,9 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 import yaml
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.project import init_project_config
-from gpt2giga_harness.runtime.policy import (
+from gigaloom.config import HarnessConfig
+from gigaloom.project import init_project_config
+from gigaloom.runtime.policy import (
     ApprovalDecision,
     PermissionAction,
     PolicyContext,
@@ -13,8 +13,8 @@ from gpt2giga_harness.runtime.policy import (
     REVIEWED_PROMOTION_APPLY_OWNER,
     permission_profile,
 )
-from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.types import GigaChatApiMode, HarnessCapability
+from gigaloom.ui.app import create_app
 
 
 def _app_with_run(tmp_path):

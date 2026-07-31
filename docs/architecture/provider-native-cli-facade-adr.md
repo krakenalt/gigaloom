@@ -181,8 +181,8 @@ unaccepted.
 | Draft | C-00 disposition |
 | --- | --- |
 | `docs/architecture/provider-native-cli-facade-adr.md` | Replaced by and adopted as this C-00 decision. The prior five-provider, combined-manifest, drift-blocking decision is superseded. |
-| `packages/gpt2giga-harness/src/gpt2giga_harness/native_cli_contracts.py` | Not adopted. It combines native and structured contracts, reserves out-of-scope providers, and blocks unknown/drifted L0 forms. Audit and replace or migrate explicitly in C-01. |
-| `packages/gpt2giga-harness/src/gpt2giga_harness/native_cli_capture.py` | Not adopted. Its isolated capture ideas may be reviewed in C-01, but it depends on the rejected combined manifest and is runtime code outside C-00. |
+| `src/gigaloom/native_cli_contracts.py` | Not adopted. It combines native and structured contracts, reserves out-of-scope providers, and blocks unknown/drifted L0 forms. Audit and replace or migrate explicitly in C-01. |
+| `src/gigaloom/native_cli_capture.py` | Not adopted. Its isolated capture ideas may be reviewed in C-01, but it depends on the rejected combined manifest and is runtime code outside C-00. |
 | `tests/fixtures/native_cli_contracts/command_inventory.json` | Not adopted. It contains five providers and couples native command ownership to structured version windows. Replace or migrate explicitly in C-01. |
 | `tests/fixtures/native_cli_contracts/classification_cases.json` | Not adopted. It encodes out-of-scope providers and blocks version drift/unknown syntax instead of preserving L0 eligibility. Replace or migrate explicitly in C-01. |
 | `tests/harness/test_native_cli_contracts.py` | Not adopted. It validates the rejected combined five-provider model. Rewrite against split contracts only after C-01 is activated. |

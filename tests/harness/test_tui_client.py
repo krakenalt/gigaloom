@@ -12,16 +12,16 @@ from types import SimpleNamespace
 
 import pytest
 
-from gpt2giga_harness import entrypoint
-from gpt2giga_harness import environment_actions
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.environment_push import EnvironmentPushService
-from gpt2giga_harness.environments import HostedRepositoryHint
-from gpt2giga_harness.sessions.models import HarnessMessage, HarnessStoredEvent
-from gpt2giga_harness.sessions.store import new_id, utc_now
-from gpt2giga_harness.terminal_dispatch import TerminalContext
-from gpt2giga_harness.terminal_intent import parse_tui_launch_intent
-from gpt2giga_harness.tui.client import (
+from gigaloom import entrypoint
+from gigaloom import environment_actions
+from gigaloom.config import HarnessConfig
+from gigaloom.environment_push import EnvironmentPushService
+from gigaloom.environments import HostedRepositoryHint
+from gigaloom.sessions.models import HarnessMessage, HarnessStoredEvent
+from gigaloom.sessions.store import new_id, utc_now
+from gigaloom.terminal_dispatch import TerminalContext
+from gigaloom.terminal_intent import parse_tui_launch_intent
+from gigaloom.tui.client import (
     AttachedWorkbenchClient,
     InProcessWorkbenchClient,
     NativeTerminalSnapshot,
@@ -31,9 +31,9 @@ from gpt2giga_harness.tui.client import (
     WorkbenchClientError,
     session_action_binding,
 )
-from gpt2giga_harness.tui.i18n import CATALOGS, resolve_locale, translator
-from gpt2giga_harness.types import HarnessCapability
-from gpt2giga_harness.workbench_resources import (
+from gigaloom.tui.i18n import CATALOGS, resolve_locale, translator
+from gigaloom.types import HarnessCapability
+from gigaloom.workbench_resources import (
     InventoryProjection,
     PreferenceSnapshot,
     ProcessProjection,
@@ -47,16 +47,16 @@ from gpt2giga_harness.workbench_resources import (
 
 
 def test_client_facade_reexports_split_contracts_and_transports():
-    from gpt2giga_harness.tui.clients.http import (
+    from gigaloom.tui.clients.http import (
         AttachedWorkbenchClient as AttachedTransport,
     )
-    from gpt2giga_harness.tui.clients.in_process import (
+    from gigaloom.tui.clients.in_process import (
         InProcessWorkbenchClient as InProcessTransport,
     )
-    from gpt2giga_harness.tui.clients.protocol import WorkbenchClient
-    from gpt2giga_harness.tui.contracts import ProjectSummary
+    from gigaloom.tui.clients.protocol import WorkbenchClient
+    from gigaloom.tui.contracts import ProjectSummary
 
-    from gpt2giga_harness.tui import client as facade
+    from gigaloom.tui import client as facade
 
     assert facade.AttachedWorkbenchClient is AttachedTransport
     assert facade.InProcessWorkbenchClient is InProcessTransport
@@ -65,7 +65,7 @@ def test_client_facade_reexports_split_contracts_and_transports():
 
     project = ProjectSummary("project", "Project", "/workspace", None, 0)
     assert pickle.loads(pickle.dumps(project)) == project
-    assert project.__class__.__module__ == "gpt2giga_harness.tui.client"
+    assert project.__class__.__module__ == "gigaloom.tui.client"
 
 
 def _git(cwd: Path, *args: str) -> None:
@@ -1272,7 +1272,7 @@ async def test_attach_client_uses_authoritative_file_evidence_and_handoff_querie
     assert "⟦terminal-control⟧" in inspection.diff
     assert provider.target == "Claude Desktop"
     assert provider.command == ("claude", "/desktop")
-    assert web.target.endswith("/cockpit-v2/work/sess_1")
+    assert web.target.endswith("/web/work/sess_1")
     assert (
         "POST",
         "/api/sessions/sess_1/attachments/workspace",
@@ -1422,10 +1422,10 @@ def test_tui_catalogs_have_exact_key_parity_and_english_fallback(monkeypatch):
 
 
 def test_tui_missing_standard_dependency_reports_reinstall(monkeypatch, capsys):
-    from gpt2giga_harness.tui import entrypoint as tui_entrypoint
+    from gigaloom.tui import entrypoint as tui_entrypoint
 
     def missing_textual(name):
-        assert name == "gpt2giga_harness.tui.app"
+        assert name == "gigaloom.tui.app"
         raise ModuleNotFoundError("No module named 'textual'", name="textual")
 
     monkeypatch.setattr(importlib, "import_module", missing_textual)
@@ -1433,13 +1433,13 @@ def test_tui_missing_standard_dependency_reports_reinstall(monkeypatch, capsys):
     assert tui_entrypoint.main([]) == 2
     error = capsys.readouterr().err
     assert "standard Harness installation is incomplete" in error
-    assert "gpt2giga-harness[tui]" not in error
+    assert "gigaloom[tui]" not in error
 
 
 def test_tui_help_does_not_import_textual_fastapi_or_uvicorn():
     source = """
 import sys
-from gpt2giga_harness import entrypoint
+from gigaloom import entrypoint
 try:
     entrypoint.main(["--help"])
 except SystemExit as exc:
@@ -1470,9 +1470,9 @@ def test_root_help_teaches_prefix_contract_and_legacy_automation(capsys):
 
 
 def test_console_entrypoint_dispatches_tui_without_full_cli(monkeypatch):
-    from gpt2giga_harness.tui import entrypoint as tui_entrypoint
+    from gigaloom.tui import entrypoint as tui_entrypoint
 
-    monkeypatch.delitem(sys.modules, "gpt2giga_harness.cli", raising=False)
+    monkeypatch.delitem(sys.modules, "gigaloom.cli", raising=False)
     monkeypatch.setattr(
         tui_entrypoint,
         "main",
@@ -1482,20 +1482,20 @@ def test_console_entrypoint_dispatches_tui_without_full_cli(monkeypatch):
 
     assert entrypoint.main(["--workspace", "."], context=context) == 2
     assert entrypoint.main(["tui", "--workspace", "."], context=context) == 2
-    assert "gpt2giga_harness.cli" not in sys.modules
+    assert "gigaloom.cli" not in sys.modules
 
 
 def test_automation_cli_does_not_advertise_a_competing_tui_command():
-    from gpt2giga_harness import cli
+    from gigaloom import cli
 
     help_text = cli.build_parser().format_help()
     assert "tui" not in help_text
 
 
 def test_bare_console_entrypoint_dispatches_to_tui(monkeypatch):
-    from gpt2giga_harness.tui import entrypoint as tui_entrypoint
+    from gigaloom.tui import entrypoint as tui_entrypoint
 
-    monkeypatch.delitem(sys.modules, "gpt2giga_harness.cli", raising=False)
+    monkeypatch.delitem(sys.modules, "gigaloom.cli", raising=False)
     calls = []
     monkeypatch.setattr(
         tui_entrypoint,
@@ -1506,25 +1506,25 @@ def test_bare_console_entrypoint_dispatches_to_tui(monkeypatch):
     context = TerminalContext(True, True, True, "xterm-256color")
     assert entrypoint.main([], context=context) == 0
     assert calls[0][0] == []
-    assert "gpt2giga_harness.cli" not in sys.modules
+    assert "gigaloom.cli" not in sys.modules
 
 
 def test_bare_console_entrypoint_fails_closed_without_an_interactive_terminal(
     monkeypatch, capsys
 ):
-    monkeypatch.delitem(sys.modules, "gpt2giga_harness.cli", raising=False)
+    monkeypatch.delitem(sys.modules, "gigaloom.cli", raising=False)
 
     context = TerminalContext(False, False, True, "xterm-256color")
     assert entrypoint.main(["tui"], context=context) == 2
 
     assert "requires a supported interactive terminal" in capsys.readouterr().err
-    assert "gpt2giga_harness.cli" not in sys.modules
+    assert "gigaloom.cli" not in sys.modules
 
 
 def test_tui_run_scopes_accessibility_environment_and_restores_it(
     monkeypatch, tmp_path
 ):
-    from gpt2giga_harness.tui import entrypoint as tui_entrypoint
+    from gigaloom.tui import entrypoint as tui_entrypoint
 
     calls = []
 
@@ -1532,7 +1532,7 @@ def test_tui_run_scopes_accessibility_environment_and_restores_it(
         def run(self, **kwargs):
             calls.append((kwargs, dict(os.environ)))
 
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(tmp_path))
     monkeypatch.delenv("NO_COLOR", raising=False)
     monkeypatch.setenv("TEXTUAL_ANIMATIONS", "basic")
     monkeypatch.delenv("TEXTUAL_SMOOTH_SCROLL", raising=False)
@@ -1576,7 +1576,7 @@ def test_tui_run_scopes_accessibility_environment_and_restores_it(
     ),
 )
 def test_cli_accepts_the_explicit_non_interactive_escape(arguments):
-    from gpt2giga_harness import cli
+    from gigaloom import cli
 
     assert cli.build_parser().parse_args(arguments).non_interactive is True
 
@@ -1647,9 +1647,9 @@ def test_human_terminal_deep_links_preserve_typed_intent(arguments, expected):
 
 
 def test_console_entrypoint_deep_links_human_chat_without_importing_cli(monkeypatch):
-    from gpt2giga_harness.tui import entrypoint as tui_entrypoint
+    from gigaloom.tui import entrypoint as tui_entrypoint
 
-    monkeypatch.delitem(sys.modules, "gpt2giga_harness.cli", raising=False)
+    monkeypatch.delitem(sys.modules, "gigaloom.cli", raising=False)
     calls = []
     monkeypatch.setattr(
         tui_entrypoint,
@@ -1663,4 +1663,4 @@ def test_console_entrypoint_deep_links_human_chat_without_importing_cli(monkeypa
     assert calls[0][0] == []
     assert calls[0][1]["launch_intent"].harness_id == "direct-chat"
     assert calls[0][1]["launch_intent"].prompt == "hello"
-    assert "gpt2giga_harness.cli" not in sys.modules
+    assert "gigaloom.cli" not in sys.modules

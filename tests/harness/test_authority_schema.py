@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import pytest
 
-from gpt2giga_harness.runtime.authority import (
+from gigaloom.runtime.authority import (
     ApprovalPolicy,
     ApprovalPreset,
     AuthorityDecision,
@@ -25,7 +25,7 @@ from gpt2giga_harness.runtime.authority import (
     compile_approval_preset,
     revalidation_reasons,
 )
-from gpt2giga_harness.runtime.policy import EnforcementLevel
+from gigaloom.runtime.policy import EnforcementLevel
 
 
 SHA_A = "a" * 64

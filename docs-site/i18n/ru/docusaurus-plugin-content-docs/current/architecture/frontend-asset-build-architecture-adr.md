@@ -10,7 +10,7 @@ SBOM/license evidence и rollback contract.
 ## Контекст
 
 Cockpit написан на React и TypeScript в
-`packages/gpt2giga-harness/frontend`. Закреплённый npm-граф создаёт
+`web`. Закреплённый npm-граф создаёт
 content-addressed и integrity-checked дерево assets внутри Python package.
 Установленный Harness wheel обслуживает его без Node.js и network access.
 

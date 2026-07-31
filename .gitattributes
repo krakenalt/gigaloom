@@ -1,2 +1,3 @@
-packages/gpt2giga-harness/branding/** text eol=lf
-packages/gpt2giga-harness/frontend/** text eol=lf
+web/branding/** text eol=lf
+web/** text eol=lf
+release/release.json text eol=lf

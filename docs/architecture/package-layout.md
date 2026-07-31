@@ -19,7 +19,7 @@ target tree plus ratcheting checks that reject new debt without requiring the
 legacy tree to become compliant in one commit.
 
 The machine-readable policy is
-`packages/gpt2giga-harness/architecture/module-budgets.json`. It is pinned to
+`architecture/module-budgets.json`. It is pinned to
 the frozen `G0` source revision and records current root-module exceptions,
 module-size ceilings, import rules, owners, and removal gates.
 
@@ -30,7 +30,7 @@ Top-level package names describe a product domain or an adapter surface.
 Business behavior does not live in a generic global service, model, helper, or
 utility package.
 
-The final root of `gpt2giga_harness` contains only:
+The final root of `gigaloom` contains only:
 
 ```text
 __init__.py
@@ -186,7 +186,7 @@ tui/
 
 ui/
   app.py  container.py  dependencies.py
-  security/  schemas/  services/  streaming/  routers/  cockpit_v2/
+  security/  schemas/  services/  streaming/  routers/  web/
 ```
 
 `sessions.storage` remains authoritative and transparent. A SQLite read model

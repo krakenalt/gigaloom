@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.agents import (
+from gigaloom.agents import (
     AgentOptionStatus,
     agent_execution_plan_to_dict,
     agent_profile_to_dict,
@@ -16,10 +16,10 @@ from gpt2giga_harness.agents import (
     parse_agent_profile,
     render_starter_agent,
 )
-from gpt2giga_harness.authoring import AuthoringConflictError, ProjectAuthoringService
-from gpt2giga_harness.cli_capabilities import CliCapabilitySnapshot
-from gpt2giga_harness.project import init_project_config
-from gpt2giga_harness.types import HarnessCapability, HarnessSpec
+from gigaloom.authoring import AuthoringConflictError, ProjectAuthoringService
+from gigaloom.cli_capabilities import CliCapabilitySnapshot
+from gigaloom.project import init_project_config
+from gigaloom.types import HarnessCapability, HarnessSpec
 
 
 class _Harness:

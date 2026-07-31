@@ -150,18 +150,18 @@ structured-session link. Отклонённый embedded Claude SDK path ост�
 
 Принадлежащая проекту конфигурация, которую можно хранить вместе с кодом, лежит
 в `.giga/`. Локальное runtime-состояние машины по умолчанию находится в
-`~/.gpt2giga/harness` и не должно копироваться в репозиторий. Точная раскладка
+`~/.gigaloom` и не должно копироваться в репозиторий. Точная раскладка
 может меняться в альфа-версии, но граница владения остаётся той же:
 
 | Состояние | Типичное расположение | Контракт |
 | --- | --- | --- |
 | Agents, workflows, evals, schedules, prompts, project defaults | `<project>/.giga/` | Проверяемая конфигурация проекта без секретов. |
-| Durable coordination | `~/.gpt2giga/harness/runtime.sqlite3` | Версионируемая SQLite-схема с WAL, миграциями, leases, approvals и audit history. |
-| Sessions, events, raw records, attachments, arenas, eval results | `~/.gpt2giga/harness/...` | Маскирование до записи и ограниченная сериализация в API. |
-| Локальный UI-доступ | `~/.gpt2giga/harness/ui_access/state.json` | Только приватные server-side хэши и сроки с режимом `0600`; browser cookies и значения доступа здесь не сохраняются. |
-| Удалённый UI-доступ | `~/.gpt2giga/harness/ui_access/remote_state.json` | Приватные `0600` digests transactions/sessions, стабильные actor IDs, роли, сроки и revocation evidence; OAuth material не сохраняется. |
-| Native reference index и managed CLI homes | `~/.gpt2giga/harness/native/...` | Harness пишет только в свои managed homes, но не в пользовательский native vendor home. |
-| Изолированные edit worktrees | `~/.gpt2giga/harness/worktrees/...` | Применение только после policy, approval, base-commit и dirty-tree checks. |
+| Durable coordination | `~/.gigaloom/runtime.sqlite3` | Версионируемая SQLite-схема с WAL, миграциями, leases, approvals и audit history. |
+| Sessions, events, raw records, attachments, arenas, eval results | `~/.gigaloom/...` | Маскирование до записи и ограниченная сериализация в API. |
+| Локальный UI-доступ | `~/.gigaloom/ui_access/state.json` | Только приватные server-side хэши и сроки с режимом `0600`; browser cookies и значения доступа здесь не сохраняются. |
+| Удалённый UI-доступ | `~/.gigaloom/ui_access/remote_state.json` | Приватные `0600` digests transactions/sessions, стабильные actor IDs, роли, сроки и revocation evidence; OAuth material не сохраняется. |
+| Native reference index и managed CLI homes | `~/.gigaloom/native/...` | Harness пишет только в свои managed homes, но не в пользовательский native vendor home. |
+| Изолированные edit worktrees | `~/.gigaloom/worktrees/...` | Применение только после policy, approval, base-commit и dirty-tree checks. |
 
 UI по умолчанию слушает только loopback. Первый OS-local claim, expiry, logout,
 rotation, recovery, same-origin checks и CSRF marker сохраняют opaque
@@ -327,7 +327,7 @@ network effects.
 
 Новый backend выполнения добавляется как адаптер в `harnesses/` и регистрируется
 через provider-neutral entry-point group
-`agent_workbench.harness_adapters.v1`; `gpt2giga.harnesses` остаётся
+`gigaloom.harness_adapters.v1`; `gigaloom.harnesses.v1` остаётся
 compatibility alias. Structured или terminal continuity следует объявлять
 только когда versioned SDK manifest и conformance evidence доказывают нужный
 lifecycle. Новые семейства API должны жить в `ui/routers/`; `ui/app.py` следует

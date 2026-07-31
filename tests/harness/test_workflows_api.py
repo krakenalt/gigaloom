@@ -2,10 +2,10 @@ import json
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness import cli
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.project import init_project_config
-from gpt2giga_harness.ui.app import create_app
+from gigaloom import cli
+from gigaloom.config import HarnessConfig
+from gigaloom.project import init_project_config
+from gigaloom.ui.app import create_app
 
 
 def test_workflow_api_lists_validates_runs_status_and_cancels(
@@ -14,7 +14,7 @@ def test_workflow_api_lists_validates_runs_status_and_cancels(
     tmp_path,
 ) -> None:
     monkeypatch.setattr(
-        "gpt2giga_harness.session_runner.HarnessSessionRunner._execution_readiness",
+        "gigaloom.session_runner.HarnessSessionRunner._execution_readiness",
         lambda _self, _options, *, durable: {
             "ok": True,
             "blocked": False,
@@ -31,9 +31,9 @@ def test_workflow_api_lists_validates_runs_status_and_cancels(
         proxy_url="http://127.0.0.1:9",
         auto_start_proxy=False,
     )
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", config.data_dir)
-    monkeypatch.setenv("GPT2GIGA_HARNESS_PROXY_URL", config.proxy_url)
-    monkeypatch.setenv("GPT2GIGA_HARNESS_AUTO_START_PROXY", "false")
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", config.data_dir)
+    monkeypatch.setenv("GIGALOOM_PROXY_URL", config.proxy_url)
+    monkeypatch.setenv("GIGALOOM_AUTO_START_PROXY", "false")
 
     assert (
         cli.main(
@@ -170,7 +170,7 @@ def test_workflow_run_reports_missing_and_offline_worker_before_advancement(
         raise AssertionError("offline workflow must not create retained state")
 
     monkeypatch.setattr(
-        "gpt2giga_harness.workflows.WorkflowCoordinator._start_new",
+        "gigaloom.workflows.WorkflowCoordinator._start_new",
         fail_if_created,
     )
 

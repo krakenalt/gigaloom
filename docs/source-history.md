@@ -8,8 +8,9 @@ development, documentation edits, issues, releases, and project links point to
 
 The first target-owned distribution is `gigaloom`. Historical
 `gpt2giga-harness` releases remain available but receive no new target
-release. The Python namespace `gpt2giga_harness`, commands `giga` and
-`gpt2giga-harness`, and existing local state paths remain stable.
+release. The standalone distribution uses only the `gigaloom` Python namespace
+and the `giga` command; it does not ship a compatibility namespace or command
+shim. Existing local state paths are handled by a separate migration gate.
 
 Older changelog comparison links intentionally point to the historical source
 repository so pre-split tags remain resolvable. They do not imply current
@@ -17,5 +18,6 @@ ownership or a source checkout dependency.
 
 For migration from the old combined prerelease package, uninstall
 `gpt2giga-harness`, install the standalone `gigaloom` distribution, and retain
-the backed-up `~/.gpt2giga/harness` state. See the detailed
+the legacy `~/.gpt2giga/harness` state until `giga state migrate` has verified
+its separate backup and canonical `~/.gigaloom` copy. See the detailed
 [Harness migration section](harness.md#migration-from-the-combined-prerelease).

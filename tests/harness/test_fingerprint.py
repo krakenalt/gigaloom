@@ -1,6 +1,6 @@
-from gpt2giga_harness.harnesses.echo import EchoHarness
-from gpt2giga_harness.registry import HarnessRegistry, create_default_registry
-from gpt2giga_harness.runtime import fingerprint
+from gigaloom.harnesses.echo import EchoHarness
+from gigaloom.registry import HarnessRegistry, create_default_registry
+from gigaloom.runtime import fingerprint
 
 
 def test_worker_fingerprint_reports_both_distribution_versions(monkeypatch):
@@ -16,7 +16,7 @@ def test_worker_fingerprint_reports_both_distribution_versions(monkeypatch):
     result = fingerprint.build_worker_fingerprint(registry)
 
     assert result["gpt2giga"] == "0.2.2a1"
-    assert result["gpt2giga_harness"] == "0.5.1a1"
+    assert result["gigaloom"] == "0.5.1a1"
 
 
 def test_worker_fingerprint_uses_resolved_user_executable(tmp_path):

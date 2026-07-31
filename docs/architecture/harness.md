@@ -150,19 +150,19 @@ visible as blocked instead of being relabeled as handoff or terminal execution.
 ## State and security boundaries
 
 Project-owned, shareable configuration lives under `.giga/`. Machine-local
-runtime state defaults to `~/.gpt2giga/harness` and must not be copied into the
+runtime state defaults to `~/.gigaloom` and must not be copied into the
 repository. The exact layout is an implementation detail during the alpha, but
 the ownership split is stable:
 
 | State | Typical location | Contract |
 | --- | --- | --- |
 | Agents, workflows, evals, schedules, prompts, project defaults | `<project>/.giga/` | Reviewable project configuration; never store secrets. |
-| Durable coordination | `~/.gpt2giga/harness/runtime.sqlite3` | Versioned SQLite schema with WAL, migrations, leases, approvals, and audit history. |
-| Sessions, events, raw records, attachments, arenas, eval results | `~/.gpt2giga/harness/...` | Redacted before persistence and bounded on API serialization. |
-| Local UI access | `~/.gpt2giga/harness/ui_access/state.json` | Private `0600` server-side hashes and expiries only; browser cookies and access values are never persisted here. |
-| Remote UI access | `~/.gpt2giga/harness/ui_access/remote_state.json` | Private `0600` transaction/session digests, stable actor IDs, roles, expiries, and revocation evidence; OAuth material is never persisted. |
-| Native reference index and Harness-managed CLI homes | `~/.gpt2giga/harness/native/...` | Harness may write only its managed homes, never the user's native vendor home. |
-| Isolated edit worktrees | `~/.gpt2giga/harness/worktrees/...` | Applied only after policy, approval, base-commit, and dirty-tree checks. |
+| Durable coordination | `~/.gigaloom/runtime.sqlite3` | Versioned SQLite schema with WAL, migrations, leases, approvals, and audit history. |
+| Sessions, events, raw records, attachments, arenas, eval results | `~/.gigaloom/...` | Redacted before persistence and bounded on API serialization. |
+| Local UI access | `~/.gigaloom/ui_access/state.json` | Private `0600` server-side hashes and expiries only; browser cookies and access values are never persisted here. |
+| Remote UI access | `~/.gigaloom/ui_access/remote_state.json` | Private `0600` transaction/session digests, stable actor IDs, roles, expiries, and revocation evidence; OAuth material is never persisted. |
+| Native reference index and Harness-managed CLI homes | `~/.gigaloom/native/...` | Harness may write only its managed homes, never the user's native vendor home. |
+| Isolated edit worktrees | `~/.gigaloom/worktrees/...` | Applied only after policy, approval, base-commit, and dirty-tree checks. |
 
 The UI binds to loopback by default. Its first OS-local claim, expiry, logout,
 rotation, recovery, same-origin checks, and CSRF marker preserve an opaque
@@ -327,8 +327,8 @@ arbitrary edit, shell, filesystem, or network effects retry-safe.
 ## Extending the architecture
 
 Add a new execution backend as a harness adapter under `harnesses/` and register
-it through the provider-neutral `agent_workbench.harness_adapters.v1`
-entry-point group. `gpt2giga.harnesses` remains a compatibility alias. Claim
+it through the provider-neutral `gigaloom.harness_adapters.v1`
+entry-point group. `gigaloom.harnesses.v1` remains a compatibility alias. Claim
 structured or terminal continuity only when the versioned SDK manifest and
 conformance evidence prove the corresponding lifecycle. New API families belong
 in `ui/routers/`; keep `ui/app.py` focused on composition and the core

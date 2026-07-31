@@ -4,7 +4,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.skills_catalog_proxy import (
+from gigaloom.skills_catalog_proxy import (
     SKILLS_PROXY_UPSTREAM_ORIGIN,
     SkillsCatalogProxySettings,
     SkillsProxyUpstreamResponse,

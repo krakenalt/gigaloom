@@ -5,22 +5,22 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.agents import discover_agent_profiles
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.evals import (
+from gigaloom.agents import discover_agent_profiles
+from gigaloom.config import HarnessConfig
+from gigaloom.evals import (
     FilesystemHarnessEvalStore,
     load_eval_spec,
     run_eval,
 )
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.project import resolve_project
-from gpt2giga_harness.registry import HarnessRegistry
-from gpt2giga_harness.runtime.payloads import DurableJobPayloadStore
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.runtime.worker import DurableJobDispatcher, DurableJobWorker
-from gpt2giga_harness.session_runner import HarnessSessionRunner
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.types import (
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.project import resolve_project
+from gigaloom.registry import HarnessRegistry
+from gigaloom.runtime.payloads import DurableJobPayloadStore
+from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.runtime.worker import DurableJobDispatcher, DurableJobWorker
+from gigaloom.session_runner import HarnessSessionRunner
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.types import (
     Availability,
     HarnessCapability,
     HarnessContext,
@@ -28,12 +28,12 @@ from gpt2giga_harness.types import (
     HarnessResult,
     HarnessSpec,
 )
-from gpt2giga_harness.workflows import (
+from gigaloom.workflows import (
     WorkflowCoordinator,
     discover_workflows,
     load_workflow,
 )
-from gpt2giga_harness.worktrees import review_run_diff
+from gigaloom.worktrees import review_run_diff
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

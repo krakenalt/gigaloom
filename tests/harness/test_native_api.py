@@ -3,21 +3,21 @@ from dataclasses import replace
 import pytest
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.native.base import NativeCommandPlan
-from gpt2giga_harness.native.models import (
+from gigaloom.config import HarnessConfig
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.native.base import NativeCommandPlan
+from gigaloom.native.models import (
     NativeSessionRef,
     NativeSessionStatus,
     NativeTranscriptMessage,
     create_execution_snapshot,
 )
-from gpt2giga_harness.native.registry import NativeHistoryConnectorRegistry
-from gpt2giga_harness.native.store import FilesystemNativeSessionIndexStore
-from gpt2giga_harness.project import project_id_for_root
-from gpt2giga_harness.registry import HarnessRegistry, create_default_registry
-from gpt2giga_harness.sessions import InMemoryHarnessSessionStore
-from gpt2giga_harness.types import (
+from gigaloom.native.registry import NativeHistoryConnectorRegistry
+from gigaloom.native.store import FilesystemNativeSessionIndexStore
+from gigaloom.project import project_id_for_root
+from gigaloom.registry import HarnessRegistry, create_default_registry
+from gigaloom.sessions import InMemoryHarnessSessionStore
+from gigaloom.types import (
     Availability,
     HarnessCapability,
     HarnessContext,
@@ -26,7 +26,7 @@ from gpt2giga_harness.types import (
     HarnessSpec,
     REDACTED,
 )
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.ui.app import create_app
 
 
 def test_native_sessions_api_empty_cache_and_unknown_sync(tmp_path):

@@ -5,12 +5,12 @@ import stat
 
 import pytest
 
-from gpt2giga_harness.provider_profiles import (
+from gigaloom.provider_profiles import (
     ModelPurposeDefault,
     ProviderOwnership,
     migrate_legacy_provider_route,
 )
-from gpt2giga_harness.provider_registry import (
+from gigaloom.provider_registry import (
     LayeredProviderRegistry,
     ProviderAuthenticationFailure,
     ProviderCompatibilityFailure,
@@ -49,7 +49,7 @@ def test_registry_crud_is_private_reference_only_and_round_trips(tmp_path):
     assert payload["ownership"] == "user"
     assert (
         payload["providers"][0]["profile"]["authentication"]["secret_reference"]["name"]
-        == "GPT2GIGA_HARNESS_API_KEY"
+        == "GIGALOOM_API_KEY"
     )
     assert "secret-value-canary" not in serialized
     assert "api_key" not in serialized

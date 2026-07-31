@@ -7,14 +7,14 @@ import stat
 from fastapi.testclient import TestClient
 import pytest
 
-from gpt2giga_harness import cli
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.provider_migration import ProviderMigrationService
-from gpt2giga_harness.provider_settings import ProviderSettingsService
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.sessions import InMemoryHarnessSessionStore
-from gpt2giga_harness.state_backup import restore_state_backup, verify_state_backup
-from gpt2giga_harness.ui.app import create_app
+from gigaloom import cli
+from gigaloom.config import HarnessConfig
+from gigaloom.provider_migration import ProviderMigrationService
+from gigaloom.provider_settings import ProviderSettingsService
+from gigaloom.registry import create_default_registry
+from gigaloom.sessions import InMemoryHarnessSessionStore
+from gigaloom.state_backup import restore_state_backup, verify_state_backup
+from gigaloom.ui.app import create_app
 
 
 NOW = datetime(2026, 7, 19, 12, 0, tzinfo=timezone.utc)
@@ -53,7 +53,7 @@ def test_provider_migration_is_deterministic_backup_gated_and_idempotent(tmp_pat
     assert stat.S_IMODE(service.registry.path.stat().st_mode) == 0o600
     assert stat.S_IMODE(service.journal_path.stat().st_mode) == 0o600
     serialized = service.registry.path.read_text(encoding="utf-8")
-    assert "GPT2GIGA_HARNESS_API_KEY" in serialized
+    assert "GIGALOOM_API_KEY" in serialized
     assert "secret-value-canary" not in serialized
 
     second_archive = tmp_path / "must-not-be-created.zip"
@@ -85,7 +85,7 @@ def test_provider_migration_rejects_source_change_after_verified_backup(
     tmp_path,
     monkeypatch,
 ):
-    from gpt2giga_harness import provider_migration
+    from gigaloom import provider_migration
 
     data_dir = tmp_path / "state"
     _write_defaults(data_dir)
@@ -138,8 +138,8 @@ def test_migrated_defaults_read_back_through_cli_state_and_api_aliases(
 ):
     data_dir = tmp_path / "state"
     _write_defaults(data_dir)
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(data_dir))
-    monkeypatch.setenv("GPT2GIGA_HARNESS_PROXY_URL", "https://proxy.example/root")
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("GIGALOOM_PROXY_URL", "https://proxy.example/root")
 
     assert cli.main(["provider", "migrate", "--dry-run", "--json"]) == 0
     canonical = json.loads(capsys.readouterr().out)

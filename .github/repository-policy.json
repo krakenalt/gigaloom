@@ -4,10 +4,16 @@
     "can_approve_pull_request_reviews": false,
     "elevated_jobs": [
       {
-        "job": "Release / attest and trusted publish",
+        "job": "Release candidate / attest immutable bundle",
         "permissions": ["attestations:write", "id-token:write"],
-        "purpose": "PyPI trusted publishing and artifact attestations",
+        "purpose": "Candidate artifact attestations without registry publication",
         "workflow": ".github/workflows/publish-pypi.yml"
+      },
+      {
+        "job": "Release publish / protected registries",
+        "permissions": ["actions:read", "contents:write", "id-token:write"],
+        "purpose": "Protected OIDC publication from one retained candidate bundle",
+        "workflow": ".github/workflows/release-publish.yml"
       },
       {
         "job": "Deploy docs",
@@ -79,7 +85,7 @@
       "bypass": "release_workflow_and_repository_admin_emergency_only_with_audit",
       "enforcement": "active_after_S5-02",
       "name": "protect-gigaloom-release-tags",
-      "target": "refs/tags/gigaloom-v*",
+      "target": "refs/tags/v*",
       "block_deletions": true,
       "block_force_pushes": true,
       "restrict_creation": true,

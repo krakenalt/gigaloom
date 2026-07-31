@@ -5,13 +5,13 @@ from dataclasses import replace
 import pytest
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.tui.client import (
+from gigaloom.config import HarnessConfig
+from gigaloom.tui.client import (
     AttachedWorkbenchClient,
     InProcessWorkbenchClient,
 )
-from gpt2giga_harness.ui import create_app
-from gpt2giga_harness.workbench_protocol import (
+from gigaloom.ui import create_app
+from gigaloom.workbench_protocol import (
     ArtifactReference,
     ResnapshotRequired,
     WorkbenchAction,

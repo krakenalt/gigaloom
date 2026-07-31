@@ -3,12 +3,12 @@ import json
 
 import pytest
 
-from gpt2giga_harness.runtime.authority import (
+from gigaloom.runtime.authority import (
     AuthorityGrant,
     AuthorityLifetime,
     ReviewerKind,
 )
-from gpt2giga_harness.runtime.github_access import (
+from gigaloom.runtime.github_access import (
     GitHubAccessDenied,
     GitHubAuthoritySurface,
     GitHubCapabilityRequest,
@@ -18,7 +18,7 @@ from gpt2giga_harness.runtime.github_access import (
     authorize_github_capability,
     github_access_manifest,
 )
-from gpt2giga_harness.runtime.policy import EnforcementLevel
+from gigaloom.runtime.policy import EnforcementLevel
 
 
 SHA_A = "a" * 64

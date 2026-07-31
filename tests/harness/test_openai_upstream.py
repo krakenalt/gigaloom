@@ -18,25 +18,25 @@ from gpt2giga.protocols.normalized import (
     NormalizedTokenLimits,
 )
 from gpt2giga.providers.openai_compatible import OPENAI_CHAT_EXECUTION_OWNER
-from gpt2giga_harness.openai_compatible import (
+from gigaloom.openai_compatible import (
     VLLM_OPENAI_COMPATIBLE_PROFILE_VERSION,
     openai_compatible_route,
     vllm_openai_compatible_profile,
 )
-from gpt2giga_harness.openai_upstream import (
+from gigaloom.openai_upstream import (
     OPENAI_UPSTREAM_EXECUTION_OWNER,
     HarnessOpenAICompatibleNetworkAuthorizer,
     build_openai_compatible_upstream_adapter,
 )
-from gpt2giga_harness.provider_profiles import ModelPurpose, ProviderOwnership
-from gpt2giga_harness.runtime.authority import (
+from gigaloom.provider_profiles import ModelPurpose, ProviderOwnership
+from gigaloom.runtime.authority import (
     AuthorityGrant,
     AuthorityLifetime,
     ReviewerKind,
 )
-from gpt2giga_harness.runtime.network_access import authorize_scoped_network_access
-from gpt2giga_harness.runtime.policy import EnforcementLevel
-from gpt2giga_harness.secrets import (
+from gigaloom.runtime.network_access import authorize_scoped_network_access
+from gigaloom.runtime.policy import EnforcementLevel
+from gigaloom.secrets import (
     EnvironmentSecretResolver,
     SecretReference,
     SecretReferenceKind,

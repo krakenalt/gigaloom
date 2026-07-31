@@ -1,0 +1,57 @@
+# `@gigaloom/web`
+
+`@gigaloom/web` contains the verified, production-built browser assets for the
+GigaLoom operator interface. It is a static asset package, not a React
+component library, and it does not include the Python server or runtime.
+
+## Install and serve
+
+Install the exact release alongside the service that will host the assets:
+
+```bash
+npm install --save-exact @gigaloom/web@0.6.0-alpha.1
+```
+
+Mount the package's `dist/` directory at `/web/assets/`, preserving filenames,
+and serve `dist/index.html` for the operator route. The bundle uses hashed asset
+names and an absolute `/web/assets/` base. Do not rewrite individual asset
+filenames.
+
+The package includes:
+
+- `dist/index.html` and the production assets;
+- `dist/manifest.json`, the integrity and media-type manifest;
+- `dist/_build/content-manifest.json`, shared with the Python embedding;
+- `dist/_build/provenance.json`;
+- `dist/_build/sbom.cdx.json`;
+- `dist/_build/licenses.json`.
+
+The manifest and evidence files describe this exact bundle. Consumers should
+reject missing files or digest mismatches instead of rebuilding or silently
+substituting assets.
+
+## Build and verify
+
+From the repository root:
+
+```bash
+npm --prefix web ci --ignore-scripts
+npm --prefix web run check
+npm --prefix web run build:npm
+npm --prefix web run pack:verify
+```
+
+`build:npm` performs one verified production build, writes the canonical
+ignored Python asset tree, and copies those exact bytes into the ignored
+`web/dist/` staging tree. `pack:verify` runs
+`npm pack --dry-run --json`, compares the complete package inventory with the
+declared allowlist, and rejects source maps or embedded local absolute paths.
+Neither command publishes the package.
+
+The Python wheel uses a separately staged copy of the same Web build. Release
+automation is responsible for proving byte-for-byte parity before either
+artifact is eligible for publication. Node.js and npm are build inputs only;
+installed GigaLoom wheels do not require them.
+
+The GigaLoom vector master lives in `branding/gigaloom-mark.svg`.
+`npm run generate:brand` refreshes the ignored generated Web copies.

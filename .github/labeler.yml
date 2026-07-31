@@ -1,20 +1,20 @@
 backend:
   - changed-files:
       - any-glob-to-any-file:
-          - "packages/gpt2giga-harness/src/**/*.py"
+          - "src/gigaloom/**/*.py"
 
 frontend:
   - changed-files:
       - any-glob-to-any-file:
-          - "packages/gpt2giga-harness/frontend/**"
-          - "packages/gpt2giga-harness/branding/**"
+          - "web/**"
+          - "web/branding/**"
 
 terminal:
   - changed-files:
       - any-glob-to-any-file:
-          - "packages/gpt2giga-harness/src/gpt2giga_harness/terminal_*.py"
-          - "packages/gpt2giga-harness/src/gpt2giga_harness/tui*.py"
-          - "packages/gpt2giga-harness/src/gpt2giga_harness/native/**"
+          - "src/gigaloom/terminal_*.py"
+          - "src/gigaloom/tui*.py"
+          - "src/gigaloom/native/**"
           - "tests/harness/test_terminal_*.py"
           - "tests/harness/test_tui*.py"
           - "tests/harness/test_native_*.py"
@@ -23,15 +23,15 @@ performance:
   - changed-files:
       - any-glob-to-any-file:
           - "benchmarks/gigaloom_performance/**"
-          - "packages/gpt2giga-harness/src/gpt2giga_harness/*performance*.py"
+          - "src/gigaloom/*performance*.py"
           - "tests/harness/test_*performance*.py"
 
 packaging:
   - changed-files:
       - any-glob-to-any-file:
           - "pyproject.toml"
-          - "packages/gpt2giga-harness/hatch_build.py"
-          - "packages/gpt2giga-harness/asset_contract.py"
+          - "scripts/hatch_build.py"
+          - "scripts/asset_contract.py"
           - "tests/test_gigaloom_artifact_isolation.py"
           - "tests/test_cross_repository_artifact_smoke.py"
 
@@ -75,7 +75,9 @@ release:
           - ".github/release-policy.json"
           - ".github/repository-policy.json"
           - ".github/workflows/publish-pypi.yml"
-          - "packages/gpt2giga-harness/CHANGELOG*.md"
+          - ".github/workflows/release-publish.yml"
+          - "scripts/release_registry_guard.py"
+          - "CHANGELOG*.md"
           - "pyproject.toml"
 
 docs:
@@ -98,5 +100,5 @@ dependencies:
   - changed-files:
       - any-glob-to-any-file:
           - "pyproject.toml"
-          - "packages/gpt2giga-harness/frontend/package.json"
-          - "packages/gpt2giga-harness/frontend/package-lock.json"
+          - "web/package.json"
+          - "web/package-lock.json"

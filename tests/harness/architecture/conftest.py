@@ -29,9 +29,7 @@ def architecture_checker(repository_root: Path) -> ModuleType:
 
 @pytest.fixture(scope="session")
 def package_root(repository_root: Path) -> Path:
-    return (
-        repository_root / "packages" / "gpt2giga-harness" / "src" / "gpt2giga_harness"
-    )
+    return repository_root / "src" / "gigaloom"
 
 
 @pytest.fixture(scope="session")
@@ -39,11 +37,5 @@ def architecture_manifest(
     repository_root: Path,
     architecture_checker: ModuleType,
 ) -> dict[str, object]:
-    path = (
-        repository_root
-        / "packages"
-        / "gpt2giga-harness"
-        / "architecture"
-        / "module-budgets.json"
-    )
+    path = repository_root / "architecture" / "module-budgets.json"
     return architecture_checker.load_manifest(path)

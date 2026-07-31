@@ -19,7 +19,7 @@ GigaLoom — модульный монолит с долговечным лок�
 дерево не обязано стать полностью совместимым за один коммит.
 
 Машиночитаемая политика хранится в
-`packages/gpt2giga-harness/architecture/module-budgets.json`. Она привязана к
+`architecture/module-budgets.json`. Она привязана к
 замороженной ревизии `G0` и содержит текущие исключения корневых модулей,
 ограничения размера, правила импортов, владельцев и removal gates.
 
@@ -30,7 +30,7 @@ Python-дистрибутив организуется как модульный
 адаптер интерфейса. Бизнес-поведение не размещается в глобальном generic
 service, model, helper или utility package.
 
-В финальном корне `gpt2giga_harness` остаются только:
+В финальном корне `gigaloom` остаются только:
 
 ```text
 __init__.py
@@ -184,7 +184,7 @@ tui/
 
 ui/
   app.py  container.py  dependencies.py
-  security/  schemas/  services/  streaming/  routers/  cockpit_v2/
+  security/  schemas/  services/  streaming/  routers/  web/
 ```
 
 `sessions.storage` остаётся authoritative и прозрачным. SQLite read model

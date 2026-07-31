@@ -3,8 +3,8 @@ import sys
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.mcp import (
+from gigaloom.config import HarnessConfig
+from gigaloom.mcp import (
     MCPProbeHistoryStore,
     MCPProbeStatus,
     build_mcp_inventory,
@@ -13,13 +13,13 @@ from gpt2giga_harness.mcp import (
     mcp_probe_to_dict,
     probe_mcp_server,
 )
-from gpt2giga_harness.project import ProjectToolProfile
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.runtime.policy import MCP_SERVER_PROBE_OWNER
-from gpt2giga_harness.runtime.store import RuntimeCoordinationStore
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.ui.app import create_app
-from gpt2giga_harness.tools import CompositeSecretResolver, EnvironmentSecretResolver
+from gigaloom.project import ProjectToolProfile
+from gigaloom.registry import create_default_registry
+from gigaloom.runtime.policy import MCP_SERVER_PROBE_OWNER
+from gigaloom.runtime.store import RuntimeCoordinationStore
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.ui.app import create_app
+from gigaloom.tools import CompositeSecretResolver, EnvironmentSecretResolver
 
 
 _FAKE_STDIO = r"""
@@ -154,7 +154,7 @@ def test_missing_secret_fails_before_mcp_subprocess_spawn(monkeypatch):
         spawned = True
         raise AssertionError("MCP subprocess must not start")
 
-    monkeypatch.setattr("gpt2giga_harness.mcp._probe_stdio", unexpected_spawn)
+    monkeypatch.setattr("gigaloom.mcp._probe_stdio", unexpected_spawn)
 
     result = probe_mcp_server(descriptor, EnvironmentSecretResolver({}))
 
@@ -209,7 +209,7 @@ def test_streamable_http_discovery_accepts_json_and_session_header(monkeypatch):
             session_id="session-1" if payload["id"] == 1 else None,
         )
 
-    monkeypatch.setattr("gpt2giga_harness.mcp._open_http", fake_urlopen)
+    monkeypatch.setattr("gigaloom.mcp._open_http", fake_urlopen)
     descriptor = descriptor_from_profile(
         "remote",
         ProjectToolProfile(
@@ -248,7 +248,7 @@ def test_legacy_sse_probe_fails_closed_before_network(monkeypatch):
     def unexpected_http_probe(*_args, **_kwargs):
         raise AssertionError("legacy SSE must not use streamable HTTP probing")
 
-    monkeypatch.setattr("gpt2giga_harness.mcp._probe_http", unexpected_http_probe)
+    monkeypatch.setattr("gigaloom.mcp._probe_http", unexpected_http_probe)
 
     result = probe_mcp_server(descriptor, CompositeSecretResolver())
 

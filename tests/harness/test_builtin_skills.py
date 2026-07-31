@@ -4,21 +4,21 @@ from dataclasses import replace
 
 import pytest
 
-from gpt2giga_harness.builtin_skills import (
+from gigaloom.builtin_skills import (
     BUILTIN_SKILL_SOURCE_ID,
     build_builtin_skill_installation_request,
     builtin_skill_bundles,
     get_builtin_skill_bundle,
     import_builtin_skills,
 )
-from gpt2giga_harness.integration_catalog import CatalogSourceType
-from gpt2giga_harness.integration_installer import (
+from gigaloom.integration_catalog import CatalogSourceType
+from gigaloom.integration_installer import (
     InstallationApproval,
     TransactionalIntegrationInstaller,
 )
-from gpt2giga_harness.integration_packages import InstallationScope
-from gpt2giga_harness.integration_packages import IntegrationTrustDecision
-from gpt2giga_harness.portable_skills import (
+from gigaloom.integration_packages import InstallationScope
+from gigaloom.integration_packages import IntegrationTrustDecision
+from gigaloom.portable_skills import (
     CLAUDE_SKILL_TARGET_ID,
     CODEX_SKILL_TARGET_ID,
     GEMINI_SKILL_TARGET_ID,
@@ -83,7 +83,7 @@ def test_builtin_starter_pack_is_deterministic_and_safe_by_construction():
 
 
 def test_builtins_import_into_offline_catalog_without_install_authority(tmp_path):
-    from gpt2giga_harness.integration_catalog import IntegrationCatalogStore
+    from gigaloom.integration_catalog import IntegrationCatalogStore
 
     store = IntegrationCatalogStore(tmp_path)
     entries = import_builtin_skills(store)
@@ -109,7 +109,7 @@ def test_catalog_entry_hands_off_to_transactional_installer_only(
     tmp_path,
     target_id,
 ):
-    from gpt2giga_harness.integration_catalog import IntegrationCatalogStore
+    from gigaloom.integration_catalog import IntegrationCatalogStore
 
     store = IntegrationCatalogStore(tmp_path / "catalog")
     entry = import_builtin_skills(store)[0]
@@ -144,7 +144,7 @@ def test_catalog_entry_hands_off_to_transactional_installer_only(
 def test_install_handoff_rejects_unknown_catalog_entries_and_degraded_targets(
     tmp_path,
 ):
-    from gpt2giga_harness.integration_catalog import IntegrationCatalogStore
+    from gigaloom.integration_catalog import IntegrationCatalogStore
 
     store = IntegrationCatalogStore(tmp_path)
     entry = import_builtin_skills(store)[0]

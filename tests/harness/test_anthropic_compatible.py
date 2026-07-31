@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from gpt2giga_harness.anthropic_compatible import (
+from gigaloom.anthropic_compatible import (
     ANTHROPIC_API_VERSION,
     ANTHROPIC_BEDROCK_DIALECT,
     ANTHROPIC_FOUNDRY_DIALECT,
@@ -29,9 +29,9 @@ from gpt2giga_harness.anthropic_compatible import (
     official_anthropic_profile,
     parse_anthropic_models_response,
 )
-from gpt2giga_harness.claude_agent_sdk import ClaudeSdkAuthMode
-from gpt2giga_harness.execution import ExecutionTransport
-from gpt2giga_harness.provider_profiles import (
+from gigaloom.claude_agent_sdk import ClaudeSdkAuthMode
+from gigaloom.execution import ExecutionTransport
+from gigaloom.provider_profiles import (
     AuthenticationOwnership,
     ModelPurpose,
     ModelPurposeDefault,
@@ -43,7 +43,7 @@ from gpt2giga_harness.provider_profiles import (
     provider_profile_to_dict,
     route_profile_to_dict,
 )
-from gpt2giga_harness.provider_registry import (
+from gigaloom.provider_registry import (
     ProviderAuthenticationFailure,
     ProviderCompatibilityFailure,
     ProviderDiscoveryStatus,
@@ -56,7 +56,7 @@ from gpt2giga_harness.provider_registry import (
     ProviderRegistryEntry,
     ProviderTransportFailure,
 )
-from gpt2giga_harness.secrets import (
+from gigaloom.secrets import (
     EnvironmentSecretResolver,
     SecretReference,
     SecretReferenceKind,

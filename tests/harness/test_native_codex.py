@@ -3,11 +3,11 @@ from dataclasses import replace
 
 import pytest
 
-from gpt2giga_harness.native.base import native_command_plan_to_dict
-from gpt2giga_harness.native.codex import CodexNativeHistoryConnector
-from gpt2giga_harness.native.models import NativeSessionStatus
-from gpt2giga_harness.project import project_id_for_root
-from gpt2giga_harness.types import (
+from gigaloom.native.base import native_command_plan_to_dict
+from gigaloom.native.codex import CodexNativeHistoryConnector
+from gigaloom.native.models import NativeSessionStatus
+from gigaloom.project import project_id_for_root
+from gigaloom.types import (
     GigaChatApiMode,
     HarnessCapability,
     HarnessContext,

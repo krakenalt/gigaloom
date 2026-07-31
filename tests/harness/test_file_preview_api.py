@@ -2,13 +2,13 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.generated_files import (
+from gigaloom.config import HarnessConfig
+from gigaloom.generated_files import (
     persist_generated_file,
     persist_generated_image,
 )
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.registry import create_default_registry
+from gigaloom.ui.app import create_app
 
 
 def test_file_preview_serves_workspace_and_temporary_images(tmp_path):

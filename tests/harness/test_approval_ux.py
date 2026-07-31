@@ -1,6 +1,6 @@
-from gpt2giga_harness.runtime.approval_ux import approval_ux_projection
-from gpt2giga_harness.runtime.models import ApprovalStatus
-from gpt2giga_harness.runtime.policy import (
+from gigaloom.runtime.approval_ux import approval_ux_projection
+from gigaloom.runtime.models import ApprovalStatus
+from gigaloom.runtime.policy import (
     ApprovalRequest,
     EnforcementLevel,
     PermissionAction,

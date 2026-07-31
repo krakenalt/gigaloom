@@ -5,16 +5,16 @@ import json
 
 import pytest
 
-from gpt2giga_harness import cli
-from gpt2giga_harness.integration_packages import (
+from gigaloom import cli
+from gigaloom.integration_packages import (
     ExtensionTargetDescriptor,
     InstallationScope,
     IntegrationComponentType,
     extension_target_descriptor_from_dict,
     extension_target_descriptor_to_dict,
 )
-from gpt2giga_harness.integration_scaffold import scaffold_integration_package
-from gpt2giga_harness.integration_sdk import (
+from gigaloom.integration_scaffold import scaffold_integration_package
+from gigaloom.integration_sdk import (
     INTEGRATION_SDK_API_VERSION,
     integration_conformance_report_to_dict,
     integration_sdk_policy_to_dict,

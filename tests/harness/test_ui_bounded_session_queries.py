@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.sessions import FilesystemHarnessSessionStore
-from gpt2giga_harness.sessions.models import HarnessMessage, HarnessStoredEvent
-from gpt2giga_harness.sessions.store import utc_now
-from gpt2giga_harness.types import GigaChatApiMode, HarnessCapability
-from gpt2giga_harness.ui.app import create_app
-from gpt2giga_harness.ui.services.session_queries import list_session_window
+from gigaloom.config import HarnessConfig
+from gigaloom.registry import create_default_registry
+from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.sessions.models import HarnessMessage, HarnessStoredEvent
+from gigaloom.sessions.store import utc_now
+from gigaloom.types import GigaChatApiMode, HarnessCapability
+from gigaloom.ui.app import create_app
+from gigaloom.ui.services.session_queries import list_session_window
 
 
 def _app(tmp_path):

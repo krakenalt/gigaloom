@@ -1,5 +1,5 @@
-from gpt2giga_harness.project import resolve_project
-from gpt2giga_harness.project_memory import (
+from gigaloom.project import resolve_project
+from gigaloom.project_memory import (
     FilesystemProjectMemoryStore,
     memory_entries_to_prompt,
 )

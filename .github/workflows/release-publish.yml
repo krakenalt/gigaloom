@@ -1,0 +1,183 @@
+name: GigaLoom protected release publication
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: Candidate workflow run ID containing the retained bundle
+        required: true
+        type: string
+      candidate_sha:
+        description: Full main commit SHA used to build the retained bundle
+        required: true
+        type: string
+      candidate_manifest_sha256:
+        description: SHA-256 of candidate-manifest.json from the attested bundle
+        required: true
+        type: string
+      git_tag:
+        description: Existing protected v<release> tag at candidate_sha
+        required: true
+        type: string
+      recovery_mode:
+        description: Only the registry operation still permitted
+        required: true
+        default: initial
+        type: choice
+        options:
+          - initial
+          - recover-pypi
+          - recover-npm
+          - release-assets-only
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gigaloom-protected-release-${{ inputs.git_tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Release publish / protected registries
+    environment: release-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout exact retained candidate source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.candidate_sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Node.js 22.13
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.13.0"
+          registry-url: https://registry.npmjs.org
+
+      - name: Install OIDC-capable npm 11.17
+        run: npm install --global --ignore-scripts npm@11.17.0
+
+      - name: Fetch guarded main and release tag
+        env:
+          RELEASE_TAG: ${{ inputs.git_tag }}
+        run: |
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          git fetch --no-tags origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+
+      - name: Verify protected tag, identity, commit, and ancestry
+        id: guard
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          RELEASE_TAG: ${{ inputs.git_tag }}
+        run: >-
+          python3 scripts/release_guard.py
+          --policy .github/release-policy.json
+          --release-manifest release/release.json
+          --python-metadata pyproject.toml
+          --npm-metadata web/package.json
+          --event-name publish
+          --repository "${GITHUB_REPOSITORY}"
+          --ref "refs/tags/${RELEASE_TAG}"
+          --commit "${CANDIDATE_SHA}"
+          --release-tag "${RELEASE_TAG}"
+          --release-target main
+          --main-ref origin/main
+          --github-output "${GITHUB_OUTPUT}"
+
+      - name: Download exact retained candidate bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: gigaloom-release-candidate-${{ inputs.candidate_sha }}
+          path: dist/release-candidate
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.candidate_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Verify retained checksums and operator-provided manifest digest
+        env:
+          EXPECTED_MANIFEST_SHA256: ${{ inputs.candidate_manifest_sha256 }}
+        run: |
+          (cd dist/release-candidate && sha256sum --check SHA256SUMS)
+          python3 -c 'import hashlib, os, pathlib, re, sys; expected = os.environ["EXPECTED_MANIFEST_SHA256"]; actual = hashlib.sha256(pathlib.Path("dist/release-candidate/candidate-manifest.json").read_bytes()).hexdigest(); sys.exit(0 if re.fullmatch(r"[0-9a-f]{64}", expected) and actual == expected else "candidate manifest digest mismatch")'
+
+      - name: Reverify retained candidate without rebuilding
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          python3 scripts/verify_release_artifacts.py \
+            --release release/release.json \
+            --artifact-dir dist/release-candidate \
+            --source-revision "${CANDIDATE_SHA}"
+          python3 scripts/check_legacy_identifiers.py \
+            --wheel dist/release-candidate/*.whl \
+            --sdist dist/release-candidate/*.tar.gz \
+            --npm-tarball dist/release-candidate/*.tgz
+
+      - name: Prove requested recovery mode against public registries
+        env:
+          RECOVERY_MODE: ${{ inputs.recovery_mode }}
+        run: >-
+          python3 scripts/release_registry_guard.py
+          --release release/release.json
+          --artifact-dir dist/release-candidate
+          --mode "${RECOVERY_MODE}"
+
+      - name: Publish only a missing npm version with OIDC provenance
+        if: inputs.recovery_mode == 'initial' || inputs.recovery_mode == 'recover-npm'
+        run: npm publish dist/release-candidate/*.tgz --provenance --access public
+
+      - name: Verify registry state after npm publication
+        if: inputs.recovery_mode == 'initial' || inputs.recovery_mode == 'recover-npm'
+        env:
+          RECOVERY_MODE: ${{ inputs.recovery_mode }}
+        run: |
+          if [[ "${RECOVERY_MODE}" == "initial" ]]; then
+            expected_mode=recover-pypi
+          else
+            expected_mode=release-assets-only
+          fi
+          python3 scripts/release_registry_guard.py \
+            --release release/release.json \
+            --artifact-dir dist/release-candidate \
+            --mode "${expected_mode}" \
+            --attempts 12 \
+            --retry-seconds 10
+
+      - name: Publish only a missing PyPI version with trusted publishing
+        if: inputs.recovery_mode == 'initial' || inputs.recovery_mode == 'recover-pypi'
+        run: uv publish dist/release-candidate/*.whl dist/release-candidate/*.tar.gz
+
+      - name: Prove both registries contain the retained candidate bytes
+        run: >-
+          python3 scripts/release_registry_guard.py
+          --release release/release.json
+          --artifact-dir dist/release-candidate
+          --mode release-assets-only
+          --attempts 12
+          --retry-seconds 10
+
+      - name: Create GitHub Release last from the retained bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.guard.outputs.tag }}
+        run: >-
+          gh release create "${RELEASE_TAG}"
+          dist/release-candidate/*
+          --verify-tag
+          --title "GigaLoom ${{ steps.guard.outputs.release }}"
+          --generate-notes

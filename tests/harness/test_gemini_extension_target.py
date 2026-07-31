@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from gpt2giga_harness.gemini_extension_target import (
+from gigaloom.gemini_extension_target import (
     GEMINI_EXTENSION_TARGET_ID,
     GeminiExtensionApproval,
     GeminiExtensionCommandError,
@@ -19,11 +19,11 @@ from gpt2giga_harness.gemini_extension_target import (
     gemini_extension_source_checksum,
     gemini_extension_target_plugin,
 )
-from gpt2giga_harness.integration_installer import (
+from gigaloom.integration_installer import (
     InstallationConflictError,
     InstallationScopeError,
 )
-from gpt2giga_harness.integration_packages import (
+from gigaloom.integration_packages import (
     ExtensionTargetRegistry,
     InstallationScope,
     IntegrationCompatibility,

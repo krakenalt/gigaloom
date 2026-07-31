@@ -1,9 +1,9 @@
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.agents import render_starter_agent
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.project import init_project_config
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.agents import render_starter_agent
+from gigaloom.config import HarnessConfig
+from gigaloom.project import init_project_config
+from gigaloom.ui.app import create_app
 
 
 def _client(tmp_path):
@@ -63,7 +63,7 @@ def test_agent_api_duplicates_as_preview_and_runs_with_snapshot(
     tmp_path,
 ):
     monkeypatch.setattr(
-        "gpt2giga_harness.session_runner.HarnessSessionRunner._execution_readiness",
+        "gigaloom.session_runner.HarnessSessionRunner._execution_readiness",
         lambda _self, _options, *, durable: {
             "ok": True,
             "blocked": False,

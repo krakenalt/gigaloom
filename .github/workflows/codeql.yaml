@@ -4,22 +4,22 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'packages/gpt2giga-harness/**/*.py'
-      - 'packages/gpt2giga-harness/frontend/**/*.{js,jsx,ts,tsx}'
+      - 'src/gigaloom/**/*.py'
+      - 'web/**/*.{js,jsx,ts,tsx}'
       - 'pyproject.toml'
-      - 'packages/gpt2giga-harness/frontend/package.json'
-      - 'packages/gpt2giga-harness/frontend/package-lock.json'
+      - 'web/package.json'
+      - 'web/package-lock.json'
       - 'tests/**/*.py'
       - '.github/workflows/codeql.yaml'
   pull_request:
     branches: [ main ]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - 'packages/gpt2giga-harness/**/*.py'
-      - 'packages/gpt2giga-harness/frontend/**/*.{js,jsx,ts,tsx}'
+      - 'src/gigaloom/**/*.py'
+      - 'web/**/*.{js,jsx,ts,tsx}'
       - 'pyproject.toml'
-      - 'packages/gpt2giga-harness/frontend/package.json'
-      - 'packages/gpt2giga-harness/frontend/package-lock.json'
+      - 'web/package.json'
+      - 'web/package-lock.json'
       - 'tests/**/*.py'
       - '.github/workflows/codeql.yaml'
   schedule:
@@ -50,7 +50,8 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
-          queries: security-and-quality
+          # Run maintainability gates separately; keep this queue security-focused.
+          queries: security-extended
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v4

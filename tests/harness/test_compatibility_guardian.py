@@ -2,18 +2,18 @@ import json
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness import cli
-from gpt2giga_harness.cli_capabilities import CliCapabilitySnapshot
-from gpt2giga_harness.compatibility_guardian import (
+from gigaloom import cli
+from gigaloom.cli_capabilities import CliCapabilitySnapshot
+from gigaloom.compatibility_guardian import (
     compatibility_readiness_check,
     run_compatibility_guardian,
 )
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.harnesses.base import BaseHarness
-from gpt2giga_harness.registry import HarnessRegistry
-from gpt2giga_harness.sessions import InMemoryHarnessSessionStore
-from gpt2giga_harness.structured_sessions import AdapterCapabilitySnapshot
-from gpt2giga_harness.types import (
+from gigaloom.config import HarnessConfig
+from gigaloom.harnesses.base import BaseHarness
+from gigaloom.registry import HarnessRegistry
+from gigaloom.sessions import InMemoryHarnessSessionStore
+from gigaloom.structured_sessions import AdapterCapabilitySnapshot
+from gigaloom.types import (
     Availability,
     HarnessCapability,
     HarnessContext,
@@ -21,7 +21,7 @@ from gpt2giga_harness.types import (
     HarnessResult,
     HarnessSpec,
 )
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.ui.app import create_app
 
 
 def test_guardian_runs_deterministic_cli_sdk_schema_and_marketplace_fixtures():

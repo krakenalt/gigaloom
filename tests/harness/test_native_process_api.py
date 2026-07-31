@@ -10,42 +10,42 @@ from dataclasses import replace
 from fastapi.testclient import TestClient
 import pytest
 
-from gpt2giga_harness import proxy
-from gpt2giga_harness.cli_capabilities import CliCapabilitySnapshot
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.native.base import NativeCommandPlan
-from gpt2giga_harness.native.claude import ClaudeNativeHistoryConnector
-from gpt2giga_harness.native.codex import CodexNativeHistoryConnector
-from gpt2giga_harness.native.gemini import GeminiNativeHistoryConnector
-from gpt2giga_harness.native.models import (
+from gigaloom import proxy
+from gigaloom.cli_capabilities import CliCapabilitySnapshot
+from gigaloom.config import HarnessConfig
+from gigaloom.native.base import NativeCommandPlan
+from gigaloom.native.claude import ClaudeNativeHistoryConnector
+from gigaloom.native.codex import CodexNativeHistoryConnector
+from gigaloom.native.gemini import GeminiNativeHistoryConnector
+from gigaloom.native.models import (
     NativeSessionRef,
     NativeSessionStatus,
     NativeTranscriptMessage,
     create_execution_snapshot,
 )
-from gpt2giga_harness.native.process import NativeProcessManager
-from gpt2giga_harness.native.registry import NativeHistoryConnectorRegistry
-from gpt2giga_harness.native.store import FilesystemNativeSessionIndexStore
-from gpt2giga_harness.project import project_id_for_root
-from gpt2giga_harness.provider_authentication_broker import (
+from gigaloom.native.process import NativeProcessManager
+from gigaloom.native.registry import NativeHistoryConnectorRegistry
+from gigaloom.native.store import FilesystemNativeSessionIndexStore
+from gigaloom.project import project_id_for_root
+from gigaloom.provider_authentication_broker import (
     ProviderAccountSnapshot,
     ProviderAccountStatus,
     ProviderSessionBinding,
 )
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.runtime.policy import NATIVE_PROCESS_SPAWN_OWNER
-from gpt2giga_harness.sessions import (
+from gigaloom.registry import create_default_registry
+from gigaloom.runtime.policy import NATIVE_PROCESS_SPAWN_OWNER
+from gigaloom.sessions import (
     FilesystemHarnessSessionStore,
     InMemoryHarnessSessionStore,
 )
-from gpt2giga_harness.session_titles import title_diagnostics
-from gpt2giga_harness.types import (
+from gigaloom.session_titles import title_diagnostics
+from gigaloom.types import (
     GigaChatApiMode,
     HarnessContext,
     HarnessRequest,
     REDACTED,
 )
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.ui.app import create_app
 
 PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
 

@@ -11,7 +11,7 @@ DEMO_PARENT="$(mktemp -d)"
 cp -R examples/harness/first-run-demo "$DEMO_PARENT/inventory-demo"
 cd "$DEMO_PARENT/inventory-demo"
 git init -b main
-export GPT2GIGA_HARNESS_DATA_DIR="$PWD/.local/harness"
+export GIGALOOM_DATA_DIR="$PWD/.local/harness"
 
 giga init --name harness-first-run-demo
 giga doctor .
@@ -47,7 +47,7 @@ What the setup changes:
 
 - `giga init` writes non-secret starter definitions under `.giga/`;
 - Harness run/eval records stay under `.local/harness/` because the demo sets
-  `GPT2GIGA_HARNESS_DATA_DIR` explicitly;
+  `GIGALOOM_DATA_DIR` explicitly;
 - both directories are ignored in this disposable repository;
 - `inventory.csv` and `TASK.md` are fake, safe inputs for later read-only agent
   experiments.

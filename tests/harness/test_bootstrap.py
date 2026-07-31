@@ -5,21 +5,21 @@ import stat
 
 import pytest
 
-from gpt2giga_harness import bootstrap, cli
-from gpt2giga_harness.bootstrap import (
+from gigaloom import bootstrap, cli
+from gigaloom.bootstrap import (
     BOOTSTRAP_STEP_MANAGED_STATE,
     BOOTSTRAP_STEP_PROJECT,
     BootstrapConflictError,
     BootstrapService,
 )
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.completion import SHELLS, render_completion
+from gigaloom.config import HarnessConfig
+from gigaloom.completion import SHELLS, render_completion
 
 
 def _doctor_report():
     return {
         "schema_version": 1,
-        "kind": "gpt2giga_harness_doctor_report",
+        "kind": "gigaloom_doctor_report",
         "ok": True,
         "summary": {"ready": 1, "degraded": 0, "blocked": 0},
         "checks": [
@@ -179,7 +179,7 @@ def test_bootstrap_cli_preview_apply_status_and_rollback(
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     data_root = tmp_path / "state"
-    monkeypatch.setenv("GPT2GIGA_HARNESS_DATA_DIR", str(data_root))
+    monkeypatch.setenv("GIGALOOM_DATA_DIR", str(data_root))
     monkeypatch.setattr(
         bootstrap,
         "build_doctor_report",

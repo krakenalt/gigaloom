@@ -6,15 +6,15 @@ import time
 
 import pytest
 
-from gpt2giga_harness.native import process as native_process_module
-from gpt2giga_harness.native.base import NativeCommandPlan, NativePromptDelivery
-from gpt2giga_harness.native.process import (
+from gigaloom.native import process as native_process_module
+from gigaloom.native.base import NativeCommandPlan, NativePromptDelivery
+from gigaloom.native.process import (
     NativeProcessManager,
     NativeProcessStatus,
     native_output_chunk_to_dict,
 )
-from gpt2giga_harness.sessions import InMemoryHarnessSessionStore
-from gpt2giga_harness.types import REDACTED
+from gigaloom.sessions import InMemoryHarnessSessionStore
+from gigaloom.types import REDACTED
 
 
 def test_native_process_manager_starts_reads_writes_and_stops_fake_cli(tmp_path):

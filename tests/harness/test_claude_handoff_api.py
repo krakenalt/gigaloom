@@ -2,10 +2,10 @@ import json
 
 from fastapi.testclient import TestClient
 
-from gpt2giga_harness.cli_capabilities import CliCapabilitySnapshot
-from gpt2giga_harness.config import HarnessConfig
-from gpt2giga_harness.registry import create_default_registry
-from gpt2giga_harness.ui.app import create_app
+from gigaloom.cli_capabilities import CliCapabilitySnapshot
+from gigaloom.config import HarnessConfig
+from gigaloom.registry import create_default_registry
+from gigaloom.ui.app import create_app
 
 
 def test_handoff_preview_api_returns_documented_plan_without_provider_state(
@@ -110,7 +110,7 @@ def test_handoff_preview_api_degrades_unknown_harness_and_platform(
 
 
 def _install_ready_claude_probe(registry, monkeypatch):
-    monkeypatch.setattr("gpt2giga_harness.claude_handoff.sys.platform", "darwin")
+    monkeypatch.setattr("gigaloom.claude_handoff.sys.platform", "darwin")
     harness = registry.get("claude-code")
     snapshot = CliCapabilitySnapshot(
         harness_id="claude-code",

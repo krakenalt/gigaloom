@@ -1,6 +1,6 @@
 import pytest
 
-from gpt2giga_harness.registries import (
+from gigaloom.registries import (
     EntryPointFamily,
     RegistrationOutcome,
     RegistryCollisionError,
@@ -12,12 +12,12 @@ def test_entry_point_family_prioritizes_primary_and_deduplicates_aliases():
     family = EntryPointFamily(
         registry_id="example",
         api_version=1,
-        primary_group="agent_workbench.examples.v1",
-        compatibility_groups=("legacy.examples", "agent_workbench.examples.v1"),
+        primary_group="gigaloom.examples.v1",
+        compatibility_groups=("legacy.examples", "gigaloom.examples.v1"),
     )
 
     assert family.groups == (
-        "agent_workbench.examples.v1",
+        "gigaloom.examples.v1",
         "legacy.examples",
     )
 
@@ -27,7 +27,7 @@ def test_versioned_registry_kernel_accepts_equivalent_alias_once():
         EntryPointFamily(
             registry_id="example",
             api_version=1,
-            primary_group="agent_workbench.examples.v1",
+            primary_group="gigaloom.examples.v1",
         )
     )
 
@@ -58,7 +58,7 @@ def test_versioned_registry_kernel_rejects_non_equivalent_collision():
         EntryPointFamily(
             registry_id="example",
             api_version=1,
-            primary_group="agent_workbench.examples.v1",
+            primary_group="gigaloom.examples.v1",
         )
     )
     kernel.register(

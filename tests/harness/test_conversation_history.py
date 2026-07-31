@@ -2,12 +2,12 @@ from dataclasses import replace
 
 import pytest
 
-from gpt2giga_harness.sessions.conversation import (
+from gigaloom.sessions.conversation import (
     active_conversation_messages,
     edited_message_metadata,
     history_before_edited_message,
 )
-from gpt2giga_harness.sessions.models import HarnessMessage
+from gigaloom.sessions.models import HarnessMessage
 
 
 def test_active_conversation_replaces_the_latest_user_turn_append_only():
