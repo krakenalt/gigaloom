@@ -7,6 +7,7 @@ import type {
   EvidenceWorkspaceResponse,
   ManagedTerminalAttachResponse,
 } from "../operator";
+import type { ReviewedArenaResponse } from "../reviewedArena";
 import { requestKeys } from "../queryKeys";
 
 export function operatorEvidenceOptions(runId: string, workspaceId: string) {
@@ -74,5 +75,20 @@ export function operatorTerminalOptions(
         signal,
       ),
     staleTime: 0,
+  });
+}
+
+export function reviewedArenaOptions(arenaId: string, workspaceId: string) {
+  return queryOptions({
+    queryKey: requestKeys.reviewedArena(arenaId, workspaceId),
+    queryFn: ({ signal }) =>
+      fetchCockpit<ReviewedArenaResponse>(
+        withQuery(
+          `/api/operator/arenas/${encodeURIComponent(arenaId)}/reviewed`,
+          { workspace_id: workspaceId },
+        ),
+        signal,
+      ),
+    staleTime: 5_000,
   });
 }

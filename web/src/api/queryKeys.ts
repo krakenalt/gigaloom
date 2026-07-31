@@ -55,4 +55,6 @@ export const requestKeys = {
       sessionId,
       revision,
     ] as const,
+  reviewedArena: (arenaId: string, workspaceId: string) =>
+    [...rootKey, "reviewed-arena", arenaId, workspaceId] as const,
 };

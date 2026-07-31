@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
+  lazy,
+  Suspense,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -33,6 +35,7 @@ import {
   harnessesOptions,
   modelsOptions,
   requestKeys,
+  settingsOptions,
 } from "../request-graph";
 import {
   arenaDetailOptions,
@@ -45,6 +48,9 @@ import { activeAtQuery, consumeAtQuery } from "../workbench-execution";
 
 const activeStatuses = new Set(["queued", "running", "retry_wait"]);
 const hiddenArenaHarnesses = new Set(["echo"]);
+const ReviewedArenaInspection = lazy(
+  () => import("../features/arena/ReviewedArenaInspection"),
+);
 
 export function ArenaWorkspace({ selectedId }: { selectedId: string | undefined }) {
   const { preferences } = usePreferences();
@@ -54,6 +60,7 @@ export function ArenaWorkspace({ selectedId }: { selectedId: string | undefined 
   const history = useQuery(evaluationSurfaceOptions());
   const harnesses = useQuery(harnessesOptions());
   const models = useQuery(modelsOptions("v2"));
+  const settings = useQuery(settingsOptions());
   const detail = useQuery({
     ...arenaDetailOptions(selectedId ?? "pending"),
     enabled: selectedId !== undefined,
@@ -218,7 +225,10 @@ export function ArenaWorkspace({ selectedId }: { selectedId: string | undefined 
       ) : detail.isError || detail.data === undefined ? (
         <div className="error-state">{message(locale, "boundedDataUnavailable")}</div>
       ) : (
-        <ArenaDetail response={detail.data} />
+        <ArenaDetail
+          response={detail.data}
+          workspaceId={settings.data?.workspace.project_id ?? ""}
+        />
       )}
 
       <SharedComposer
@@ -274,7 +284,7 @@ function ArenaSetup({
             <label className={checked ? "selected" : ""} key={item.spec.id}>
               <input
                 checked={checked}
-                disabled={unavailable || (!checked && selected.length >= 4)}
+                disabled={unavailable || (!checked && selected.length >= 2)}
                 onChange={() =>
                   onChange(
                     checked
@@ -295,38 +305,16 @@ function ArenaSetup({
   );
 }
 
-function ArenaDetail({ response }: { response: ArenaProjectionResponse }) {
+function ArenaDetail({
+  response,
+  workspaceId,
+}: {
+  response: ArenaProjectionResponse;
+  workspaceId: string;
+}) {
   const { arena } = response;
   const { preferences } = usePreferences();
   const locale = preferences.locale;
-  const queryClient = useQueryClient();
-  const existingVerdict = arena.review.verdict;
-  const [selectedCandidate, setSelectedCandidate] = useState<number | null>(
-    existingVerdict?.selected_child_index ?? null,
-  );
-  const [scores, setScores] = useState<Record<number, string>>(() =>
-    Object.fromEntries(
-      arena.review.candidates.map((candidate) => [
-        candidate.child_index,
-        existingVerdict?.scores.find(
-          (item) => item.child_index === candidate.child_index,
-        )?.score.toString() ?? "0.5",
-      ]),
-    ),
-  );
-  useEffect(() => {
-    setSelectedCandidate(existingVerdict?.selected_child_index ?? null);
-    setScores(
-      Object.fromEntries(
-        arena.review.candidates.map((candidate) => [
-          candidate.child_index,
-          existingVerdict?.scores.find(
-            (item) => item.child_index === candidate.child_index,
-          )?.score.toString() ?? "0.5",
-        ]),
-      ),
-    );
-  }, [arena.id, existingVerdict?.verdict_sha256]);
   const [streamStatuses, setStreamStatuses] = useState<Record<string, string>>({});
   const recordStreamStatus = useCallback((runId: string, status: string) => {
     setStreamStatuses((current) =>
@@ -339,34 +327,6 @@ function ArenaDetail({ response }: { response: ArenaProjectionResponse }) {
       return (run === undefined ? undefined : streamStatuses[run.id]) ?? child.status;
     }),
   );
-  const recordVerdict = useMutation({
-    mutationFn: () => {
-      if (selectedCandidate === null) throw new Error("Select a candidate");
-      return mutateCockpit<ArenaProjectionResponse>(
-        `/api/arena/runs/${encodeURIComponent(arena.id)}/verdict`,
-        {
-          candidate_set_sha256: arena.review.candidate_set_sha256,
-          scores: arena.review.candidates.map((candidate) => ({
-            child_index: candidate.child_index,
-            score: Number(scores[candidate.child_index]),
-          })),
-          selected_child_index: selectedCandidate,
-        },
-      );
-    },
-    onSuccess: ({ arena: updated }) =>
-      queryClient.setQueryData(remainingRequestKeys.arena(updated.id), {
-        arena: updated,
-      }),
-  });
-  const scoresValid = arena.review.candidates.every((candidate) => {
-    const value = Number(scores[candidate.child_index]);
-    return Number.isFinite(value) && value >= 0 && value <= 1;
-  });
-  const selectedSucceeded = arena.review.candidates.some(
-    (candidate) =>
-      candidate.child_index === selectedCandidate && candidate.status === "succeeded",
-  );
   return (
     <>
       <div className="arena-identity-strip">
@@ -375,46 +335,20 @@ function ArenaDetail({ response }: { response: ArenaProjectionResponse }) {
         <span>{message(locale, "turns")}: {(arena.metadata.turn_count ?? 0) + 1}</span>
         <span>{message(locale, "taskEvidence")}: {arena.review.task_sha256.slice(0, 10)}</span>
         <span className={`status-label ${arenaStatus === "succeeded" ? "success" : "warning"}`}>{arenaStatus}</span>
-        {existingVerdict === null ? (
-          <button
-            disabled={
-              activeStatuses.has(arenaStatus) ||
-              !selectedSucceeded ||
-              !scoresValid ||
-              recordVerdict.isPending
-            }
-            onClick={() => recordVerdict.mutate()}
-            type="button"
-          >
-            {message(locale, "recordVerdict")}
-          </button>
-        ) : (
-          <>
-            <span>{message(locale, "reviewedVerdict")}: {String.fromCharCode(65 + existingVerdict.selected_child_index)}</span>
-            <Link params={{ runId: existingVerdict.selected_run_id }} to="/web/runs/$runId">
-              {message(locale, "promoteSelected")}
-            </Link>
-          </>
-        )}
-        {recordVerdict.error ? <span role="alert">{recordVerdict.error.message}</span> : null}
       </div>
+      <Suspense fallback={<div className="reviewed-arena-skeleton" />}>
+        <ReviewedArenaInspection
+          arenaId={arena.id}
+          workspaceId={workspaceId}
+        />
+      </Suspense>
       <div className="arena-chat-grid" style={{ "--arena-columns": arena.child_runs.length } as React.CSSProperties}>
         {arena.child_runs.map((child) => (
           <ArenaChatColumn
             arenaId={arena.id}
             child={child}
-            candidate={arena.review.candidates.find(
-              (item) => item.child_index === child.index,
-            )}
             key={child.index}
             onTerminalStatus={recordStreamStatus}
-            reviewed={existingVerdict !== null}
-            score={scores[child.index] ?? "0.5"}
-            selected={selectedCandidate === child.index}
-            onScore={(value) =>
-              setScores((current) => ({ ...current, [child.index]: value }))
-            }
-            onSelect={() => setSelectedCandidate(child.index)}
           />
         ))}
       </div>
@@ -424,24 +358,12 @@ function ArenaDetail({ response }: { response: ArenaProjectionResponse }) {
 
 function ArenaChatColumn({
   arenaId,
-  candidate,
   child,
   onTerminalStatus,
-  reviewed,
-  score,
-  selected,
-  onScore,
-  onSelect,
 }: {
   arenaId: string;
-  candidate: ArenaProjectionResponse["arena"]["review"]["candidates"][number] | undefined;
   child: ArenaChildProjection;
   onTerminalStatus: (runId: string, status: string) => void;
-  reviewed: boolean;
-  score: string;
-  selected: boolean;
-  onScore: (value: string) => void;
-  onSelect: () => void;
 }) {
   const queryClient = useQueryClient();
   const { preferences } = usePreferences();
@@ -495,17 +417,9 @@ function ArenaChatColumn({
     <article className="arena-chat-column">
       <header>
         <div>
-          <label className="arena-candidate-select">
-            <input
-              aria-label={`${message(locale, "selectArenaCandidate")} ${String.fromCharCode(65 + child.index)}`}
-              checked={selected}
-              disabled={reviewed || candidate?.status !== "succeeded"}
-              name={`arena-candidate-${arenaId}`}
-              onChange={onSelect}
-              type="radio"
-            />
-            <span>{String.fromCharCode(65 + child.index)}</span>
-          </label>
+          <span className="arena-candidate-label">
+            {String.fromCharCode(65 + child.index)}
+          </span>
           <div><strong>{child.harness_id}</strong><small>{run?.model ?? message(locale, "defaultRoute")}</small></div>
         </div>
         <span className={`status-label ${status === "succeeded" ? "success" : activeStatuses.has(status) ? "warning" : "danger"}`}>{status}</span>
@@ -513,18 +427,6 @@ function ArenaChatColumn({
       <div className="arena-chat-metrics">
         <span>{formatElapsed(elapsed)}</span>
         <span>{usage.total_tokens === undefined ? message(locale, "tokensUnavailable") : `${usage.total_tokens} ${message(locale, "tokens")}`}</span>
-        <label>
-          {message(locale, "candidateScore")}
-          <input
-            disabled={reviewed}
-            max="1"
-            min="0"
-            onChange={(event) => onScore(event.target.value)}
-            step="0.01"
-            type="number"
-            value={score}
-          />
-        </label>
         <span>{stream.status.replaceAll("_", " ")}</span>
       </div>
       <div className="arena-chat-scroll" role="log" aria-live="polite">

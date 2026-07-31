@@ -7,6 +7,7 @@ import {
   operatorEvidenceOptions,
   operatorInboxOptions,
   operatorTerminalOptions,
+  reviewedArenaOptions,
   refreshSessionAfterRunStart,
   refreshSessionRevision,
   requestKeys,
@@ -61,6 +62,7 @@ describe("Cockpit request graph", () => {
       ),
       providerAccounts: requestKeys.providerAccounts(),
       providers: requestKeys.providers(),
+      reviewedArena: requestKeys.reviewedArena("arena-one", "workspace-one"),
       runCenterSummary: requestKeys.runCenterSummary("run-one"),
       runOverview: requestKeys.runOverview("run-one"),
       runProjection: requestKeys.runProjection("run-one", "report"),
@@ -104,6 +106,12 @@ describe("Cockpit request graph", () => {
       ],
       providerAccounts: ["cockpit", "provider-accounts"],
       providers: ["cockpit", "providers"],
+      reviewedArena: [
+        "cockpit",
+        "reviewed-arena",
+        "arena-one",
+        "workspace-one",
+      ],
       runCenterSummary: ["cockpit", "run", "run-one", "center-summary"],
       runOverview: ["cockpit", "run", "run-one", "overview"],
       runProjection: ["cockpit", "run", "run-one", "report"],
@@ -210,6 +218,22 @@ describe("Cockpit request graph", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/operator/terminals/terminal%2Fone/attach" +
         "?workspace_id=workspace+one&session_id=session+one&revision=7",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
+  });
+
+  it("binds Reviewed Arena evidence to the exact arena and workspace", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ arena: { projection_sha256: "a".repeat(64) } })),
+    );
+    const client = queryClient();
+
+    await client.fetchQuery(reviewedArenaOptions("arena/one", "workspace one"));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/operator/arenas/arena%2Fone/reviewed?workspace_id=workspace+one",
       expect.objectContaining({
         headers: { Accept: "application/json" },
       }),
