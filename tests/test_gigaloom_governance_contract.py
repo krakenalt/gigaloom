@@ -223,6 +223,12 @@ def test_actions_permissions_and_security_automation_are_specialized():
         "python",
         "javascript-typescript",
     ]
+    codeql_init = next(
+        step
+        for step in codeql["jobs"]["analyze"]["steps"]
+        if step.get("uses") == "github/codeql-action/init@v4"
+    )
+    assert codeql_init["with"]["queries"] == "security-extended"
     assert codeql["permissions"] == {
         "actions": "read",
         "contents": "read",
