@@ -700,7 +700,7 @@ def _matches_session(
 ) -> bool:
     if session.archived and not include_archived:
         return False
-    if project_id and session.metadata.get("project_id") != project_id:
+    if project_id and (session.metadata.get("catalog_project_id") or session.metadata.get("project_id")) != project_id:  # fmt: skip  # noqa: E501
         return False
     if workspace and session.workspace != workspace:
         return False

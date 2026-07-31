@@ -21,6 +21,7 @@ from gigaloom.sessions.models import (
     session_from_dict,
     session_to_dict,
 )
+from gigaloom.sessions.catalog_binding import session_catalog_project_id
 from gigaloom.sessions.record_index import (
     RECORD_INDEX_SCHEMA,
     SessionRecordIndexMixin,
@@ -312,7 +313,7 @@ class SessionReadIndex(SessionRecordIndexMixin):
                 int(session.pinned),
                 int(session.archived),
                 session.updated_at,
-                str(session.metadata.get("project_id") or "") or None,
+                session_catalog_project_id(session.metadata),
                 session.workspace,
                 session.default_harness_id,
                 session.title.casefold(),
