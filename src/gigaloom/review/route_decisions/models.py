@@ -29,8 +29,16 @@ class RouteDecisionNotFoundError(RouteDecisionError):
     """Raised when a requested receipt does not exist."""
 
 
+class RouteDecisionOverrideError(RouteDecisionError):
+    """Raised when a manual selection is not already eligible."""
+
+
 class RouteDecisionVerificationError(RouteDecisionError):
     """Raised when receipt integrity or current bindings do not verify."""
+
+
+class RouteRunBindingError(RouteDecisionVerificationError):
+    """Raised when current evidence or manual confirmation blocks execution."""
 
 
 class RouteDecisionOutcome(str, Enum):
@@ -348,9 +356,11 @@ __all__ = [
     "RouteDecisionError",
     "RouteDecisionLatencyEvidenceV1",
     "RouteDecisionNotFoundError",
+    "RouteDecisionOverrideError",
     "RouteDecisionOutcome",
     "RouteDecisionOverrideV1",
     "RouteDecisionReceiptV1",
     "RouteDecisionRejectedRouteV1",
     "RouteDecisionVerificationError",
+    "RouteRunBindingError",
 ]

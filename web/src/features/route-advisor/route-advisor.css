@@ -1,0 +1,28 @@
+.route-advisor-inspection { display: grid; gap: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 16px; }
+.route-advisor-inspection > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.route-advisor-inspection h2 { margin: 3px 0 0; font-size: 18px; }
+.route-advisor-safety { display: grid; justify-items: end; gap: 3px; border-radius: 9px; background: color-mix(in srgb, var(--warning) 10%, var(--surface)); padding: 9px 11px; color: var(--warning); font-size: 10px; }
+.route-advisor-bindings { display: flex; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 10px; }
+.route-advisor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.route-card { min-width: 0; display: grid; gap: 11px; border: 1px solid var(--border); border-radius: 10px; padding: 12px; content-visibility: auto; contain-intrinsic-size: 220px; }
+.route-card.selected { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.route-card.rejected { background: color-mix(in srgb, var(--danger) 4%, var(--surface)); }
+.route-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.route-card > header > div { min-width: 0; display: grid; gap: 3px; }
+.route-card > header strong { overflow-wrap: anywhere; }
+.route-card > header div span { color: var(--muted); font-size: 10px; }
+.route-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.route-card dl > div { min-width: 0; border-radius: 7px; background: var(--surface-muted); padding: 8px; }
+.route-card dt { color: var(--muted); font-size: 8px; text-transform: uppercase; }
+.route-card dd { margin: 4px 0 0; overflow-wrap: anywhere; font-family: "SFMono-Regular", Consolas, monospace; font-size: 10px; }
+.route-card ul { display: grid; gap: 5px; margin: 0; padding-left: 18px; color: var(--danger); font-size: 10px; }
+.route-card button { justify-self: start; }
+.route-advisor-skeleton { min-height: 300px; border: 1px solid var(--border); border-radius: 12px; background: linear-gradient(90deg, var(--surface-muted), var(--surface), var(--surface-muted)); background-size: 200% 100%; animation: pulse 1.2s infinite; }
+.route-advisor-error { border: 1px solid var(--danger); border-radius: 10px; padding: 14px; color: var(--danger); }
+
+@media (max-width: 760px) {
+  .route-advisor-inspection > header { align-items: stretch; flex-direction: column; }
+  .route-advisor-safety { justify-items: start; }
+  .route-advisor-grid { grid-template-columns: 1fr; }
+  .route-card dl { grid-template-columns: 1fr; }
+}

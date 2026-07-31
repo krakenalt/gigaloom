@@ -8,12 +8,25 @@ from typing import Any
 
 _ROUTE_DECISION_EXPORTS = (
     "RouteDecisionBindingsV1",
+    "RouteDecisionError",
+    "RouteDecisionCostEvidenceV1",
+    "RouteDecisionNotFoundError",
     "RouteDecisionReceiptV1",
     "RouteDecisionRepository",
+    "RouteDecisionOverrideError",
     "RouteDecisionVerificationError",
+    "RouteRunBindingError",
+    "ConfirmedRouteRunPlanV1",
+    "CurrentRouteRunEvidenceSource",
+    "CurrentRouteRunEvidenceV1",
+    "ExactStructuredRouteRunner",
+    "RouteRunConfirmationV1",
     "create_route_decision_receipt",
+    "execute_confirmed_route",
+    "override_route_decision_receipt",
     "route_decision_receipt_from_dict",
     "route_decision_receipt_to_dict",
+    "revalidate_route_decision_for_run",
     "verify_route_decision_receipt",
 )
 _CAPSULE_EXPORTS = (

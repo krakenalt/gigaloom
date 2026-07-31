@@ -1,6 +1,13 @@
 """Public Route Advisor core contracts."""
 
 from gigaloom.execution.route_advisor.admission import admit_route
+from gigaloom.execution.route_advisor.application import (
+    RouteAdvisorApplicationService,
+    RouteRecommendationQueryV1,
+    RouteRecommendationResultV1,
+    RouteRecommendationSnapshotV1,
+    RouteRecommendationSource,
+)
 from gigaloom.execution.route_advisor.advisor import RouteRanker, advise_routes
 from gigaloom.execution.route_advisor.candidates import canonicalize_candidates
 from gigaloom.execution.route_advisor.catalog import (
@@ -47,6 +54,7 @@ __all__ = [
     "PolicyRankerV1",
     "RejectedRouteEvidence",
     "RouteAdmissionEvaluation",
+    "RouteAdvisorApplicationService",
     "RouteAdviceOutcome",
     "RouteAdviceV1",
     "RouteAdvisorError",
@@ -57,6 +65,10 @@ __all__ = [
     "RouteOverrideV1",
     "RouteOperationalFactsV1",
     "RouteRanker",
+    "RouteRecommendationQueryV1",
+    "RouteRecommendationResultV1",
+    "RouteRecommendationSnapshotV1",
+    "RouteRecommendationSource",
     "RouteOverrideError",
     "RouteRankingError",
     "RouteRejectionCode",
