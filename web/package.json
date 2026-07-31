@@ -45,6 +45,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@modelcontextprotocol/ext-apps": "1.7.5",
     "@tanstack/react-query": "5.101.4",
     "@tanstack/react-router": "1.170.18",
     "@xterm/addon-fit": "0.11.0",
