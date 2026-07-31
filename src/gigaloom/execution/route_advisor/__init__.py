@@ -3,6 +3,10 @@
 from gigaloom.execution.route_advisor.admission import admit_route
 from gigaloom.execution.route_advisor.advisor import RouteRanker, advise_routes
 from gigaloom.execution.route_advisor.candidates import canonicalize_candidates
+from gigaloom.execution.route_advisor.catalog import (
+    RouteOperationalFactsV1,
+    candidates_from_capability_catalog,
+)
 from gigaloom.execution.route_advisor.errors import (
     RouteAdvisorError,
     RouteOverrideError,
@@ -51,6 +55,7 @@ __all__ = [
     "RouteFactState",
     "RouteIntent",
     "RouteOverrideV1",
+    "RouteOperationalFactsV1",
     "RouteRanker",
     "RouteOverrideError",
     "RouteRankingError",
@@ -61,4 +66,5 @@ __all__ = [
     "advise_routes",
     "apply_route_override",
     "canonicalize_candidates",
+    "candidates_from_capability_catalog",
 ]

@@ -238,6 +238,10 @@ if TYPE_CHECKING:
 
 _LAZY_EXPORT_MODULES = {
     **dict.fromkeys(
+        "MIGRATION_REGISTRY_SCHEMA_VERSION NATIVE_AGENT_GATEWAY_MIGRATION_SEQUENCE_V1 MigrationRegistrationV1 validate_migration_sequence PROJECT_LAUNCH_READ_MODEL_SCHEMA_VERSION LaunchProfileReadPort ProjectCatalogReadPort ProjectLaunchReadModelV1 ProjectLaunchReadService".split(),
+        "integration",
+    ),
+    **dict.fromkeys(
         {
             "PythonImpactIndexCache",
             "StalePythonImpactIndexError",
@@ -587,5 +591,7 @@ __all__ = [
         "ProjectLocationRef ProjectLaunchProfileService ProjectLaunchProfileV1 ProjectRelocationPreviewV1 ResolvedProjectLaunchProfileV1 FilesystemProjectCatalogRepository FilesystemLaunchProfileRepository "
         "LaunchProfilePageV1 LaunchResolutionContextV1 SessionCatalogBindingService TerminalModeHint UnsatisfiedLaunchHintV1 catalog_entry_digest catalog_entry_from_dict catalog_entry_to_dict "
         "launch_profile_digest launch_profile_from_dict launch_profile_to_dict resolve_launch_profile resolved_project_location"
+        " MIGRATION_REGISTRY_SCHEMA_VERSION NATIVE_AGENT_GATEWAY_MIGRATION_SEQUENCE_V1 MigrationRegistrationV1 validate_migration_sequence"
+        " PROJECT_LAUNCH_READ_MODEL_SCHEMA_VERSION LaunchProfileReadPort ProjectCatalogReadPort ProjectLaunchReadModelV1 ProjectLaunchReadService"
     ).split(),
 ]

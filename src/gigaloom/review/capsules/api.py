@@ -40,6 +40,13 @@ from .models import (
     VerificationStatus,
 )
 from .output_receipt import build_output_receipt, parse_output_receipt
+from .ports import (
+    RunCapsuleCapturePortsV1,
+    RunCapsuleEvidencePort,
+    RunCapsuleInputPort,
+    RunCapsuleOutputPort,
+    capture_run_capsule_from_ports,
+)
 from .export import export_run_capsule
 from .signatures import CapsuleSigner, Ed25519Signer
 from .verification import verify_run_capsule
@@ -67,6 +74,10 @@ __all__ = [
     "OutputReceipt",
     "RunCapsule",
     "RunCapsuleBundle",
+    "RunCapsuleCapturePortsV1",
+    "RunCapsuleEvidencePort",
+    "RunCapsuleInputPort",
+    "RunCapsuleOutputPort",
     "SignatureStatus",
     "VerificationFinding",
     "VerificationStatus",
@@ -76,6 +87,7 @@ __all__ = [
     "build_output_receipt",
     "build_run_capsule",
     "capture_run_capsule",
+    "capture_run_capsule_from_ports",
     "canonical_json_bytes",
     "canonical_sha256",
     "export_run_capsule",

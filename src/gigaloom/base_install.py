@@ -16,7 +16,9 @@ AUDIT_SCHEMA_VERSION = 1
 MAX_BASE_DISTRIBUTIONS = 64
 BASE_DIRECT_DISTRIBUTIONS = frozenset(
     {
+        "agent-client-protocol",
         "anyio",
+        "cryptography",
         "fastapi",
         "pydantic",
         "pyjwt",

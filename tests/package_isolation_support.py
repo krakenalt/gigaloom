@@ -46,7 +46,9 @@ def _optional_gateway_version() -> str:
 
 GATEWAY_VERSION = _optional_gateway_version()
 IMPORT_DISTRIBUTIONS = {
+    "acp": "agent-client-protocol",
     "anyio": "anyio",
+    "cryptography": "cryptography",
     "dateutil": "python-dateutil",
     "fastapi": "fastapi",
     "gigachat": "gigachat",

@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "83f6f59f33f5ff408ab3e8bccc2cea73606b924303e0c75e5e76c96650176821",
+  "content_sha256": "f0741cb242f297cc689fd8511d49fe38493cd0f9573734454a54764d5ba3ac91",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -2203,10 +2203,12 @@
     ],
     "cli_commands": [
       "agent",
+      "agent add",
+      "agent discover",
+      "agent inspect",
       "agent list",
-      "agent run",
-      "agent show",
-      "agent validate",
+      "agent probe",
+      "agent remove",
       "benchmark",
       "benchmark performance",
       "bootstrap",

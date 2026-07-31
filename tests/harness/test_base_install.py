@@ -11,7 +11,9 @@ from gigaloom.base_install import (
 
 
 BASE_REQUIREMENTS = (
+    "agent-client-protocol==0.11.1",
     "anyio>=4.10,<5",
+    "cryptography>=46,<50",
     "fastapi>=0.133.0,<1",
     "pydantic>=2.12.0,<3",
     "pyjwt[crypto]>=2.12.0,<3",
