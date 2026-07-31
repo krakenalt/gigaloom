@@ -129,6 +129,20 @@ class AcpClientInfo:
 
 
 @dataclass(frozen=True, slots=True)
+class AcpRouteIdentity:
+    """Digest-bound agent and structured route identity for session receipts."""
+
+    agent_id: str
+    route_id: str
+    profile_digest: str
+
+    def __post_init__(self) -> None:
+        _validate_identity(self.agent_id, field_name="ACP agent id")
+        _validate_identity(self.route_id, field_name="ACP route id")
+        _validate_digest(self.profile_digest, field_name="ACP profile digest")
+
+
+@dataclass(frozen=True, slots=True)
 class AcpImplementationInfo:
     """Content-free implementation identity from ACP initialize."""
 

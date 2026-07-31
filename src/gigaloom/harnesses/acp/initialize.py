@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from acp.schema import (
     AuthCapabilities,
+    BooleanConfigOptionCapabilities,
     ClientCapabilities,
+    ClientSessionCapabilities,
     FileSystemCapabilities,
     Implementation,
     InitializeRequest,
     InitializeResponse,
+    PlanCapabilities,
+    SessionConfigOptionsCapabilities,
 )
 from pydantic import ValidationError
 
@@ -40,6 +44,12 @@ def initialize_connection(
                 write_text_file=False,
             ),
             terminal=False,
+            session=ClientSessionCapabilities(
+                config_options=SessionConfigOptionsCapabilities(
+                    boolean=BooleanConfigOptionCapabilities()
+                )
+            ),
+            plan=PlanCapabilities(),
             auth=AuthCapabilities(terminal=False),
         ),
         client_info=Implementation(

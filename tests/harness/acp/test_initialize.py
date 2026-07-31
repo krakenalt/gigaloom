@@ -13,6 +13,7 @@ import pytest
 from gigaloom.harnesses.acp import (
     AcpClientInfo,
     AcpLimits,
+    AcpRouteIdentity,
     create_acp_client,
     pin_acp_process,
 )
@@ -26,6 +27,7 @@ from gigaloom.structured_processes import StructuredTransportClosed
 
 _CLOSED = object()
 _DIGEST = "a" * 64
+_ROUTE = AcpRouteIdentity("fake-agent", "fake.acp", _DIGEST)
 
 
 class _InitializeTransport:
@@ -151,7 +153,9 @@ def test_process_pin_is_absolute_filters_secrets_and_detects_replacement(
     replacement = Path(spec.executable.path)
     replacement.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
     replacement.chmod(0o700)
-    client = create_acp_client(spec, compatibility_profile_digest=_DIGEST)
+    client = create_acp_client(
+        spec, compatibility_profile_digest=_DIGEST, route_identity=_ROUTE
+    )
     with pytest.raises(AcpProcessError, match="identity changed"):
         client.start()
 
@@ -164,6 +168,7 @@ def test_initialize_negotiates_v1_and_freezes_content_free_snapshot(
     client = create_acp_client(
         spec,
         compatibility_profile_digest=_DIGEST,
+        route_identity=_ROUTE,
         client_info=AcpClientInfo(version="0.7.0-alpha.1"),
         transport_factory=lambda: transport,
     )
@@ -212,6 +217,7 @@ def test_initialize_version_mismatch_fails_closed(tmp_path: Path) -> None:
     client = create_acp_client(
         spec,
         compatibility_profile_digest=_DIGEST,
+        route_identity=_ROUTE,
         transport_factory=lambda: transport,
     )
     client.start()

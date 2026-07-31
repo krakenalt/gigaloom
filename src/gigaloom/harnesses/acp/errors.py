@@ -23,3 +23,15 @@ class AcpCapabilityError(AcpProtocolError):
 
 class AcpLifecycleError(AcpError):
     """An operation was attempted in the wrong connection lifecycle state."""
+
+
+class AcpPermissionError(AcpError):
+    """An ACP permission request or response failed authority binding."""
+
+
+class AcpRequestCancelled(AcpError):
+    """A caller cancelled a local waiter before the agent completed."""
+
+
+class AcpRequestTimeout(AcpError):
+    """An ACP waiter exceeded its explicit caller deadline."""
