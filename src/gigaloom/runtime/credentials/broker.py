@@ -41,6 +41,14 @@ class CredentialLeaseNotFoundError(LookupError):
     """Raised when one unknown credential lease is requested."""
 
 
+class CredentialLeaseDeniedError(PermissionError):
+    """Content-free active-lease denial for the final egress boundary."""
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(reason)
+
+
 @dataclass(frozen=True, slots=True)
 class _LeaseRecord:
     source_id: str
@@ -170,6 +178,36 @@ class InMemoryCredentialBroker:
                 and record.lease.secret_ref_id == secret_ref_id
                 for record in self._leases.values()
             )
+
+    def source_for_active_lease(
+        self,
+        lease: CredentialLeaseV1,
+        *,
+        current_policy_digest: str,
+    ) -> CredentialSourceRegistration:
+        """Revalidate one exact lease and return its private SecretRef owner."""
+        if not isinstance(lease, CredentialLeaseV1):
+            raise CredentialLeaseDeniedError("lease_invalid")
+        now = self._current_time()
+        with self._lock:
+            self._expire_unlocked(now)
+            if not self._available:
+                raise CredentialLeaseDeniedError("broker_unavailable")
+            record = self._leases.get(lease.lease_id)
+            if record is None:
+                raise CredentialLeaseDeniedError("lease_not_found")
+            if record.lease != lease:
+                raise CredentialLeaseDeniedError("lease_binding_changed")
+            if record.lease.status is not CredentialLeaseStatus.ACTIVE:
+                raise CredentialLeaseDeniedError("lease_inactive")
+            if record.lease.policy_digest != current_policy_digest:
+                raise CredentialLeaseDeniedError("lease_policy_changed")
+            source = self._sources.get(record.source_id)
+            if source is None:
+                raise CredentialLeaseDeniedError("credential_source_missing")
+            if source.secret_reference.identity != lease.secret_ref_id:
+                raise CredentialLeaseDeniedError("secret_reference_changed")
+            return source
 
     def revoke_lease(
         self,
@@ -438,6 +476,7 @@ def _digest(value: object) -> str:
 
 
 __all__ = [
+    "CredentialLeaseDeniedError",
     "CredentialLeaseNotFoundError",
     "CredentialSourceConflictError",
     "CredentialSourceNotFoundError",
