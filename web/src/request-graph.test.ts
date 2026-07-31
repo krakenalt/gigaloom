@@ -4,6 +4,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SessionOverviewResponse } from "./api";
 import {
   cancelRequestScope,
+  operatorEvidenceOptions,
+  operatorInboxOptions,
+  operatorTerminalOptions,
+  reviewedArenaOptions,
   refreshSessionAfterRunStart,
   refreshSessionRevision,
   requestKeys,
@@ -44,8 +48,21 @@ describe("Cockpit request graph", () => {
       environment: requestKeys.environment("session-one"),
       harnesses: requestKeys.harnesses(),
       models: requestKeys.models("v2"),
+      operatorEvidence: requestKeys.operatorEvidence("run-one", "workspace-one"),
+      operatorInbox: requestKeys.operatorInbox(
+        "workspace-one",
+        "approval,run_input",
+      ),
+      operatorInboxScope: requestKeys.operatorInboxScope("workspace-one"),
+      operatorTerminal: requestKeys.operatorTerminal(
+        "terminal-one",
+        "workspace-one",
+        "session-one",
+        7,
+      ),
       providerAccounts: requestKeys.providerAccounts(),
       providers: requestKeys.providers(),
+      reviewedArena: requestKeys.reviewedArena("arena-one", "workspace-one"),
       runCenterSummary: requestKeys.runCenterSummary("run-one"),
       runOverview: requestKeys.runOverview("run-one"),
       runProjection: requestKeys.runProjection("run-one", "report"),
@@ -65,8 +82,36 @@ describe("Cockpit request graph", () => {
       environment: ["cockpit", "session", "session-one", "environment"],
       harnesses: ["cockpit", "harnesses"],
       models: ["cockpit", "models", "v2"],
+      operatorEvidence: [
+        "cockpit",
+        "run",
+        "run-one",
+        "operator-evidence",
+        "workspace-one",
+      ],
+      operatorInbox: [
+        "cockpit",
+        "operator-inbox",
+        "workspace-one",
+        "approval,run_input",
+      ],
+      operatorInboxScope: ["cockpit", "operator-inbox", "workspace-one"],
+      operatorTerminal: [
+        "cockpit",
+        "operator-terminal",
+        "terminal-one",
+        "workspace-one",
+        "session-one",
+        7,
+      ],
       providerAccounts: ["cockpit", "provider-accounts"],
       providers: ["cockpit", "providers"],
+      reviewedArena: [
+        "cockpit",
+        "reviewed-arena",
+        "arena-one",
+        "workspace-one",
+      ],
       runCenterSummary: ["cockpit", "run", "run-one", "center-summary"],
       runOverview: ["cockpit", "run", "run-one", "overview"],
       runProjection: ["cockpit", "run", "run-one", "report"],
@@ -113,6 +158,86 @@ describe("Cockpit request graph", () => {
       }),
     );
     await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+  });
+
+  it("binds operator evidence reads to the selected run and workspace", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ evidence: { projection_sha256: "a".repeat(64) } })),
+    );
+    const client = queryClient();
+
+    await client.fetchQuery(operatorEvidenceOptions("run/one", "workspace one"));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/operator/runs/run%2Fone/evidence?workspace_id=workspace+one",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
+  });
+
+  it("uses bounded snapshot cursors for the typed Action Inbox", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({
+        has_more: false,
+        items: [],
+        next_cursor: null,
+        resnapshot_required: false,
+        snapshot_sha256: "a".repeat(64),
+      })),
+    );
+    const client = queryClient();
+
+    await client.fetchInfiniteQuery(
+      operatorInboxOptions("workspace-one", ["run_input", "approval"]),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/operator/inbox?workspace_id=workspace-one&limit=50&kind=approval%2Crun_input",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
+  });
+
+  it("binds terminal authorization to the exact terminal scope and revision", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ terminal: { attachable: false } })),
+    );
+    const client = queryClient();
+
+    await client.fetchQuery(
+      operatorTerminalOptions(
+        "terminal/one",
+        "workspace one",
+        "session one",
+        7,
+      ),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/operator/terminals/terminal%2Fone/attach" +
+        "?workspace_id=workspace+one&session_id=session+one&revision=7",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
+  });
+
+  it("binds Reviewed Arena evidence to the exact arena and workspace", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ arena: { projection_sha256: "a".repeat(64) } })),
+    );
+    const client = queryClient();
+
+    await client.fetchQuery(reviewedArenaOptions("arena/one", "workspace one"));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/operator/arenas/arena%2Fone/reviewed?workspace_id=workspace+one",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
   });
 
   it("forwards cancellation to fetch when a route scope becomes stale", async () => {

@@ -35,4 +35,26 @@ export const requestKeys = {
     [...requestKeys.runScope(runId), "trace"] as const,
   runProjection: (runId: string, projection: RunProjection) =>
     [...requestKeys.runScope(runId), projection] as const,
+  operatorEvidence: (runId: string, workspaceId: string) =>
+    [...requestKeys.runScope(runId), "operator-evidence", workspaceId] as const,
+  operatorInboxScope: (workspaceId: string) =>
+    [...rootKey, "operator-inbox", workspaceId] as const,
+  operatorInbox: (workspaceId: string, kindFilter: string) =>
+    [...requestKeys.operatorInboxScope(workspaceId), kindFilter] as const,
+  operatorTerminal: (
+    terminalId: string,
+    workspaceId: string,
+    sessionId: string,
+    revision: number,
+  ) =>
+    [
+      ...rootKey,
+      "operator-terminal",
+      terminalId,
+      workspaceId,
+      sessionId,
+      revision,
+    ] as const,
+  reviewedArena: (arenaId: string, workspaceId: string) =>
+    [...rootKey, "reviewed-arena", arenaId, workspaceId] as const,
 };

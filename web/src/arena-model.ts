@@ -14,8 +14,7 @@ export function arenaSelectionError(
   harnesses: readonly HarnessOption[],
   hasFiles: boolean,
 ): string | null {
-  if (harnessIds.length < 2) return "Select at least two harnesses.";
-  if (harnessIds.length > 4) return "Select no more than four harnesses.";
+  if (harnessIds.length !== 2) return "Select exactly two harnesses.";
   const available = new Map(harnesses.map((item) => [item.spec.id, item]));
   for (const harnessId of harnessIds) {
     const harness = available.get(harnessId);

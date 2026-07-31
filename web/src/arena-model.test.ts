@@ -18,8 +18,9 @@ const harnesses: HarnessOption[] = [
 ];
 
 describe("Arena model", () => {
-  it("requires two to four truthful harness selections", () => {
+  it("requires exactly two truthful harness selections", () => {
     expect(arenaSelectionError(["a"], harnesses, false)).toContain("two");
+    expect(arenaSelectionError(["a", "b", "c"], harnesses, false)).toContain("two");
     expect(arenaSelectionError(["a", "b"], harnesses, true)).toContain("cannot receive");
     expect(arenaSelectionError(["a", "b"], harnesses, false)).toBeNull();
   });

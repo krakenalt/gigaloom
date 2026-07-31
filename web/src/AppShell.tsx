@@ -1,6 +1,6 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { InboxKind } from "./components/InboxDrawer";
 import { PrimaryRailBrand, PrimaryRailIcon } from "./components/PrimaryRailIcon";
@@ -14,10 +14,19 @@ import {
   type LocalePreference,
   type ThemePreference,
 } from "./preferences";
-import { approvalsOptions, attentionOptions, requestKeys } from "./request-graph";
+import {
+  approvalsOptions,
+  attentionOptions,
+  operatorInboxOptions,
+  requestKeys,
+  settingsOptions,
+} from "./request-graph";
+import { observeOperatorEvents } from "./operator-event-stream";
 import { observeRunsCenterUpdates } from "./runs-center-update-stream";
 
 const InboxDrawer = lazy(() => import("./components/InboxDrawer"));
+const OperatorInboxDrawer = lazy(() => import("./components/OperatorInboxDrawer"));
+type ShellInboxKind = InboxKind | "operator";
 
 function ApprovalIcon() {
   return (
@@ -37,6 +46,15 @@ function AttentionIcon() {
   );
 }
 
+function ActionInboxIcon() {
+  return (
+    <svg className="action-icon" aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M5 5h14v14H5z" />
+      <path d="M8 9h8M8 13h5M16.5 15.5l1.2 1.2 2.3-2.5" />
+    </svg>
+  );
+}
+
 function SettingsIcon() {
   return (
     <svg className="action-icon" aria-hidden="true" viewBox="0 0 24 24">
@@ -50,10 +68,19 @@ export function AppShell() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const activeSurface = surfaceForPath(pathname);
   const [preferences, setPreferences] = useState(loadPreferences);
-  const [inbox, setInbox] = useState<InboxKind | null>(null);
+  const [inbox, setInbox] = useState<ShellInboxKind | null>(null);
   const queryClient = useQueryClient();
   const approvals = useQuery(approvalsOptions());
   const attention = useQuery(attentionOptions());
+  const settings = useQuery(settingsOptions());
+  const workspaceId = settings.data?.workspace.project_id ?? "";
+  const operatorInbox = useInfiniteQuery({
+    ...operatorInboxOptions(workspaceId),
+    enabled: workspaceId !== "",
+  });
+  const operatorPendingCount =
+    operatorInbox.data?.pages.reduce((count, page) => count + page.items.length, 0)
+    ?? 0;
   const migratedSurface = activeSurface !== null && activeSurface !== "settings";
 
   useEffect(() => {
@@ -81,9 +108,20 @@ export function AppShell() {
   }, [queryClient]);
 
   useEffect(() => {
+    if (typeof globalThis.EventSource !== "function" || workspaceId === "") return;
+    return observeOperatorEvents(workspaceId, () => {
+      void queryClient.invalidateQueries({
+        queryKey: requestKeys.operatorInboxScope(workspaceId),
+      });
+    });
+  }, [queryClient, workspaceId]);
+
+  useEffect(() => {
     const openInbox = (event: Event) => {
-      const kind = (event as CustomEvent<InboxKind>).detail;
-      if (kind === "approvals" || kind === "attention") setInbox(kind);
+      const kind = (event as CustomEvent<ShellInboxKind>).detail;
+      if (kind === "approvals" || kind === "attention" || kind === "operator") {
+        setInbox(kind);
+      }
     };
     globalThis.addEventListener("cockpit:open-inbox", openInbox);
     return () => globalThis.removeEventListener("cockpit:open-inbox", openInbox);
@@ -119,6 +157,26 @@ export function AppShell() {
           ))}
         </nav>
         <div className="rail-utility-actions" aria-label={message(preferences.locale, "workspaceUtilities")}>
+          <button
+            aria-label={message(preferences.locale, "actionInbox")}
+            className="rail-utility-control"
+            disabled={workspaceId === ""}
+            type="button"
+            onClick={() => setInbox("operator")}
+          >
+            <span className="rail-utility-symbol">
+              <ActionInboxIcon />
+              {operatorPendingCount > 0 ? (
+                <span className="count-badge attention">
+                  {operatorPendingCount}
+                  {operatorInbox.hasNextPage ? "+" : ""}
+                </span>
+              ) : null}
+            </span>
+            <span className="rail-utility-label">
+              {message(preferences.locale, "actionInbox")}
+            </span>
+          </button>
           <button
             aria-label={message(preferences.locale, "approvals")}
             className="rail-utility-control"
@@ -170,7 +228,14 @@ export function AppShell() {
       </div>
       {inbox === null ? null : (
         <Suspense fallback={null}>
-          <InboxDrawer kind={inbox} onClose={() => setInbox(null)} />
+          {inbox === "operator" ? (
+            <OperatorInboxDrawer
+              onClose={() => setInbox(null)}
+              workspaceId={workspaceId}
+            />
+          ) : (
+            <InboxDrawer kind={inbox} onClose={() => setInbox(null)} />
+          )}
         </Suspense>
       )}
       </div>
