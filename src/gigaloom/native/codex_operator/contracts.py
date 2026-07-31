@@ -6,6 +6,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping
 
+from gigaloom.contracts.compatibility import (
+    CompatibilityObservationV1,
+    compatibility_observation_to_dict,
+)
+
 
 CODEX_COMPATIBILITY_SCHEMA_VERSION = 1
 
@@ -14,6 +19,7 @@ class CodexCapabilityState(str, Enum):
     """Truthful support state for one native Codex capability."""
 
     SUPPORTED = "supported"
+    COMPATIBLE_UNVERIFIED = "compatible_unverified"
     NATIVE_ONLY = "native_only"
     UNSUPPORTED = "unsupported"
 
@@ -31,11 +37,15 @@ class CodexCompatibilitySnapshot:
     capabilities: Mapping[str, CodexCapabilityState]
     transport: str | None
     reason_code: str
+    observation: CompatibilityObservationV1 | None = None
 
     @property
     def structured(self) -> bool:
         """Return whether exact structured behavior was admitted."""
-        return self.status is CodexCapabilityState.SUPPORTED
+        return self.status in {
+            CodexCapabilityState.SUPPORTED,
+            CodexCapabilityState.COMPATIBLE_UNVERIFIED,
+        }
 
 
 def codex_compatibility_snapshot_to_dict(
@@ -58,4 +68,9 @@ def codex_compatibility_snapshot_to_dict(
         },
         "transport": snapshot.transport,
         "reason_code": snapshot.reason_code,
+        "observation": (
+            compatibility_observation_to_dict(snapshot.observation)
+            if snapshot.observation is not None
+            else None
+        ),
     }

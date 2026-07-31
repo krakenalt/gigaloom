@@ -1,10 +1,13 @@
 """Managed native Codex public contracts."""
 
 from gigaloom.native.codex_operator.compatibility import (
+    CODEX_COMPATIBILITY_PROFILE_DIGEST,
     CODEX_MAXIMUM_VERSION_EXCLUSIVE,
     CODEX_MINIMUM_VERSION,
     CODEX_REQUIRED_SCHEMA_DIGESTS,
     CODEX_SCHEMA_BUNDLE_SHA256,
+    CodexProtocolFramingError,
+    CodexSchemaProbeUnavailable,
     probe_codex_compatibility,
 )
 from gigaloom.native.codex_operator.bindings import (
@@ -51,6 +54,7 @@ from gigaloom.native.codex_operator.contracts import (
 
 __all__ = [
     "CODEX_COMPATIBILITY_SCHEMA_VERSION",
+    "CODEX_COMPATIBILITY_PROFILE_DIGEST",
     "CODEX_MAXIMUM_VERSION_EXCLUSIVE",
     "CODEX_MINIMUM_VERSION",
     "CODEX_REQUIRED_SCHEMA_DIGESTS",
@@ -72,10 +76,12 @@ __all__ = [
     "CodexNativeCompactionService",
     "CodexOperatorIntent",
     "CodexOperatorProtocolError",
+    "CodexProtocolFramingError",
     "CodexResumeMode",
     "CodexResumeOutcome",
     "CodexSessionBinding",
     "CodexSessionBindingStore",
+    "CodexSchemaProbeUnavailable",
     "CodexStdioJsonRpcClient",
     "CodexUnixWebSocketJsonRpcClient",
     "codex_compatibility_snapshot_to_dict",

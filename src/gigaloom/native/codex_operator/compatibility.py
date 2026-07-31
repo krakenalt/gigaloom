@@ -2,23 +2,45 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 from typing import Callable, Mapping
 
+from gigaloom.contracts.compatibility import (
+    CapabilityAdmissionV1,
+    CompatibilityObservationV1,
+    CompatibilityStatus,
+    ExecutableObservationV1,
+    KnownIncompatibilityV1,
+    ProtocolNegotiationState,
+    ProtocolNegotiationV1,
+    ReviewedVersionEvidenceV1,
+    ReviewedVersionState,
+    SecurityCompatibilityV1,
+    evaluate_compatibility,
+)
+from gigaloom.contracts.compatibility_fingerprints import (
+    CompatibilityProbeCacheKeyV1,
+    digest_command_tokens,
+)
 from gigaloom.native.codex_operator.contracts import (
     CodexCapabilityState,
     CodexCompatibilitySnapshot,
 )
+from gigaloom.native.codex_operator import compatibility_probe as _probe_support
 
 
 CODEX_MINIMUM_VERSION = "0.144.5"
 CODEX_MAXIMUM_VERSION_EXCLUSIVE = "0.145.0"
+CODEX_COMPATIBILITY_PROFILE_DIGEST = (
+    "c0088f2282929e7cde079c32c083ffc6fb022a0880fadea6d57deb01953d54cb"
+)
 CODEX_SCHEMA_BUNDLE_SHA256 = (
     "a1a35476587fe9bbfbe9e291b5200b8bc541df8c00241fe578d285ff26996e1c"
 )
@@ -52,11 +74,21 @@ CODEX_APP_SERVER_HELP_MARKERS = (
     "stdio://",
     "unix://PATH",
 )
-CODEX_PROTOCOL_MARKERS = (
-    '"thread/start"',
-    '"thread/resume"',
-    '"thread/compact/start"',
-    '"contextCompaction"',
+CODEX_PROTOCOL_FAMILY = "codex_app_server"
+CODEX_PROTOCOL_MAJOR = "2"
+CODEX_OBSERVATION_TTL_SECONDS = 3600
+CODEX_REQUIRED_CAPABILITY_MARKERS: Mapping[str, str] = {
+    "structured_mirror": '"thread/start"',
+    "thread_resume": '"thread/resume"',
+    "thread_compact": '"thread/compact/start"',
+    "context_compaction_items": '"contextCompaction"',
+}
+CODEX_REQUIRED_CAPABILITIES = (
+    "context_compaction_items",
+    "remote_tui",
+    "structured_mirror",
+    "thread_compact",
+    "thread_resume",
 )
 _VERSION_PATTERN = re.compile(r"(?<!\d)(\d+\.\d+\.\d+)(?!\d)")
 _CAPABILITY_NAMES = (
@@ -73,17 +105,63 @@ _GenerateSchema = Callable[
 ]
 
 
+CodexSchemaProbeUnavailable = _probe_support.CodexSchemaProbeUnavailable
+CodexProtocolFramingError = _probe_support.CodexProtocolFramingError
+
+
 def probe_codex_compatibility(
     command: tuple[str, ...],
     *,
     run: _Run | None = None,
     generate_schema: _GenerateSchema | None = None,
+    allow_compatible_unverified: bool = True,
+    profile_digest: str = CODEX_COMPATIBILITY_PROFILE_DIGEST,
+    known_incompatibilities: tuple[KnownIncompatibilityV1, ...] = (),
+    platform: str | None = None,
+    now: datetime | None = None,
+    observation_ttl_seconds: int = CODEX_OBSERVATION_TTL_SECONDS,
 ) -> CodexCompatibilitySnapshot:
-    """Probe Codex without reading or mutating the user's native home."""
+    """Probe Codex conformance without reading or mutating its native home."""
+    observed_at = now or datetime.now(timezone.utc)
+    if observed_at.tzinfo is None:
+        raise ValueError("compatibility probe time must be timezone-aware")
+    if (
+        isinstance(observation_ttl_seconds, bool)
+        or observation_ttl_seconds <= 0
+        or observation_ttl_seconds > 86_400
+    ):
+        raise ValueError("compatibility observation TTL is invalid")
+    expires_at = observed_at + timedelta(seconds=observation_ttl_seconds)
+    platform_id = platform or sys.platform
     if not command:
-        return _snapshot(
-            status=CodexCapabilityState.UNSUPPORTED,
-            reason_code="executable_missing",
+        protocol = _protocol_observation(
+            state=ProtocolNegotiationState.UNAVAILABLE,
+            version=None,
+            bundle_digest=None,
+            file_digests={},
+            protocol_text="",
+            app_server_help="",
+        )
+        observation = _build_observation(
+            command=command,
+            profile_digest=profile_digest,
+            platform=platform_id,
+            executable_observed=False,
+            version_output=None,
+            parsed_version=None,
+            exact_evidence_matched=False,
+            protocol=protocol,
+            observed_capabilities=(),
+            security_failures=(),
+            known_incompatibilities=(),
+            observed_at=observed_at,
+            expires_at=expires_at,
+        )
+        return _snapshot_from_observation(
+            observation,
+            version_output=None,
+            schema_bundle_sha256=None,
+            allow_compatible_unverified=allow_compatible_unverified,
         )
     run_probe = run or _run
     schema_probe = generate_schema or _generate_schema
@@ -91,126 +169,199 @@ def probe_codex_compatibility(
         env = dict(os.environ)
         env["CODEX_HOME"] = str(Path(raw_home) / "home")
         version_result = run_probe((*command, "--version"), env)
-        if version_result[0] != 0:
-            return _snapshot(
-                status=CodexCapabilityState.UNSUPPORTED,
-                reason_code="version_probe_failed",
-            )
-        version_output = _first_line(version_result[1])
-        parsed_version = _parsed_version(version_output)
-        if parsed_version is None:
-            return _native_only(
-                version_output=version_output,
-                parsed_version=None,
-                reason_code="version_unparsed",
-            )
-        if not _version_in_window(parsed_version):
-            return _native_only(
-                version_output=version_output,
-                parsed_version=parsed_version,
-                reason_code="version_outside_window",
-            )
         tui_result = run_probe((*command, "--help"), env)
         app_server_result = run_probe((*command, "app-server", "--help"), env)
-        if tui_result[0] != 0 or not _contains_all(
-            tui_result[1], CODEX_TUI_HELP_MARKERS
-        ):
-            return _native_only(
-                version_output=version_output,
-                parsed_version=parsed_version,
-                reason_code="remote_tui_contract_missing",
-            )
-        if app_server_result[0] != 0 or not _contains_all(
+        version_output = (
+            _first_line(version_result[1]) if version_result[0] == 0 else ""
+        )
+        parsed_version = _parsed_version(version_output)
+        executable_observed = _executable_observed(
+            command,
+            results=(version_result, tui_result, app_server_result),
+        )
+        bundle_digest: str | None = None
+        file_digests: Mapping[str, str] = {}
+        protocol_text = ""
+        protocol_version: str | None = None
+        protocol_state = ProtocolNegotiationState.UNAVAILABLE
+        security_failures: tuple[str, ...] = ()
+        app_server_available = app_server_result[0] == 0 and _contains_all(
             app_server_result[1], CODEX_APP_SERVER_HELP_MARKERS
-        ):
-            return _native_only(
-                version_output=version_output,
-                parsed_version=parsed_version,
-                reason_code="app_server_contract_missing",
+        )
+        if app_server_available:
+            try:
+                raw_bundle_digest, raw_file_digests = schema_probe(command, env)
+                (
+                    bundle_digest,
+                    file_digests,
+                    protocol_version,
+                    protocol_text,
+                ) = _inspect_schema_evidence(
+                    raw_bundle_digest,
+                    raw_file_digests,
+                )
+                protocol_state = (
+                    ProtocolNegotiationState.CONFORMANT
+                    if protocol_version == CODEX_PROTOCOL_MAJOR
+                    else ProtocolNegotiationState.MAJOR_MISMATCH
+                )
+            except CodexSchemaProbeUnavailable:
+                protocol_state = ProtocolNegotiationState.UNAVAILABLE
+            except (
+                CodexProtocolFramingError,
+                UnicodeError,
+                json.JSONDecodeError,
+                ValueError,
+            ):
+                protocol_state = ProtocolNegotiationState.MALFORMED
+                security_failures = ("malformed_protocol_framing",)
+            except (OSError, subprocess.SubprocessError):
+                protocol_state = ProtocolNegotiationState.UNAVAILABLE
+        protocol = _protocol_observation(
+            state=protocol_state,
+            version=protocol_version,
+            bundle_digest=bundle_digest,
+            file_digests=file_digests,
+            protocol_text=protocol_text,
+            app_server_help=app_server_result[1],
+        )
+        observed_capabilities = _observed_capabilities(
+            executable_observed=executable_observed,
+            tui_help=tui_result[1] if tui_result[0] == 0 else "",
+            protocol_text=protocol_text,
+        )
+        exact_evidence_matched = (
+            parsed_version is not None
+            and _version_in_window(parsed_version)
+            and bundle_digest == CODEX_SCHEMA_BUNDLE_SHA256
+            and all(
+                file_digests.get(path) == digest
+                for path, digest in CODEX_REQUIRED_SCHEMA_DIGESTS.items()
             )
-        try:
-            bundle_digest, file_digests = schema_probe(command, env)
-        except (OSError, subprocess.SubprocessError, ValueError):
-            return _native_only(
-                version_output=version_output,
-                parsed_version=parsed_version,
-                reason_code="schema_probe_failed",
-            )
-        if bundle_digest != CODEX_SCHEMA_BUNDLE_SHA256:
-            return _native_only(
-                version_output=version_output,
-                parsed_version=parsed_version,
-                reason_code="schema_digest_mismatch",
-                schema_bundle_sha256=bundle_digest,
-            )
-        if any(
-            file_digests.get(path) != digest
-            for path, digest in CODEX_REQUIRED_SCHEMA_DIGESTS.items()
-        ):
-            return _native_only(
-                version_output=version_output,
-                parsed_version=parsed_version,
-                reason_code="required_schema_mismatch",
-                schema_bundle_sha256=bundle_digest,
-            )
-        protocol_path = "codex_app_server_protocol.v2.schemas.json"
-        protocol_text = file_digests.get(f"{protocol_path}:text", "")
-        if not _contains_all(protocol_text, CODEX_PROTOCOL_MARKERS):
-            return _native_only(
-                version_output=version_output,
-                parsed_version=parsed_version,
-                reason_code="protocol_method_missing",
-                schema_bundle_sha256=bundle_digest,
-            )
-        return _snapshot(
-            status=CodexCapabilityState.SUPPORTED,
-            version_output=version_output,
+        )
+        observation = _build_observation(
+            command=command,
+            profile_digest=profile_digest,
+            platform=platform_id,
+            executable_observed=executable_observed,
+            version_output=version_output or None,
             parsed_version=parsed_version,
-            reason_code="exact_evidence_admitted",
+            exact_evidence_matched=exact_evidence_matched,
+            protocol=protocol,
+            observed_capabilities=observed_capabilities,
+            security_failures=security_failures,
+            known_incompatibilities=(
+                known_incompatibilities if executable_observed else ()
+            ),
+            observed_at=observed_at,
+            expires_at=expires_at,
+        )
+        return _snapshot_from_observation(
+            observation,
+            version_output=version_output or None,
             schema_bundle_sha256=bundle_digest,
-            transport="unix",
+            allow_compatible_unverified=allow_compatible_unverified,
         )
 
 
-def _native_only(
+def _build_observation(
     *,
-    version_output: str,
+    command: tuple[str, ...],
+    profile_digest: str,
+    platform: str,
+    executable_observed: bool,
+    version_output: str | None,
     parsed_version: str | None,
-    reason_code: str,
-    schema_bundle_sha256: str | None = None,
-) -> CodexCompatibilitySnapshot:
-    return _snapshot(
-        status=CodexCapabilityState.NATIVE_ONLY,
+    exact_evidence_matched: bool,
+    protocol: ProtocolNegotiationV1,
+    observed_capabilities: tuple[str, ...],
+    security_failures: tuple[str, ...],
+    known_incompatibilities: tuple[KnownIncompatibilityV1, ...],
+    observed_at: datetime,
+    expires_at: datetime,
+) -> CompatibilityObservationV1:
+    reviewed_state = ReviewedVersionState.UNKNOWN
+    if parsed_version is not None:
+        reviewed_state = (
+            ReviewedVersionState.IN_RANGE
+            if _version_in_window(parsed_version)
+            else ReviewedVersionState.OUTSIDE_RANGE
+        )
+    observed = tuple(sorted(set(observed_capabilities)))
+    missing = tuple(sorted(set(CODEX_REQUIRED_CAPABILITIES) - set(observed)))
+    capability_fingerprint = _canonical_digest({"capabilities": observed})
+    executable_identity = _executable_identity(
+        command,
         version_output=version_output,
-        parsed_version=parsed_version,
-        reason_code=reason_code,
-        schema_bundle_sha256=schema_bundle_sha256,
+        observed=executable_observed,
+    )
+    cache_key = CompatibilityProbeCacheKeyV1(
+        executable_identity=executable_identity,
+        profile_digest=profile_digest,
+        command_tokens_digest=digest_command_tokens(command),
+        protocol_handshake_digest=protocol.handshake_digest,
+        platform=platform,
+    )
+    return evaluate_compatibility(
+        agent_id="codex",
+        route_id="structured_native",
+        profile_digest=profile_digest,
+        executable=ExecutableObservationV1(
+            executable_identity=executable_identity,
+            reported_version=parsed_version,
+            observed=executable_observed,
+        ),
+        reviewed_version=ReviewedVersionEvidenceV1(
+            state=reviewed_state,
+            evidence_digest=profile_digest,
+            exact_evidence_matched=exact_evidence_matched,
+        ),
+        protocol=protocol,
+        capabilities=CapabilityAdmissionV1(
+            capability_fingerprint=capability_fingerprint,
+            required_capabilities=CODEX_REQUIRED_CAPABILITIES,
+            missing_capabilities=missing,
+        ),
+        security=SecurityCompatibilityV1(
+            invariant_failures=security_failures,
+            known_incompatibilities=known_incompatibilities,
+        ),
+        cache_key=cache_key,
+        observed_at=observed_at,
+        expires_at=expires_at,
     )
 
 
-def _snapshot(
+def _snapshot_from_observation(
+    observation: CompatibilityObservationV1,
     *,
-    status: CodexCapabilityState,
-    reason_code: str,
-    version_output: str | None = None,
-    parsed_version: str | None = None,
-    schema_bundle_sha256: str | None = None,
-    transport: str | None = None,
+    version_output: str | None,
+    schema_bundle_sha256: str | None,
+    allow_compatible_unverified: bool,
 ) -> CodexCompatibilitySnapshot:
+    admitted = observation.structured_admitted(
+        allow_unverified=allow_compatible_unverified
+    )
+    if observation.status is CompatibilityStatus.VERIFIED:
+        status = CodexCapabilityState.SUPPORTED
+    elif observation.status is CompatibilityStatus.COMPATIBLE_UNVERIFIED and admitted:
+        status = CodexCapabilityState.COMPATIBLE_UNVERIFIED
+    elif not observation.native_eligible:
+        status = CodexCapabilityState.UNSUPPORTED
+    else:
+        status = CodexCapabilityState.NATIVE_ONLY
     native_state = (
-        CodexCapabilityState.UNSUPPORTED
-        if status is CodexCapabilityState.UNSUPPORTED
-        else CodexCapabilityState.SUPPORTED
-    )
-    structured_state = (
         CodexCapabilityState.SUPPORTED
-        if status is CodexCapabilityState.SUPPORTED
-        else status
+        if observation.native_eligible
+        else CodexCapabilityState.UNSUPPORTED
     )
+    structured_state = status if admitted else CodexCapabilityState.NATIVE_ONLY
+    if status is CodexCapabilityState.UNSUPPORTED:
+        structured_state = CodexCapabilityState.UNSUPPORTED
     return CodexCompatibilitySnapshot(
         status=status,
         executable_version=version_output,
-        parsed_version=parsed_version,
+        parsed_version=observation.reported_version,
         minimum_version=CODEX_MINIMUM_VERSION,
         maximum_version_exclusive=CODEX_MAXIMUM_VERSION_EXCLUSIVE,
         schema_bundle_sha256=schema_bundle_sha256,
@@ -218,49 +369,117 @@ def _snapshot(
             name: (native_state if name == "native_tui" else structured_state)
             for name in _CAPABILITY_NAMES
         },
-        transport=transport,
-        reason_code=reason_code,
+        transport="unix" if admitted else None,
+        reason_code=_snapshot_reason(
+            observation,
+            allow_compatible_unverified=allow_compatible_unverified,
+        ),
+        observation=observation,
     )
+
+
+def _snapshot_reason(
+    observation: CompatibilityObservationV1,
+    *,
+    allow_compatible_unverified: bool,
+) -> str:
+    if observation.status is CompatibilityStatus.VERIFIED:
+        return "exact_evidence_admitted"
+    if observation.status is CompatibilityStatus.COMPATIBLE_UNVERIFIED:
+        return (
+            "conformance_admitted_unverified"
+            if allow_compatible_unverified
+            else "compatible_unverified_policy_blocked"
+        )
+    if observation.status is CompatibilityStatus.UNSAFE:
+        return (
+            observation.security.invariant_failures[0]
+            if observation.security.invariant_failures
+            else "malformed_protocol_framing"
+        )
+    if observation.status is CompatibilityStatus.INCOMPATIBLE:
+        if observation.protocol.state is ProtocolNegotiationState.MAJOR_MISMATCH:
+            return "protocol_major_mismatch"
+        return observation.known_incompatibilities[0].reason_code
+    if observation.status is CompatibilityStatus.UNAVAILABLE:
+        return "executable_missing"
+    if observation.missing_capabilities:
+        return f"missing_mandatory_capability:{observation.missing_capabilities[0]}"
+    return "structured_probe_unavailable"
+
+
+def _protocol_observation(
+    *,
+    state: ProtocolNegotiationState,
+    version: str | None,
+    bundle_digest: str | None,
+    file_digests: Mapping[str, str],
+    protocol_text: str,
+    app_server_help: str,
+) -> ProtocolNegotiationV1:
+    return _probe_support.protocol_observation(
+        protocol_family=CODEX_PROTOCOL_FAMILY,
+        version=version,
+        state=state,
+        bundle_digest=bundle_digest,
+        file_digests=file_digests,
+        protocol_text=protocol_text,
+        app_server_help=app_server_help,
+    )
+
+
+def _inspect_schema_evidence(
+    bundle_digest: object,
+    file_digests: object,
+) -> tuple[str, Mapping[str, str], str, str]:
+    return _probe_support.inspect_schema_evidence(bundle_digest, file_digests)
+
+
+def _observed_capabilities(
+    *,
+    executable_observed: bool,
+    tui_help: str,
+    protocol_text: str,
+) -> tuple[str, ...]:
+    return _probe_support.observed_capabilities(
+        executable_observed=executable_observed,
+        tui_help=tui_help,
+        protocol_text=protocol_text,
+        tui_help_markers=CODEX_TUI_HELP_MARKERS,
+        required_capability_markers=CODEX_REQUIRED_CAPABILITY_MARKERS,
+    )
+
+
+def _executable_observed(
+    command: tuple[str, ...],
+    *,
+    results: tuple[tuple[int, str], ...],
+) -> bool:
+    return _probe_support.executable_observed(command, results=results)
+
+
+def _executable_identity(
+    command: tuple[str, ...],
+    *,
+    version_output: str | None,
+    observed: bool,
+) -> str:
+    return _probe_support.executable_identity(
+        command,
+        version_output=version_output,
+        observed=observed,
+    )
+
+
+def _canonical_digest(payload: object) -> str:
+    return _probe_support.canonical_digest(payload)
 
 
 def _generate_schema(
     command: tuple[str, ...],
     env: Mapping[str, str],
 ) -> tuple[str, Mapping[str, str]]:
-    with tempfile.TemporaryDirectory(prefix="gigaloom-codex-schema-") as raw_dir:
-        root = Path(raw_dir)
-        completed = subprocess.run(
-            (*command, "app-server", "generate-json-schema", "--out", str(root)),
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=15.0,
-            env=dict(env),
-        )
-        if completed.returncode != 0:
-            raise ValueError("Codex schema generation failed")
-        files = sorted(path for path in root.rglob("*") if path.is_file())
-        digest = hashlib.sha256()
-        file_digests: dict[str, str] = {}
-        for path in files:
-            relative = path.relative_to(root).as_posix()
-            content = path.read_bytes()
-            canonical_content = json.dumps(
-                json.loads(content),
-                ensure_ascii=False,
-                separators=(",", ":"),
-                sort_keys=True,
-            ).encode("utf-8")
-            digest.update(relative.encode("utf-8"))
-            digest.update(b"\0")
-            digest.update(canonical_content)
-            file_digests[relative] = hashlib.sha256(canonical_content).hexdigest()
-        protocol_path = root / "codex_app_server_protocol.v2.schemas.json"
-        if protocol_path.is_file():
-            file_digests["codex_app_server_protocol.v2.schemas.json:text"] = (
-                protocol_path.read_text(encoding="utf-8")
-            )
-        return digest.hexdigest(), file_digests
+    return _probe_support.generate_schema(command, env)
 
 
 def _run(
