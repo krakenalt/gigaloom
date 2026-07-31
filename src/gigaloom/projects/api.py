@@ -51,6 +51,28 @@ from .serialization import (
     project_tool_profile_to_dict,
     rendered_project_preset_to_dict,
 )
+from .catalog.codec import (
+    catalog_entry_digest,
+    catalog_entry_from_dict,
+    catalog_entry_to_dict,
+)
+from .catalog.errors import (
+    ProjectCatalogCapacityError,
+    ProjectCatalogConflictError,
+    ProjectCatalogError,
+    ProjectCatalogNotFoundError,
+)
+from .catalog.models import (
+    MAX_CATALOG_ENTRIES,
+    MAX_CATALOG_PAGE_SIZE,
+    PROJECT_CATALOG_SCHEMA_VERSION,
+    ProjectCatalogEntryV1,
+    ProjectCatalogPageV1,
+    ProjectLocationRef,
+    ProjectRelocationPreviewV1,
+)
+from .catalog.repository import FilesystemProjectCatalogRepository
+from .catalog.service import ProjectCatalogService, resolved_project_location
 
 if TYPE_CHECKING:
     from .backup import (
@@ -448,23 +470,36 @@ __all__ = [
     "MAX_PATCH_CHARS",
     "MAX_BOOTSTRAP_FILE_BYTES",
     "MINIMUM_READER_SCHEMA_VERSION",
+    "MAX_CATALOG_ENTRIES",
+    "MAX_CATALOG_PAGE_SIZE",
     "MIGRATION_SUPPORT_RELATIVE_PATH",
     "PRESET_WORKSPACE_POLICIES",
     "PROJECT_CONFIG_RELATIVE_PATH",
+    "PROJECT_CATALOG_SCHEMA_VERSION",
     "PROJECT_MEMORY_FILE",
     "PROJECT_STATE_FILE",
     "ProjectAttachmentSettings",
+    "ProjectCatalogCapacityError",
+    "ProjectCatalogConflictError",
+    "ProjectCatalogEntryV1",
+    "ProjectCatalogError",
+    "ProjectCatalogNotFoundError",
+    "ProjectCatalogPageV1",
+    "ProjectCatalogService",
     "ProjectDefaults",
     "ProjectEditorSettings",
     "ProjectMemoryEntry",
     "ProjectMemoryNotFoundError",
+    "ProjectLocationRef",
     "ProjectPreset",
     "ProjectToolProfile",
+    "ProjectRelocationPreviewV1",
     "PublicContractMarker",
     "PythonImpactIndex",
     "PythonImpactIndexCache",
     "PythonImpactResult",
     "RenderedProjectPreset",
+    "FilesystemProjectCatalogRepository",
     "RunDiffReview",
     "STATE_MIGRATION_ID",
     "STATE_MIGRATION_SCHEMA_VERSION",
@@ -483,6 +518,9 @@ __all__ = [
     "apply_run_diff",
     "analyze_python_impact",
     "capture_workspace_diff",
+    "catalog_entry_digest",
+    "catalog_entry_from_dict",
+    "catalog_entry_to_dict",
     "default_project_config_text",
     "detect_overlapping_run_diffs",
     "discard_run_worktree",
@@ -517,6 +555,7 @@ __all__ = [
     "reject_legacy_state_override",
     "restore_state_backup",
     "resolve_project",
+    "resolved_project_location",
     "resolve_workspace",
     "review_run_diff",
     "rollback_legacy_state",
