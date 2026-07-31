@@ -53,4 +53,10 @@ def register(
     override.set_defaults(handler="_handle_route_override")
 
 
-__all__ = ["register"]
+def add_run_binding_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add exact receipt and confirmation refs to the shared run parser."""
+    parser.add_argument("--route-receipt", default=None)
+    parser.add_argument("--route-confirmation", default=None)
+
+
+__all__ = ["add_run_binding_arguments", "register"]

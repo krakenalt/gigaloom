@@ -37,6 +37,10 @@ class RouteDecisionVerificationError(RouteDecisionError):
     """Raised when receipt integrity or current bindings do not verify."""
 
 
+class RouteRunBindingError(RouteDecisionVerificationError):
+    """Raised when current evidence or manual confirmation blocks execution."""
+
+
 class RouteDecisionOutcome(str, Enum):
     """Persisted recommendation outcome without execution authority."""
 
@@ -358,4 +362,5 @@ __all__ = [
     "RouteDecisionReceiptV1",
     "RouteDecisionRejectedRouteV1",
     "RouteDecisionVerificationError",
+    "RouteRunBindingError",
 ]
