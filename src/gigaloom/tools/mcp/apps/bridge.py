@@ -99,7 +99,7 @@ class MCPAppBridge:
             )
         try:
             payload = json.loads(raw_message)
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        except (UnicodeDecodeError, ValueError, RecursionError) as exc:
             raise MCPAppChannelError(
                 "invalid_json", "MCP App message is not valid JSON"
             ) from exc
@@ -132,6 +132,11 @@ class MCPAppBridge:
         if request_id in self._seen:
             raise MCPAppChannelError(
                 "replayed_request", "MCP App request id has already been used"
+            )
+        if len(self._seen) >= self._limits.max_outstanding_app_requests * 256:
+            raise MCPAppChannelError(
+                "request_history_limit",
+                "MCP App request history limit reached; recreate the frame",
             )
         method = payload.get("method")
         if not isinstance(method, str) or method not in MCP_APP_ALLOWED_METHODS:

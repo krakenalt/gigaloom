@@ -68,7 +68,7 @@ def validate_resource_candidate(
             MCPAppFallbackCode.DIGEST_MISMATCH.value,
             "MCP App resource digest does not match its content",
         )
-    _validate_fallback(candidate, limits)
+    validate_fallback(candidate, limits=limits)
     return AdmittedMCPAppResource(
         server_id=candidate.server.server_id,
         uri=candidate.uri,
@@ -105,13 +105,20 @@ def _validate_server(candidate: MCPAppResourceCandidate) -> None:
 
 
 def _validate_uri(uri: str, server_id: str) -> None:
-    parsed = urlsplit(uri)
+    try:
+        parsed = urlsplit(uri)
+        port = parsed.port
+    except ValueError as exc:
+        raise MCPAppAdmissionError(
+            MCPAppFallbackCode.INVALID_URI.value,
+            "MCP App resource requires a canonical server-bound ui URI",
+        ) from exc
     unsafe = (
         parsed.scheme != "ui"
         or parsed.netloc != server_id
         or parsed.username is not None
         or parsed.password is not None
-        or parsed.port is not None
+        or port is not None
         or not parsed.path.startswith("/")
         or parsed.path == "/"
         or parsed.query
@@ -128,13 +135,15 @@ def _validate_uri(uri: str, server_id: str) -> None:
         )
 
 
-def _validate_fallback(
+def validate_fallback(
     candidate: MCPAppResourceCandidate,
+    *,
     limits: MCPAppLimits,
 ) -> None:
+    """Require a bounded JSON-serializable fallback before any visual decision."""
     if not candidate.textual_fallback.strip():
         raise MCPAppAdmissionError(
-            MCPAppFallbackCode.INVALID_HTML.value,
+            MCPAppFallbackCode.INVALID_FALLBACK.value,
             "MCP App resource requires a complete textual fallback",
         )
     try:
@@ -146,7 +155,7 @@ def _validate_fallback(
         ).encode("utf-8")
     except (TypeError, ValueError) as exc:
         raise MCPAppAdmissionError(
-            MCPAppFallbackCode.INVALID_HTML.value,
+            MCPAppFallbackCode.INVALID_FALLBACK.value,
             "MCP App structured fallback must be JSON serializable",
         ) from exc
     total_size = len(candidate.textual_fallback.encode("utf-8")) + len(encoded)

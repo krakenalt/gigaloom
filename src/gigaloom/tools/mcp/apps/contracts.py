@@ -42,6 +42,8 @@ class MCPAppLimits:
             value = getattr(self, name)
             if value <= 0 or value > ceiling:
                 raise ValueError(f"{name} must be between 1 and {ceiling}")
+        if self.max_app_instance_state_bytes < 3:
+            raise ValueError("max_app_instance_state_bytes must be at least 3")
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,10 +104,12 @@ class MCPAppFallbackCode(str, Enum):
     INVALID_DIGEST = "invalid_digest"
     DIGEST_MISMATCH = "digest_mismatch"
     INVALID_HTML = "invalid_html"
+    INVALID_FALLBACK = "invalid_fallback"
     RESOURCE_TOO_LARGE = "resource_too_large"
     FALLBACK_TOO_LARGE = "fallback_too_large"
     POLICY_DENIED = "policy_denied"
     CACHE_LIMIT = "cache_limit"
+    HOST_LIMIT = "host_limit"
     RESOURCE_UNAVAILABLE = "resource_unavailable"
 
 

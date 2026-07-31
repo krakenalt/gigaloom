@@ -75,13 +75,17 @@ def enforce_resource_policy(
     parser.feed(resource.html.decode("utf-8"))
     parser.close()
     violations = set(parser.violations)
+    if len(candidate.requested_permissions) > 32:
+        violations.add("requested_permissions_limit")
+    if len(candidate.requested_connect_domains) > 32:
+        violations.add("requested_connect_domains_limit")
     violations.update(
-        f"denied_permission:{permission}"
-        for permission in candidate.requested_permissions
+        f"denied_permission:{_bounded_evidence(permission)}"
+        for permission in candidate.requested_permissions[:32]
     )
     violations.update(
-        f"denied_connect_domain:{domain}"
-        for domain in candidate.requested_connect_domains
+        f"denied_connect_domain:{_bounded_evidence(domain)}"
+        for domain in candidate.requested_connect_domains[:32]
     )
     denied_evidence = tuple(sorted(violations))
     if denied_evidence:
@@ -91,3 +95,10 @@ def enforce_resource_policy(
             denied_evidence=denied_evidence,
         )
     return denied_evidence
+
+
+def _bounded_evidence(value: str) -> str:
+    encoded = value.encode("utf-8")
+    if len(encoded) <= 128:
+        return value
+    return encoded[:128].decode("utf-8", errors="ignore") + "..."
