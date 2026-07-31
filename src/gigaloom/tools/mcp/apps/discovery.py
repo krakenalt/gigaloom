@@ -12,6 +12,7 @@ from .contracts import (
     MCPAppResourceCandidate,
 )
 from .errors import MCPAppAdmissionError
+from .policy import enforce_resource_policy
 from .resources import validate_resource_candidate
 
 
@@ -34,6 +35,7 @@ def admit_mcp_app_resource(
                 "MCP App specification version is not supported",
             )
         resource = validate_resource_candidate(candidate, limits=limits)
+        enforce_resource_policy(candidate, resource)
     except MCPAppAdmissionError as exc:
         return MCPAppResourceAdmission(
             fallback=MCPAppFallback(
@@ -41,6 +43,7 @@ def admit_mcp_app_resource(
                 message=str(exc),
                 textual=candidate.textual_fallback,
                 structured=dict(candidate.structured_fallback),
+                denied_evidence=tuple(getattr(exc, "denied_evidence", ())),
             )
         )
     return MCPAppResourceAdmission(resource=resource)

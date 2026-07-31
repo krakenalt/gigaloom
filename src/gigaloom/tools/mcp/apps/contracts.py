@@ -135,3 +135,70 @@ class MCPAppResourceAdmission:
     def admitted(self) -> bool:
         """Return whether the visual resource passed admission."""
         return self.resource is not None
+
+
+@dataclass(frozen=True, slots=True)
+class MCPAppFrameBinding:
+    """Authority context bound to every message from one app frame."""
+
+    server_id: str
+    tool_id: str
+    resource_sha256: str
+    workspace_id: str
+    session_id: str
+    run_id: str
+
+    def __post_init__(self) -> None:
+        values = (
+            self.server_id,
+            self.tool_id,
+            self.resource_sha256,
+            self.workspace_id,
+            self.session_id,
+            self.run_id,
+        )
+        if any(not value.strip() for value in values):
+            raise ValueError("MCP App frame bindings must not be empty")
+
+
+@dataclass(frozen=True, slots=True)
+class MCPAppDisplayContext:
+    """Non-secret display metadata exposed during frame initialization."""
+
+    theme: str = "system"
+    locale: str = "en"
+    display_mode: str = "inline"
+
+    def __post_init__(self) -> None:
+        if self.theme not in {"dark", "light", "system"}:
+            raise ValueError("unsupported MCP App theme")
+        if self.display_mode not in {"inline", "panel"}:
+            raise ValueError("unsupported MCP App display mode")
+        if not self.locale or len(self.locale) > 35:
+            raise ValueError("invalid MCP App locale")
+
+
+@dataclass(frozen=True, slots=True)
+class MCPAppFrameDescriptor:
+    """Content-free data required to construct one isolated iframe."""
+
+    instance_id: str
+    server_id: str
+    resource_sha256: str
+    resource_uri: str
+    sandbox: str
+    content_security_policy: str
+    channel_id: str
+    nonce: str
+    source_id: str
+    initialization: Mapping[str, object]
+
+
+@dataclass(frozen=True, slots=True)
+class MCPAppBridgeRequest:
+    """Validated app-to-host JSON-RPC request."""
+
+    request_id: str | int
+    method: str
+    params: Mapping[str, object]
+    binding: MCPAppFrameBinding
