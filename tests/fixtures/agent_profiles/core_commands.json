@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "source": "gigaloom.cli_commands.parser.build_parser",
+  "registered_commands": [
+    "agent",
+    "benchmark",
+    "bootstrap",
+    "chat",
+    "compatibility",
+    "completion",
+    "config",
+    "doctor",
+    "eval",
+    "handoff",
+    "harness",
+    "init",
+    "integration",
+    "memory",
+    "native",
+    "open",
+    "preset",
+    "project",
+    "provider",
+    "run",
+    "runtime",
+    "schedule",
+    "session",
+    "state",
+    "ui",
+    "ui-identity",
+    "worker",
+    "workflow"
+  ],
+  "release_reserved_commands": [
+    "capsule",
+    "route"
+  ]
+}

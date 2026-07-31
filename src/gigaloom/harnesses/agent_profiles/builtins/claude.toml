@@ -1,0 +1,101 @@
+schema_version = 1
+agent_id = "claude"
+display_name = "Claude Code"
+aliases = []
+profile_version = "1.0.0"
+auth_owner = "provider"
+platform_support = ["darwin", "linux", "win32"]
+
+[source]
+kind = "builtin"
+origin = "gigaloom:builtin/claude.toml"
+revision = "0.7.0-alpha.1-p0-02"
+trust_class = "first_party"
+reviewed = true
+
+[native]
+executable_names = ["claude"]
+provider_home_markers = ["CLAUDE_CONFIG_DIR"]
+provider_config_markers = [".claude.json", "settings.json"]
+version_probe = ["--version"]
+supports_managed_terminal = true
+
+[[native.interactive_matchers]]
+matcher_id = "claude.root"
+kind = "empty_suffix"
+tokens = []
+precedence = 10
+
+[[native.interactive_matchers]]
+matcher_id = "claude.prompt"
+kind = "single_positional"
+tokens = []
+precedence = 20
+
+[[native.interactive_matchers]]
+matcher_id = "claude.continue.short"
+kind = "exact_suffix"
+tokens = ["-c"]
+precedence = 30
+
+[[native.interactive_matchers]]
+matcher_id = "claude.continue.long"
+kind = "exact_suffix"
+tokens = ["--continue"]
+precedence = 40
+
+[[native.interactive_matchers]]
+matcher_id = "claude.resume"
+kind = "first_token_with_value"
+tokens = ["-r", "--resume"]
+precedence = 50
+
+[[native.interactive_matchers]]
+matcher_id = "claude.control"
+kind = "first_token_with_value"
+tokens = ["--permission-mode", "--sandbox"]
+precedence = 60
+
+[[native.metadata_matchers]]
+matcher_id = "claude.metadata.options"
+kind = "any_option"
+tokens = ["--help", "-h", "--version"]
+precedence = 10
+
+[[native.metadata_matchers]]
+matcher_id = "claude.metadata.commands"
+kind = "first_token"
+tokens = ["help", "version", "completion"]
+precedence = 20
+
+[[native.headless_matchers]]
+matcher_id = "claude.headless.options"
+kind = "any_option"
+tokens = ["--print", "-p", "--output-format"]
+precedence = 10
+
+[[native.headless_matchers]]
+matcher_id = "claude.headless.commands"
+kind = "first_token"
+tokens = ["exec", "daemon"]
+precedence = 20
+
+[[native.headless_matchers]]
+matcher_id = "claude.admin.commands"
+kind = "first_token"
+tokens = ["agents", "attach", "auth", "background", "cloud", "doctor", "gateway", "install", "logs", "mcp", "plugin", "project", "remote-control", "setup-token", "teleport", "ultrareview", "update"]
+precedence = 30
+
+[[compatibility_profiles]]
+compatibility_profile_id = "claude.stream-json.v1"
+revision = "2.1.x"
+evidence_digest = "c0088f2282929e7cde079c32c083ffc6fb022a0880fadea6d57deb01953d54cb"
+
+[[structured_routes]]
+route_id = "claude.stream-json"
+harness_id = "claude-code"
+transport_kind = "claude_stream_json_v1"
+compatibility_profile_id = "claude.stream-json.v1"
+command_ref = { executable_name = "claude", arguments = ["--print", "--output-format", "stream-json"] }
+capability_requirements = ["structured_prompt"]
+version_policy = { kind = "reviewed_range", minimum = "2.1.0", maximum_exclusive = "2.2.0" }
