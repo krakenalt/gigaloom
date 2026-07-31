@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import signal
 import stat
 import threading
 
@@ -87,6 +88,43 @@ def pin_acp_process(
     )
 
 
+class AcpStdioTransport(StdioJsonRpcTransport):
+    """ACP stdio transport whose shutdown owns the full POSIX process group."""
+
+    def terminate(self) -> None:
+        """Request bounded termination for the full owned process group."""
+        self._signal_group(signal.SIGTERM, force=False)
+
+    def kill(self) -> None:
+        """Force termination for the full owned process group."""
+        self._signal_group(signal.SIGKILL, force=True)
+
+    def wait(self, timeout: float) -> int | None:
+        """Wait, then release every inherited pipe deterministically."""
+        result = super().wait(timeout)
+        process = self._require_process()
+        for stream in (process.stdin, process.stdout, process.stderr):
+            if stream is not None:
+                stream.close()
+        return result
+
+    def _signal_group(self, requested: signal.Signals, *, force: bool) -> None:
+        if os.name != "posix":
+            if force:
+                super().kill()
+            else:
+                super().terminate()
+            return
+        self._closing.set()
+        if not self.alive:
+            return
+        process = self._require_process()
+        try:
+            os.killpg(os.getpgid(process.pid), requested)
+        except ProcessLookupError:
+            return
+
+
 class AcpTransportFactory:
     """Create generation-labelled transports after rechecking file identity."""
 
@@ -96,7 +134,7 @@ class AcpTransportFactory:
         self._generation = 0
         self._lock = threading.Lock()
 
-    def __call__(self) -> StdioJsonRpcTransport:
+    def __call__(self) -> AcpStdioTransport:
         if (
             _executable_identity(Path(self.spec.executable.path))
             != self.spec.executable
@@ -105,7 +143,7 @@ class AcpTransportFactory:
         with self._lock:
             self._generation += 1
             generation = self._generation
-        return StdioJsonRpcTransport(
+        return AcpStdioTransport(
             command=self.spec.command,
             runtime_id=(f"acp-{self.spec.executable.fingerprint[:16]}-{generation}"),
             env=self.spec.env,

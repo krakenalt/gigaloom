@@ -17,15 +17,23 @@ from gigaloom.structured_processes import (
 EventNormalizer = Callable[[str, Mapping[str, Any]], NormalizedStructuredEvent | None]
 
 
+class AcpProcessSupervisor(StructuredProcessSupervisor):
+    """ACP supervisor that treats every framing/protocol fault as terminal."""
+
+    def _protocol_fault(self, generation: int, reason: str) -> None:
+        super()._protocol_fault(generation, reason)
+        self._mark_lost(generation, reason)
+
+
 def create_acp_supervisor(
     spec: AcpProcessSpec,
     *,
     limits: AcpLimits,
     event_normalizer: EventNormalizer,
     transport_factory: Callable[[], StructuredTransport] | None = None,
-) -> StructuredProcessSupervisor:
+) -> AcpProcessSupervisor:
     """Create one supervisor with every ACP queue and request bound explicit."""
-    return StructuredProcessSupervisor(
+    return AcpProcessSupervisor(
         transport_factory or AcpTransportFactory(spec, limits),
         event_normalizer=event_normalizer,
         approval_methods=frozenset({"session/request_permission"}),

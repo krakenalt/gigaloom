@@ -36,7 +36,9 @@ def build_capability_snapshot(
     connection_generation: int,
 ) -> AcpCapabilitySnapshotV1:
     """Create a content-free capability snapshot from one validated response."""
-    payload = response.model_dump(mode="json", by_alias=True, exclude_none=True)
+    payload = response.model_dump(
+        mode="json", by_alias=True, exclude_none=True, warnings=False
+    )
     raw_capabilities = _mapping(payload.get("agentCapabilities"))
     agent_capabilities = _stable_capabilities(raw_capabilities)
     session_capabilities = _stable_capabilities(

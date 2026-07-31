@@ -59,7 +59,7 @@ class _LifecycleTransport:
         self.sent.append(message)
         request_id = message.get("id")
         method = message.get("method")
-        if request_id is None:
+        if request_id is None or method is None:
             return
         response = self._response(str(method), message.get("params", {}))
         if response is not None:
@@ -245,6 +245,18 @@ def test_cancel_frees_waiter_auth_is_explicit_and_updates_strip_raw(
     binding = new_session(client, workspace=tmp_path)
     handle = begin_prompt(client, binding, text="read the workspace")
     assert handle.cancel() is True
+    with pytest.raises(AcpRequestCancelled):
+        handle.result(0.1)
+    prompt_request = next(
+        item for item in transport.sent if item.get("method") == "session/prompt"
+    )
+    transport.incoming.put(
+        {
+            "jsonrpc": "2.0",
+            "id": prompt_request["id"],
+            "result": {"stopReason": "end_turn"},
+        }
+    )
     with pytest.raises(AcpRequestCancelled):
         handle.result(0.1)
     assert any(item.get("method") == "session/cancel" for item in transport.sent)
