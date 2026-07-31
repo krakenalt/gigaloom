@@ -2,6 +2,8 @@
 
 from gigaloom.review.handoffs.lane_delta.builder import (
     LANE_IDENTITY_FIELD_COUNT,
+    MAX_LANE_ATTACHMENTS,
+    LaneAttachmentObservationV1,
     LaneDeltaBuildError,
     LaneDeltaBuildRequestV1,
     LaneDeltaBuilder,
@@ -9,6 +11,8 @@ from gigaloom.review.handoffs.lane_delta.builder import (
 
 __all__ = [
     "LANE_IDENTITY_FIELD_COUNT",
+    "MAX_LANE_ATTACHMENTS",
+    "LaneAttachmentObservationV1",
     "LaneDeltaBuildError",
     "LaneDeltaBuildRequestV1",
     "LaneDeltaBuilder",
