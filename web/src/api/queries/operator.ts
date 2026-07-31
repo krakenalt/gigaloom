@@ -5,6 +5,7 @@ import type {
   ActionInboxKind,
   ActionInboxPage,
   EvidenceWorkspaceResponse,
+  ManagedTerminalAttachResponse,
 } from "../operator";
 import { requestKeys } from "../queryKeys";
 
@@ -44,5 +45,34 @@ export function operatorInboxOptions(
     getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
     maxPages: 4,
     staleTime: 5_000,
+  });
+}
+
+export function operatorTerminalOptions(
+  terminalId: string,
+  workspaceId: string,
+  sessionId: string,
+  revision: number,
+) {
+  return queryOptions({
+    queryKey: requestKeys.operatorTerminal(
+      terminalId,
+      workspaceId,
+      sessionId,
+      revision,
+    ),
+    queryFn: ({ signal }) =>
+      fetchCockpit<ManagedTerminalAttachResponse>(
+        withQuery(
+          `/api/operator/terminals/${encodeURIComponent(terminalId)}/attach`,
+          {
+            workspace_id: workspaceId,
+            session_id: sessionId,
+            revision,
+          },
+        ),
+        signal,
+      ),
+    staleTime: 0,
   });
 }

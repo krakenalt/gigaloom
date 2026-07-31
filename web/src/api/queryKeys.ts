@@ -41,4 +41,18 @@ export const requestKeys = {
     [...rootKey, "operator-inbox", workspaceId] as const,
   operatorInbox: (workspaceId: string, kindFilter: string) =>
     [...requestKeys.operatorInboxScope(workspaceId), kindFilter] as const,
+  operatorTerminal: (
+    terminalId: string,
+    workspaceId: string,
+    sessionId: string,
+    revision: number,
+  ) =>
+    [
+      ...rootKey,
+      "operator-terminal",
+      terminalId,
+      workspaceId,
+      sessionId,
+      revision,
+    ] as const,
 };

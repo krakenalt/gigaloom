@@ -164,3 +164,67 @@ export interface ActionInboxResponseReceipt {
 export interface ActionInboxResponse {
   result: ActionInboxResponseReceipt;
 }
+
+export type ManagedTerminalState =
+  | "starting"
+  | "running"
+  | "attached"
+  | "detached"
+  | "exited"
+  | "failed"
+  | "orphaned"
+  | "closing"
+  | "closed";
+
+export interface ManagedTerminalRecord {
+  id: string;
+  owner_id: string;
+  workspace_id: string;
+  session_id: string;
+  terminal_name: string;
+  native_harness_id: string;
+  native_session_id: string | null;
+  command_digest: string;
+  cwd_digest: string;
+  executable_path_digest: string;
+  executable_version: string;
+  state: ManagedTerminalState;
+  revision: number;
+  created_at: string;
+  updated_at: string;
+  last_attached_at: string | null;
+  last_liveness_at: string | null;
+}
+
+export interface ManagedTerminalBrowserAttach {
+  schema_version: 1;
+  kind: "gigaloom.managed_terminal_browser_attach.v1";
+  terminal: ManagedTerminalRecord;
+  attachable: boolean;
+  websocket_path: string | null;
+  transport: {
+    output: "binary";
+    input: "binary";
+    resize: {
+      type: "resize";
+      revision: number;
+      rows: { minimum: number; maximum: number };
+      columns: { minimum: number; maximum: number };
+    };
+  };
+  reconnect: {
+    strategy: "reauthorize_and_resnapshot";
+    seed: "bounded_capture";
+  };
+  escape_policy: {
+    clipboard_write: "blocked";
+    hyperlinks: "disabled";
+    window_operations: "disabled";
+    title_is_trusted_html: false;
+  };
+  close_reasons: Readonly<Record<string, string>>;
+}
+
+export interface ManagedTerminalAttachResponse {
+  terminal: ManagedTerminalBrowserAttach;
+}

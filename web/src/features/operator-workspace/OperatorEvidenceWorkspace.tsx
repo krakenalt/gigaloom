@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 
 import type {
   EvidenceChangeSet,
@@ -17,6 +17,9 @@ import {
   sectionsForEvidenceTab,
   type EvidenceWorkspaceTab,
 } from "./evidence-model";
+import { terminalBindingFromWorkspace } from "./terminal-model";
+
+const ManagedTerminalSurface = lazy(() => import("./ManagedTerminalSurface"));
 
 export default function OperatorEvidenceWorkspace({
   locale,
@@ -82,6 +85,8 @@ export default function OperatorEvidenceWorkspace({
       <section className="operator-workspace-content" role="tabpanel">
         {tab === "summary" ? (
           <EvidenceSummary locale={locale} workspace={workspace} />
+        ) : tab === "terminal" ? (
+          <TerminalEvidence locale={locale} workspace={workspace} />
         ) : (
           visibleSections.map((section) => (
             <EvidenceSectionCard
@@ -94,6 +99,30 @@ export default function OperatorEvidenceWorkspace({
         )}
       </section>
     </div>
+  );
+}
+
+function TerminalEvidence({
+  locale,
+  workspace,
+}: {
+  locale: "en" | "ru";
+  workspace: EvidenceWorkspace;
+}) {
+  const binding = terminalBindingFromWorkspace(workspace);
+  return (
+    <>
+      <EvidenceSectionCard
+        locale={locale}
+        section="terminal"
+        workspace={workspace}
+      />
+      {binding === null ? null : (
+        <Suspense fallback={<div className="managed-terminal-skeleton" />}>
+          <ManagedTerminalSurface binding={binding} locale={locale} />
+        </Suspense>
+      )}
+    </>
   );
 }
 

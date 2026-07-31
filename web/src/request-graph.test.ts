@@ -6,6 +6,7 @@ import {
   cancelRequestScope,
   operatorEvidenceOptions,
   operatorInboxOptions,
+  operatorTerminalOptions,
   refreshSessionAfterRunStart,
   refreshSessionRevision,
   requestKeys,
@@ -52,6 +53,12 @@ describe("Cockpit request graph", () => {
         "approval,run_input",
       ),
       operatorInboxScope: requestKeys.operatorInboxScope("workspace-one"),
+      operatorTerminal: requestKeys.operatorTerminal(
+        "terminal-one",
+        "workspace-one",
+        "session-one",
+        7,
+      ),
       providerAccounts: requestKeys.providerAccounts(),
       providers: requestKeys.providers(),
       runCenterSummary: requestKeys.runCenterSummary("run-one"),
@@ -87,6 +94,14 @@ describe("Cockpit request graph", () => {
         "approval,run_input",
       ],
       operatorInboxScope: ["cockpit", "operator-inbox", "workspace-one"],
+      operatorTerminal: [
+        "cockpit",
+        "operator-terminal",
+        "terminal-one",
+        "workspace-one",
+        "session-one",
+        7,
+      ],
       providerAccounts: ["cockpit", "provider-accounts"],
       providers: ["cockpit", "providers"],
       runCenterSummary: ["cockpit", "run", "run-one", "center-summary"],
@@ -171,6 +186,30 @@ describe("Cockpit request graph", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/operator/inbox?workspace_id=workspace-one&limit=50&kind=approval%2Crun_input",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
+  });
+
+  it("binds terminal authorization to the exact terminal scope and revision", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ terminal: { attachable: false } })),
+    );
+    const client = queryClient();
+
+    await client.fetchQuery(
+      operatorTerminalOptions(
+        "terminal/one",
+        "workspace one",
+        "session one",
+        7,
+      ),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/operator/terminals/terminal%2Fone/attach" +
+        "?workspace_id=workspace+one&session_id=session+one&revision=7",
       expect.objectContaining({
         headers: { Accept: "application/json" },
       }),
