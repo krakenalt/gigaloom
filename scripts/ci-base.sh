@@ -23,7 +23,7 @@ require_environment() {
 
 command="${1:-}"
 if [[ -z "${command}" ]]; then
-  echo "usage: $0 {sync|sync-all-extras|ruff-check|ruff-format-check|type-check|pytest} [args...]" >&2
+  echo "usage: $0 {sync|sync-all-extras|ruff-check|ruff-format-check|type-check|ty-check|pytest} [args...]" >&2
   exit 2
 fi
 shift
@@ -59,7 +59,7 @@ case "${command}" in
     fi
     exec "${environment}/bin/ruff" format --check "$@"
     ;;
-  type-check)
+  type-check | ty-check)
     require_environment
     exec "${environment}/bin/ty" check "$@"
     ;;
