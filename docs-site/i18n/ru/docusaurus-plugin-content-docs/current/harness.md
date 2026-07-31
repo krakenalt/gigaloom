@@ -1,12 +1,11 @@
 # Unified Harness
 
-:::warning[Альфа-превью — prerelease]
+:::note[Стабильный релиз 0.7]
 
-Линейка `gigaloom` 0.5.x — alpha-preview для тестирования и обратной
-связи. UI, CLI, YAML-файлы проекта, схема runtime-хранилища и процесс обновления
-могут меняться. Используйте Harness локально, для контролируемой работы под
-наблюдением, а не как критичный production-сервис или удалённую multi-user
-платформу.
+Линейка `gigaloom` 0.7 — первый стабильный релиз Native Agent Gateway.
+Совместимость с provider CLI и явно помеченные preview API могут развиваться.
+Используйте документированные локальные и контролируемые границы, а не как
+критичный unattended multi-user сервис.
 
 :::
 
@@ -126,8 +125,8 @@ Node.js runtime, credentials или provider config. `uv tool` и `pipx` соз�
 изолированное окружение Harness:
 
 ```sh
-uv tool install 'gigaloom==0.7.0a1'
-pipx install 'gigaloom==0.7.0a1'
+uv tool install 'gigaloom==0.7.0'
+pipx install 'gigaloom==0.7.0'
 ```
 
 Существующий Textual prerelease обновляйте на месте без исторического extra `[tui]`.
@@ -137,29 +136,26 @@ pipx install 'gigaloom==0.7.0a1'
 
 ```sh
 giga state backup /safe/path/harness-before-upgrade.zip
-uv tool install --force 'gigaloom==0.7.0a1'
+uv tool install --force 'gigaloom==0.7.0'
 uv tool install --force 'gpt2giga-harness==0.5.0a1'
 uv tool uninstall gigaloom
-uv tool install 'gigaloom==0.7.0a1'
+uv tool install 'gigaloom==0.7.0'
 ```
 
 Удаление пакета не удаляет `~/.gigaloom`, проектные `.giga/` или
 нативные provider homes. Harness не делает reverse migration provider config,
 не устанавливает provider runtime и не выполняет authentication.
 
-## Кому подходит prerelease
+## Кому подходит GigaLoom
 
-Попробуйте preview, если хотите оценить локальный agent cockpit, сравнить
-несколько harness, собрать проверяемый workflow или повлиять на интерфейсы
-ранней обратной связью. Первые запуски делайте через `echo`, `--dry-run` и
+Используйте GigaLoom, если нужен локальный agent cockpit, сравнимые runs и
+проверяемые workflows. Первые запуски делайте через `echo`, `--dry-run` и
 режимы `plan`/`read` в тестовом репозитории.
 
-Лучше дождаться следующей стадии, если вам уже сейчас нужны стабильный API
-автоматизации, гарантированная обратная совместимость, high availability,
-централизованное multi-user администрирование или полноценная security boundary
-вокруг произвольных действий стороннего CLI.
+GigaLoom не является high-availability централизованным multi-user сервисом
+или security boundary вокруг произвольных действий стороннего CLI.
 
-Во время prerelease:
+Для каждого релиза:
 
 - перед обновлением читайте release notes и делайте резервную копию
   `~/.gigaloom` и важных определений из `.giga/`;
@@ -175,10 +171,9 @@ uv tool install 'gigaloom==0.7.0a1'
 
 ## Быстрый старт
 
-### 1. Получите preview
+### 1. Установите GigaLoom
 
-Требуются Python 3.11–3.14 и `uv`. Текущий и всегда доступный путь для preview —
-запуск из source checkout:
+Требуются Python 3.11–3.14 и `uv`. Для разработки из source checkout:
 
 ```bash
 git clone https://github.com/krakenalt/gigaloom.git
@@ -191,26 +186,25 @@ giga harness list
 ```
 
 Оставляйте virtual environment checkout активным в каждом терминале, где
-работаете с preview. После этого можно перейти через `cd` в пользовательский
+работаете с исходниками. После этого можно перейти через `cd` в пользовательский
 проект: команды `giga` и `gpt2giga` продолжат запускаться из checkout. В Windows
 используйте `.venv\Scripts\Activate.ps1`.
 
-Если отдельный preview-пакет доступен в вашем package index, используйте
-короткий вариант:
+Для опубликованного stable-пакета используйте:
 
 ```bash
-uv tool install 'gigaloom==0.7.0a1'
+uv tool install 'gigaloom==0.7.0'
 giga doctor
 ```
 
 Для Direct Chat и provider preset `gpt2giga` установите явный extra:
 
 ```bash
-uv tool install 'gigaloom[gpt2giga]==0.7.0a1'
+uv tool install 'gigaloom[gpt2giga]==0.7.0'
 ```
 
-Текущий дистрибутив `gigaloom==0.7.0a1` добавляет только команду `giga`; его
-явный extra `gpt2giga` закрепляет `gpt2giga==0.2.6a1`.
+Текущий дистрибутив `gigaloom==0.7.0` добавляет только команду `giga`; его
+явный extra `gpt2giga` допускает стабильные `gpt2giga>=0.2.6,<0.3.0`.
 
 Для Direct Chat понадобятся credentials из [быстрого старта gpt2giga](quickstart.md).
 Codex, Claude Code и Gemini — опциональные интеграции: соответствующий CLI
@@ -270,7 +264,7 @@ Help, version, JSON, dry-run, перенаправленные потоки, pip
 `[tui]` из исторических команд установки:
 
 ```bash
-uv tool install --force 'gigaloom==0.7.0a1'
+uv tool install --force 'gigaloom==0.7.0'
 giga --version
 giga
 ```
@@ -1701,12 +1695,12 @@ project state:
 ```bash
 uv tool uninstall gpt2giga
 uv tool uninstall gpt2giga-harness
-uv tool install 'gigaloom==0.7.0a1'
+uv tool install 'gigaloom==0.7.0'
 giga doctor
 ```
 
-Текущая metadata `gigaloom==0.7.0a1` сохраняет
-`gpt2giga==0.2.6a1` в явном optional extra `gpt2giga`. Старый import
+Текущая metadata `gigaloom==0.7.0` сохраняет
+`gpt2giga>=0.2.6,<0.3.0` в явном optional extra `gpt2giga`. Старый import
 `gpt2giga.harness` больше не является
 публичным; используйте `gigaloom`. Миграция package не переносит и не
 перезаписывает `~/.gigaloom`, `.giga/` или vendor-owned CLI homes.

@@ -34,17 +34,28 @@ HARNESS_VERSION = _HARNESS_METADATA["version"]
 HARNESS_DESCRIPTION = _HARNESS_METADATA["description"]
 
 
-def _optional_gateway_version() -> str:
+def _optional_gateway_requirement() -> str:
     with (REPO_ROOT / "pyproject.toml").open("rb") as file:
         metadata = tomllib.load(file)
-    requirement = metadata["project"]["optional-dependencies"]["gpt2giga"][0]
-    prefix = "gpt2giga=="
-    if not requirement.startswith(prefix):
-        raise ValueError("GigaLoom gateway compatibility dependency must be exact")
-    return requirement.removeprefix(prefix)
+    return metadata["project"]["optional-dependencies"]["gpt2giga"][0]
 
 
-GATEWAY_VERSION = _optional_gateway_version()
+def _locked_gateway_version() -> str:
+    with (REPO_ROOT / "uv.lock").open("rb") as file:
+        lock = tomllib.load(file)
+    versions = {
+        package["version"]
+        for package in lock["package"]
+        if package.get("name") == "gpt2giga"
+        and package.get("source", {}).get("registry") == "https://pypi.org/simple"
+    }
+    if len(versions) != 1:
+        raise ValueError("committed lock must resolve one public gpt2giga version")
+    return versions.pop()
+
+
+GATEWAY_REQUIREMENT = _optional_gateway_requirement()
+GATEWAY_VERSION = _locked_gateway_version()
 IMPORT_DISTRIBUTIONS = {
     "acp": "agent-client-protocol",
     "anyio": "anyio",
@@ -282,7 +293,9 @@ assert not any(
     for requirement in requirements
 )
 assert any(
-    requirement.startswith(f"gpt2giga=={os.environ['EXPECTED_GATEWAY_VERSION']}")
+    requirement.startswith("gpt2giga")
+    and ">=0.2.6" in requirement
+    and "<0.3.0" in requirement
     and "extra ==" in requirement
     for requirement in requirements
 )
@@ -682,10 +695,7 @@ def test_optional_and_development_dependencies_stay_with_their_owner():
     assert "sources" not in harness_metadata.get("tool", {}).get("uv", {})
     assert harness_metadata["project"]["optional-dependencies"] == {
         "claude-sdk": ["claude-agent-sdk>=0.2.122,<0.3"],
-        "gpt2giga": [
-            f"gpt2giga=={GATEWAY_VERSION}",
-            "gigachat>=0.2.2a1,<0.3.0",
-        ],
+        "gpt2giga": [GATEWAY_REQUIREMENT],
     }
     assert _declared_distribution_names(harness_metadata) == set(
         BASE_DIRECT_DISTRIBUTIONS

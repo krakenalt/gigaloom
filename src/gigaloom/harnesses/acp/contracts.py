@@ -120,7 +120,7 @@ class AcpClientInfo:
 
     name: str = "gigaloom"
     title: str = "GigaLoom"
-    version: str = "0.7.0-alpha.1"
+    version: str = "0.7.0"
 
     def __post_init__(self) -> None:
         _validate_identity(self.name, field_name="ACP client name")

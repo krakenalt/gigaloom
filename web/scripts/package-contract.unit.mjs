@@ -14,7 +14,7 @@ const validMetadata = {
   name: "@gigaloom/web",
   private: false,
   publishConfig: { access: "public" },
-  version: "0.7.0-alpha.1",
+  version: "0.7.0",
 };
 
 test("accepts the frozen public package metadata", () => {

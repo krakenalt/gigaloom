@@ -6,14 +6,14 @@ run native agents while keeping
 worktrees, approvals, evidence, schedules, and stored state under explicit
 local policy.
 
-The current `0.7.0a1` line is an alpha preview. Begin with
+The current `0.7.0` line is the first stable GigaLoom release. Begin with
 [Installation](installation.md), then complete the [Quickstart](quickstart.md).
 
 ## Choose a path
 
 | Goal | Guide |
 |---|---|
-| Install or upgrade the preview | [Installation](installation.md) |
+| Install or upgrade GigaLoom | [Installation](installation.md) |
 | Run the first governed session | [Quickstart](quickstart.md) |
 | Understand components and trust boundaries | [Architecture](architecture.md) |
 | Back up state or troubleshoot a local runtime | [Operations](operations.md) |

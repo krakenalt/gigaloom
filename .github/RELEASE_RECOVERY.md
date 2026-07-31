@@ -67,25 +67,26 @@ version or a byte-identical retry of only the missing registry operation.
 ## Protected publication procedure
 
 Use `.github/workflows/release-publish.yml` only after the
-`release-production` environment has required reviewers and the PyPI and npm
-trusted-publisher bindings are ready. Record the candidate workflow run ID, the
-full candidate commit SHA, and the candidate manifest digest before creating
-the protected `v<release>` tag.
+`release-production` environment exists without a required-reviewer gate and
+the PyPI and npm trusted-publisher bindings are ready. The environment remains
+part of the OIDC identity even though initial publication is automatic.
 
-A `v*` tag push starts the initial publication path. It resolves the tag to its
-commit, selects the latest successful candidate workflow run for that exact
-SHA, and requires one unexpired SHA-named artifact. The protected job downloads
-that exact retained bundle, records its manifest digest, and verifies its
-checksums, tag, ancestry, metadata, parity, and legacy-identifier guard. The
-protected job never runs a build command. The `release-production` approval
-must compare the selected run, tag, and SHA with the recorded candidate evidence.
+A `v*` tag push starts the candidate build and attestation. Only its successful
+completion starts the initial publication path. The resolver uses the
+triggering workflow run ID directly and requires one unexpired SHA-named
+artifact. The protected job downloads that exact retained bundle, records its
+manifest digest, and verifies its checksums, tag, ancestry, metadata, parity,
+and legacy-identifier guard. The protected job never runs a build command.
+Record the candidate run ID, full candidate commit SHA, and manifest digest as
+soon as they are available so the recovery inputs remain reproducible.
 
 Manual dispatch is recovery-only operationally. It requires the recorded run
 ID, full SHA, tag, candidate manifest digest, and an explicit recovery mode; the
 same protected job and all fail-closed verification still apply.
-Candidate resolution stops before publication if `release-production` is
-missing or has no required reviewers, so a tag cannot silently create an
-unprotected environment.
+If `release-production` is missing, GitHub may create an unconfigured
+environment for the job, but its OIDC claims will not match the exact Trusted
+Publisher registrations. Treat that as a failed release configuration; never
+weaken either registry binding to bypass it.
 
 Select exactly one recovery mode:
 
@@ -105,15 +106,12 @@ alpha, beta, and release-candidate versions. Stable versions receive npm
 `latest` and the GitHub `Latest` label. Recovery must keep the same derived
 channel; never use a dist-tag change to bypass a registry-state failure.
 
-If the npm package does not yet exist and a Trusted Publisher cannot be bound,
-the primary npm owner may bootstrap only the exact retained tarball once from a
-trusted local session with 2FA and the derived prerelease dist-tag. Never store
-that token in GitHub. Continue the protected release with `recover-pypi`, then
-bind this workflow and `release-production` before any later npm publication.
+The existing npm package must bind this workflow and `release-production`
+before the tag is created. Never store an npm token in GitHub.
 
 Any unexpected existing file, digest mismatch, malformed registry response, or
 registry outage stops publication. Do not change modes to bypass that failure.
-Keep the workflow run, environment approval, candidate run ID, candidate manifest
+Keep the workflow run, deployment record, candidate run ID, candidate manifest
 digest, registry responses, and GitHub Release URL as the release receipt. If
 GitHub Release creation fails after both registries succeed, rerun only
 `release-assets-only` after confirming that no release for the tag exists; never

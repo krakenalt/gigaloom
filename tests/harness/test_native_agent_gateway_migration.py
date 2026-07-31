@@ -78,7 +78,7 @@ def test_upgrade_fixture_is_backup_gated_ordered_and_content_free(tmp_path):
     receipt = service.migrate()
 
     assert fixture["source_version"] == receipt.source_version
-    assert receipt.target_version == "0.7.0a1"
+    assert receipt.target_version == "0.7.0"
     assert receipt.ordered_steps == (
         PROJECT_CATALOG_MIGRATION_ID,
         TEXTUAL_PREFERENCES_RETIREMENT_ID,
@@ -137,6 +137,21 @@ def test_interrupted_backup_rejects_changed_active_state(tmp_path):
 
     with pytest.raises(ValueError, match="differs from the interrupted"):
         service.migrate()
+
+
+def test_stable_release_resumes_an_alpha_candidate_journal(tmp_path):
+    _, data_dir, store, _ = _old_state(tmp_path)
+    service = _service(tmp_path, data_dir, store)
+    with pytest.raises(InjectedNativeAgentGatewayMigrationCrash, match="planned"):
+        service.migrate(crash_after_phase="planned")
+    journal = json.loads(service.journal_path.read_text(encoding="utf-8"))
+    journal["target_version"] = "0.7.0a1"
+    service.journal_path.write_text(
+        json.dumps(journal, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+
+    assert service.migrate().target_version == "0.7.0a1"
 
 
 def test_release_registry_has_one_backup_gated_topological_order():

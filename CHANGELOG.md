@@ -5,6 +5,26 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 и проект придерживается [Семантического версионирования](https://semver.org/lang/ru/).
 
+## [0.7.0] - 2026-07-31
+
+### Изменено
+
+- **Стабильная release identity**: Python, npm, release manifest, инструкции по
+  установке и packaged Web evidence теперь используют единую stable-версию
+  `0.7.0`.
+- **Стабильная gateway integration**: optional extra допускает released
+  `gpt2giga>=0.2.6,<0.3.0`; committed lock разрешает `gpt2giga==0.2.6` и
+  `gigachat==0.2.3` из PyPI.
+- **Автоматическая trusted publication**: protected `v*` tag строит и аттестует
+  один immutable candidate; только его успешное завершение запускает отдельный
+  npm, PyPI и GitHub Release workflow из того же retained artifact.
+
+### Безопасность
+
+- Registry publication сохраняет job-scoped OIDC, точные workflow/environment
+  Trusted Publisher identities, SHA/tag/ancestry checks, immutable registry
+  guards и recovery-only manual dispatch без build path.
+
 ## [0.7.0a1] - 2026-07-31
 
 ### Добавлено
@@ -277,6 +297,7 @@
 - **Диагностика и документация**: добавлены `giga doctor`, inspect/config/session/native команды, alpha quickstart, migration guide и описание ограничений первого релиза.
 ---
 
+[0.7.0]: https://github.com/krakenalt/gigaloom/compare/v0.7.0-alpha.1...v0.7.0
 [0.7.0a1]: https://github.com/krakenalt/gigaloom/compare/v0.6.0-alpha.1...v0.7.0-alpha.1
 [0.6.0a1]: https://github.com/krakenalt/gigaloom/compare/gigaloom-v0.5.1a2...v0.6.0-alpha.1
 [0.5.1a2]: https://github.com/krakenalt/gigaloom/compare/gigaloom-v0.5.1a1...gigaloom-v0.5.1a2

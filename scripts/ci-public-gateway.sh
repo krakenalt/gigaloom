@@ -25,13 +25,16 @@ with (repository_root / "pyproject.toml").open("rb") as file:
     metadata = tomllib.load(file)
 
 expected_requirement = metadata["project"]["optional-dependencies"]["gpt2giga"][0]
-expected_version = expected_requirement.removeprefix("gpt2giga==")
-assert expected_requirement == f"gpt2giga=={expected_version}"
+assert expected_requirement == "gpt2giga>=0.2.6,<0.3.0"
 assert "sources" not in metadata.get("tool", {}).get("uv", {})
 
 packages = {package["name"]: package for package in lock["package"]}
+expected_version = packages["gpt2giga"]["version"]
+assert expected_version == "0.2.6"
 assert packages["gpt2giga"]["version"] == expected_version
 assert packages["gpt2giga"]["source"] == {"registry": "https://pypi.org/simple"}
+assert packages["gigachat"]["version"] == "0.2.3"
+assert packages["gigachat"]["source"] == {"registry": "https://pypi.org/simple"}
 assert packages["gigaloom"]["source"] == {
     "editable": "."
 }

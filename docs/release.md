@@ -1,25 +1,23 @@
 # Release
 
 One GigaLoom release binds Python, npm, Git, and embedded Web assets through
-`release/release.json`. For the Native Agent Gateway alpha the exact identity is:
+`release/release.json`. For the first stable Native Agent Gateway release the exact identity is:
 
 | Surface | Identity |
 |---|---|
-| Canonical release | `0.7.0-alpha.1` |
-| Git tag | `v0.7.0-alpha.1` |
-| PyPI | `gigaloom==0.7.0a1` |
-| npm | `@gigaloom/web@0.7.0-alpha.1` |
+| Canonical release | `0.7.0` |
+| Git tag | `v0.7.0` |
+| PyPI | `gigaloom==0.7.0` |
+| npm | `@gigaloom/web@0.7.0` |
 
-Python and npm use their native prerelease syntax but represent one release.
-The root Python metadata and `web/package.json` must match the manifest.
+The root Python metadata and `web/package.json` must match the manifest exactly.
 
 ## Tag policy
 
 New releases use only the standard `v<release>` tag. Create the protected tag
-at the exact reviewed `main` commit only after the immutable candidate has
-passed its build, parity, checksum, denylist, and attestation gates. The
-publish workflow requires that tag to resolve to the candidate SHA; it never
-creates, moves, or repairs a tag.
+at the exact reviewed `main` commit. The tag starts the immutable candidate
+build; publication begins only after its build, parity, checksum, denylist, and
+attestation gates pass. Neither workflow creates, moves, or repairs a tag.
 
 Historical prefix-shaped tags remain history. Do not reuse those prefixes for
 new releases. Never move or delete a tag after either registry accepts the version. A
@@ -34,37 +32,33 @@ the workflow guesses around.
 2. Update both package changelogs and confirm every identity in
    `release/release.json`, `pyproject.toml`, and `web/package.json`.
 3. Build frontend assets and run the complete non-live quality gate.
-4. Run the build-only candidate workflow from the current `main` tip.
-5. Verify its wheel, sdist, npm tarball, metadata, shared Web content digest,
-   checksums, SBOM, licenses, isolated installs, and attestation.
-6. Ensure the release commit is on `main` and the documented main/tag rulesets
+4. Ensure the release commit is on `main` and the documented main/tag rulesets
    are active.
-7. Confirm PyPI and npm Trusted Publishers name the exact project/package,
+5. Confirm PyPI and npm Trusted Publishers name the exact project/package,
    repository, publish workflow, and `release-production` environment. Confirm
-   its required reviewers are ready.
-8. Record the candidate run ID, full source SHA, and
-   `candidate-manifest.json` SHA-256 out of band for recovery.
-9. Create the protected standard tag at that exact source SHA. The tag push
-   starts the protected publish workflow and selects the latest successful,
-   unexpired candidate artifact for that SHA.
-10. Review the selected run and SHA at the `release-production` approval gate,
-    then monitor the registry checks and GitHub Release creation.
+   that the environment has no required-reviewer gate for automatic releases.
+6. Create the protected standard tag at that exact source SHA. The tag push
+   builds and attests one candidate, then automatically starts publication from
+   that same workflow run after success.
+7. Monitor the candidate, registry checks, and GitHub Release creation. Record
+   the candidate run ID, full source SHA, and `candidate-manifest.json` SHA-256
+   for recovery.
 
 ## Two-phase workflow
 
-`.github/workflows/publish-pypi.yml` is manually dispatched to build and attest
-one retained candidate. It has no registry or GitHub Release publication step.
+`.github/workflows/publish-pypi.yml` runs on a protected `v*` tag push to build
+and attest one retained candidate. It has no registry or GitHub Release
+publication step.
 
 `.github/workflows/release-publish.yml` is a separate workflow protected by the
-`release-production` environment. A `v*` tag push resolves the tag to a commit,
-finds the latest successful candidate workflow run for that exact SHA, and
-requires one unexpired artifact with the exact SHA-bound name. The protected
-path refuses to start unless `release-production` exists with at least one
-required reviewer. The protected job rechecks the tag, ancestry, metadata,
-checksums, byte parity, and legacy denylist and does not rebuild. It then checks
-public registry state before requesting OIDC credentials. Manual dispatch
-remains available for recovery; it additionally requires the recorded run ID,
-SHA, tag, manifest digest, and recovery mode.
+`release-production` environment. A successful completion of the candidate
+workflow starts it through `workflow_run`; the resolver consumes that exact run
+ID and requires one unexpired artifact with the exact SHA-bound name. The
+protected job rechecks the tag, ancestry, metadata, checksums, byte parity, and
+legacy denylist and does not rebuild. It then checks public registry state
+before requesting OIDC credentials. Manual dispatch remains recovery-only; it
+additionally requires the recorded run ID, SHA, tag, manifest digest, and
+recovery mode.
 
 Choose exactly one mode:
 
@@ -86,13 +80,9 @@ create a GitHub Pre-release with `Latest` explicitly disabled. A stable version
 publishes npm under `latest` and explicitly marks its GitHub Release as
 `Latest`. PyPI keeps the manifest's native PEP 440 prerelease or stable version.
 
-If `@gigaloom/web` does not yet exist and npm therefore cannot bind a Trusted
-Publisher, the primary npm owner must bootstrap only the exact retained `.tgz`
-once from a trusted local session, with 2FA and the derived non-stable tag (for
-the current alpha, `--tag next`). Do not put that token in GitHub. The protected
-workflow must then resume with `recover-pypi`, and the owner must bind
-`release-publish.yml` plus the `release-production` environment before any
-later npm release.
+The existing `@gigaloom/web` package must bind `release-publish.yml` plus the
+`release-production` environment as its npm Trusted Publisher before the tag is
+created. Do not put an npm token in GitHub.
 
 ## Rollback and recovery
 

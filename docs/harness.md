@@ -1,11 +1,11 @@
 # Unified Harness
 
-:::warning[Alpha preview — prerelease]
+:::note[Stable 0.7 release]
 
-The `gigaloom` 0.5.x line is an alpha preview for testing and feedback.
-The UI, CLI, project YAML, runtime schema, and upgrade behavior can change while
-the product is being developed. Use it for local evaluation and supervised
-workflows, not as a production-critical or unattended multi-user service.
+The `gigaloom` 0.7 line is the first stable Native Agent Gateway release.
+Provider CLI compatibility and explicitly marked preview APIs can still evolve;
+use the documented local and supervised operating boundaries rather than
+treating GigaLoom as an unattended multi-user service.
 
 :::
 
@@ -126,8 +126,8 @@ binary, Node.js runtime, credentials, or provider configuration. Both `uv tool`
 and `pipx` create an isolated Harness environment:
 
 ```sh
-uv tool install 'gigaloom==0.7.0a1'
-pipx install 'gigaloom==0.7.0a1'
+uv tool install 'gigaloom==0.7.0'
+pipx install 'gigaloom==0.7.0'
 ```
 
 Upgrade an existing Textual prerelease in place; do not retain or add a
@@ -137,28 +137,26 @@ archive when a state migration occurred:
 
 ```sh
 giga state backup /safe/path/harness-before-upgrade.zip
-uv tool install --force 'gigaloom==0.7.0a1'
+uv tool install --force 'gigaloom==0.7.0'
 uv tool install --force 'gpt2giga-harness==0.5.0a1'
 uv tool uninstall gigaloom
-uv tool install 'gigaloom==0.7.0a1'
+uv tool install 'gigaloom==0.7.0'
 ```
 
 Uninstalling the package does not delete `~/.gigaloom`, project
 `.giga/`, or native provider homes. Harness never reverse-migrates provider
 configuration or installs/authenticates a provider runtime.
 
-## Is the prerelease preview for you?
+## Is GigaLoom for you?
 
-Try it now if you want to evaluate a local agent cockpit, compare harnesses,
-prototype reviewable workflows, or give feedback while the interfaces are
-still being shaped. Start with `echo`, dry-runs, `plan`/`read` modes, and a test
-repository before allowing edits.
+Use it when you want a local agent cockpit, comparable runs, and reviewable
+workflows. Start with `echo`, dry-runs, `plan`/`read` modes, and a test repository
+before allowing edits.
 
-Wait for a later release if you need a stable automation API, guaranteed
-backward compatibility, high availability, central multi-user administration,
-or a security boundary around arbitrary behavior inside third-party CLIs.
+It is not a high-availability central multi-user service or a security boundary
+around arbitrary behavior inside third-party CLIs.
 
-During the prerelease:
+For every release:
 
 - read release notes before upgrading and back up `~/.gigaloom` plus
   important project `.giga/` definitions;
@@ -173,9 +171,9 @@ During the prerelease:
 
 ## Quickstart
 
-### 1. Get the preview and check the workstation
+### 1. Install GigaLoom and check the workstation
 
-The source checkout is the current, always-available preview path:
+For development from a source checkout:
 
 ```bash
 git clone https://github.com/krakenalt/gigaloom.git
@@ -187,27 +185,26 @@ giga --version
 giga harness list
 ```
 
-Keep the checkout virtual environment activated in every terminal used for the
-preview. You can then `cd` to the project you want to inspect while `giga` and
+Keep the checkout virtual environment activated in every terminal used for
+development. You can then `cd` to the project you want to inspect while `giga` and
 `gpt2giga` continue to resolve from the checkout. On Windows, activate
 `.venv\Scripts\Activate.ps1` instead.
 
-If the standalone preview is available in your package index, the shorter
-install path is:
+For the published stable package, use:
 
 ```bash
-uv tool install 'gigaloom==0.7.0a1'
+uv tool install 'gigaloom==0.7.0'
 giga doctor
 ```
 
 For Direct Chat and the `gpt2giga` provider preset, install the explicit extra:
 
 ```bash
-uv tool install 'gigaloom[gpt2giga]==0.7.0a1'
+uv tool install 'gigaloom[gpt2giga]==0.7.0'
 ```
 
-The current `gigaloom==0.7.0a1` distribution provides only the `giga` command;
-its explicit `gpt2giga` extra pins `gpt2giga==0.2.6a1`.
+The current `gigaloom==0.7.0` distribution provides only the `giga` command;
+its explicit `gpt2giga` extra admits stable `gpt2giga>=0.2.6,<0.3.0` releases.
 
 Requirements are Python 3.11–3.14 and `uv`. Direct GigaChat runs also need the
 gateway credentials described in the [gpt2giga quickstart](quickstart.md).
@@ -267,7 +264,7 @@ To migrate from an older TUI prerelease, upgrade the standard package and
 remove `[tui]` from historical install commands:
 
 ```bash
-uv tool install --force 'gigaloom==0.7.0a1'
+uv tool install --force 'gigaloom==0.7.0'
 giga --version
 giga
 ```
@@ -2849,7 +2846,7 @@ Remove the old combined wheel before installing the split packages so stale
 
 ```bash
 python -m pip uninstall -y gpt2giga gpt2giga-harness
-python -m pip install 'gigaloom==0.7.0a1'
+python -m pip install 'gigaloom==0.7.0'
 ```
 
 For `uv` tool installations, recreate both tool environments:
@@ -2857,12 +2854,12 @@ For `uv` tool installations, recreate both tool environments:
 ```bash
 uv tool uninstall gpt2giga
 uv tool uninstall gpt2giga-harness
-uv tool install --prerelease allow gpt2giga
-uv tool install 'gigaloom==0.7.0a1'
+uv tool install 'gpt2giga==0.2.6'
+uv tool install 'gigaloom==0.7.0'
 ```
 
-The current `gigaloom==0.7.0a1` metadata keeps
-`gpt2giga==0.2.6a1` in the explicit `gpt2giga` optional extra.
+The current `gigaloom==0.7.0` metadata keeps
+`gpt2giga>=0.2.6,<0.3.0` in the explicit `gpt2giga` optional extra.
 
 Package uninstall/reinstall does not move or rewrite Harness state. Preserve
 legacy `~/.gpt2giga/harness` data until `giga state migrate` has created and

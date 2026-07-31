@@ -2,7 +2,7 @@
 
 [![Quality](https://img.shields.io/github/actions/workflow/status/krakenalt/gigaloom/quality.yaml?branch=main&style=flat-square&label=quality)](https://github.com/krakenalt/gigaloom/actions/workflows/quality.yaml)
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-111827?style=flat-square)](https://krakenalt.github.io/gigaloom/)
-[![PyPI](https://img.shields.io/pypi/v/gigaloom?style=flat-square&label=preview)](https://pypi.org/project/gigaloom/)
+[![PyPI](https://img.shields.io/pypi/v/gigaloom?style=flat-square&label=PyPI)](https://pypi.org/project/gigaloom/)
 [![License](https://img.shields.io/github/license/krakenalt/gigaloom?style=flat-square)](LICENSE)
 [![GigaLoom coverage baseline](./badges/gigaloom-coverage.svg)](./docs/operations.md#quality-baseline)
 
@@ -11,7 +11,7 @@ combines provider-native `giga <agent>` commands and a browser cockpit for gover
 sessions, approvals, worktrees, schedules, evaluations, and multi-agent
 workflows.
 
-The project is an alpha preview. It keeps user state local, redacts sensitive
+The 0.7 line is the first stable GigaLoom release. It keeps user state local, redacts sensitive
 values at storage and UI boundaries, and fails closed when an action needs
 authority that has not been granted.
 
@@ -22,7 +22,7 @@ terminals additionally use `tmux` on Linux and macOS; systems without it keep
 provider-native passthrough.
 
 ```sh
-uv tool install --prerelease allow 'gigaloom==0.7.0a1'
+uv tool install 'gigaloom==0.7.0'
 giga doctor
 giga --version
 ```
@@ -69,7 +69,7 @@ not require a gateway source checkout. Direct Chat and the legacy local-gateway
 preset are optional:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.7.0a1'
+uv tool install 'gigaloom[gpt2giga]==0.7.0'
 ```
 
 The optional extra consumes the released `gpt2giga` distribution. Its

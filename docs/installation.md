@@ -1,6 +1,6 @@
 # Installation
 
-GigaLoom 0.7 is the Native Agent Gateway alpha and builds on the 0.6 breaking
+GigaLoom 0.7 is the first stable Native Agent Gateway release and builds on the 0.6 breaking
 clean cut. It supports Python 3.11–3.14.
 Install at least one provider-native CLI separately and complete that
 provider's own authentication flow.
@@ -11,18 +11,18 @@ system package manager on Linux or macOS. Windows and POSIX systems without a
 usable `tmux` retain provider-native passthrough; GigaLoom does not substitute
 an emulated terminal UI.
 
-## Install the preview
+## Install GigaLoom
 
 With `uv`:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom==0.7.0a1'
+uv tool install 'gigaloom==0.7.0'
 ```
 
 Or in an isolated Python environment:
 
 ```sh
-python -m pip install --pre 'gigaloom==0.7.0a1'
+python -m pip install 'gigaloom==0.7.0'
 ```
 
 Confirm the installed artifact:
@@ -38,17 +38,17 @@ content or contacting providers.
 ## Upgrade to 0.7
 
 An exact `uv tool install` constraint remains pinned during `uv tool upgrade`.
-To move an existing preview installation to 0.7, recreate the tool environment
+To move an existing prerelease installation to 0.7, recreate the tool environment
 with the new exact requirement:
 
 ```sh
-uv tool install --force --prerelease allow 'gigaloom==0.7.0a1'
+uv tool install --force 'gigaloom==0.7.0'
 ```
 
 If the optional gateway extra was previously installed, retain it explicitly:
 
 ```sh
-uv tool install --force --prerelease allow 'gigaloom[gpt2giga]==0.7.0a1'
+uv tool install --force 'gigaloom[gpt2giga]==0.7.0'
 ```
 
 Before upgrading, stop every GigaLoom process and back up `~/.gigaloom`, the
@@ -63,7 +63,7 @@ existing state directories:
 
 ```sh
 uv tool uninstall gpt2giga-harness
-uv tool install --prerelease allow 'gigaloom==0.7.0a1'
+uv tool install 'gigaloom==0.7.0'
 ```
 
 Update extensions, imports, scripts, and frontend consumers as one clean cut:
@@ -163,11 +163,12 @@ The base package does not require gpt2giga. Install the optional extra only for
 Direct Chat or the legacy local-gateway preset:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.7.0a1'
+uv tool install 'gigaloom[gpt2giga]==0.7.0'
 ```
 
-This installs a pinned public gateway distribution. It does not require a
-gateway repository, sibling checkout, editable dependency, or submodule. See
+This installs the supported stable gateway range; the committed development and
+release lock resolves one exact public artifact. It does not require a gateway
+repository, sibling checkout, editable dependency, or submodule. See
 [Gateway integration](gateway-integration.md).
 
 ## Consume the Web package without Python
@@ -176,7 +177,7 @@ Services that host the verified static Cockpit assets independently can install
 the matching npm release:
 
 ```sh
-npm install --save-exact @gigaloom/web@0.7.0-alpha.1
+npm install --save-exact @gigaloom/web@0.7.0
 ```
 
 Mount the package's `dist/` directory at `/web/assets/` and serve

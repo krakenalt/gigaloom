@@ -7,11 +7,11 @@ Install the optional released integration only when using Direct Chat or the
 legacy local-gateway preset:
 
 ```sh
-uv tool install --prerelease allow 'gigaloom[gpt2giga]==0.7.0a1'
+uv tool install 'gigaloom[gpt2giga]==0.7.0'
 ```
 
-This extra pins the reviewed public `gpt2giga` distribution. Candidate testing
-uses an explicit wheel URL/path plus SHA-256 and never creates an editable
+This extra admits stable `gpt2giga>=0.2.6,<0.3.0`; the committed lock resolves
+the exact reviewed public artifact. Release testing never creates an editable
 sibling dependency.
 
 ## Canonical gateway contracts
