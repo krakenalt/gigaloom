@@ -84,8 +84,10 @@ policy, а не обходится workflow.
 `workflow_run`; resolver использует точный triggering run ID и требует один
 непросроченный SHA-bound artifact. Protected job повторно проверяет tag,
 ancestry, metadata, checksums, byte parity и legacy denylist и ничего не
-пересобирает. Manual dispatch остаётся только для recovery и требует run ID,
-полный SHA, tag, manifest digest и recovery mode.
+пересобирает. Перед initial publication или recovery отсутствующего registry
+он также требует, чтобы точный GitHub Release tag был свободен. Manual dispatch
+остаётся только для recovery и требует run ID, полный SHA, tag, manifest digest
+и recovery mode.
 
 Выберите ровно один mode:
 
@@ -99,7 +101,9 @@ ancestry, metadata, checksums, byte parity и legacy denylist и ничего н
 
 Любой неожиданный filename или digest, malformed registry response либо outage
 останавливает workflow. Registry, где операция уже завершилась, при recovery
-повторно не публикуется.
+повторно не публикуется. Заранее созданный GitHub Release также останавливает
+workflow до записи в любой registry; его нельзя молча удалять, перезаписывать
+или принимать как доверенный.
 
 ## Rollback и recovery
 

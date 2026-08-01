@@ -112,6 +112,8 @@ def test_protected_publish_consumes_one_retained_candidate_without_rebuilding():
         "--event-name publish",
         "scripts/verify_release_artifacts.py",
         "scripts/release_registry_guard.py",
+        "github.rest.repos.getReleaseByTag",
+        "stop before publishing either registry",
         "python3 scripts/release.py verify",
         "--release-version release/version.toml",
         "npm publish dist/release-candidate/*.tgz --provenance --access public --tag",
@@ -123,6 +125,7 @@ def test_protected_publish_consumes_one_retained_candidate_without_rebuilding():
         "release_flags=(--latest)",
     ):
         assert contract in text
+    assert text.index("github.rest.repos.getReleaseByTag") < text.index("npm publish")
     assert text.index("npm publish") < text.index("uv publish")
     assert text.index("uv publish") < text.index("gh release create")
     for forbidden in (

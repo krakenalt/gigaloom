@@ -23,9 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions changes now run isolated workflow contract tests, while the
   quality workflow rejects Python metadata and `uv.lock` drift before expensive
   frontend and browser gates.
+- Dependabot groups only minor/patch maintenance; major upgrades remain separate
+  pull requests and no longer block compatible updates in a mixed group.
+- The docs build no longer runs for Python-only metadata, while dependency
+  review now covers `uv.lock` plus the documentation manifest and lockfile.
 
 ### Fixed
 
+- The protected release workflow now requires the exact GitHub Release tag to
+  be vacant before the first registry write, preventing a pre-created Release
+  from stranding an otherwise successful npm/PyPI publication.
 - Prerelease changelog validation now compares canonical SemVer rather than its
   PEP 440 projection, and reusable candidate reports no longer carry stale run
   results into a new version.

@@ -82,10 +82,11 @@ publication step.
 workflow starts it through `workflow_run`; the resolver consumes that exact run
 ID and requires one unexpired artifact with the exact SHA-bound name. The
 protected job rechecks the tag, ancestry, metadata, checksums, byte parity, and
-legacy denylist and does not rebuild. It then checks public registry state
-before requesting OIDC credentials. Manual dispatch remains recovery-only; it
-additionally requires the recorded run ID, SHA, tag, manifest digest, and
-recovery mode.
+legacy denylist and does not rebuild. Before an initial or missing-registry
+publication it also requires the exact GitHub Release tag to be vacant. It then
+checks public registry state before requesting OIDC credentials. Manual
+dispatch remains recovery-only; it additionally requires the recorded run ID,
+SHA, tag, manifest digest, and recovery mode.
 
 Choose exactly one mode:
 
@@ -97,7 +98,9 @@ Choose exactly one mode:
 
 Any unexpected existing filename or digest, malformed registry response, or
 registry outage stops the workflow. A successful registry is never
-republished during recovery.
+republished during recovery. A pre-created GitHub Release also stops the
+workflow before either registry write; it must not be silently deleted,
+overwritten, or adopted.
 
 ## Release channels
 

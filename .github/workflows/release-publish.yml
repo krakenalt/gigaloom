@@ -290,6 +290,30 @@ jobs:
             --sdist dist/release-candidate/*.tar.gz \
             --npm-tarball dist/release-candidate/*.tgz
 
+      - name: Require a vacant GitHub Release tag before registry mutation
+        if: needs.resolve.outputs.recovery_mode != 'release-assets-only'
+        uses: actions/github-script@v8
+        env:
+          RELEASE_TAG: ${{ steps.guard.outputs.tag }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            try {
+              const { data: release } = await github.rest.repos.getReleaseByTag({
+                ...context.repo,
+                tag: process.env.RELEASE_TAG,
+              });
+              core.setFailed(
+                `GitHub Release ${release.html_url} already occupies ` +
+                `${process.env.RELEASE_TAG}; stop before publishing either registry`,
+              );
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+              core.info(`GitHub Release tag ${process.env.RELEASE_TAG} is vacant`);
+            }
+
       - name: Prove requested recovery mode against public registries
         env:
           RECOVERY_MODE: ${{ needs.resolve.outputs.recovery_mode }}

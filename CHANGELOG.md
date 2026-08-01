@@ -25,9 +25,16 @@
 - Изменения GitHub Actions запускают изолированные workflow contract tests, а
   quality workflow отклоняет рассинхрон Python metadata и `uv.lock` до тяжёлых
   frontend и browser gates.
+- Dependabot группирует только minor/patch maintenance; major upgrades остаются
+  отдельными PR и больше не блокируют совместимые обновления в общей группе.
+- Docs build больше не запускается на Python-only metadata, а dependency review
+  теперь охватывает `uv.lock` и manifests/lockfile сайта документации.
 
 ### Исправлено
 
+- Protected release workflow теперь проверяет, что exact GitHub Release tag
+  свободен до первой записи в registry, и не оставляет npm/PyPI publication без
+  завершаемого release boundary из-за заранее созданного Release.
 - Changelog prerelease теперь проверяется по canonical SemVer, а не по его
   PEP 440 projection; reusable candidate report больше не переносит устаревшие
   результаты запусков в следующую версию.

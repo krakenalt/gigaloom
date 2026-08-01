@@ -7,7 +7,6 @@ on:
       - '**/*.md'
       - 'docs/**'
       - 'docs-site/**'
-      - 'pyproject.toml'
       - '.github/workflows/docs-pages.yaml'
   pull_request:
     branches: [ main ]
@@ -16,7 +15,6 @@ on:
       - '**/*.md'
       - 'docs/**'
       - 'docs-site/**'
-      - 'pyproject.toml'
       - '.github/workflows/docs-pages.yaml'
   workflow_dispatch:
 

@@ -222,6 +222,10 @@ def test_actions_permissions_and_security_automation_are_specialized():
         ("npm", "/web"),
         ("npm", "/docs-site"),
     }
+    for update in dependabot["updates"]:
+        assert "ignore" not in update
+        for group in update["groups"].values():
+            assert group["update-types"] == ["minor", "patch"]
 
     codeql = _yaml(".github/workflows/codeql.yaml")
     assert codeql["jobs"]["analyze"]["strategy"]["matrix"]["language"] == [

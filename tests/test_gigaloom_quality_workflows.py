@@ -76,6 +76,25 @@ def test_workflow_changes_run_lint_and_isolated_contract_tests():
         assert test in contract_run
 
 
+def test_dependency_and_docs_paths_match_their_owned_inputs():
+    dependency_review = _workflow("dependency-review.yaml")
+    assert set(dependency_review["on"]["pull_request"]["paths"]) == {
+        ".github/workflows/**",
+        "docs-site/package-lock.json",
+        "docs-site/package.json",
+        "pyproject.toml",
+        "uv.lock",
+        "web/package-lock.json",
+        "web/package.json",
+    }
+
+    docs = _workflow("docs-pages.yaml")
+    for event in ("push", "pull_request"):
+        paths = docs["on"][event]["paths"]
+        assert "docs-site/**" in paths
+        assert "pyproject.toml" not in paths
+
+
 def test_python_type_gate_is_pinned_and_cannot_silently_narrow():
     with (REPOSITORY_ROOT / "pyproject.toml").open("rb") as file:
         project = tomllib.load(file)

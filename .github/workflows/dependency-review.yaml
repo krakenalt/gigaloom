@@ -6,8 +6,11 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'pyproject.toml'
+      - 'uv.lock'
       - 'web/package.json'
       - 'web/package-lock.json'
+      - 'docs-site/package.json'
+      - 'docs-site/package-lock.json'
       - '.github/workflows/**'
 
 permissions:

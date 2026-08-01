@@ -44,6 +44,9 @@ required registry identities and protected environments are ready.
 - Existing PyPI or npm version: stop. Published versions are immutable; advance
   both versions in the release manifest and build a new candidate instead of
   overwriting or deleting files.
+- Existing GitHub Release for the candidate tag before registry publication:
+  stop before either registry write. Do not delete, overwrite, or silently
+  adopt it; reconcile its provenance through an explicitly reviewed recovery.
 - npm succeeded but PyPI failed: do not rebuild and do not republish npm.
   Preserve the exact retained candidate artifact and registry receipts, then
   retry only the missing PyPI operation if the protected recovery procedure
@@ -82,7 +85,10 @@ completion starts the initial publication path. The resolver uses the
 triggering workflow run ID directly and requires one unexpired SHA-named
 artifact. The protected job downloads that exact retained bundle, records its
 manifest digest, and verifies its checksums, tag, ancestry, metadata, parity,
-and legacy-identifier guard. The protected job never runs a build command.
+and legacy-identifier guard. Before an initial or missing-registry recovery it
+also requires the exact GitHub Release tag to be vacant, so a pre-created
+release cannot strand an otherwise successful registry publication. The
+protected job never runs a build command.
 Record the candidate run ID, full candidate commit SHA, and manifest digest as
 soon as they are available so the recovery inputs remain reproducible.
 
