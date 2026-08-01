@@ -39,7 +39,10 @@ def test_application_container_owns_stateful_operational_backends(tmp_path) -> N
 
     assert isinstance(owners.credential_broker, credentials.InMemoryCredentialBroker)
     assert owners.credential_broker.broker_id == "gigaloom-fake-broker-v1"
-    assert owners.credential_broker.list_source_projections() == ()
+    sources = owners.credential_broker.list_source_projections()
+    assert [item.source_id for item in sources] == ["fake-github-demo"]
+    assert len(sources[0].secret_ref_id) == 64
+    assert set(sources[0].secret_ref_id) <= set("0123456789abcdef")
     assert isinstance(owners.recovery_receipts, recovery.RecoveryReceiptService)
     assert owners.recovery_receipts.repository is None
     assert isinstance(owners.lane_delta_builder, lane_delta_api.LaneDeltaBuilder)

@@ -75,6 +75,9 @@ from gigaloom.ui.routers.run_history import (
 from gigaloom.ui.routers.route_advisor import (
     create_router as create_route_advisor_router,
 )
+from gigaloom.ui.routers.reliability import (
+    create_router as create_reliability_router,
+)
 from gigaloom.ui.routers.run_capsules import (
     create_router as create_run_capsules_router,
 )
@@ -122,6 +125,12 @@ def install_application_routers(
     app.include_router(create_context_impact_router(services))
     app.include_router(
         create_credentials_router(services.operational_backends.credential_operator)
+    )
+    app.include_router(
+        create_reliability_router(
+            services.operational_backends.recovery_receipts.checks,
+            data_root=services.config.data_dir,
+        )
     )
     app.include_router(create_editor_router(services))
     app.include_router(create_project_memory_router(services))

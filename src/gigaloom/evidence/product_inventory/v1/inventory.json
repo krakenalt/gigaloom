@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "fb16c77d202d0368a23fd149af3654ed90135773cd88b8d05d0a03f37c299dfe",
+  "content_sha256": "4d6587ca8d262448ffeeb4e0b4838a73ab2826589c8073cd3d51271e5efa7916",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -1871,6 +1871,11 @@
         "path": "/api/providers/{provider_id}/test"
       },
       {
+        "method": "GET",
+        "name": "check_state",
+        "path": "/api/reliability"
+      },
+      {
         "method": "POST",
         "name": "recommend",
         "path": "/api/route-decisions/recommend"
@@ -2520,6 +2525,9 @@
       "provider migrate-legacy",
       "provider show",
       "provider test",
+      "reliability",
+      "reliability check",
+      "reliability simulate",
       "route",
       "route override",
       "route recommend",

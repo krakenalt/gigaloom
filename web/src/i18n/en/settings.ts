@@ -53,6 +53,22 @@ export const enSettings = {
   firstRunDoctor: "First-run readiness",
   doctorOfflinePrivacy:
         "This Web check does not contact providers, GitHub, skills.sh, or model routes. It reports bounded local metadata, counts, hashes, and exact recovery steps.",
+  reliabilityStateValidation: "State integrity",
+  reliabilityStateValidationHint:
+        "Run the bounded read-only recovery catalog against the configured data root. Raw paths and record content stay backend-only.",
+  readOnlyContentFree: "Read-only · content-free",
+  runStateValidation: "Run state validation",
+  stateValidationRunning: "Validating state…",
+  stateValidationUnavailable: "The configured state could not be validated.",
+  stateValidationStatus: "Validation status",
+  stateValidationPassed: "Passed",
+  stateValidationFailed: "Failed",
+  stateValidationWarning: "Warning",
+  checksObserved: "Checks observed",
+  filesObserved: "Files observed",
+  bytesObserved: "Bytes observed",
+  stateValidationChecksTruncated:
+        "Only the bounded leading check set is shown here; use the CLI JSON report for the full projected set.",
   discoverModels: "Discover models",
   harnessDefaultsHint: "Initial selections for new sessions; every run still shows its effective plan.",
   health: "Health",

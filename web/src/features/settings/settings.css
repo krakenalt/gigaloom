@@ -67,6 +67,17 @@
 .credential-card > button { justify-self: start; }
 .credential-revoke-confirmation { display: flex; flex-wrap: wrap; gap: 7px; }
 .credential-empty-state { margin: 0; border: 1px dashed var(--border); border-radius: 7px; color: var(--muted); padding: 18px; font-size: 10px; }
+.reliability-check-panel { display: grid; gap: 12px; margin-top: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 14px; }
+.reliability-check-panel > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.reliability-check-panel > header > div { display: grid; gap: 4px; }
+.reliability-check-panel > header p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.reliability-check-panel > button { justify-self: start; }
+.reliability-check-result { display: grid; gap: 10px; border-top: 1px solid var(--border); padding-top: 12px; }
+.reliability-check-result > small { color: var(--muted); font-size: 8px; overflow-wrap: anywhere; }
+.reliability-check-list { display: grid; gap: 6px; }
+.reliability-check-list article { min-width: 0; display: grid; gap: 4px; border: 1px solid var(--border); border-radius: 6px; padding: 9px 10px; }
+.reliability-check-list article > div { display: flex; justify-content: space-between; gap: 8px; font-size: 9px; text-transform: capitalize; }
+.reliability-check-list article code, .reliability-check-list article small { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .settings-subheading { margin: 18px 0 10px; color: var(--text); font-size: 12px; }
 .settings-subheading:first-child { margin-top: 0; }
 .provider-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
@@ -104,6 +115,7 @@
   .settings-field-grid, .settings-facts { grid-template-columns: 1fr; }
   .provider-account-grid { grid-template-columns: 1fr; }
   .credential-source-grid, .credential-lease-grid { grid-template-columns: 1fr; }
+  .reliability-check-panel > header { flex-direction: column; }
   .provider-toolbar { align-items: stretch; flex-direction: column; }
   .provider-list { grid-template-columns: 1fr; }
   .provider-route-list > div { grid-template-columns: 72px minmax(0, 1fr); }

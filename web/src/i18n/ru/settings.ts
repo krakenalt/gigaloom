@@ -55,6 +55,22 @@ export const ruSettings = {
   firstRunDoctor: "Готовность первого запуска",
   doctorOfflinePrivacy:
         "Web-проверка не обращается к провайдерам, GitHub, skills.sh или model routes. Она показывает только ограниченные локальные метаданные, счётчики, хэши и точные шаги восстановления.",
+  reliabilityStateValidation: "Целостность состояния",
+  reliabilityStateValidationHint:
+        "Запустить ограниченный read-only каталог recovery-проверок для настроенного data root. Исходные пути и содержимое записей остаются на бэкенде.",
+  readOnlyContentFree: "Read-only · без содержимого",
+  runStateValidation: "Проверить состояние",
+  stateValidationRunning: "Проверяем состояние…",
+  stateValidationUnavailable: "Настроенное состояние не удалось проверить.",
+  stateValidationStatus: "Статус проверки",
+  stateValidationPassed: "Пройдено",
+  stateValidationFailed: "Ошибка",
+  stateValidationWarning: "Предупреждение",
+  checksObserved: "Выполнено проверок",
+  filesObserved: "Проверено файлов",
+  bytesObserved: "Проверено байтов",
+  stateValidationChecksTruncated:
+        "Здесь показан только ограниченный начальный набор; полный спроецированный набор доступен в JSON-отчёте CLI.",
   discoverModels: "Найти модели",
   harnessDefaultsHint: "Начальные значения новых сессий; перед каждым запуском показывается эффективный план.",
   health: "Состояние",

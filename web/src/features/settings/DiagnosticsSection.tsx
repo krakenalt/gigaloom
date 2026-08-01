@@ -3,6 +3,10 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { fetchCockpit } from "../../api/core";
 import { settingsDiagnosticsOptions } from "../../api/queries/settings";
+import {
+  runReliabilityCheck,
+  type ReliabilityCheckResponse,
+} from "../../api/reliability";
 import type { DoctorReport } from "../../api/settings";
 import { LazyInspector, type InspectorKind } from "../../inspectors/LazyInspector";
 import { message } from "../../messages";
@@ -31,6 +35,7 @@ export default function DiagnosticsSection({ revision }: SettingsSectionProps) {
   const doctor = useMutation({
     mutationFn: () => fetchCockpit<DoctorReport>("/api/doctor"),
   });
+  const reliability = useMutation({ mutationFn: runReliabilityCheck });
 
   if (query.isPending) return <SectionPending locale={locale} />;
   if (query.isError || query.data === undefined) {
@@ -71,10 +76,96 @@ export default function DiagnosticsSection({ revision }: SettingsSectionProps) {
       {doctor.isError ? (
         <p className="mutation-error" role="alert">{doctor.error.message}</p>
       ) : null}
+      <section
+        aria-label={message(locale, "reliabilityStateValidation")}
+        className="reliability-check-panel"
+      >
+        <header>
+          <div>
+            <strong>{message(locale, "reliabilityStateValidation")}</strong>
+            <p>{message(locale, "reliabilityStateValidationHint")}</p>
+          </div>
+          <span className="content-free-badge">
+            {message(locale, "readOnlyContentFree")}
+          </span>
+        </header>
+        <button
+          disabled={reliability.isPending}
+          onClick={() => reliability.mutate()}
+          type="button"
+        >
+          {reliability.isPending
+            ? message(locale, "stateValidationRunning")
+            : message(locale, "runStateValidation")}
+        </button>
+        {reliability.data === undefined ? null : (
+          <ReliabilityResult locale={locale} report={reliability.data} />
+        )}
+        {reliability.isError ? (
+          <p className="mutation-error" role="alert">
+            {message(locale, "stateValidationUnavailable")}
+          </p>
+        ) : null}
+      </section>
       <SettingsInspectorBoundary />
       <Boundary effect="live" source="runtime_aggregates" />
     </>
   );
+}
+
+export function ReliabilityResult({
+  locale,
+  report,
+}: {
+  locale: LocalePreference;
+  report: ReliabilityCheckResponse;
+}) {
+  const visibleChecks = report.checks.slice(0, 12);
+  return (
+    <div className="reliability-check-result" data-status={report.status}>
+      <dl className="settings-facts">
+        <Fact
+          label={message(locale, "stateValidationStatus")}
+          value={message(locale, `stateValidation${capitalize(report.status)}`)}
+        />
+        <Fact
+          label={message(locale, "checksObserved")}
+          value={String(report.bounds.checks_observed)}
+        />
+        <Fact
+          label={message(locale, "filesObserved")}
+          value={String(report.bounds.files_observed)}
+        />
+        <Fact
+          label={message(locale, "bytesObserved")}
+          value={String(report.bounds.bytes_observed)}
+        />
+      </dl>
+      <div className="reliability-check-list">
+        {visibleChecks.map((check) => (
+          <article data-status={check.status} key={check.check_id}>
+            <div>
+              <strong>{check.kind.replaceAll("_", " ")}</strong>
+              <span>{check.status}</span>
+            </div>
+            <code>{check.source_ref}</code>
+            <small>{check.reason_code}</small>
+          </article>
+        ))}
+      </div>
+      {report.bounds.checks_truncated || visibleChecks.length < report.checks.length ? (
+        <small>{message(locale, "stateValidationChecksTruncated")}</small>
+      ) : null}
+      <small>SHA-256 {report.data_root_fingerprint}</small>
+    </div>
+  );
+}
+
+function capitalize(value: "passed" | "failed" | "warning") {
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)}` as
+    | "Passed"
+    | "Failed"
+    | "Warning";
 }
 
 function DoctorResult({ locale, report }: { locale: LocalePreference; report: DoctorReport }) {

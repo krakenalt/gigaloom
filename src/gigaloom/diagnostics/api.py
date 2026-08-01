@@ -16,6 +16,8 @@ _FAULT_LAB_EXPORTS = (
 )
 _RECOVERY_EXPORTS = (
     "CHECK_CATALOG",
+    "MAX_PROJECTED_RECOVERY_CHECKS",
+    "RECOVERY_PROJECTION_SCHEMA_VERSION",
     "RecoveryActionKind",
     "RecoveryActionPreview",
     "RecoveryActionStatus",
@@ -27,6 +29,8 @@ _RECOVERY_EXPORTS = (
     "RecoveryScanLimits",
     "RecoveryScanReport",
     "build_recovery_receipt",
+    "fault_scenario_result_to_dict",
+    "recovery_scan_report_to_dict",
 )
 _UPGRADE_RADAR_EXPORTS = (
     "CaseObservationV1",
