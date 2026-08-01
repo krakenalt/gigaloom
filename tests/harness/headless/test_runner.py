@@ -72,6 +72,30 @@ class _Executor:
         )
 
 
+class _WorkspaceTaskExecutor:
+    def __init__(self, *, edit: bool) -> None:
+        self.edit = edit
+        self.observed = ""
+
+    def execute(
+        self,
+        request: HeadlessExecutionRequest,
+        *,
+        cancel_event: object | None,
+        event_sink: HeadlessProgressSinkPort,
+    ) -> HeadlessExecutionResult:
+        del cancel_event, event_sink
+        target = Path(request.invocation.workspace) / "task.txt"
+        self.observed = target.read_text(encoding="utf-8")
+        if self.edit:
+            target.write_text("edited\n", encoding="utf-8")
+        return HeadlessExecutionResult(
+            status=HeadlessBackendStatus.SUCCEEDED,
+            result_ref="result.json",
+            capsule_ref=None,
+        )
+
+
 class _TtyInput(io.StringIO):
     def isatty(self) -> bool:
         return True
@@ -136,6 +160,26 @@ def test_runner_resolves_exact_route_and_reveals_prompt_only_to_executor(
     assert "Inspect the workspace" not in repr(result.prepared.invocation)
     assert executor.requests[0].prompt == "Inspect the workspace"
     assert (output / "run-fixture").is_dir()
+
+
+@pytest.mark.parametrize("edit", (False, True))
+def test_headless_runner_supports_read_only_and_edit_tasks(
+    tmp_path: Path,
+    edit: bool,
+) -> None:
+    workspace, _, output, authority = _layout(tmp_path)
+    target = workspace / "task.txt"
+    target.write_text("original\n", encoding="utf-8")
+    executor = _WorkspaceTaskExecutor(edit=edit)
+
+    result = HeadlessRunner(resolver=_Resolver(), executor=executor).run(
+        _request(workspace, output),
+        authority=authority,
+    )
+
+    assert result.exit_code == 0
+    assert executor.observed == "original\n"
+    assert target.read_text(encoding="utf-8") == ("edited\n" if edit else "original\n")
 
 
 def test_prompt_sources_are_exact_bounded_and_non_interactive(tmp_path: Path) -> None:
@@ -218,6 +262,42 @@ def test_path_authority_rejects_escape_and_symlink_redirection(tmp_path: Path) -
             _request(workspace, output, result_dir=redirected.as_posix()),
             authority=authority,
         )
+
+
+def test_malformed_task_path_and_result_permission_failure_fail_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace, prompts, output, authority = _layout(tmp_path)
+    runner = HeadlessRunner(resolver=_Resolver(), executor=_Executor())
+
+    with pytest.raises(HeadlessAdmissionError) as malformed:
+        runner.prepare(
+            _request(
+                workspace,
+                output,
+                positional_prompt=None,
+                prompt_file=(prompts / "missing.md").as_posix(),
+            ),
+            authority=authority,
+        )
+    assert malformed.value.reason_code == "path_unavailable"
+
+    target = output / "permission-denied"
+    original_mkdir = Path.mkdir
+
+    def refuse_target(path: Path, *args: object, **kwargs: object) -> None:
+        if path == target:
+            raise PermissionError("fixture permission refusal")
+        original_mkdir(path, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "mkdir", refuse_target)
+    with pytest.raises(HeadlessAdmissionError) as unavailable:
+        runner.prepare(
+            _request(workspace, output, result_dir=target.as_posix()),
+            authority=authority,
+        )
+    assert unavailable.value.reason_code == "result_dir_unavailable"
 
 
 def test_cli_mapping_preserves_one_explicit_prompt_source(tmp_path: Path) -> None:
