@@ -27,6 +27,10 @@
   frontend и browser gates.
 - Dependabot группирует только minor/patch maintenance; major upgrades остаются
   отдельными PR и больше не блокируют совместимые обновления в общей группе.
+- PR от Dependabot сохраняют полные required quality и platform matrices;
+  contract tests запрещают actor-specific skip и динамическое сужение, а
+  вспомогательные docs, dependency-review и Actions workflows остаются
+  path-scoped по своим входам.
 - Docs build больше не запускается на Python-only metadata, а dependency review
   теперь охватывает `uv.lock` и manifests/lockfile сайта документации.
 
@@ -34,7 +38,9 @@
 
 - Protected release workflow теперь проверяет, что exact GitHub Release tag
   свободен до первой записи в registry, и не оставляет npm/PyPI publication без
-  завершаемого release boundary из-за заранее созданного Release.
+  завершаемого release boundary из-за заранее созданного Release. После
+  доказательства точных registry bytes recovery может принять только пустой
+  mutable exact-tag Release и никогда не перезаписывает загруженные assets.
 - Changelog prerelease теперь проверяется по canonical SemVer, а не по его
   PEP 440 projection; reusable candidate report больше не переносит устаревшие
   результаты запусков в следующую версию.

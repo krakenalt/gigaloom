@@ -62,6 +62,30 @@ def test_required_quality_jobs_are_independent_and_standalone():
     assert "steps.browser_qa.outcome != 'skipped'" in text
 
 
+def test_dependabot_cannot_narrow_required_quality_checks():
+    workflow = _workflow("ci.yaml")
+    jobs = workflow["jobs"]
+    required_condition = (
+        "github.event_name != 'pull_request' || "
+        "github.event.pull_request.draft == false"
+    )
+
+    assert "paths" not in workflow["on"]["pull_request"]
+    assert "dependabot" not in _workflow_text("ci.yaml").casefold()
+    for job in jobs.values():
+        assert job["if"] == required_condition
+
+    assert jobs["python"]["strategy"]["matrix"]["python-version"] == [
+        "3.11",
+        "3.13",
+        "3.14",
+    ]
+    assert jobs["terminal"]["strategy"]["matrix"] == {
+        "os": ["ubuntu-latest", "macos-latest", "windows-latest"],
+        "python-version": ["3.11", "3.13", "3.14"],
+    }
+
+
 def test_workflow_changes_run_lint_and_isolated_contract_tests():
     workflow = _workflow("actionlint.yaml")
     assert set(workflow["jobs"]) == {"actionlint", "workflow-contracts"}

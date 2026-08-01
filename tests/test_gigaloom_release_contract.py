@@ -120,15 +120,26 @@ def test_protected_publish_consumes_one_retained_candidate_without_rebuilding():
         "steps.guard.outputs.npm_dist_tag",
         "uv publish dist/release-candidate/*.whl",
         "--mode release-assets-only",
+        "Inspect the exact-tag GitHub Release boundary",
+        "release.immutable === true",
+        "release.assets.length !== 0",
+        'core.setOutput("exists", "true")',
+        'gh release upload "${RELEASE_TAG}"',
+        'gh release edit "${RELEASE_TAG}"',
         'gh release create "${RELEASE_TAG}"',
-        "--prerelease --latest=false",
-        "release_flags=(--latest)",
+        "--draft=false --prerelease --latest=false",
+        "release_flags=(--draft=false --prerelease=false --latest)",
     ):
         assert contract in text
     assert text.index("github.rest.repos.getReleaseByTag") < text.index("npm publish")
     assert text.index("npm publish") < text.index("uv publish")
-    assert text.index("uv publish") < text.index("gh release create")
+    registry_proof = text.index("Prove both registries contain the retained candidate bytes")
+    release_boundary = text.index("Inspect the exact-tag GitHub Release boundary")
+    assert text.index("uv publish") < registry_proof < release_boundary
+    assert release_boundary < text.index("gh release upload")
+    assert release_boundary < text.index("gh release create")
     for forbidden in (
+        "--clobber",
         "getEnvironment",
         "required reviewers",
         "listWorkflowRuns",

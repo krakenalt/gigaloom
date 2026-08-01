@@ -84,7 +84,10 @@ ID and requires one unexpired artifact with the exact SHA-bound name. The
 protected job rechecks the tag, ancestry, metadata, checksums, byte parity, and
 legacy denylist and does not rebuild. Before an initial or missing-registry
 publication it also requires the exact GitHub Release tag to be vacant. It then
-checks public registry state before requesting OIDC credentials. Manual
+checks public registry state before requesting OIDC credentials. After both
+registries are proven, the final boundary accepts either a vacant tag or one
+mutable exact-tag Release with zero uploaded assets. The latter is adopted
+without asset overwrite and its release-channel metadata is normalized. Manual
 dispatch remains recovery-only; it additionally requires the recorded run ID,
 SHA, tag, manifest digest, and recovery mode.
 
@@ -94,13 +97,16 @@ Choose exactly one mode:
 - `recover-pypi`: exact npm bytes exist and PyPI is absent; publish only PyPI;
 - `recover-npm`: exact PyPI files exist and npm is absent; publish only npm;
 - `release-assets-only`: both registries contain the exact candidate bytes;
-  publish neither registry and create the GitHub Release last.
+  publish neither registry and create the GitHub Release last, or adopt one
+  empty mutable exact-tag Release without overwriting assets.
 
 Any unexpected existing filename or digest, malformed registry response, or
 registry outage stops the workflow. A successful registry is never
-republished during recovery. A pre-created GitHub Release also stops the
-workflow before either registry write; it must not be silently deleted,
-overwritten, or adopted.
+republished during recovery. A pre-created GitHub Release stops the workflow
+before either registry write. Only after exact registry-byte proof may an
+explicit `release-assets-only` recovery adopt it, and only when the exact-tag
+Release is mutable and has no uploaded assets; every collision or immutable
+boundary fails closed.
 
 ## Release channels
 

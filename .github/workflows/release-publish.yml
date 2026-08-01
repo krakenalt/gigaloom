@@ -357,15 +357,64 @@ jobs:
           --attempts 12
           --retry-seconds 10
 
-      - name: Create GitHub Release last from the retained bundle
+      - name: Inspect the exact-tag GitHub Release boundary
+        id: github_release
+        uses: actions/github-script@v8
         env:
+          RELEASE_TAG: ${{ steps.guard.outputs.tag }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const tag = process.env.RELEASE_TAG;
+            try {
+              const { data: release } = await github.rest.repos.getReleaseByTag({
+                ...context.repo,
+                tag,
+              });
+              if (release.tag_name !== tag) {
+                throw new Error(
+                  `GitHub returned tag ${release.tag_name} for exact tag ${tag}`,
+                );
+              }
+              if (release.immutable === true) {
+                throw new Error(`GitHub Release ${release.html_url} is immutable`);
+              }
+              if (release.assets.length !== 0) {
+                const names = release.assets.map((asset) => asset.name).sort();
+                throw new Error(
+                  `GitHub Release ${release.html_url} already has uploaded assets: ` +
+                  names.join(", "),
+                );
+              }
+              core.setOutput("exists", "true");
+              core.notice(
+                `Adopting empty mutable exact-tag GitHub Release ${release.html_url}`,
+              );
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+              core.setOutput("exists", "false");
+              core.info(`GitHub Release tag ${tag} is vacant`);
+            }
+
+      - name: Finalize GitHub Release last from the retained bundle
+        env:
+          EXISTING_RELEASE: ${{ steps.github_release.outputs.exists }}
           GH_TOKEN: ${{ github.token }}
           IS_PRERELEASE: ${{ steps.guard.outputs.is_prerelease }}
           RELEASE_TAG: ${{ steps.guard.outputs.tag }}
         run: |
-          release_flags=(--latest)
+          release_flags=(--draft=false --prerelease=false --latest)
           if [[ "${IS_PRERELEASE}" == "true" ]]; then
-            release_flags=(--prerelease --latest=false)
+            release_flags=(--draft=false --prerelease --latest=false)
+          fi
+          if [[ "${EXISTING_RELEASE}" == "true" ]]; then
+            gh release upload "${RELEASE_TAG}" dist/release-candidate/*
+            gh release edit "${RELEASE_TAG}" \
+              --title "GigaLoom ${{ steps.guard.outputs.release }}" \
+              "${release_flags[@]}"
+            exit 0
           fi
           gh release create "${RELEASE_TAG}" \
             dist/release-candidate/* \

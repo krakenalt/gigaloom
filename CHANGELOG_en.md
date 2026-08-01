@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   frontend and browser gates.
 - Dependabot groups only minor/patch maintenance; major upgrades remain separate
   pull requests and no longer block compatible updates in a mixed group.
+- Dependabot pull requests retain the complete required quality and platform
+  matrices; contract tests forbid actor-specific skips or dynamic narrowing,
+  while auxiliary docs, dependency-review, and Actions workflows stay
+  path-scoped to their owned inputs.
 - The docs build no longer runs for Python-only metadata, while dependency
   review now covers `uv.lock` plus the documentation manifest and lockfile.
 
@@ -32,7 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The protected release workflow now requires the exact GitHub Release tag to
   be vacant before the first registry write, preventing a pre-created Release
-  from stranding an otherwise successful npm/PyPI publication.
+  from stranding an otherwise successful npm/PyPI publication. After exact
+  registry-byte proof, recovery may adopt only an empty mutable exact-tag
+  Release and never overwrites uploaded assets.
 - Prerelease changelog validation now compares canonical SemVer rather than its
   PEP 440 projection, and reusable candidate reports no longer carry stale run
   results into a new version.

@@ -85,9 +85,12 @@ policy, а не обходится workflow.
 непросроченный SHA-bound artifact. Protected job повторно проверяет tag,
 ancestry, metadata, checksums, byte parity и legacy denylist и ничего не
 пересобирает. Перед initial publication или recovery отсутствующего registry
-он также требует, чтобы точный GitHub Release tag был свободен. Manual dispatch
-остаётся только для recovery и требует run ID, полный SHA, tag, manifest digest
-и recovery mode.
+он также требует, чтобы точный GitHub Release tag был свободен. После
+доказательства точных bytes в обоих registry финальная граница принимает либо
+свободный tag, либо один mutable exact-tag Release без загруженных assets. Такой
+Release принимается без перезаписи assets, а metadata release channel
+нормализуется. Manual dispatch остаётся только для recovery и требует run ID,
+полный SHA, tag, manifest digest и recovery mode.
 
 Выберите ровно один mode:
 
@@ -97,13 +100,16 @@ ancestry, metadata, checksums, byte parity и legacy denylist и ничего н
 - `recover-npm`: точные PyPI files существуют, npm отсутствует; публиковать
   только npm;
 - `release-assets-only`: оба registry содержат точные candidate bytes; не
-  публиковать packages и создать GitHub Release последним.
+  публиковать packages и создать GitHub Release последним либо принять один
+  пустой mutable exact-tag Release без перезаписи assets.
 
 Любой неожиданный filename или digest, malformed registry response либо outage
 останавливает workflow. Registry, где операция уже завершилась, при recovery
-повторно не публикуется. Заранее созданный GitHub Release также останавливает
-workflow до записи в любой registry; его нельзя молча удалять, перезаписывать
-или принимать как доверенный.
+повторно не публикуется. Заранее созданный GitHub Release останавливает workflow
+до записи в любой registry. Только после доказательства точных registry bytes
+явный `release-assets-only` recovery может принять его, и лишь если exact-tag
+Release mutable и не содержит загруженных assets; любая коллизия или immutable
+граница завершается fail-closed.
 
 ## Rollback и recovery
 
