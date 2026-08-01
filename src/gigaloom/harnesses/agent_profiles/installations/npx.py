@@ -418,6 +418,8 @@ def _resolve_npm_entrypoint(payload: Path, resolution: NpxPackageResolution) -> 
         raise AgentInstallError("npm_entrypoint_invalid") from error
     if not resolved.is_relative_to(payload.resolve()) or not resolved.is_file():
         raise AgentInstallError("npm_entrypoint_outside_managed_root")
+    if not os.access(resolved, os.X_OK):
+        resolved.chmod(0o700)
     return shim.relative_to(payload).as_posix()
 
 
