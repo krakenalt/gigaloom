@@ -23,6 +23,15 @@ from gigaloom.harnesses.agent_profiles.installations.models import (
     InstallPlanningResult,
     InstallSelectionStatus,
 )
+from gigaloom.harnesses.agent_profiles.installations.npx import (
+    NpxAgentInstaller,
+    NpxPackageResolver,
+)
+from gigaloom.harnesses.agent_profiles.installations.packages import (
+    NpxPackageResolution,
+    PackageInstallResult,
+    UvxPackageResolution,
+)
 from gigaloom.harnesses.agent_profiles.installations.planner import (
     AgentIdentityInventory,
     AgentIdentityPlan,
@@ -34,6 +43,11 @@ from gigaloom.harnesses.agent_profiles.installations.transport import (
     BinaryDownloadResponse,
     BinaryDownloadTransport,
     UrllibBinaryDownloadTransport,
+)
+from gigaloom.harnesses.agent_profiles.installations.uvx import (
+    UvxAgentInstaller,
+    UvxPackageResolver,
+    interpreter_fingerprint,
 )
 
 __all__ = [
@@ -56,6 +70,14 @@ __all__ = [
     "InstallSelectionStatus",
     "InstallCancellationToken",
     "ManagedAgentActivationStore",
+    "NpxAgentInstaller",
+    "NpxPackageResolution",
+    "NpxPackageResolver",
+    "PackageInstallResult",
     "StagingRecoveryResult",
     "UrllibBinaryDownloadTransport",
+    "UvxAgentInstaller",
+    "UvxPackageResolution",
+    "UvxPackageResolver",
+    "interpreter_fingerprint",
 ]
