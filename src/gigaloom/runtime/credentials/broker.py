@@ -168,6 +168,15 @@ class InMemoryCredentialBroker:
                 raise CredentialLeaseNotFoundError("credential lease not found")
             return record.lease
 
+    def list_leases(self) -> tuple[CredentialLeaseV1, ...]:
+        """Return stable metadata-only leases after applying expiry."""
+        now = self._current_time()
+        with self._lock:
+            self._expire_unlocked(now)
+            return tuple(
+                self._leases[lease_id].lease for lease_id in sorted(self._leases)
+            )
+
     def active_lease_count(self, secret_ref_id: str) -> int:
         """Return active headroom use for one opaque SecretRef identity."""
         now = self._current_time()

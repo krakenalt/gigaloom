@@ -22,6 +22,7 @@ describe("Settings independent loading", () => {
       "LocalAccessSection",
       "RuntimeSection",
       "ProviderAccountsSection",
+      "CredentialLeasesSection",
       "ProviderSection",
       "RoutesModelsSection",
       "HarnessDefaultsSection",

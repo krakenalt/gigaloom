@@ -51,6 +51,22 @@
 .provider-account-card .settings-facts { grid-template-columns: 1fr; }
 .provider-account-recovery { min-height: 42px; display: grid; gap: 4px; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
 .provider-account-recovery strong { color: var(--text); font-size: 9px; text-transform: uppercase; }
+.credential-operator-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.credential-operator-heading > div { min-width: 0; display: grid; gap: 3px; }
+.credential-operator-heading strong { font-size: 12px; }
+.credential-operator-heading span:not(.content-free-badge) { color: var(--muted); font-size: 9px; line-height: 1.45; }
+.credential-source-grid, .credential-lease-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.credential-card { min-width: 0; display: grid; align-content: start; gap: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 13px; }
+.credential-card[data-state="expired"], .credential-card[data-state="revoked"] { background: color-mix(in srgb, var(--surface-muted) 55%, var(--surface)); }
+.credential-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.credential-card > header > div { min-width: 0; display: grid; gap: 3px; }
+.credential-card > header strong, .credential-card > header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.credential-card > header strong { font-size: 11px; }
+.credential-card > header small { color: var(--muted); font-size: 8px; }
+.credential-card .settings-facts { grid-template-columns: 1fr; }
+.credential-card > button { justify-self: start; }
+.credential-revoke-confirmation { display: flex; flex-wrap: wrap; gap: 7px; }
+.credential-empty-state { margin: 0; border: 1px dashed var(--border); border-radius: 7px; color: var(--muted); padding: 18px; font-size: 10px; }
 .settings-subheading { margin: 18px 0 10px; color: var(--text); font-size: 12px; }
 .settings-subheading:first-child { margin-top: 0; }
 .provider-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
@@ -87,6 +103,7 @@
   .settings-section { padding: 14px; }
   .settings-field-grid, .settings-facts { grid-template-columns: 1fr; }
   .provider-account-grid { grid-template-columns: 1fr; }
+  .credential-source-grid, .credential-lease-grid { grid-template-columns: 1fr; }
   .provider-toolbar { align-items: stretch; flex-direction: column; }
   .provider-list { grid-template-columns: 1fr; }
   .provider-route-list > div { grid-template-columns: 72px minmax(0, 1fr); }

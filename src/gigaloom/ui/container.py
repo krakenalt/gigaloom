@@ -100,6 +100,7 @@ from gigaloom.ui.services.context_impact import (
     ContextProjectionQuery,
     ImpactProjectionService,
 )
+from gigaloom.ui.services.credentials import CredentialOperatorService
 from gigaloom.ui.services.legacy_bundles import (
     LegacyFullBundleCompatibility,
 )
@@ -126,6 +127,7 @@ class OperationalBackendOwners:
     """Stateful owners shared by later operational product surfaces."""
 
     credential_broker: InMemoryCredentialBroker
+    credential_operator: CredentialOperatorService
     recovery_receipts: RecoveryReceiptService
     lane_delta_builder: LaneDeltaBuilder
     lane_delta_store: FilesystemLaneDeltaPacketStore
@@ -431,6 +433,7 @@ def build_app_services(
         OperatorEvidenceObservedInputsProvider(operator_evidence_query),
     )
     visual_evidence_root = Path(config.data_dir) / "automation" / "visual-qa-v1"
+    credential_broker = InMemoryCredentialBroker("gigaloom-fake-broker-v1")
     return AppServices(
         config=config,
         ui_security=HarnessUISecurity(config, oidc_client=remote_oidc_client),
@@ -525,7 +528,10 @@ def build_app_services(
         action_inbox_service=action_inbox_service or ActionInboxService(()),
         operator_event_broker=operator_event_broker or OperatorEventBroker(),
         operational_backends=OperationalBackendOwners(
-            credential_broker=InMemoryCredentialBroker("gigaloom-fake-broker-v1"),
+            credential_broker=credential_broker,
+            credential_operator=CredentialOperatorService.with_fake_broker_demo(
+                credential_broker
+            ),
             recovery_receipts=RecoveryReceiptService(),
             lane_delta_builder=LaneDeltaBuilder(),
             lane_delta_store=FilesystemLaneDeltaPacketStore(config.data_dir),

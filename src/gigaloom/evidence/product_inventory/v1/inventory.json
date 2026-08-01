@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "5bb7a45ff0cc484b9f498012a90671fe2671b7710b6b79fa2fab85e0b6d78e1b",
+  "content_sha256": "fb16c77d202d0368a23fd149af3654ed90135773cd88b8d05d0a03f37c299dfe",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -1324,6 +1324,21 @@
         "method": "GET",
         "name": "compatibility_guardian",
         "path": "/api/compatibility/guardian"
+      },
+      {
+        "method": "GET",
+        "name": "snapshot",
+        "path": "/api/credentials"
+      },
+      {
+        "method": "POST",
+        "name": "request_lease",
+        "path": "/api/credentials/leases"
+      },
+      {
+        "method": "POST",
+        "name": "revoke_lease",
+        "path": "/api/credentials/leases/{lease_id}/revoke"
       },
       {
         "method": "GET",

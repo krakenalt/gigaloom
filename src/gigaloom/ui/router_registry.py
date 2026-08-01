@@ -25,6 +25,9 @@ from gigaloom.ui.routers.compatibility import router as compatibility_router
 from gigaloom.ui.routers.context_impact import (
     create_router as create_context_impact_router,
 )
+from gigaloom.ui.routers.credentials import (
+    create_router as create_credentials_router,
+)
 from gigaloom.ui.routers.editor import create_router as create_editor_router
 from gigaloom.ui.routers.environments import router as environments_router
 from gigaloom.ui.routers.evals import create_router as create_evals_router
@@ -117,6 +120,9 @@ def install_application_routers(
     app.include_router(create_catalog_router(services))
     app.include_router(create_projects_router(services))
     app.include_router(create_context_impact_router(services))
+    app.include_router(
+        create_credentials_router(services.operational_backends.credential_operator)
+    )
     app.include_router(create_editor_router(services))
     app.include_router(create_project_memory_router(services))
     app.include_router(create_project_tools_router(services))

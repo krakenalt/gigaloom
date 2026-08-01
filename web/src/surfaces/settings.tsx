@@ -21,6 +21,9 @@ const RuntimeSection = lazy(
 const ProviderAccountsSection = lazy(
   () => import("../features/settings/ProviderAccountsSection"),
 );
+const CredentialLeasesSection = lazy(
+  () => import("../features/settings/CredentialLeasesSection"),
+);
 const ProviderSection = lazy(
   () => import("../features/settings/ProviderSection"),
 );
@@ -45,6 +48,7 @@ const categories = [
   "localAccess",
   "runtime",
   "providerAccounts",
+  "credentialLeases",
   "provider",
   "routesModels",
   "harnessDefaults",
@@ -147,6 +151,15 @@ export function SettingsSurface() {
             title={message(locale, "providerAccounts")}
           >
             <ProviderAccountsSection />
+          </DeferredSettingsSection>
+
+          <DeferredSettingsSection
+            description={message(locale, "credentialLeasesHint")}
+            id="credentialLeases"
+            locale={locale}
+            title={message(locale, "credentialLeases")}
+          >
+            <CredentialLeasesSection />
           </DeferredSettingsSection>
 
           <DeferredSettingsSection
