@@ -24,7 +24,7 @@ from gigaloom.runtime.db import RUNTIME_SCHEMA_VERSION
 
 _ACTIVE_ATTEMPT_STATUSES = ("claimed", "starting", "running")
 _TERMINAL_RUN_STATUSES = frozenset({"succeeded", "failed", "canceled"})
-_TERMINAL_EVENT_TYPE = "run_finished"
+_TERMINAL_EVENT_TYPES = frozenset({"run_finished", "runtime_reconciled"})
 _SUPPORTED_SQLITE_SUFFIXES = frozenset({".db", ".sqlite", ".sqlite3"})
 
 
@@ -277,7 +277,7 @@ def terminal_event_check(
     terminal_counts: dict[str, int] = defaultdict(int)
     for record in records:
         run_id = record.get("run_id")
-        if isinstance(run_id, str) and record.get("type") == _TERMINAL_EVENT_TYPE:
+        if isinstance(run_id, str) and record.get("type") in _TERMINAL_EVENT_TYPES:
             terminal_counts[run_id] += 1
     failure = next(
         ("duplicate_terminal_event" for count in terminal_counts.values() if count > 1),

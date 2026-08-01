@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "fixtures": [
+    "attachment_digest_mismatch",
+    "cancel_before_terminal_event",
+    "database_locked_during_commit",
+    "jsonl_tail_truncated",
+    "restart_after_lease_before_side_effect",
+    "worker_dies_after_claim"
+  ],
+  "required_invariants": [
+    "no_accidental_success",
+    "no_duplicate_side_effect",
+    "no_lost_cancellation",
+    "no_stuck_running"
+  ]
+}
