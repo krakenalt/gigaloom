@@ -7,9 +7,14 @@ from pathlib import Path
 from typing import Any
 
 from gigaloom.application import SessionApplicationService
+from gigaloom.automation.api import (
+    FilesystemVisualArtifactStore,
+    FilesystemVisualGateStore,
+)
 from gigaloom.arena import FilesystemHarnessArenaStore
 from gigaloom.attachments import FilesystemAttachmentStore
 from gigaloom.config import HarnessConfig
+from gigaloom.diagnostics.api import RecoveryReceiptService
 from gigaloom.environment_actions import (
     EnvironmentCommitError,
     EnvironmentCommitService,
@@ -51,6 +56,7 @@ from gigaloom.projects.api import LaunchResolutionContextV1
 from gigaloom.provider_authentication_broker import NativeLoginBroker
 from gigaloom.provider_settings import ProviderSettingsService
 from gigaloom.registry import HarnessRegistry, create_default_registry
+from gigaloom.runtime.api import InMemoryCredentialBroker
 from gigaloom.runtime.payloads import DurableJobPayloadStore
 from gigaloom.runtime.policy import PolicyEngine
 from gigaloom.runtime.action_inbox.api import ActionInboxService
@@ -60,7 +66,11 @@ from gigaloom.runtime.reconcile import (
 )
 from gigaloom.runtime.store import RuntimeCoordinationStore
 from gigaloom.runtime.worker import DurableJobDispatcher
-from gigaloom.review.api import RouteDecisionRepository
+from gigaloom.review.api import (
+    FilesystemLaneDeltaPacketStore,
+    LaneDeltaBuilder,
+    RouteDecisionRepository,
+)
 from gigaloom.review.capsules import (
     CapsuleSigner,
     FilesystemRunCapsuleRepository,
@@ -105,6 +115,18 @@ from gigaloom.workbench_resources import (
     WorkbenchPreferenceStore,
     WorkbenchResourceService,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class OperationalBackendOwners:
+    """Stateful owners shared by later operational product surfaces."""
+
+    credential_broker: InMemoryCredentialBroker
+    recovery_receipts: RecoveryReceiptService
+    lane_delta_builder: LaneDeltaBuilder
+    lane_delta_store: FilesystemLaneDeltaPacketStore
+    visual_artifact_store: FilesystemVisualArtifactStore
+    visual_gate_store: FilesystemVisualGateStore
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +180,7 @@ class AppServices:
     operator_evidence_query: OperatorEvidenceQuery | None
     action_inbox_service: ActionInboxService
     operator_event_broker: OperatorEventBroker
+    operational_backends: OperationalBackendOwners
     project_catalog_service: ProjectCatalogWebService
     route_advisor_service: RouteAdvisorWebService
     mcp_app_host_service: MCPAppHostService
@@ -401,6 +424,7 @@ def build_app_services(
         capsule_repository,
         OperatorEvidenceObservedInputsProvider(operator_evidence_query),
     )
+    visual_evidence_root = Path(config.data_dir) / "automation" / "visual-qa-v1"
     return AppServices(
         config=config,
         ui_security=HarnessUISecurity(config, oidc_client=remote_oidc_client),
@@ -494,6 +518,14 @@ def build_app_services(
         operator_evidence_query=operator_evidence_query,
         action_inbox_service=action_inbox_service or ActionInboxService(()),
         operator_event_broker=operator_event_broker or OperatorEventBroker(),
+        operational_backends=OperationalBackendOwners(
+            credential_broker=InMemoryCredentialBroker("gigaloom-fake-broker-v1"),
+            recovery_receipts=RecoveryReceiptService(),
+            lane_delta_builder=LaneDeltaBuilder(),
+            lane_delta_store=FilesystemLaneDeltaPacketStore(config.data_dir),
+            visual_artifact_store=FilesystemVisualArtifactStore(visual_evidence_root),
+            visual_gate_store=FilesystemVisualGateStore(visual_evidence_root),
+        ),
         project_catalog_service=project_catalog_service,
         route_advisor_service=route_advisor_service,
         mcp_app_host_service=MCPAppHostService(),
