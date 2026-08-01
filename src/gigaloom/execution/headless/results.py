@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 import os
 from pathlib import Path
@@ -24,6 +24,7 @@ from gigaloom.execution.headless.contracts import (
 HEADLESS_RESULT_REF = "headless-result.json"
 HEADLESS_TERMINAL_RECEIPT_REF = "terminal-receipt.json"
 HEADLESS_PARTIAL_RECEIPT_REF = "partial-stream-receipt.json"
+HEADLESS_BACKEND_RESULT_REF = "backend-result.json"
 MAX_HEADLESS_RESULT_BYTES = 64 * 1024
 
 
@@ -94,6 +95,31 @@ class HeadlessResultStore:
         }
         self._publish(HEADLESS_RESULT_REF, canonical_json_bytes(payload))
         return HEADLESS_RESULT_REF
+
+    def write_backend_result(
+        self,
+        *,
+        run_id: str,
+        agent_id: str,
+        route_id: str,
+        stop_reason: str,
+        capability_snapshot_digest: str,
+        usage: Mapping[str, object] | None,
+    ) -> str:
+        """Publish one bounded prompt-free backend completion projection."""
+        document = {
+            "schema_version": 1,
+            "run_id": run_id,
+            "agent_id": agent_id,
+            "route_id": route_id,
+            "stop_reason": stop_reason,
+            "capability_snapshot_digest": capability_snapshot_digest,
+            "usage": dict(usage) if usage is not None else None,
+            "prompt_captured": False,
+            "content_free": True,
+        }
+        self._publish(HEADLESS_BACKEND_RESULT_REF, canonical_json_bytes(document))
+        return HEADLESS_BACKEND_RESULT_REF
 
     def write_terminal_receipt(
         self,
@@ -191,6 +217,7 @@ class HeadlessResultStore:
 
 
 __all__ = [
+    "HEADLESS_BACKEND_RESULT_REF",
     "HEADLESS_PARTIAL_RECEIPT_REF",
     "HEADLESS_RESULT_REF",
     "HEADLESS_TERMINAL_RECEIPT_REF",

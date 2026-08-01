@@ -44,6 +44,7 @@ from gigaloom.execution.headless.environment import (
     render_headless_dotenv,
 )
 from gigaloom.execution.headless.results import (
+    HEADLESS_BACKEND_RESULT_REF,
     HEADLESS_PARTIAL_RECEIPT_REF,
     HEADLESS_RESULT_REF,
     HEADLESS_TERMINAL_RECEIPT_REF,
@@ -55,6 +56,7 @@ from gigaloom.execution.headless.runner import write_headless_diagnostic
 __all__ = [
     "MAX_HEADLESS_PROMPT_BYTES",
     "CanonicalJsonlEventWriter",
+    "HEADLESS_BACKEND_RESULT_REF",
     "HEADLESS_PARTIAL_RECEIPT_REF",
     "HEADLESS_ENVIRONMENT_KEYS",
     "HEADLESS_ENVIRONMENT_PROFILE",

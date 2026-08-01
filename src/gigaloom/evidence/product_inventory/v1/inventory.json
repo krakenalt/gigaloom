@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "c645122ab25b0a23f898398d193cb15290b33433a1b3989ace7294204cffdca9",
+  "content_sha256": "5bb7a45ff0cc484b9f498012a90671fe2671b7710b6b79fa2fab85e0b6d78e1b",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -1080,6 +1080,66 @@
   ],
   "interfaces": {
     "api_operations": [
+      {
+        "method": "POST",
+        "name": "install",
+        "path": "/api/agent-runtimes/installations"
+      },
+      {
+        "method": "POST",
+        "name": "preview",
+        "path": "/api/agent-runtimes/installations/preview"
+      },
+      {
+        "method": "POST",
+        "name": "recover",
+        "path": "/api/agent-runtimes/installations/recover"
+      },
+      {
+        "method": "GET",
+        "name": "inspect_operation",
+        "path": "/api/agent-runtimes/installations/{operation_id}"
+      },
+      {
+        "method": "POST",
+        "name": "cancel_operation",
+        "path": "/api/agent-runtimes/installations/{operation_id}/cancel"
+      },
+      {
+        "method": "GET",
+        "name": "operation_events",
+        "path": "/api/agent-runtimes/installations/{operation_id}/events"
+      },
+      {
+        "method": "GET",
+        "name": "inventory",
+        "path": "/api/agent-runtimes/inventory"
+      },
+      {
+        "method": "POST",
+        "name": "probe",
+        "path": "/api/agent-runtimes/{local_agent_id}/probe"
+      },
+      {
+        "method": "POST",
+        "name": "remove",
+        "path": "/api/agent-runtimes/{local_agent_id}/remove"
+      },
+      {
+        "method": "POST",
+        "name": "rollback",
+        "path": "/api/agent-runtimes/{local_agent_id}/rollback"
+      },
+      {
+        "method": "POST",
+        "name": "update",
+        "path": "/api/agent-runtimes/{local_agent_id}/update"
+      },
+      {
+        "method": "GET",
+        "name": "use_in_new_run",
+        "path": "/api/agent-runtimes/{local_agent_id}/use"
+      },
       {
         "method": "GET",
         "name": "agent_list",
@@ -2131,9 +2191,39 @@
         "path": "/api/settings"
       },
       {
+        "method": "GET",
+        "name": "settings_defaults",
+        "path": "/api/settings/defaults"
+      },
+      {
         "method": "PATCH",
         "name": "update_settings_defaults",
         "path": "/api/settings/defaults"
+      },
+      {
+        "method": "GET",
+        "name": "settings_diagnostics",
+        "path": "/api/settings/diagnostics"
+      },
+      {
+        "method": "GET",
+        "name": "settings_mcp",
+        "path": "/api/settings/mcp"
+      },
+      {
+        "method": "GET",
+        "name": "settings_runtime",
+        "path": "/api/settings/runtime"
+      },
+      {
+        "method": "GET",
+        "name": "settings_summary",
+        "path": "/api/settings/summary"
+      },
+      {
+        "method": "GET",
+        "name": "settings_workspace",
+        "path": "/api/settings/workspace"
       },
       {
         "method": "POST",
@@ -2307,13 +2397,22 @@
       }
     ],
     "cli_commands": [
+      "acp",
+      "acp add",
+      "acp search",
       "agent",
       "agent add",
       "agent discover",
       "agent inspect",
       "agent list",
+      "agent lock",
+      "agent outdated",
       "agent probe",
       "agent remove",
+      "agent rollback",
+      "agent search",
+      "agent sync",
+      "agent update",
       "benchmark",
       "benchmark performance",
       "bootstrap",
@@ -2346,6 +2445,10 @@
       "harness run",
       "harness scaffold",
       "harness validate",
+      "headless",
+      "headless contract",
+      "headless doctor",
+      "headless env",
       "init",
       "integration",
       "integration apply",

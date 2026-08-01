@@ -42,6 +42,7 @@ def _register_agent_subcommands(subparsers: argparse._SubParsersAction) -> None:
 
     probe = subparsers.add_parser("probe")
     probe.add_argument("local_agent_id")
+    probe.add_argument("--route", default=None)
     probe.add_argument("--json", action="store_true")
     probe.set_defaults(handler="_handle_agent_runtime_probe")
 
@@ -66,6 +67,7 @@ def _register_agent_subcommands(subparsers: argparse._SubParsersAction) -> None:
 
     remove = subparsers.add_parser("remove")
     remove.add_argument("local_agent_id")
+    remove.add_argument("--dry-run", action="store_true")
     remove.add_argument("--yes", action="store_true")
     remove.add_argument("--json", action="store_true")
     remove.set_defaults(handler="_handle_agent_runtime_remove")
@@ -80,6 +82,12 @@ def _register_agent_subcommands(subparsers: argparse._SubParsersAction) -> None:
     sync.add_argument("--yes", action="store_true")
     sync.add_argument("--json", action="store_true")
     sync.set_defaults(handler="_handle_agent_runtime_sync")
+
+    discover = subparsers.add_parser("discover")
+    discover.add_argument("--registry", required=True)
+    discover.add_argument("--dry-run", action="store_true")
+    discover.add_argument("--json", action="store_true")
+    discover.set_defaults(handler="_handle_agent_profile_discover")
 
 
 def _register_acp_aliases(subparsers: argparse._SubParsersAction) -> None:

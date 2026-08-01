@@ -15,6 +15,7 @@ export const enCommon = {
   whyThisDecision: "Why this decision",
   automation: "Automation",
   automationNav: "Automation",
+  codingAgents: "Coding Agents",
   automationDetail:
         "Agents, workflows, schedules, and compatibility guardian retain one backend workflow contract across every client.",
   approvals: "Approvals",

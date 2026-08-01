@@ -7,6 +7,12 @@ from fastapi import FastAPI
 from gigaloom.provider_authentication_broker import NativeLoginBroker
 from gigaloom.ui.container import AppServices
 from gigaloom.ui.routers.agents import router as agents_router
+from gigaloom.ui.routers.agent_installations import (
+    create_router as create_agent_installations_router,
+)
+from gigaloom.ui.routers.agent_registry import (
+    create_router as create_agent_registry_router,
+)
 from gigaloom.ui.routers.approvals import router as approvals_router
 from gigaloom.ui.routers.arena import create_router as create_arena_router
 from gigaloom.ui.routers.attachments import (
@@ -126,6 +132,10 @@ def install_application_routers(
     )
     app.include_router(create_native_processes_router(services))
     app.include_router(agents_router)
+    app.include_router(create_agent_registry_router(services.agent_runtimes.registry))
+    app.include_router(
+        create_agent_installations_router(services.agent_runtimes.installations)
+    )
     app.include_router(automation_router)
     app.include_router(approvals_router)
     app.include_router(cockpit_router)

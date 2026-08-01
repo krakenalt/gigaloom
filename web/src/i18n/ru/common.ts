@@ -17,6 +17,7 @@ export const ruCommon = {
   whyThisDecision: "Почему такое решение",
   automation: "Автоматизация",
   automationNav: "Автомат.",
+  codingAgents: "Кодинг-агенты",
   automationDetail:
         "Агенты, workflows, расписания и compatibility guardian сохраняют единый backend-контракт workflow для всех клиентов.",
   approvals: "Согласования",

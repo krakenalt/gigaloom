@@ -261,6 +261,33 @@ def test_confirmed_install_is_bound_to_the_reviewed_registry_revision(tmp_path):
     assert transport.requests == [] and runtime.list() == ()
 
 
+def test_web_mutations_require_explicit_confirmation(tmp_path):
+    _, _, transport, _, operations = _services(tmp_path)
+    preview = operations.preview("marketplace-agent")
+    assert preview.plan is not None
+
+    with pytest.raises(ValueError, match="confirmation"):
+        operations.start_install(
+            "marketplace-agent",
+            local_agent_id=None,
+            expected_plan_id=preview.plan.plan_id,
+            confirmed=False,
+            allow_unverified=False,
+        )
+    with pytest.raises(ValueError, match="confirmation"):
+        operations.start_update(
+            "marketplace-agent",
+            confirmed=False,
+            allow_unverified=False,
+        )
+    with pytest.raises(ValueError, match="confirmation"):
+        operations.rollback("marketplace-agent", confirmed=False)
+    with pytest.raises(ValueError, match="confirmation"):
+        operations.remove("marketplace-agent", confirmed=False)
+
+    assert transport.requests == []
+
+
 def test_cancel_before_execution_and_restart_recovery_are_explicit(tmp_path):
     queued: list = []
     runtime, _, transport, _, operations = _services(

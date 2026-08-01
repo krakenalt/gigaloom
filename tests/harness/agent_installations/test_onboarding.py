@@ -4,9 +4,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 import hashlib
+import io
+import json
 from pathlib import Path
 import shutil
+from types import SimpleNamespace
+from typing import cast
 
+from gigaloom.cli_commands.handlers.headless_runtime import ManagedAcpHeadlessBackend
 from gigaloom.contracts import (
     ACPDistributionKind,
     ACPDistributionV1,
@@ -16,11 +21,19 @@ from gigaloom.contracts import (
     AgentIntegrityPolicy,
     AgentLifecycleScriptPolicy,
     CompatibilityStatus,
+    HeadlessCapsuleMode,
+    HeadlessEventFormat,
     ManagedAgentArtifactV1,
     ManagedAgentStatus,
     acp_distribution_digest,
     acp_registry_entry_digest,
 )
+from gigaloom.execution.headless import (
+    HeadlessPathAuthority,
+    HeadlessRunInput,
+    HeadlessRunner,
+)
+from gigaloom.harnesses.agent_profiles.installations import AgentRuntimeService
 from gigaloom.contracts.agent_installation_codec import managed_agent_artifact_to_dict
 from gigaloom.harnesses.agent_profiles.installations.filesystem import atomic_write_json
 from gigaloom.harnesses.agent_profiles.onboarding import (
@@ -323,3 +336,83 @@ def test_production_probe_uses_disposable_home_and_initialize_only(tmp_path):
     assert receipt.network_policy == "enforced_deny"
     assert receipt.session_created is False
     assert receipt.prompt_sent is False
+
+
+class _ActiveRuntimeProjection:
+    def __init__(self, record) -> None:  # noqa: ANN001
+        self.record = record
+
+    def list(self):  # noqa: ANN201
+        return (
+            SimpleNamespace(
+                local_agent_id=self.record.artifact.local_agent_id,
+                active=True,
+            ),
+        )
+
+    def inspect(self, local_agent_id: str):  # noqa: ANN201
+        if local_agent_id != self.record.artifact.local_agent_id:
+            raise ValueError("unknown managed agent")
+        return self.record
+
+
+def test_generated_route_executes_through_the_headless_runtime(tmp_path):
+    plan, entry, artifact = _candidate(tmp_path, executable_name="fake-agent")
+    fixture = Path(__file__).parents[2] / "fixtures/acp/fake_agent.py"
+    executable = Path(artifact.managed_root) / artifact.executable_relative_path
+    shutil.copyfile(fixture, executable)
+    executable.chmod(0o700)
+    record = ManagedAgentOnboardingService(
+        str(tmp_path),
+        ManagedAcpProbeRunner(),
+        clock=lambda: NOW,
+    ).onboard(plan, entry, artifact, network_isolated=True)
+    runtime = cast(AgentRuntimeService, _ActiveRuntimeProjection(record))
+    backend = ManagedAcpHeadlessBackend(runtime)
+    workspace = tmp_path / "workspace"
+    output = tmp_path / "output"
+    workspace.mkdir()
+    output.mkdir()
+    result_dir = output / "run"
+    stdout = io.BytesIO()
+    stderr = io.StringIO()
+
+    completed = HeadlessRunner(resolver=backend, executor=backend).run_streaming(
+        HeadlessRunInput(
+            run_id="managed-runtime-run",
+            agent_id=artifact.local_agent_id,
+            route_id=None,
+            model_id=None,
+            workspace=workspace.as_posix(),
+            result_dir=result_dir.as_posix(),
+            positional_prompt="inspect the fixture",
+            prompt_file=None,
+            prompt_stdin=False,
+            timeout_seconds=5,
+            permission_profile="unattended",
+            network_profile="none",
+            capsule_mode=HeadlessCapsuleMode.REFERENCE,
+            environment_contract_digest=_digest("headless-environment"),
+            event_format=HeadlessEventFormat.JSONL_V1,
+            no_input=True,
+        ),
+        authority=HeadlessPathAuthority(
+            workspace_roots=(workspace,),
+            result_roots=(output,),
+            prompt_roots=(),
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+
+    events = [json.loads(line) for line in stdout.getvalue().splitlines()]
+    backend_result = json.loads(
+        (result_dir / "backend-result.json").read_text(encoding="utf-8")
+    )
+    retained = b"".join(path.read_bytes() for path in result_dir.iterdir())
+    assert int(completed.exit_code) == 0
+    assert events[-1]["kind"] == "run_succeeded"
+    assert backend_result["content_free"] is True
+    assert backend_result["usage"]["total_tokens"] == 3
+    assert b"inspect the fixture" not in retained
+    assert stderr.getvalue() == ""

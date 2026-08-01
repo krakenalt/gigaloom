@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 
 from gigaloom.cli_commands.commands.route_advisor import add_run_binding_arguments
+from gigaloom.cli_commands.commands.headless import add_headless_run_arguments
 from gigaloom.runtime.policy import ApprovalDecision
 from gigaloom.types import HarnessCapability
 
@@ -20,7 +21,7 @@ def register(
     common: argparse.ArgumentParser,
 ) -> None:
     run = subparsers.add_parser("run", parents=[common])
-    run.add_argument("--agent", choices=tuple(AGENT_ALIASES), default=None)
+    run.add_argument("--agent", default=None)
     run.add_argument("--mode", choices=("plan", "read", "edit"), default="plan")
     run.add_argument("--model", default=None)
     run.add_argument("--api-mode", choices=("v1", "v2"), default=None)
@@ -28,6 +29,7 @@ def register(
     run.add_argument("--native", action="store_true")
     run.add_argument("--json", action="store_true")
     run.add_argument("--dry-run", action="store_true")
+    add_headless_run_arguments(run)
     add_run_binding_arguments(run)
     run.add_argument("prompt", nargs="*")
     run.set_defaults(handler="_handle_run_command")

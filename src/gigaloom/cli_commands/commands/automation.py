@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import argparse
 
-from gigaloom.cli_commands.commands import agent_profiles
-
 
 def register(
     subparsers: argparse._SubParsersAction,
@@ -39,8 +37,6 @@ def register(
     eval_run.add_argument("--dry-run", action="store_true")
     eval_run.add_argument("--json", action="store_true")
     eval_run.set_defaults(handler="_handle_eval_run")
-
-    agent_profiles.register(subparsers)
 
     workflow = subparsers.add_parser("workflow")
     workflow_subparsers = workflow.add_subparsers(dest="workflow_command")

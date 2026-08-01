@@ -31,6 +31,28 @@ _AGENT_PROFILE_HANDLERS = frozenset(
         "_handle_agent_profile_remove",
     }
 )
+_AGENT_RUNTIME_HANDLERS = frozenset(
+    {
+        "_handle_agent_runtime_add",
+        "_handle_agent_runtime_inspect",
+        "_handle_agent_runtime_list",
+        "_handle_agent_runtime_lock",
+        "_handle_agent_runtime_outdated",
+        "_handle_agent_runtime_probe",
+        "_handle_agent_runtime_remove",
+        "_handle_agent_runtime_rollback",
+        "_handle_agent_runtime_search",
+        "_handle_agent_runtime_sync",
+        "_handle_agent_runtime_update",
+    }
+)
+_HEADLESS_HANDLERS = frozenset(
+    {
+        "_handle_headless_contract",
+        "_handle_headless_doctor",
+        "_handle_headless_env",
+    }
+)
 _UI_HANDLERS = frozenset(
     {
         "_handle_ui",
@@ -83,6 +105,10 @@ def resolve_handler(name: str) -> CommandHandler:
     """Import and return one registered command handler."""
     if name in _AGENT_PROFILE_HANDLERS:
         module_name = "gigaloom.cli_commands.handlers.agent_profiles"
+    elif name in _AGENT_RUNTIME_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.agent_runtimes"
+    elif name in _HEADLESS_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.headless"
     elif name in _PROVIDER_HANDLERS:
         module_name = "gigaloom.cli_commands.handlers.provider"
     elif name in _HARNESS_HANDLERS:

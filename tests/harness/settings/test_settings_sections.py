@@ -68,6 +68,10 @@ def test_settings_sections_are_etagged_and_recompose_the_legacy_contract(tmp_pat
         ).json()
 
     assert legacy["runtime"] == sections["runtime"]["runtime"]
+    assert (
+        summary.json()["workspace_id"]
+        == sections["workspace"]["workspace"]["project_id"]
+    )
     assert legacy["routes"] == sections["defaults"]["routes"]
     assert legacy["harness_defaults"] == sections["defaults"]["harness_defaults"]
     assert legacy["workspace"] == sections["workspace"]["workspace"]

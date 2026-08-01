@@ -52,6 +52,13 @@ export function PrimaryRailIcon({ surface }: PrimaryRailIconProps) {
           <path className="rail-icon-accent" d="M3.5 9h17" />
         </svg>
       );
+    case "coding-agents":
+      return (
+        <svg {...common} data-icon="coding-agents">
+          <rect x="4" y="5" width="16" height="14" rx="3" />
+          <path d="M8 10h.01M16 10h.01M8.5 15h7M12 2.75V5" />
+        </svg>
+      );
     case "automation":
       return (
         <svg {...common} data-icon="automation">

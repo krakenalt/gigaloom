@@ -1,6 +1,6 @@
 # Settings initial-load benchmark
 
-This directory freezes the pre-fission Settings cost at the I1 source commit.
+This directory freezes the pre-fission Settings cost at the baseline source commit.
 Both collectors use disposable state and content-free observations. They never
 contact a provider, external network, or native agent home.
 
@@ -31,8 +31,9 @@ section request or section chunk precedes Appearance:
 node benchmarks/gigaloom_performance/settings/capture_current_browser.mjs
 ```
 
-`baseline.json` remains the I1 evidence, `after.json` is the A8 evidence, and
-`budgets.json` contains the ratchets. Wall time is host-specific evidence. The
+`baseline.json` remains the pre-fission evidence, `after.json` is the current
+post-fission evidence, and `budgets.json` contains the ratchets. Wall time is
+host-specific evidence. The
 gate uses relative improvement plus deterministic request, probe, list,
 history, cache, and chunk-loading counts; it deliberately has no absolute
 millisecond ceiling.

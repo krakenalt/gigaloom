@@ -31,6 +31,7 @@ from .settings_projections import (
     _provider_summary,
     _runtime_projection,
     _runtime_revision,
+    _workspace_id,
     _workspace_revision,
 )
 
@@ -78,6 +79,7 @@ class SettingsSnapshotService:
             return {
                 "schema_version": SETTINGS_SECTION_SCHEMA_VERSION,
                 "revision": revision,
+                "workspace_id": _workspace_id(workspace),
                 "sections": {
                     section: {
                         "href": f"/api/settings/{section}",

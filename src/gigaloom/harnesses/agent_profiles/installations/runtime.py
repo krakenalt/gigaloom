@@ -35,6 +35,7 @@ from gigaloom.harnesses.agent_profiles.installations.planner import (
 from gigaloom.harnesses.agent_profiles.installations.models import (
     InstallPlanningResult,
 )
+from gigaloom.harnesses.agent_profiles.models import AgentProfileV1
 from gigaloom.harnesses.agent_profiles.onboarding.models import (
     ManagedAcpProbeReceipt,
     ManagedAgentOnboardingResult,
@@ -229,6 +230,11 @@ class AgentRuntimeService:
             )
         return max(records, key=lambda item: item.artifact.installed_at)
 
+    def active_profiles(self) -> tuple[AgentProfileV1, ...]:
+        """Return generated profiles for active managed revisions only."""
+        active_ids = {item.local_agent_id for item in self.list() if item.active}
+        return tuple(self.inspect(agent_id).profile for agent_id in sorted(active_ids))
+
     def probe(self, local_agent_id: str) -> ManagedAcpProbeReceipt:
         """Run an initialize-only probe through the same backend coordinator."""
         return self._coordinator.probe(self.inspect(local_agent_id))
@@ -400,7 +406,10 @@ class AgentRuntimeService:
         *,
         exclude_local_agent_id: str | None = None,
     ) -> AgentIdentityInventory:
-        local = {item.artifact.local_agent_id for item in self._records.records()}
+        local = {
+            *self._reserved.local_agent_ids,
+            *(item.artifact.local_agent_id for item in self._records.records()),
+        }
         if exclude_local_agent_id is not None:
             local.discard(exclude_local_agent_id)
         return AgentIdentityInventory(

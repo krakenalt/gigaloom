@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict
-from datetime import UTC, datetime
 import json
 from pathlib import Path
-import platform as platform_module
 import sys
 from typing import Any, Callable
 
@@ -16,22 +14,22 @@ from gigaloom.contracts.agent_installation_codec import (
     agent_activation_to_dict,
     agent_install_plan_to_dict,
 )
+from gigaloom.harnesses.agent_profiles import (
+    AgentProfileSourceKind,
+    build_core_command_collision_contract,
+    load_agent_profile_registry,
+)
 from gigaloom.harnesses.agent_profiles.installations import (
     AgentIdentityInventory,
     AgentRuntimeService,
     InstallPlanningResult,
-    discover_local_install_coordinator,
+    create_agent_runtime_service,
 )
 from gigaloom.harnesses.agent_profiles.onboarding import (
-    ManagedAcpProbeRunner,
     ManagedAgentOnboardingResult,
 )
 from gigaloom.harnesses.agent_profiles.onboarding.probe import (
     managed_probe_to_dict,
-)
-from gigaloom.harnesses.agent_profiles.registry import (
-    ACPRegistryCache,
-    OfficialACPRegistryClient,
 )
 
 
@@ -95,21 +93,51 @@ def _handle_agent_runtime_add(args: argparse.Namespace, config: HarnessConfig) -
 
 
 def _handle_agent_runtime_list(args: argparse.Namespace, config: HarnessConfig) -> int:
-    agents = [asdict(item) for item in _service(config).list()]
-    _emit({"schema_version": 1, "agents": agents}, as_json=args.json)
+    runtime = _service(config)
+    installed = runtime.list()
+    profiles, _ = _profile_inventory(config)
+    combined = {item.agent_id: item for item in profiles}
+    managed = {item.agent_id: item for item in runtime.active_profiles()}
+    if combined.keys() & managed.keys():
+        raise ValueError("managed agent identity collides with a registered profile")
+    combined.update(managed)
+    from gigaloom.cli_commands.handlers.agent_profiles import _profile_payload
+
+    _emit(
+        {
+            "schema_version": 1,
+            "agents": [_profile_payload(combined[item]) for item in sorted(combined)],
+            "installed_revisions": [asdict(item) for item in installed],
+        },
+        as_json=args.json,
+    )
     return 0
 
 
 def _handle_agent_runtime_inspect(
     args: argparse.Namespace, config: HarnessConfig
 ) -> int:
-    result = _service(config).inspect(args.local_agent_id)
+    runtime = _service(config)
+    if args.local_agent_id not in _managed_agent_ids(runtime):
+        from gigaloom.cli_commands.handlers.agent_profiles import (
+            _handle_agent_profile_inspect,
+        )
+
+        return _handle_agent_profile_inspect(_profile_args(args), config)
+    result = runtime.inspect(args.local_agent_id)
     _emit(_result_payload(result), as_json=args.json)
     return 0
 
 
 def _handle_agent_runtime_probe(args: argparse.Namespace, config: HarnessConfig) -> int:
-    result = _service(config).probe(args.local_agent_id)
+    runtime = _service(config)
+    if args.local_agent_id not in _managed_agent_ids(runtime):
+        from gigaloom.cli_commands.handlers.agent_profiles import (
+            _handle_agent_probe_plan,
+        )
+
+        return _handle_agent_probe_plan(_profile_args(args), config)
+    result = runtime.probe(args.local_agent_id)
     _emit(managed_probe_to_dict(result), as_json=args.json)
     return 0
 
@@ -148,7 +176,29 @@ def _handle_agent_runtime_rollback(
 def _handle_agent_runtime_remove(
     args: argparse.Namespace, config: HarnessConfig
 ) -> int:
-    removed = _service(config).remove(
+    runtime = _service(config)
+    if args.local_agent_id not in _managed_agent_ids(runtime):
+        from gigaloom.cli_commands.handlers.agent_profiles import (
+            _handle_agent_profile_remove,
+        )
+
+        return _handle_agent_profile_remove(_profile_args(args), config)
+    if args.dry_run:
+        count = sum(
+            item.local_agent_id == args.local_agent_id for item in runtime.list()
+        )
+        _emit(
+            {
+                "schema_version": 1,
+                "local_agent_id": args.local_agent_id,
+                "dry_run": True,
+                "removed_install_count": 0,
+                "would_remove_install_count": count,
+            },
+            as_json=args.json,
+        )
+        return 0
+    removed = runtime.remove(
         args.local_agent_id,
         confirmed=_confirmed(args, "Remove managed agent artifacts?"),
     )
@@ -209,42 +259,63 @@ def build_agent_runtime_service(
     network_isolation_admitted: bool,
     platform_id: str | None = None,
     architecture: str | None = None,
-    reserved_inventory: AgentIdentityInventory = AgentIdentityInventory(),
+    reserved_inventory: AgentIdentityInventory | None = None,
 ) -> AgentRuntimeService:
     """Compose the shared service with explicit host and isolation authority."""
-
-    def clock() -> datetime:
-        return datetime.now(UTC)
-
-    host_platform = platform_id or (
-        "windows" if sys.platform == "win32" else sys.platform
-    )
-    host_architecture = architecture or _host_architecture()
-    cache = ACPRegistryCache(Path(config.data_dir) / "agent_profiles/acp_registry")
-    return AgentRuntimeService(
+    if reserved_inventory is None:
+        _, reserved_inventory = _profile_inventory(config)
+    return create_agent_runtime_service(
         config.data_dir,
-        OfficialACPRegistryClient(cache=cache),
-        discover_local_install_coordinator(
-            config.data_dir,
-            platform=host_platform,
-            architecture=host_architecture,
-            probe=ManagedAcpProbeRunner(),
-            network_isolation_admitted=network_isolation_admitted,
-            clock=clock,
-        ),
-        clock=clock,
+        network_isolation_admitted=network_isolation_admitted,
+        platform_id=platform_id,
+        architecture=architecture,
         reserved_inventory=reserved_inventory,
     )
 
 
-def _host_architecture() -> str:
-    machine = platform_module.machine().lower()
-    aliases = {
-        "amd64": "x86_64",
-        "arm64": "aarch64",
-        "x64": "x86_64",
-    }
-    return aliases.get(machine, machine)
+def _profile_inventory(
+    config: HarnessConfig,
+) -> tuple[tuple[Any, ...], AgentIdentityInventory]:
+    from gigaloom.cli_commands.parser import build_parser
+
+    parser = build_parser()
+    action = next(item for item in parser._actions if item.dest == "command")
+    if action.choices is None:
+        raise RuntimeError("root CLI parser has no command registry")
+    commands = tuple(sorted(action.choices))
+    profiles = load_agent_profile_registry(
+        config.data_dir,
+        collision_contract=build_core_command_collision_contract(commands),
+    ).registry.profiles
+    return profiles, AgentIdentityInventory(
+        core_commands=commands,
+        native_agent_ids=tuple(
+            item.agent_id for item in profiles if item.native is not None
+        ),
+        native_aliases=tuple(
+            alias
+            for item in profiles
+            if item.native is not None
+            for alias in item.aliases
+        ),
+        local_agent_ids=tuple(
+            item.agent_id
+            for item in profiles
+            if item.source.kind is AgentProfileSourceKind.LOCAL_MANIFEST
+        ),
+    )
+
+
+def _managed_agent_ids(runtime: AgentRuntimeService) -> frozenset[str]:
+    return frozenset(item.local_agent_id for item in runtime.list())
+
+
+def _profile_args(args: argparse.Namespace) -> argparse.Namespace:
+    values = vars(args).copy()
+    values["agent_id"] = args.local_agent_id
+    values.setdefault("route", None)
+    values.setdefault("dry_run", False)
+    return argparse.Namespace(**values)
 
 
 def _entry_payload(entry) -> dict[str, Any]:  # noqa: ANN001

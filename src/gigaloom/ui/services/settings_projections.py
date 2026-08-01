@@ -226,6 +226,11 @@ def _workspace_revision(data_dir: str | Path, workspace: str | None) -> str:
     )
 
 
+def _workspace_id(workspace: str | None) -> str:
+    """Return the stable workspace id without invoking Git or project probes."""
+    return project_id_for_root(_lightweight_project_root(workspace))
+
+
 def _mcp_revision(data_dir: str | Path, workspace: str | None) -> str:
     root = _lightweight_project_root(workspace)
     history = MCPProbeHistoryStore(data_dir)

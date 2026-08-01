@@ -9,6 +9,7 @@ export interface SettingsSectionReference {
 export interface SettingsSummaryResponse {
   schema_version: 1;
   revision: string;
+  workspace_id: string;
   sections: Record<
     "runtime" | "defaults" | "workspace" | "mcp" | "diagnostics",
     SettingsSectionReference

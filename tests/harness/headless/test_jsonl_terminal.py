@@ -12,6 +12,9 @@ import signal
 
 from gigaloom.cli_commands.commands.headless import add_headless_run_arguments
 from gigaloom.cli_commands.handlers.headless import run_headless_from_args
+from gigaloom.cli_commands.handlers.runs import _handle_run_command
+from gigaloom.cli_commands.parser import build_parser
+from gigaloom.config import HarnessConfig
 from gigaloom.contracts import (
     HeadlessCapsuleMode,
     HeadlessEventKind,
@@ -508,3 +511,81 @@ def test_missing_agent_is_usage_failure_without_backend_execution(
     assert exit_code == 2
     assert events[0]["payload"]["reason_code"] == "agent_missing"  # type: ignore[index]
     assert not (output / "missing").exists()
+
+
+def test_registered_run_command_uses_the_managed_agent_resolver(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    monkeypatch.delenv("GIGALOOM_HEADLESS", raising=False)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    result_dir = tmp_path / "results" / "run"
+    result_dir.parent.mkdir()
+    args = build_parser().parse_args(
+        [
+            "run",
+            "--headless",
+            "--agent",
+            "missing-managed-agent",
+            "--workspace",
+            workspace.as_posix(),
+            "--result-dir",
+            result_dir.as_posix(),
+            "inspect",
+        ]
+    )
+
+    exit_code = _handle_run_command(
+        args,
+        HarnessConfig(data_dir=str(tmp_path / "data")),
+    )
+
+    captured = capsys.readouterr()
+    events = [json.loads(line) for line in captured.out.splitlines()]
+    assert exit_code == 2
+    assert args.handler == "_handle_run_command"
+    assert len(events) == 1
+    assert events[0]["kind"] == "run_failed"
+    assert events[0]["payload"]["reason_code"] == "agent_missing"
+    assert captured.err == "gigaloom headless: agent_missing\n"
+    assert not result_dir.exists()
+
+
+def test_registered_run_command_frames_authority_failure_once(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    monkeypatch.delenv("GIGALOOM_HEADLESS", raising=False)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    result_dir = tmp_path / "missing-parent" / "run"
+    args = build_parser().parse_args(
+        [
+            "run",
+            "--headless",
+            "--agent",
+            "missing-managed-agent",
+            "--workspace",
+            workspace.as_posix(),
+            "--result-dir",
+            result_dir.as_posix(),
+            "inspect",
+        ]
+    )
+
+    exit_code = _handle_run_command(
+        args,
+        HarnessConfig(data_dir=str(tmp_path / "data")),
+    )
+
+    captured = capsys.readouterr()
+    events = [json.loads(line) for line in captured.out.splitlines()]
+    assert exit_code == 2
+    assert len(events) == 1
+    assert events[0]["kind"] == "run_failed"
+    assert events[0]["payload"]["reason_code"] == "path_unavailable"
+    assert captured.err == "gigaloom headless: path_unavailable\n"
+    assert not result_dir.exists()

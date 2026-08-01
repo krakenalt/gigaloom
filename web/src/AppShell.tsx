@@ -4,6 +4,7 @@ import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-quer
 
 import type { InboxKind } from "./components/InboxDrawer";
 import { PrimaryRailBrand, PrimaryRailIcon } from "./components/PrimaryRailIcon";
+import { settingsSummaryOptions } from "./api/queries/settings";
 import { message } from "./messages";
 import { primarySurfaces, surfaceForPath } from "./navigation";
 import { PreferencesContext } from "./preferences-context";
@@ -19,7 +20,6 @@ import {
   attentionOptions,
   operatorInboxOptions,
   requestKeys,
-  settingsOptions,
 } from "./request-graph";
 import { observeOperatorEvents } from "./operator-event-stream";
 import { observeRunsCenterUpdates } from "./runs-center-update-stream";
@@ -72,8 +72,8 @@ export function AppShell() {
   const queryClient = useQueryClient();
   const approvals = useQuery(approvalsOptions());
   const attention = useQuery(attentionOptions());
-  const settings = useQuery(settingsOptions());
-  const workspaceId = settings.data?.workspace.project_id ?? "";
+  const settingsSummary = useQuery(settingsSummaryOptions());
+  const workspaceId = settingsSummary.data?.workspace_id ?? "";
   const operatorInbox = useInfiniteQuery({
     ...operatorInboxOptions(workspaceId),
     enabled: workspaceId !== "",

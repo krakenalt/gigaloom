@@ -36,7 +36,7 @@ from gigaloom.execution.api import (
     RouteAdvisorApplicationService,
     RouteRecommendationSource,
 )
-from gigaloom.harnesses.api import AgentProfileV1, load_builtin_agent_profiles
+from gigaloom.harnesses.api import AgentProfileV1
 from gigaloom.github_environments import GitHubEnvironmentService
 from gigaloom.handoff_capsules import HandoffCapsuleService
 from gigaloom.integration_flows import IntegrationFlowService
@@ -92,6 +92,10 @@ from gigaloom.ui.remote_identity import RemoteOIDCClient
 from gigaloom.ui.security import HarnessUISecurity
 from gigaloom.ui.services import ActiveHeadlessRun
 from gigaloom.ui.services.approvals import ApprovalGateService
+from gigaloom.ui.services.agent_runtimes import (
+    AgentRuntimeWebBundle,
+    build_agent_runtime_web_bundle,
+)
 from gigaloom.ui.services.context_impact import (
     ContextProjectionQuery,
     ImpactProjectionService,
@@ -181,6 +185,7 @@ class AppServices:
     action_inbox_service: ActionInboxService
     operator_event_broker: OperatorEventBroker
     operational_backends: OperationalBackendOwners
+    agent_runtimes: AgentRuntimeWebBundle
     project_catalog_service: ProjectCatalogWebService
     route_advisor_service: RouteAdvisorWebService
     mcp_app_host_service: MCPAppHostService
@@ -350,7 +355,8 @@ def build_app_services(
             group_service=grouped_integration_service,
         )
     )
-    profiles = agent_profiles or load_builtin_agent_profiles()
+    agent_runtimes = build_agent_runtime_web_bundle(config, profiles=agent_profiles)
+    profiles = agent_runtimes.profiles
     capsule_repository = FilesystemRunCapsuleRepository(config.data_dir)
     capsule_lifecycle = (
         RunCapsuleLifecycleService(
@@ -526,6 +532,7 @@ def build_app_services(
             visual_artifact_store=FilesystemVisualArtifactStore(visual_evidence_root),
             visual_gate_store=FilesystemVisualGateStore(visual_evidence_root),
         ),
+        agent_runtimes=agent_runtimes,
         project_catalog_service=project_catalog_service,
         route_advisor_service=route_advisor_service,
         mcp_app_host_service=MCPAppHostService(),

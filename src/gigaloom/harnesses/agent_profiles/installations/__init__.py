@@ -14,6 +14,9 @@ from gigaloom.harnesses.agent_profiles.installations.coordinator import (
     LocalAgentInstallCoordinator,
     discover_local_install_coordinator,
 )
+from gigaloom.harnesses.agent_profiles.installations.composition import (
+    create_agent_runtime_service,
+)
 from gigaloom.harnesses.agent_profiles.installations.errors import (
     AgentInstallCancelled,
     AgentInstallError,
@@ -104,6 +107,7 @@ __all__ = [
     "UvxPackageResolution",
     "UvxPackageResolver",
     "build_agent_lock_set",
+    "create_agent_runtime_service",
     "discover_local_install_coordinator",
     "interpreter_fingerprint",
     "read_agent_lock_file",
