@@ -3,19 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from threading import Lock
 from typing import Any, Mapping
-from urllib.parse import urlsplit, urlunsplit
 
-from fastapi import Body, HTTPException, Query, Request
+from fastapi import Body, HTTPException, Query, Request, Response
+from fastapi.responses import JSONResponse
 
-from gigaloom.config import DEFAULT_MODEL_HINTS
 from gigaloom.diagnostics.doctor.report import build_doctor_report
-from gigaloom.mcp import MCPProbeHistoryStore, build_mcp_inventory
-from gigaloom.project import (
-    load_project_config,
-    load_project_state,
-    resolve_project,
-)
 from gigaloom.diagnostics.inventory.capabilities import (
     AuthorityLevel,
     TaskIntent,
@@ -40,13 +34,11 @@ from gigaloom.settings import (
 )
 from gigaloom.types import parse_api_mode
 from gigaloom.ui.async_execution import ContractAPIRouter
-from gigaloom.workbench_execution import (
-    workbench_admission_projection,
-    workbench_transport_projection,
-)
+from gigaloom.ui.services.settings_snapshots import SettingsSnapshotService
 
 
 router = ContractAPIRouter()
+_SETTINGS_SERVICE_LOCK = Lock()
 
 
 @router.fs_read.get("/api/doctor")
@@ -83,135 +75,73 @@ def settings_read_model(
     workspace: str | None = Query(default=None),
 ) -> dict[str, Any]:
     """Return bounded settings categories without credentials or raw paths."""
-    config = request.app.state.harness_config
-    snapshot = request.app.state.harness_settings_store.load()
     try:
-        project = resolve_project(workspace, data_dir=config.data_dir)
-        project_config = load_project_config(project.root)
-        project_state = load_project_state(project)
-        descriptors, mcp_errors = build_mcp_inventory(
-            project_config.tool_profiles,
-            project=project,
-        )
+        return _settings_service(request).legacy(workspace)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    history = MCPProbeHistoryStore(config.data_dir)
-    defaults = snapshot.defaults
-    provider_registry = request.app.state.harness_provider_settings_service.list()
-    configured_providers = provider_registry["providers"]
-    harnesses = []
-    for harness in request.app.state.harness_registry.list():
-        spec = harness.spec()
-        availability = harness.availability()
-        harnesses.append(
-            {
-                "id": spec.id,
-                "title": spec.title,
-                "native_supported": spec.supports_native_sessions,
-                "status": availability.status.value,
-                "workbench_admission": workbench_admission_projection(harness),
-                "workbench_transport": workbench_transport_projection(harness),
-            }
-        )
-    models = list(
-        dict.fromkeys(
-            model
-            for model in (
-                defaults.default_model,
-                defaults.default_title_model,
-                *DEFAULT_MODEL_HINTS,
-            )
-            if model
-        )
-    )[:20]
-    return {
-        "revision": snapshot.revision,
-        "runtime": {
-            "proxy_url": _public_url(config.proxy_url),
-            "proxy_source": _runtime_source("GIGALOOM_PROXY_URL"),
-            "proxy_health": "not_checked",
-            "auto_start_proxy": config.auto_start_proxy,
-            "change_effect": "restart_required",
-            "editable": False,
-            "proxy_auth_configured": config.api_key is not None,
-        },
-        "provider": {
-            "configured": bool(configured_providers),
-            "count": len(configured_providers),
-            "source": "user_registry" if configured_providers else "unconfigured",
-            "health": _provider_health(configured_providers),
-            "secret_readable": False,
-            "change_effect": "new_session_required",
-            "registry_path_readable": False,
-        },
-        "routes": {
-            "default_api_mode": defaults.default_api_mode,
-            "default_model": defaults.default_model,
-            "default_api_mode_source": snapshot.sources["default_api_mode"],
-            "default_model_source": snapshot.sources["default_model"],
-            "models": models,
-            "models_source": "configured_default_and_fallbacks",
-            "health": "not_checked",
-            "change_effect": "new_runs",
-        },
-        "harness_defaults": {
-            **asdict(defaults),
-            "harnesses": harnesses[:100],
-            "sources": dict(snapshot.sources),
-            "locked_fields": list(snapshot.locked_fields),
-            "change_effect": "new_runs",
-            "compatibility": {
-                "mode": (
-                    legacy_mode_compatibility_receipt(defaults.mode)
-                    if snapshot.sources.get("task_intent") == "legacy_mode_alias"
-                    or snapshot.sources.get("authority") == "legacy_mode_alias"
-                    or defaults.mode not in {"plan", "read", "edit"}
-                    else None
-                )
-            },
-        },
-        "workspace": {
-            "project_id": project.id,
-            "name": project.name,
-            "is_git_repo": project.is_git_repo,
-            "trusted": project_state.trusted,
-            "workspace_policies": ["auto", "current", "worktree"],
-            "permission_profiles": [
-                "interactive",
-                "review_every_action",
-                "unattended",
-            ],
-            "source": "project_state",
-        },
-        "mcp": {
-            "servers": [
-                {
-                    "id": descriptor.id,
-                    "title": descriptor.title,
-                    "transport": descriptor.transport.value,
-                    "enabled": descriptor.enabled,
-                    "trusted": descriptor.trusted,
-                    "source": descriptor.source,
-                    "health": _mcp_health(history, descriptor.id),
-                }
-                for descriptor in descriptors[:100]
-            ],
-            "errors": list(mcp_errors)[:20],
-            "change_effect": "managed_home_restart",
-        },
-        "diagnostics": {
-            "content_free": True,
-            "actions": [
-                {"id": "check_runtime", "method": "GET", "path": "/api/health"},
-                {
-                    "id": "provider_settings",
-                    "method": "GET",
-                    "path": "/api/providers",
-                },
-            ],
-            "async_data_plane": request.app.state.harness_async_diagnostics.snapshot(),
-        },
-    }
+
+
+@router.fs_read.get("/api/settings/summary")
+def settings_summary(
+    request: Request,
+    workspace: str | None = Query(default=None),
+) -> Response:
+    """Return lightweight source revisions for independently loaded sections."""
+    return _settings_section_response(
+        request,
+        lambda: _settings_service(request).summary(workspace),
+    )
+
+
+@router.fs_read.get("/api/settings/runtime")
+def settings_runtime(request: Request) -> Response:
+    """Return immutable runtime configuration without a health probe."""
+    return _settings_section_response(
+        request,
+        lambda: _settings_service(request).runtime(),
+    )
+
+
+@router.fs_read.get("/api/settings/defaults")
+def settings_defaults(request: Request) -> Response:
+    """Return defaults and static harness metadata without executable probes."""
+    return _settings_section_response(
+        request,
+        lambda: _settings_service(request).defaults(),
+    )
+
+
+@router.fs_read.get("/api/settings/workspace")
+def settings_workspace(
+    request: Request,
+    workspace: str | None = Query(default=None),
+) -> Response:
+    """Return the selected workspace projection on demand."""
+    return _settings_section_response(
+        request,
+        lambda: _settings_service(request).workspace(workspace),
+    )
+
+
+@router.fs_read.get("/api/settings/mcp")
+def settings_mcp(
+    request: Request,
+    workspace: str | None = Query(default=None),
+) -> Response:
+    """Return bounded MCP inventory and history evidence on demand."""
+    return _settings_section_response(
+        request,
+        lambda: _settings_service(request).mcp(workspace),
+    )
+
+
+@router.fs_read.get("/api/settings/diagnostics")
+def settings_diagnostics(request: Request) -> Response:
+    """Return current content-free in-memory diagnostics on demand."""
+    return _settings_section_response(
+        request,
+        lambda: _settings_service(request).diagnostics(),
+    )
 
 
 @router.fs_read.get("/api/providers")
@@ -480,31 +410,6 @@ def _field_error(errors: Mapping[str, str]) -> HTTPException:
     )
 
 
-def _public_url(value: str) -> str:
-    parsed = urlsplit(value)
-    host = parsed.hostname or ""
-    if parsed.port is not None:
-        host = f"{host}:{parsed.port}"
-    return urlunsplit((parsed.scheme, host, parsed.path, "", ""))
-
-
-def _runtime_source(name: str) -> str:
-    import os
-
-    return "environment" if os.getenv(name) else "built_in"
-
-
-def _provider_health(providers: list[dict[str, Any]]) -> str:
-    states = {
-        item["health"]["status"] for item in providers if item.get("health") is not None
-    }
-    if "unhealthy" in states or "blocked" in states:
-        return "attention_required"
-    if "ready" in states:
-        return "ready"
-    return "not_checked"
-
-
 def _provider_field_error(exc: ProviderSettingsValidationError) -> HTTPException:
     return HTTPException(
         status_code=422,
@@ -527,11 +432,6 @@ def _run_provider_check(
         raise HTTPException(status_code=404, detail="provider not found") from exc
     except ProviderSettingsValidationError as exc:
         raise _provider_field_error(exc) from exc
-
-
-def _mcp_health(history: MCPProbeHistoryStore, server_id: str) -> str:
-    latest = history.list(server_id, limit=1)
-    return str(latest[0].get("status") or "not_checked") if latest else "not_checked"
 
 
 def _provider_account_action(
@@ -560,3 +460,49 @@ def _provider_account_action(
 def _optional_text(value: Any) -> str | None:
     text = str(value).strip() if value is not None else ""
     return text or None
+
+
+def _settings_service(request: Request) -> SettingsSnapshotService:
+    service = getattr(request.app.state, "harness_settings_snapshot_service", None)
+    if isinstance(service, SettingsSnapshotService):
+        return service
+    with _SETTINGS_SERVICE_LOCK:
+        service = getattr(
+            request.app.state,
+            "harness_settings_snapshot_service",
+            None,
+        )
+        if isinstance(service, SettingsSnapshotService):
+            return service
+        service = SettingsSnapshotService(
+            config=request.app.state.harness_config,
+            settings_store=request.app.state.harness_settings_store,
+            provider_settings_service=(
+                request.app.state.harness_provider_settings_service
+            ),
+            registry=request.app.state.harness_registry,
+            async_diagnostics=request.app.state.harness_async_diagnostics,
+        )
+        request.app.state.harness_settings_snapshot_service = service
+        return service
+
+
+def _settings_section_response(
+    request: Request,
+    load: Any,
+) -> Response:
+    try:
+        payload = load()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    revision = str(payload["revision"])
+    etag = f'"{revision}"'
+    if request.headers.get("if-none-match") == etag:
+        return Response(
+            status_code=304,
+            headers={"ETag": etag, "Cache-Control": "no-cache"},
+        )
+    return JSONResponse(
+        content=payload,
+        headers={"ETag": etag, "Cache-Control": "private, no-cache"},
+    )
