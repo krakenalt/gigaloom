@@ -26,7 +26,7 @@ from gigaloom.contracts.operational_validation import (
 
 LANE_DELTA_RECORD_KIND = "gigaloom.lane_delta_packet.v1"
 MAX_LANE_DELTA_PACKET_BYTES = 128 * 1024
-MAX_EXPLICIT_CONTENT_PACKET_BYTES = 32 * 1024
+MAX_EXPLICIT_CONTENT_PACKET_BYTES = 16 * 1024
 
 
 class LaneDeltaStorageError(RuntimeError):
@@ -94,13 +94,12 @@ class FilesystemLaneDeltaPacketStore:
         try:
             self.root.mkdir(parents=True, exist_ok=True)
             if path.exists():
-                existing = _read_bounded(path, self._size_limit(packet.content_mode))
-                if existing != data:
-                    raise LaneDeltaConflictError(
-                        "lane packet id is already bound to different bytes"
-                    )
+                self._verify_existing(path, data, packet.content_mode)
             else:
-                _atomic_write(path, data)
+                try:
+                    _atomic_create(path, data)
+                except FileExistsError:
+                    self._verify_existing(path, data, packet.content_mode)
         except LaneDeltaStorageError:
             raise
         except OSError as error:
@@ -175,6 +174,18 @@ class FilesystemLaneDeltaPacketStore:
         if mode is LaneContentMode.EXPLICIT_CONTENT:
             return MAX_EXPLICIT_CONTENT_PACKET_BYTES
         return MAX_LANE_DELTA_PACKET_BYTES
+
+    def _verify_existing(
+        self,
+        path: Path,
+        data: bytes,
+        mode: LaneContentMode,
+    ) -> None:
+        existing = _read_bounded(path, self._size_limit(mode))
+        if existing != data:
+            raise LaneDeltaConflictError(
+                "lane packet id is already bound to different bytes"
+            )
 
     def _path(self, packet_id: str) -> Path:
         validate_identity(packet_id, field_name="lane packet id")
@@ -268,7 +279,7 @@ def _read_bounded(path: Path, limit: int) -> bytes:
     return data
 
 
-def _atomic_write(path: Path, data: bytes) -> None:
+def _atomic_create(path: Path, data: bytes) -> None:
     temporary_path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -282,8 +293,7 @@ def _atomic_write(path: Path, data: bytes) -> None:
             temporary.flush()
             os.fsync(temporary.fileno())
             temporary_path = Path(temporary.name)
-        os.replace(temporary_path, path)
-        temporary_path = None
+        os.link(temporary_path, path)
     finally:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)

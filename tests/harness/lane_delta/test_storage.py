@@ -7,10 +7,13 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+from threading import Barrier, Thread
 
 import pytest
 
 from gigaloom.contracts import (
+    AttachmentBindingStatus,
+    LaneAttachmentBindingV1,
     LaneContentMode,
     LaneDisclosureMode,
     LaneIdentityV1,
@@ -20,6 +23,7 @@ from gigaloom.review.handoffs.lane_delta import (
     FilesystemLaneDeltaPacketStore,
     LaneDeltaBuildRequestV1,
     LaneDeltaBuilder,
+    LaneDeltaConflictError,
     LaneDeltaIntegrityError,
     LaneDeltaStorageError,
     StaleLaneSourceError,
@@ -210,3 +214,78 @@ def test_explicit_content_mode_requires_opt_in_with_independent_limit(
         current_destination_lane=packet.destination_lane,
     )
     assert receipt.packet.content_mode is LaneContentMode.EXPLICIT_CONTENT
+
+
+def test_explicit_content_mode_enforces_its_smaller_size_limit(
+    tmp_path: Path,
+) -> None:
+    bindings = tuple(
+        LaneAttachmentBindingV1(
+            attachment_id=f"attachment-{index:03d}",
+            expected_digest=_digest(f"attachment-{index:03d}"),
+            observed_digest=None,
+            status=AttachmentBindingStatus.NOT_TRANSFERRED,
+        )
+        for index in range(128)
+    )
+    packet = replace(
+        _packet(),
+        attachment_bindings=bindings,
+        content_mode=LaneContentMode.EXPLICIT_CONTENT,
+    )
+
+    with pytest.raises(LaneDeltaStorageError, match="independent limit"):
+        FilesystemLaneDeltaPacketStore(
+            tmp_path,
+            allow_explicit_content=True,
+        ).persist(
+            packet,
+            current_source_lane=packet.source_lane,
+            current_destination_lane=packet.destination_lane,
+        )
+
+
+def test_concurrent_writers_cannot_replace_an_immutable_packet_id(
+    tmp_path: Path,
+) -> None:
+    packet = _packet()
+    conflicting = replace(packet, last_shared_turn="turn-conflicting")
+    store = FilesystemLaneDeltaPacketStore(tmp_path)
+    barrier = Barrier(2)
+    receipts = []
+    errors: list[BaseException] = []
+
+    def persist(candidate):
+        try:
+            barrier.wait(timeout=5)
+            receipts.append(
+                store.persist(
+                    candidate,
+                    current_source_lane=candidate.source_lane,
+                    current_destination_lane=candidate.destination_lane,
+                )
+            )
+        except BaseException as error:
+            errors.append(error)
+
+    threads = [
+        Thread(target=persist, args=(candidate,)) for candidate in (packet, conflicting)
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+
+    assert len(receipts) == 1
+    assert len(errors) == 1
+    assert isinstance(errors[0], LaneDeltaConflictError)
+    winner = receipts[0].packet
+    assert (
+        store.load(
+            winner.packet_id,
+            expected_source_lane=winner.source_lane,
+            expected_destination_lane=winner.destination_lane,
+        ).packet
+        == winner
+    )
