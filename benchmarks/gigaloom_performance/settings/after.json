@@ -1,0 +1,179 @@
+{
+  "backend": {
+    "settings.summary.cold": {
+      "operation_counts": {
+        "filesystem_reads": {
+          "maximum": 4,
+          "minimum": 3,
+          "p50": 3
+        },
+        "native_or_provider_probe_calls": {
+          "maximum": 0,
+          "minimum": 0,
+          "p50": 0
+        },
+        "subprocesses_started": {
+          "maximum": 0,
+          "minimum": 0,
+          "p50": 0
+        }
+      },
+      "response_bytes": 1107,
+      "samples_ms": [52.583, 51.298, 48.953, 48.109, 49.402],
+      "wall": {
+        "max_ms": 52.583,
+        "min_ms": 48.109,
+        "p50_ms": 49.402,
+        "p95_ms": 52.326,
+        "samples": 5
+      }
+    },
+    "settings.summary.warm": {
+      "operation_counts": {
+        "filesystem_reads": {
+          "maximum": 3,
+          "minimum": 3,
+          "p50": 3
+        },
+        "native_or_provider_probe_calls": {
+          "maximum": 0,
+          "minimum": 0,
+          "p50": 0
+        },
+        "subprocesses_started": {
+          "maximum": 0,
+          "minimum": 0,
+          "p50": 0
+        }
+      },
+      "response_bytes": 1107,
+      "samples_ms": [2.61, 4.185, 4.042, 3.594, 3.41],
+      "wall": {
+        "max_ms": 4.185,
+        "min_ms": 2.61,
+        "p50_ms": 3.594,
+        "p95_ms": 4.156,
+        "samples": 5
+      }
+    }
+  },
+  "browser": {
+    "browser": "chromium",
+    "first_content": {
+      "max_ms": 156.914,
+      "min_ms": 116.234,
+      "p50_ms": 122.53,
+      "p95_ms": 151.302,
+      "samples": 5
+    },
+    "initial_non_near_section_chunks": {
+      "maximum": 0,
+      "minimum": 0
+    },
+    "initial_section_requests": {
+      "maximum": 0,
+      "minimum": 0
+    },
+    "interaction_latency": {
+      "max_ms": 13.2,
+      "min_ms": 8.4,
+      "p50_ms": 10.6,
+      "p95_ms": 12.96,
+      "samples": 5
+    },
+    "required_settings_requests": {
+      "maximum": 1,
+      "minimum": 1,
+      "requests": ["GET /api/settings/summary"]
+    },
+    "samples": [
+      {
+        "first_content_ms": 156.914,
+        "initial_non_near_section_chunks": 0,
+        "initial_section_requests": 0,
+        "interaction_latency_ms": 10.0,
+        "required_settings_requests": 1,
+        "settings_javascript_bytes": 9373
+      },
+      {
+        "first_content_ms": 128.852,
+        "initial_non_near_section_chunks": 0,
+        "initial_section_requests": 0,
+        "interaction_latency_ms": 12.0,
+        "required_settings_requests": 1,
+        "settings_javascript_bytes": 9373
+      },
+      {
+        "first_content_ms": 122.53,
+        "initial_non_near_section_chunks": 0,
+        "initial_section_requests": 0,
+        "interaction_latency_ms": 8.4,
+        "required_settings_requests": 1,
+        "settings_javascript_bytes": 9373
+      },
+      {
+        "first_content_ms": 122.469,
+        "initial_non_near_section_chunks": 0,
+        "initial_section_requests": 0,
+        "interaction_latency_ms": 10.6,
+        "required_settings_requests": 1,
+        "settings_javascript_bytes": 9373
+      },
+      {
+        "first_content_ms": 116.234,
+        "initial_non_near_section_chunks": 0,
+        "initial_section_requests": 0,
+        "interaction_latency_ms": 13.2,
+        "required_settings_requests": 1,
+        "settings_javascript_bytes": 9373
+      }
+    ],
+    "settings_javascript": {
+      "maximum_bytes": 9373,
+      "minimum_bytes": 9373,
+      "parts": {
+        "query_contract": 1334,
+        "section_boundary": 2575,
+        "surface": 5464
+      }
+    },
+    "viewport": {
+      "height": 1000,
+      "width": 1440
+    }
+  },
+  "captured_at": "2026-08-01",
+  "environment": {
+    "implementation": "CPython",
+    "machine": "arm64",
+    "node": "22.13.0",
+    "platform": "Darwin",
+    "python": "3.13.8"
+  },
+  "measurement": {
+    "backend": "five disposable applications; first and second /api/settings/summary request per application",
+    "browser": "five fresh Chromium contexts from local recovery through immediately visible Appearance content",
+    "collectors": [
+      "capture_summary.py",
+      "capture_current_browser.mjs"
+    ],
+    "variance_note": "Wall time is local host evidence and has only relative ratchets; deterministic request, probe, bound, and lazy-loading gates are portable.",
+    "wall_time_portable": false
+  },
+  "privacy": {
+    "content_free": true,
+    "external_network_accessed": false,
+    "native_homes_accessed": false,
+    "provider_traffic": false,
+    "temporary_state_only": true
+  },
+  "ratios_to_i1_baseline": {
+    "cold_summary_fraction": 0.066896,
+    "first_content_fraction": 0.035872,
+    "initial_settings_javascript_fraction": 0.317223,
+    "interaction_latency_fraction": 0.834646,
+    "warm_summary_fraction": 0.005145
+  },
+  "schema_version": "gigaloom.settings-performance-after.v1",
+  "source_commit": "bc3fdb166da38f1fe132d99d46a449a179e006f6"
+}
