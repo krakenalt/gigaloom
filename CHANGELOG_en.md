@@ -5,6 +5,12 @@ All notable changes to GigaLoom are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - Unreleased
+
+### Added
+
+- Release notes pending.
+
 ## [0.7.0] - 2026-07-31
 
 ### Changed
@@ -295,6 +301,8 @@ considered stable.
 - **Diagnostics and documentation**: added `giga doctor`, inspect/config/session/native commands, an alpha quickstart, a migration guide, and documented first-release limitations.
 
 ---
+
+[0.8.0]: https://github.com/krakenalt/gigaloom/compare/v0.7.0...v0.8.0
 
 [0.7.0]: https://github.com/krakenalt/gigaloom/compare/v0.7.0-alpha.1...v0.7.0
 [0.7.0a1]: https://github.com/krakenalt/gigaloom/compare/v0.6.0-alpha.1...v0.7.0-alpha.1

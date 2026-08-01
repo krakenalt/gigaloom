@@ -5,6 +5,12 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 и проект придерживается [Семантического версионирования](https://semver.org/lang/ru/).
 
+## [0.8.0] - Unreleased
+
+### Добавлено
+
+- Описание изменений будет добавлено перед публикацией.
+
 ## [0.7.0] - 2026-07-31
 
 ### Изменено
@@ -296,6 +302,8 @@
 - **Tools, MCP и policy**: добавлены общие tool/secret contracts, discovery и dry-run синхронизация MCP profiles, managed MCP configuration, preflight diagnostics и approval-gated действия.
 - **Диагностика и документация**: добавлены `giga doctor`, inspect/config/session/native команды, alpha quickstart, migration guide и описание ограничений первого релиза.
 ---
+
+[0.8.0]: https://github.com/krakenalt/gigaloom/compare/v0.7.0...v0.8.0
 
 [0.7.0]: https://github.com/krakenalt/gigaloom/compare/v0.7.0-alpha.1...v0.7.0
 [0.7.0a1]: https://github.com/krakenalt/gigaloom/compare/v0.6.0-alpha.1...v0.7.0-alpha.1

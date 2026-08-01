@@ -7,7 +7,7 @@ agents. Provider-native CLI, structured automation и браузерный cockp
 агентов, а worktrees, approvals, evidence, schedules и сохранённое состояние
 остаются под явной локальной политикой.
 
-Линия `0.7.0` — первый стабильный релиз GigaLoom. Начните с [Установки](installation.md), затем
+Линия `0.8.0` — актуальный стабильный релиз GigaLoom. Начните с [Установки](installation.md), затем
 пройдите [Быстрый старт](quickstart.md).
 
 ## Выберите путь

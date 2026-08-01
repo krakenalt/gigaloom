@@ -1,6 +1,6 @@
 {
   "schema_version": "gigaloom-external-evidence-v1",
-  "release": "0.7.0",
+  "release": "0.8.0",
   "reviewed_at": "2026-07-31",
   "dependencies": [
     {

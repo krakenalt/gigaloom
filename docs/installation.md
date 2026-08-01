@@ -18,13 +18,13 @@ an emulated terminal UI.
 With `uv`:
 
 ```sh
-uv tool install 'gigaloom==0.7.0'
+uv tool install 'gigaloom==0.8.0'
 ```
 
 Or in an isolated Python environment:
 
 ```sh
-python -m pip install 'gigaloom==0.7.0'
+python -m pip install 'gigaloom==0.8.0'
 ```
 
 Confirm the installed artifact:
@@ -37,20 +37,20 @@ giga doctor
 `doctor` reports capability and configuration status without reading prompt
 content or contacting providers.
 
-## Upgrade to 0.7
+## Upgrade to 0.8
 
 An exact `uv tool install` constraint remains pinned during `uv tool upgrade`.
-To move an existing prerelease installation to 0.7, recreate the tool environment
+To move an existing prerelease installation to 0.8, recreate the tool environment
 with the new exact requirement:
 
 ```sh
-uv tool install --force 'gigaloom==0.7.0'
+uv tool install --force 'gigaloom==0.8.0'
 ```
 
 If the optional gateway extra was previously installed, retain it explicitly:
 
 ```sh
-uv tool install --force 'gigaloom[gpt2giga]==0.7.0'
+uv tool install --force 'gigaloom[gpt2giga]==0.8.0'
 ```
 
 Before upgrading, stop every GigaLoom process and back up `~/.gigaloom`, the
@@ -65,7 +65,7 @@ existing state directories:
 
 ```sh
 uv tool uninstall gpt2giga-harness
-uv tool install 'gigaloom==0.7.0'
+uv tool install 'gigaloom==0.8.0'
 ```
 
 Update extensions, imports, scripts, and frontend consumers as one clean cut:
@@ -165,7 +165,7 @@ The base package does not require gpt2giga. Install the optional extra only for
 Direct Chat or the legacy local-gateway preset:
 
 ```sh
-uv tool install 'gigaloom[gpt2giga]==0.7.0'
+uv tool install 'gigaloom[gpt2giga]==0.8.0'
 ```
 
 This installs the supported stable gateway range; the committed development and
@@ -179,7 +179,7 @@ Services that host the verified static Cockpit assets independently can install
 the matching npm release:
 
 ```sh
-npm install --save-exact @gigaloom/web@0.7.0
+npm install --save-exact @gigaloom/web@0.8.0
 ```
 
 Mount the package's `dist/` directory at `/web/assets/` and serve

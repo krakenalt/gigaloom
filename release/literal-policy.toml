@@ -64,6 +64,7 @@ path_globs = [
   "docs/**/*.md",
   "docs-site/i18n/**/*.md",
   "web/README.md",
+  "web/scripts/package-contract.mjs",
   "web/scripts/package-contract.unit.mjs",
 ]
 

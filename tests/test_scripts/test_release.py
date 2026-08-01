@@ -82,6 +82,10 @@ def _repository(tmp_path: Path, module) -> Path:
             "`gigaloom==0.7.0` and `@gigaloom/web@0.7.0`\n",
         )
     _write(
+        root / "web/scripts/package-contract.mjs",
+        f'{module.GENERATED_SCRIPT_MARKER}\nconst expectedVersion = "0.7.0";\n',
+    )
+    _write(
         root / "web/scripts/package-contract.unit.mjs",
         f"{module.GENERATED_SCRIPT_MARKER}\n"
         'const expected = {\n  version: "0.7.0",\n};\n',
@@ -119,6 +123,10 @@ def test_prepare_is_complete_idempotent_and_detects_drift(tmp_path: Path) -> Non
     assert 'version = "0.8.0-alpha.1"' in (root / module.VERSION_PATH).read_text()
     assert 'version = "0.8.0a1"' in (root / "pyproject.toml").read_text()
     assert 'name = "gigaloom"\nversion = "0.8.0a1"' in (root / "uv.lock").read_text()
+    assert (
+        'const expectedVersion = "0.8.0-alpha.1";'
+        in (root / "web/scripts/package-contract.mjs").read_text()
+    )
     assert "## [0.8.0-alpha.1] - Unreleased" in (root / "CHANGELOG_en.md").read_text()
 
     before = {
@@ -143,6 +151,24 @@ def test_prepare_is_complete_idempotent_and_detects_drift(tmp_path: Path) -> Non
     package = root / "web/package.json"
     package.write_text(package.read_text().replace("0.8.0-alpha.1", "0.8.0"))
     assert module.verify_projections(root) == (Path("web/package.json"),)
+
+
+def test_runtime_package_contract_drift_is_detected(tmp_path: Path) -> None:
+    module = _module()
+    root = _repository(tmp_path, module)
+    module.apply_projections(
+        root,
+        module.build_projections(root, module.release_identity("0.8.0-alpha.1")),
+    )
+    contract = root / "web/scripts/package-contract.mjs"
+    contract.write_text(
+        contract.read_text().replace("0.8.0-alpha.1", "0.8.0"),
+        encoding="utf-8",
+    )
+
+    assert module.verify_projections(root) == (
+        Path("web/scripts/package-contract.mjs"),
+    )
 
 
 def test_diff_is_read_only(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

@@ -9,7 +9,7 @@ Install the optional released integration only when using Direct Chat or the
 legacy local-gateway preset:
 
 ```sh
-uv tool install 'gigaloom[gpt2giga]==0.7.0'
+uv tool install 'gigaloom[gpt2giga]==0.8.0'
 ```
 
 This extra admits stable `gpt2giga>=0.2.6,<0.3.0`; the committed lock resolves

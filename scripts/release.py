@@ -337,17 +337,30 @@ def build_projections(root: Path, identity: ReleaseIdentity) -> dict[Path, bytes
             _read_text(root, relative), identity, label=relative.as_posix()
         ).encode()
 
-    script_contract = _read_text(root, Path("web/scripts/package-contract.unit.mjs"))
-    if GENERATED_SCRIPT_MARKER not in script_contract:
-        raise ReleasePreparationError(
-            "package contract has no generated release marker"
-        )
-    projections[Path("web/scripts/package-contract.unit.mjs")] = _replace_once(
-        script_contract,
-        rf'(?m)^(  version: "){SEMVER_PATTERN}(",)$',
-        rf"\g<1>{identity.version}\g<2>",
-        label="npm package contract version",
-    ).encode()
+    script_contracts = (
+        (
+            Path("web/scripts/package-contract.mjs"),
+            rf'(?m)^(const expectedVersion = "){SEMVER_PATTERN}(";$)',
+            "npm package runtime contract version",
+        ),
+        (
+            Path("web/scripts/package-contract.unit.mjs"),
+            rf'(?m)^(  version: "){SEMVER_PATTERN}(",)$',
+            "npm package unit contract version",
+        ),
+    )
+    for relative, pattern, label in script_contracts:
+        script_contract = _read_text(root, relative)
+        if GENERATED_SCRIPT_MARKER not in script_contract:
+            raise ReleasePreparationError(
+                f"{relative.as_posix()} has no generated release marker"
+            )
+        projections[relative] = _replace_once(
+            script_contract,
+            pattern,
+            rf"\g<1>{identity.version}\g<2>",
+            label=label,
+        ).encode()
 
     for relative in CHANGELOG_PROJECTIONS:
         projections[relative] = _project_changelog(

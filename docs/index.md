@@ -8,7 +8,7 @@ run native agents while keeping
 worktrees, approvals, evidence, schedules, and stored state under explicit
 local policy.
 
-The current `0.7.0` line is the first stable GigaLoom release. Begin with
+The current `0.8.0` line is the latest stable GigaLoom release. Begin with
 [Installation](installation.md), then complete the [Quickstart](quickstart.md).
 
 ## Choose a path

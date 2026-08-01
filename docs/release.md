@@ -9,10 +9,10 @@ first stable Native Agent Gateway release the exact identity is:
 
 | Surface | Identity |
 |---|---|
-| Canonical release | `0.7.0` |
-| Git tag | `v0.7.0` |
-| PyPI | `gigaloom==0.7.0` |
-| npm | `@gigaloom/web@0.7.0` |
+| Canonical release | `0.8.0` |
+| Git tag | `v0.8.0` |
+| PyPI | `gigaloom==0.8.0` |
+| npm | `@gigaloom/web@0.8.0` |
 
 The root Python metadata, npm metadata, generated manifest, changelog skeleton,
 package-documentation snippets, and `release/artifact-set.toml` must match the
