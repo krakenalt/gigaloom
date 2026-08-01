@@ -18,24 +18,26 @@ The root Python metadata, npm metadata, generated manifest, changelog skeleton,
 package-documentation snippets, and `release/artifact-set.toml` must match the
 canonical file exactly. CI fails when any projection is edited by hand.
 
-## Prepare a version
+## Bump a version
 
-Create a release branch and run the single source-to-projection operation:
+From the repository root, run one hermetic source-to-projection operation:
 
 ```bash
 git switch -c release/0.8.0-alpha.1
-python scripts/release.py prepare 0.8.0-alpha.1
-python scripts/release.py verify
-./scripts/ci-base.sh ruff-check
-./scripts/ci-base.sh pytest tests/harness -q
-npm --prefix web run check
-git commit -am "chore(release): prepare 0.8.0-alpha.1"
+./scripts/release bump 0.8.0-alpha.1
 ```
 
-`prepare` does not build, tag, publish, or call a provider. Running it again for
-the same version is a byte-identical no-op. Use `scripts/release.py diff` to
-review a proposed version without writing and `show` to inspect the current
-canonical identity.
+`bump` updates every version projection with in-process rollback, then verifies
+the result, including the packaged product inventory. Its JSON receipt lists
+the exact changed paths and the remaining human and external gates. It does not
+build, commit, tag, publish, or call a provider. Running it again for the same
+version is a byte-identical no-op.
+
+Use `./scripts/release diff <version>` to review a proposed version without
+writing and `./scripts/release show` to inspect the canonical identity. The
+legacy `prepare` command remains compatible. `verify` remains an independent
+CI and tag-boundary check; it is unnecessary immediately after a successful
+`bump`.
 
 ## Tag policy
 
@@ -54,8 +56,8 @@ the workflow guesses around.
 1. Confirm the named GitHub and PyPI backup owners have accepted access with
    2FA under the
    [governance policy](https://github.com/krakenalt/gigaloom/blob/main/GOVERNANCE.md).
-2. Run the documented `prepare` and `verify` commands, complete both generated
-   changelog skeletons, and review every generated projection.
+2. Run the documented `bump`, complete both generated changelog skeletons, and
+   review the exact changed paths from its receipt.
 3. Build frontend assets and run the complete non-live quality gate.
 4. Ensure the release commit is on `main` and the documented main/tag rulesets
    are active.

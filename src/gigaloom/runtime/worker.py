@@ -15,7 +15,10 @@ from gigaloom.attachments import FilesystemAttachmentStore
 from gigaloom.config import HarnessConfig
 from gigaloom.project_memory import FilesystemProjectMemoryStore
 from gigaloom.registry import HarnessRegistry, create_default_registry
-from gigaloom.runtime.fingerprint import build_worker_fingerprint
+from gigaloom.runtime.fingerprint import (
+    build_submission_fingerprint,
+    build_worker_fingerprint,
+)
 from gigaloom.runtime.models import (
     JobAttemptStatus,
     RuntimeJob,
@@ -93,7 +96,8 @@ class DurableJobDispatcher:
         self.runtime_store = runtime_store
         self.payload_store = payload_store
         self.runner = runner
-        self.submitter_fingerprint = build_worker_fingerprint(runner.registry)
+        self._submitter_fingerprint_cache: dict[str, dict[str, Any]] = {}
+        self._submitter_fingerprint_lock = threading.Lock()
         self.policy_engine = PolicyEngine(runtime_store)
 
     def submit(
@@ -132,6 +136,7 @@ class DurableJobDispatcher:
             return self._submit_locked(
                 session_id,
                 payload,
+                harness_id=harness_id,
                 idempotency_key=idempotency_key,
                 origin=origin,
             )
@@ -141,6 +146,7 @@ class DurableJobDispatcher:
         session_id: str,
         payload: Mapping[str, Any],
         *,
+        harness_id: str,
         idempotency_key: str,
         origin: str,
     ) -> DurableSubmission:
@@ -159,6 +165,7 @@ class DurableJobDispatcher:
                 queued=QueuedHarnessRun(session=session, run=run, user_message=message),
                 created=False,
             )
+        submitter_fingerprint = self._submitter_fingerprint(harness_id)
         run_id = new_id("run")
         queued = self.runner.enqueue_in_session(session_id, payload, run_id=run_id)
         harness_id = queued.run.harness_id
@@ -179,9 +186,7 @@ class DurableJobDispatcher:
             agent_id=str(payload.get("agent_id") or "") or None,
             max_attempts=max_attempts,
             required_harness_id=harness_id,
-            required_capability_fingerprint=_job_fingerprint_requirement(
-                self.submitter_fingerprint, harness_id
-            ),
+            required_capability_fingerprint=submitter_fingerprint,
             timeout_seconds=timeout_seconds,
             initial_status="waiting_input",
         )
@@ -301,6 +306,14 @@ class DurableJobDispatcher:
             ),
             created=submission.created,
         )
+
+    def _submitter_fingerprint(self, harness_id: str) -> dict[str, Any]:
+        with self._submitter_fingerprint_lock:
+            if harness_id not in self._submitter_fingerprint_cache:
+                self._submitter_fingerprint_cache[harness_id] = (
+                    build_submission_fingerprint(self.runner.registry, harness_id)
+                )
+            return self._submitter_fingerprint_cache[harness_id]
 
 
 class DurableJobWorker:
@@ -754,19 +767,6 @@ def _positive_float(value: Any, default: float) -> float:
     except (TypeError, ValueError):
         return default
     return parsed if parsed > 0 else default
-
-
-def _job_fingerprint_requirement(
-    fingerprint: Mapping[str, Any], harness_id: str
-) -> dict[str, Any]:
-    harnesses = fingerprint.get("harnesses")
-    harness = harnesses.get(harness_id) if isinstance(harnesses, Mapping) else None
-    return {
-        "os": fingerprint.get("os"),
-        "harnesses": {
-            harness_id: dict(harness) if isinstance(harness, Mapping) else {}
-        },
-    }
 
 
 def _worker_execution_payload(

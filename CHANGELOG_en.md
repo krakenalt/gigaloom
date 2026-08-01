@@ -7,9 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.8.0] - Unreleased
 
-### Added
+### Changed
 
-- Release notes pending.
+- Metadata-only `giga --help` and `giga --version` paths now avoid importing the
+  runtime, provider, and native-agent graph.
+- Durable API composition defers compatibility probing until a harness is first
+  submitted, then reuses the exact worker-compatible requirement.
+- `./scripts/release bump <version>` now performs a rollback-protected,
+  self-verifying version projection with a machine-readable receipt and includes
+  the packaged product inventory.
+- OpenAI Codex guidance now routes work by surface and makes authority,
+  simplicity, performance evidence, validation, and release gates explicit.
+
+### Fixed
+
+- Prerelease changelog validation now compares canonical SemVer rather than its
+  PEP 440 projection, and reusable candidate reports no longer carry stale run
+  results into a new version.
+- Removed duplicate, unused Gemini CLI approval/header helpers from execution
+  and streaming modules.
 
 ## [0.7.0] - 2026-07-31
 

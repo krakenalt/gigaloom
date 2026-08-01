@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+import stat
 import sys
 
 import pytest
@@ -10,6 +11,7 @@ import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPOSITORY_ROOT / "scripts" / "release.py"
+WRAPPER_PATH = REPOSITORY_ROOT / "scripts" / "release"
 
 
 def _module():
@@ -97,6 +99,17 @@ def _repository(tmp_path: Path, module) -> Path:
             "- Existing release.\n\n---\n\n"
             "[0.7.0]: https://example.test/v0.7.0\n",
         )
+    inventory = {
+        "product": {"version": "0.7.0"},
+        "provider_compatibility_profiles": [
+            {"id": "fixture", "adapter_version": "0.7.0"}
+        ],
+    }
+    inventory["content_sha256"] = module._product_inventory_digest(inventory)
+    _write(
+        root / module.PRODUCT_INVENTORY_PATH,
+        json.dumps(inventory, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    )
     for relative, content in module.build_projections(
         root, module.release_identity("0.7.0")
     ).items():
@@ -128,6 +141,13 @@ def test_prepare_is_complete_idempotent_and_detects_drift(tmp_path: Path) -> Non
         in (root / "web/scripts/package-contract.mjs").read_text()
     )
     assert "## [0.8.0-alpha.1] - Unreleased" in (root / "CHANGELOG_en.md").read_text()
+    inventory = json.loads((root / module.PRODUCT_INVENTORY_PATH).read_text())
+    assert inventory["product"]["version"] == "0.8.0a1"
+    assert inventory["provider_compatibility_profiles"][0]["adapter_version"] == (
+        "0.8.0a1"
+    )
+    digest = inventory.pop("content_sha256")
+    assert digest == module._product_inventory_digest(inventory)
 
     before = {
         relative: ((root / relative).read_bytes(), (root / relative).stat().st_mtime_ns)
@@ -171,6 +191,18 @@ def test_runtime_package_contract_drift_is_detected(tmp_path: Path) -> None:
     )
 
 
+def test_prepare_rejects_invalid_product_inventory_digest(tmp_path: Path) -> None:
+    module = _module()
+    root = _repository(tmp_path, module)
+    inventory_path = root / module.PRODUCT_INVENTORY_PATH
+    inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+    inventory["content_sha256"] = "0" * 64
+    inventory_path.write_text(json.dumps(inventory), encoding="utf-8")
+
+    with pytest.raises(module.ReleasePreparationError, match="digest is invalid"):
+        module.build_projections(root, module.release_identity("0.8.0-alpha.1"))
+
+
 def test_diff_is_read_only(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     module = _module()
     root = _repository(tmp_path, module)
@@ -209,6 +241,38 @@ def test_prepare_and_verify_cli_are_fail_closed(
         module.main(["--root", str(root), "verify"])
     assert error.value.code == 2
     assert "release/release.json" in capsys.readouterr().err
+
+
+def test_bump_is_one_verified_machine_readable_operation(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module = _module()
+    root = _repository(tmp_path, module)
+
+    assert module.main(["--root", str(root), "bump", "0.8.0-alpha.1"]) == 0
+
+    receipt = json.loads(capsys.readouterr().out)
+    assert receipt["schema_version"] == module.RELEASE_BUMP_SCHEMA
+    assert receipt["release"] == {
+        "git_tag": "v0.8.0-alpha.1",
+        "python_version": "0.8.0a1",
+        "version": "0.8.0-alpha.1",
+    }
+    assert receipt["verified"] is True
+    assert module.PRODUCT_INVENTORY_PATH.as_posix() in receipt["changed"]
+    assert [step["id"] for step in receipt["next_steps"]] == [
+        "complete_changelogs",
+        "run_release_checks",
+        "create_protected_tag",
+    ]
+    assert module.verify_projections(root) == ()
+
+
+def test_release_wrapper_uses_hermetic_python() -> None:
+    assert WRAPPER_PATH.stat().st_mode & stat.S_IXUSR
+    assert WRAPPER_PATH.read_text(encoding="utf-8") == (
+        '#!/bin/sh\nset -eu\n\nexec uv run --no-project --python 3.13 scripts/release.py "$@"\n'
+    )
 
 
 def test_artifact_set_stages_role_named_files(tmp_path: Path) -> None:

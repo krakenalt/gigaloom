@@ -19,6 +19,24 @@ def test_worker_fingerprint_reports_both_distribution_versions(monkeypatch):
     assert result["gigaloom"] == "0.5.1a1"
 
 
+def test_submission_fingerprint_matches_the_worker_harness_subset(monkeypatch):
+    versions = {
+        "gpt2giga": "0.2.2a1",
+        "gigaloom": "0.5.1a1",
+    }
+    monkeypatch.setattr(fingerprint.metadata, "version", versions.__getitem__)
+    registry = HarnessRegistry()
+    registry.register(EchoHarness())
+
+    worker = fingerprint.build_worker_fingerprint(registry)
+    submission = fingerprint.build_submission_fingerprint(registry, "echo")
+
+    assert submission == {
+        "os": worker["os"],
+        "harnesses": {"echo": worker["harnesses"]["echo"]},
+    }
+
+
 def test_worker_fingerprint_uses_resolved_user_executable(tmp_path):
     executable = tmp_path / "bin" / "codex"
     executable.parent.mkdir()

@@ -24,7 +24,7 @@ Offload blocking work and ratchet the legacy package facade.
 
 # Focused validation commands
 
-`uv run pytest tests/harness -k 'execution or session_runner' -n 0`
+`./scripts/ci-base.sh pytest tests/harness -k 'execution or session_runner' -q`
 
 # Owner/CODEOWNERS
 

@@ -24,7 +24,7 @@ Use bounded claims/maintenance and ratchet every listed legacy module.
 
 # Focused validation commands
 
-`uv run pytest tests/harness -k 'runtime or worker or lease' -n 0`
+`./scripts/ci-base.sh pytest tests/harness -k 'runtime or worker or lease' -q`
 
 # Owner/CODEOWNERS
 

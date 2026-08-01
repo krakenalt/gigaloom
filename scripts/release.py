@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 import difflib
+import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -19,6 +20,10 @@ from typing import Any, Mapping, Sequence
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 VERSION_PATH = Path("release/version.toml")
+PRODUCT_INVENTORY_PATH = Path(
+    "src/gigaloom/evidence/product_inventory/v1/inventory.json"
+)
+RELEASE_BUMP_SCHEMA = "gigaloom.release-bump.v1"
 SEMVER_PATTERN = r"\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.[1-9]\d*)?"
 PEP440_PATTERN = r"\d+\.\d+\.\d+(?:(?:a|b|rc)[1-9]\d*)?"
 SEMVER_RE = re.compile(
@@ -280,6 +285,52 @@ def _artifact_manifest(identity: ReleaseIdentity) -> bytes:
     return f"{header}{body}".encode()
 
 
+def _product_inventory_digest(document: Mapping[str, Any]) -> str:
+    payload = json.dumps(
+        document,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _project_product_inventory(
+    root: Path,
+    identity: ReleaseIdentity,
+    previous: ReleaseIdentity,
+) -> bytes:
+    inventory = _json_object(root, PRODUCT_INVENTORY_PATH)
+    claimed_digest = inventory.pop("content_sha256", None)
+    if claimed_digest != _product_inventory_digest(inventory):
+        raise ReleasePreparationError("product inventory digest is invalid")
+    product = inventory.get("product")
+    profiles = inventory.get("provider_compatibility_profiles")
+    if not isinstance(product, dict) or not isinstance(profiles, list):
+        raise ReleasePreparationError("product inventory release identity is malformed")
+    current = product.get("version")
+    if current not in {previous.python_version, identity.python_version}:
+        raise ReleasePreparationError(
+            "product inventory version differs from the canonical release"
+        )
+    product["version"] = identity.python_version
+    for profile in profiles:
+        if not isinstance(profile, dict):
+            raise ReleasePreparationError(
+                "product inventory compatibility profile is malformed"
+            )
+        if profile.get("adapter_version") not in {
+            previous.python_version,
+            identity.python_version,
+        }:
+            raise ReleasePreparationError(
+                "product inventory adapter version differs from the canonical release"
+            )
+        profile["adapter_version"] = identity.python_version
+    inventory["content_sha256"] = _product_inventory_digest(inventory)
+    return f"{json.dumps(inventory, indent=2, ensure_ascii=False, sort_keys=True)}\n".encode()
+
+
 def build_projections(root: Path, identity: ReleaseIdentity) -> dict[Path, bytes]:
     """Build every expected tracked projection without writing it."""
     previous = read_canonical_identity(root)
@@ -327,6 +378,9 @@ def build_projections(root: Path, identity: ReleaseIdentity) -> dict[Path, bytes
     external["release"] = identity.version
     projections[Path("release/external-evidence.json")] = _canonical_json(external)
     projections[Path("release/artifact-set.toml")] = _artifact_manifest(identity)
+    projections[PRODUCT_INVENTORY_PATH] = _project_product_inventory(
+        root, identity, previous
+    )
 
     report = _read_text(root, Path("release/candidate-report.md"))
     projections[Path("release/candidate-report.md")] = _project_candidate_report(
@@ -405,7 +459,7 @@ def _temporary_file(path: Path, content: bytes, mode: int) -> Path:
 
 
 def apply_projections(root: Path, expected: Mapping[Path, bytes]) -> tuple[Path, ...]:
-    """Replace changed projections with rollback on an in-process failure."""
+    """Replace and verify projections with rollback on an in-process failure."""
     changed = _changed_projections(root, expected)
     if not changed:
         return ()
@@ -421,6 +475,12 @@ def apply_projections(root: Path, expected: Mapping[Path, bytes]) -> tuple[Path,
         for relative in sorted(changed, key=lambda item: item == VERSION_PATH):
             staged[relative].replace(root / relative)
             replaced.append(relative)
+        drift = _changed_projections(root, expected)
+        if drift:
+            raise ReleasePreparationError(
+                "post-write release projection drift: "
+                + ", ".join(path.as_posix() for path in drift)
+            )
     except BaseException as exc:
         for relative in reversed(replaced):
             content, mode = originals[relative]
@@ -542,6 +602,36 @@ def _render_diff(root: Path, expected: Mapping[Path, bytes]) -> str:
     return "".join(chunks)
 
 
+def _bump_receipt(identity: ReleaseIdentity, changed: Sequence[Path]) -> dict[str, Any]:
+    return {
+        "schema_version": RELEASE_BUMP_SCHEMA,
+        "release": {
+            "version": identity.version,
+            "python_version": identity.python_version,
+            "git_tag": identity.git_tag,
+        },
+        "changed": [path.as_posix() for path in changed],
+        "verified": True,
+        "next_steps": [
+            {
+                "id": "complete_changelogs",
+                "kind": "edit",
+                "paths": [path.as_posix() for path in CHANGELOG_PROJECTIONS],
+            },
+            {
+                "id": "run_release_checks",
+                "kind": "manual_gate",
+                "documentation": "docs/release.md#maintainer-checklist",
+            },
+            {
+                "id": "create_protected_tag",
+                "kind": "external_gate",
+                "git_tag": identity.git_tag,
+            },
+        ],
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the release identity CLI."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -550,6 +640,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser("show")
     prepare = commands.add_parser("prepare")
     prepare.add_argument("version")
+    bump = commands.add_parser("bump")
+    bump.add_argument("version")
     commands.add_parser("verify")
     difference = commands.add_parser("diff")
     difference.add_argument("version")
@@ -571,10 +663,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                     separators=(",", ":"),
                 )
             )
-        elif args.command == "prepare":
+        elif args.command in {"prepare", "bump"}:
             identity = release_identity(args.version)
             changed = apply_projections(root, build_projections(root, identity))
-            print(json.dumps({"changed": [path.as_posix() for path in changed]}))
+            if args.command == "bump":
+                print(json.dumps(_bump_receipt(identity, changed), sort_keys=True))
+            else:
+                print(json.dumps({"changed": [path.as_posix() for path in changed]}))
         elif args.command == "verify":
             drift = verify_projections(root)
             if drift:

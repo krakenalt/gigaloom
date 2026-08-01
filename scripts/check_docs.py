@@ -134,10 +134,10 @@ def check_locale_coverage(root: Path) -> list[Issue]:
 
 
 def check_package_versions(root: Path) -> list[Issue]:
-    """Require Harness changelogs to begin with the package metadata version."""
+    """Require changelogs to begin with the canonical release SemVer."""
     issues: list[Issue] = []
-    metadata = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
-    version = metadata["project"]["version"]
+    release = tomllib.loads((root / "release/version.toml").read_text(encoding="utf-8"))
+    version = release["version"]
     for filename in ("CHANGELOG.md", "CHANGELOG_en.md"):
         path = root / filename
         match = CHANGELOG_VERSION_RE.search(path.read_text(encoding="utf-8"))

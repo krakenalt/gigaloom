@@ -20,11 +20,11 @@ Redact before storage/export and preserve reviewed-evidence provenance.
 
 # Performance budgets
 
-Bound replay and evidence reads; new modules stay below 600 lines.
+Bound replay/evidence reads and honor `architecture/module-budgets.json`.
 
 # Focused validation commands
 
-`uv run pytest tests/harness -k 'evidence or review or provenance or replay' -n 0`
+`./scripts/ci-base.sh pytest tests/harness -k 'evidence or review or provenance or replay' -q`
 
 # Owner/CODEOWNERS
 

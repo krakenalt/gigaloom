@@ -66,7 +66,7 @@ tree.
 | `projects` | Project configuration, memory, backup, workspace resolution, worktrees, and environment actions | `projects/api.py` |
 | `attachments` | Attachment models, limits, MIME handling, rendering, and storage | `attachments/api.py` |
 | `integrations` | Catalogs, installable packages, lifecycle, flows, groups, and integration SDK | `integrations/api.py` |
-| `tools` | Tool contracts, profiles, policy, secrets, and managed or external MCP lifecycle | `tools/api.py` |
+| `tools` | Tool contracts, profiles, policy, secrets, and managed or external MCP lifecycle | Package exports and `tools/mcp/api.py` |
 | `skills` | Built-in, external, and portable skills plus library, authoring, and catalog proxy behavior | `skills/api.py` |
 | `automation` | Agents, workflows, schedules, evaluations, arena, and attention services | Subcontext contracts and application services |
 | `review` | Provenance, reviewed evidence, artifacts, replay, promotions, handoffs, and support exports | Explicit read and reviewed-mutation contracts |

@@ -65,7 +65,7 @@ skills/       tools/       ui/
 | `projects` | Project configuration, memory, backup, workspace resolution, worktrees и environment actions | `projects/api.py` |
 | `attachments` | Attachment models, limits, MIME handling, rendering и storage | `attachments/api.py` |
 | `integrations` | Catalogs, installable packages, lifecycle, flows, groups и integration SDK | `integrations/api.py` |
-| `tools` | Tool contracts, profiles, policy, secrets и lifecycle managed/external MCP | `tools/api.py` |
+| `tools` | Tool contracts, profiles, policy, secrets и lifecycle managed/external MCP | Package exports и `tools/mcp/api.py` |
 | `skills` | Built-in, external и portable skills, library, authoring и catalog proxy | `skills/api.py` |
 | `automation` | Agents, workflows, schedules, evaluations, arena и attention services | Contracts и application services подконтекстов |
 | `review` | Provenance, reviewed evidence, artifacts, replay, promotions, handoffs и support exports | Явные read и reviewed-mutation contracts |

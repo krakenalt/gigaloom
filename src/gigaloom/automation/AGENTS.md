@@ -20,11 +20,11 @@ Preserve approval, provenance, retry, and redaction guarantees.
 
 # Performance budgets
 
-Keep planning/evaluation bounded and new modules below 600 lines.
+Keep planning/evaluation bounded and honor `architecture/module-budgets.json`.
 
 # Focused validation commands
 
-`uv run pytest tests/harness -k 'workflow or schedule or eval or arena' -n 0`
+`./scripts/ci-base.sh pytest tests/harness -k 'workflow or schedule or eval or arena' -q`
 
 # Owner/CODEOWNERS
 

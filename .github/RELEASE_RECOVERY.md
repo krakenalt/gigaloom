@@ -1,9 +1,11 @@
 # GigaLoom release recovery
 
 The release path is intentionally fail-closed and split into two phases.
-`release/version.toml` is the only hand-edited identity; `scripts/release.py`
-with `prepare` generates the ecosystem projections, and `verify` rejects drift
-before a candidate is built. Candidate builds never publish. They bind one
+`release/version.toml` is the only hand-edited identity;
+`./scripts/release bump <version>` generates and verifies all ecosystem
+projections in one rollback-protected operation. The independent `verify`
+command rejects later drift before a candidate is built.
+Candidate builds never publish. They bind one
 generated `release/release.json` identity,
 one exact `main` commit, the Python wheel and sdist, the public npm tarball,
 content parity evidence, hashes, licenses, SBOMs, and provenance in one retained

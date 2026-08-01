@@ -6,9 +6,13 @@ from collections.abc import Mapping, Sequence
 import os
 import shutil
 import sys
+from typing import TYPE_CHECKING
 
 from gigaloom import __version__
-from gigaloom.harnesses.agent_profiles import AgentProfileV1
+
+
+if TYPE_CHECKING:
+    from gigaloom.harnesses.agent_profiles import AgentProfileV1
 
 
 def render_root_help() -> str:

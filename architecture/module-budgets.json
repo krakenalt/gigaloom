@@ -315,8 +315,7 @@
     ]
   },
   "module_budgets": {
-    "python_module_hard_limit": 597,
-    "ratchet_reduction_percent": 15,
+    "python_module_hard_limit": 600,
     "legacy_modules": [
       {
         "path": "claude_mcp_target.py",

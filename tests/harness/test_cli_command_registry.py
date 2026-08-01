@@ -80,6 +80,19 @@ def test_console_metadata_commands_do_not_import_domain_graph():
                 else:
                     assert not exits
                     assert result == 0
+            if arguments in (["--version"], ["--help"]):
+                imported = {
+                    name
+                    for name in sys.modules
+                    if name == "gigaloom" or name.startswith("gigaloom.")
+                }
+                assert imported <= {
+                    "gigaloom",
+                    "gigaloom.cli_commands",
+                    "gigaloom.cli_commands.launcher",
+                    "gigaloom.cli_commands.metadata",
+                    "gigaloom.entrypoint",
+                }
             assert "gigaloom.cli" not in sys.modules
             assert not any(
                 name.split(".", 1)[0] in {"fastapi", "textual", "uvicorn"}

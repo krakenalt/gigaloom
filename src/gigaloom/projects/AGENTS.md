@@ -20,11 +20,11 @@ Bound paths to project roots and fail closed on approval or isolation failures.
 
 # Performance budgets
 
-Bound filesystem/Git scans and keep new modules below 600 lines.
+Bound filesystem/Git scans and honor `architecture/module-budgets.json`.
 
 # Focused validation commands
 
-`uv run pytest tests/harness -k 'project or environment or worktree' -n 0`
+`./scripts/ci-base.sh pytest tests/harness -k 'project or environment or worktree' -q`
 
 # Owner/CODEOWNERS
 

@@ -21,8 +21,30 @@ _CLI_BINARIES = {
 
 def build_worker_fingerprint(registry: HarnessRegistry) -> dict[str, Any]:
     """Return a redaction-safe snapshot used for claim compatibility."""
+    return {
+        "os": platform.system().lower(),
+        "os_release": platform.release(),
+        "machine": platform.machine(),
+        "python": platform.python_version(),
+        "gpt2giga": _distribution_version("gpt2giga"),
+        "gigaloom": _distribution_version("gigaloom"),
+        "harnesses": _harness_fingerprints(registry.list()),
+    }
+
+
+def build_submission_fingerprint(
+    registry: HarnessRegistry, harness_id: str
+) -> dict[str, Any]:
+    """Return only the worker fields required to claim one harness job."""
+    return {
+        "os": platform.system().lower(),
+        "harnesses": _harness_fingerprints((registry.get(harness_id),)),
+    }
+
+
+def _harness_fingerprints(registered: tuple[Any, ...]) -> dict[str, Any]:
     harnesses: dict[str, Any] = {}
-    for harness in registry.list():
+    for harness in registered:
         spec = harness.spec()
         availability = harness.availability()
         capabilities = negotiate_execution_capabilities(harness)
@@ -53,15 +75,7 @@ def build_worker_fingerprint(registry: HarnessRegistry) -> dict[str, Any]:
                 **structured_features,
             },
         }
-    return {
-        "os": platform.system().lower(),
-        "os_release": platform.release(),
-        "machine": platform.machine(),
-        "python": platform.python_version(),
-        "gpt2giga": _distribution_version("gpt2giga"),
-        "gigaloom": _distribution_version("gigaloom"),
-        "harnesses": harnesses,
-    }
+    return harnesses
 
 
 def _executable_resolution(harness: Any) -> Any | None:

@@ -12,33 +12,11 @@ or mutate an external provider.
 
 ## Test and packaging evidence
 
-The following local gates are required before the release commit. The final
-results are recorded here immediately before that commit:
-
-<!-- RELEASE-RESULTS-START -->
-- `./scripts/ci-base.sh ruff-check`, `ruff-format-check`, and `type-check`:
-  passed (1,241 Python files formatted; typed source passed).
-- Native Agent Gateway focused release/security matrix: 235 passed.
-- Performance contracts: 26 passed; the five-sample `ci-smoke` report passed
-  with no failed budgets. Measured p95 values were 0.022 ms, 0.015 ms,
-  0.081 ms, and 0.654 ms for the four blocking projection workloads.
-- Full Python suite: 2,463 collected; the parallel pass reported 2,459 passed,
-  2 skipped, and 2 timing-budget nodes non-green under 14 xdist workers. Those
-  exact nodes were rerun sequentially with `-n 0`: 2 passed. Combined coverage
-  was 86.74%, above the 80% gate.
-- Web gate: typecheck and lint passed; 54 Vitest files / 204 tests passed;
-  4 package-contract tests and deterministic asset-tree verification passed.
-- Playwright: desktop Chromium and mobile `390x844` journeys passed with no
-  console errors or horizontal overflow (2 passed).
-- English and Russian Docusaurus production build: passed.
-- Standalone `uv build --wheel --sdist --no-sources`: produced
-  `gigaloom-0.8.0` wheel and sdist. npm packaging verified 96 files for
-  `@gigaloom/web@0.8.0`; exact artifact sizes and digests are bound by the
-  combined candidate manifest. The legacy scan and SHA256 checksum
-  verification passed.
-- Source legacy-identifier scan, lock resolution check, product inventory
-  regeneration, and release-candidate verifier tests: passed.
-<!-- RELEASE-RESULTS-END -->
+This tracked report describes the required gates but does not claim that a
+particular candidate passed them. Release-specific test counts, coverage,
+artifact digests, and attestations belong to the immutable candidate workflow
+and its generated manifest; they must never be copied forward by a version
+bump.
 
 The release workflow repeats the release-facing checks, builds the canonical
 Web assets once at the candidate SHA, verifies wheel/sdist/npm parity, and emits
@@ -54,15 +32,15 @@ complete. The focused tests cover dry-run, successful upgrade, repeat runs,
 interruption before and after promotion, corrupt journals, target conflicts,
 and restoration from backup.
 
-## Security review
+## Security review contract
 
-A repository-scoped threat model was refreshed for the candidate. It reviews
-native executable launch, local ACP stdio, project and route selection, MCP Apps
-iframe/resource boundaries, evidence and capsule signing, state migration, and
-the multi-registry supply chain. The release remains fail closed on executable
-identity, source revision, workspace binding, capability, authority, digest,
-signature, migration journal, or artifact parity drift. No blocking security
-finding was identified in the reviewed release surface.
+The candidate review covers native executable launch, local ACP stdio, project
+and route selection, MCP Apps iframe/resource boundaries, evidence and capsule
+signing, state migration, and the multi-registry supply chain. Candidate gates
+must fail closed on executable identity, source revision, workspace binding,
+capability, authority, digest, signature, migration journal, or artifact parity
+drift. Review completion and findings belong to the candidate evidence rather
+than this reusable source document.
 
 ## Run capsule evidence
 

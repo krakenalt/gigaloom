@@ -19,24 +19,26 @@ Root Python metadata, npm metadata, generated manifest, skeleton changelog,
 package-documentation snippets и `release/artifact-set.toml` должны точно
 соответствовать canonical file. CI отклоняет ручное изменение projection.
 
-## Подготовка версии
+## Бамп версии
 
-Создайте release branch и выполните единственную source-to-projection операцию:
+Из корня репозитория выполните одну hermetic source-to-projection операцию:
 
 ```bash
 git switch -c release/0.8.0-alpha.1
-python scripts/release.py prepare 0.8.0-alpha.1
-python scripts/release.py verify
-./scripts/ci-base.sh ruff-check
-./scripts/ci-base.sh pytest tests/harness -q
-npm --prefix web run check
-git commit -am "chore(release): prepare 0.8.0-alpha.1"
+./scripts/release bump 0.8.0-alpha.1
 ```
 
-`prepare` не собирает artifact, не создаёт tag, ничего не публикует и не
+`bump` обновляет все version projections с rollback при ошибке процесса, затем
+проверяет результат, включая packaged product inventory. JSON receipt
+перечисляет точные изменённые пути и оставшиеся human/external gates. Команда
+не собирает artifact, не коммитит, не создаёт tag, ничего не публикует и не
 обращается к provider. Повторный запуск для той же версии — byte-identical
-no-op. `scripts/release.py diff` показывает предлагаемые изменения без записи,
-а `show` выводит текущую canonical identity.
+no-op.
+
+`./scripts/release diff <version>` показывает изменения без записи, а
+`./scripts/release show` выводит canonical identity. Старый `prepare` остаётся
+совместимым. Отдельный `verify` сохраняется для CI и tag trust boundary; сразу
+после успешного `bump` он не нужен.
 
 ## Политика тегов
 
@@ -56,8 +58,8 @@ policy, а не обходится workflow.
 1. Убедитесь, что назначенные backup owners GitHub и PyPI приняли доступ с 2FA
    согласно
    [governance policy](https://github.com/krakenalt/gigaloom/blob/main/GOVERNANCE.md).
-2. Выполните документированные `prepare` и `verify`, заполните оба generated
-   changelog skeleton и проверьте все generated projections.
+2. Выполните документированный `bump`, заполните оба generated changelog
+   skeleton и проверьте точные changed paths из receipt.
 3. Соберите frontend assets и выполните полный non-live quality gate.
 4. Убедитесь, что release commit находится в `main`, а документированные
    main/tag rulesets активны.

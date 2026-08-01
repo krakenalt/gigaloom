@@ -7,9 +7,27 @@
 
 ## [0.8.0] - Unreleased
 
-### Добавлено
+### Изменено
 
-- Описание изменений будет добавлено перед публикацией.
+- Metadata-only пути `giga --help` и `giga --version` больше не импортируют
+  runtime, provider и native-agent граф.
+- Durable API composition откладывает compatibility probes до первой отправки
+  задания выбранному harness, а затем переиспользует точное worker-compatible
+  требование.
+- `./scripts/release bump <version>` выполняет rollback-protected,
+  self-verifying проекцию версии с machine-readable receipt и обновляет
+  packaged product inventory.
+- Инструкции для OpenAI Codex теперь явно маршрутизируют работу по surface и
+  фиксируют authority, simplicity, performance evidence, validation и release
+  gates.
+
+### Исправлено
+
+- Changelog prerelease теперь проверяется по canonical SemVer, а не по его
+  PEP 440 projection; reusable candidate report больше не переносит устаревшие
+  результаты запусков в следующую версию.
+- Удалены дублирующиеся неиспользуемые Gemini CLI helpers для approval/header
+  из execution и streaming modules.
 
 ## [0.7.0] - 2026-07-31
 
