@@ -201,7 +201,7 @@ class IntegrationCatalogStore:
         source_id: str,
         source_type: CatalogSourceType,
     ) -> CatalogEntry:
-        """Parse and import one strict N4 IntegrationPackage manifest."""
+        """Parse and import one strict IntegrationPackage manifest."""
         return self.import_package(
             integration_package_from_dict(payload),
             source_id=source_id,

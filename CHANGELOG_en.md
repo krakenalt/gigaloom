@@ -5,6 +5,46 @@ All notable changes to GigaLoom are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - Unreleased
+
+### Changed
+
+- Metadata-only `giga --help` and `giga --version` paths now avoid importing the
+  runtime, provider, and native-agent graph.
+- Durable API composition defers compatibility probing until a harness is first
+  submitted, then reuses the exact worker-compatible requirement.
+- `./scripts/release bump <version>` now performs a rollback-protected,
+  self-verifying version projection with a machine-readable receipt and includes
+  the packaged product inventory.
+- OpenAI Codex guidance now routes work by surface and makes authority,
+  simplicity, performance evidence, validation, and release gates explicit.
+- The README now describes the 0.8 surfaces and uses live shields for the real
+  quality/docs workflows, PyPI, npm, and supported Python versions.
+- GitHub Actions changes now run isolated workflow contract tests, while the
+  quality workflow rejects Python metadata and `uv.lock` drift before expensive
+  frontend and browser gates.
+- Dependabot groups only minor/patch maintenance; major upgrades remain separate
+  pull requests and no longer block compatible updates in a mixed group.
+- Dependabot pull requests retain the complete required quality and platform
+  matrices; contract tests forbid actor-specific skips or dynamic narrowing,
+  while auxiliary docs, dependency-review, and Actions workflows stay
+  path-scoped to their owned inputs.
+- The docs build no longer runs for Python-only metadata, while dependency
+  review now covers `uv.lock` plus the documentation manifest and lockfile.
+
+### Fixed
+
+- The protected release workflow now requires the exact GitHub Release tag to
+  be vacant before the first registry write, preventing a pre-created Release
+  from stranding an otherwise successful npm/PyPI publication. After exact
+  registry-byte proof, recovery may adopt only an empty mutable exact-tag
+  Release and never overwrites uploaded assets.
+- Prerelease changelog validation now compares canonical SemVer rather than its
+  PEP 440 projection, and reusable candidate reports no longer carry stale run
+  results into a new version.
+- Removed duplicate, unused Gemini CLI approval/header helpers from execution
+  and streaming modules.
+
 ## [0.7.0] - 2026-07-31
 
 ### Changed
@@ -295,6 +335,8 @@ considered stable.
 - **Diagnostics and documentation**: added `giga doctor`, inspect/config/session/native commands, an alpha quickstart, a migration guide, and documented first-release limitations.
 
 ---
+
+[0.8.0]: https://github.com/krakenalt/gigaloom/compare/v0.7.0...v0.8.0
 
 [0.7.0]: https://github.com/krakenalt/gigaloom/compare/v0.7.0-alpha.1...v0.7.0
 [0.7.0a1]: https://github.com/krakenalt/gigaloom/compare/v0.6.0-alpha.1...v0.7.0-alpha.1

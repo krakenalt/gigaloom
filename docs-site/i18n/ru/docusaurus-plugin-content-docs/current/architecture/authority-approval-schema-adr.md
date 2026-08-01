@@ -1,6 +1,6 @@
 # ADR: Схема полномочий и подтверждений
 
-Статус: принято для этапа G4-00 дорожной карты GigaLoom 2026-07-27.
+Статус: решение по authority schema v1 принято 2026-07-27.
 
 ## Контекст
 
@@ -12,7 +12,7 @@ repository не равен локальному Git, а смена провер�
 sandbox.
 
 Перед добавлением approval UX, сетевых и GitHub grants и диагностики первого
-запуска этапу G4 нужен единый versioned source.
+запуска модели полномочий нужен единый versioned source.
 
 ## Решение
 
@@ -53,7 +53,7 @@ boundary `enforced_by_harness`, `delegated_to_cli_sandbox` или
 
 Полномочия дочернего агента действительны только тогда, когда его target
 совпадает с target в верхней границе родителя, а операции являются подмножеством
-родительских. G4-00 намеренно выбирает это строгое правило; будущий код может
+родительских. Эта схема намеренно выбирает строгое правило; будущий код может
 добавить отдельно проверенное более узкое отношение target, но не должен
 выводить его из строк.
 
@@ -64,8 +64,8 @@ redirect или retry требуют повторной проверки. Пре
 ## Совместимость
 
 `gigaloom.runtime.policy.PermissionAction` остаётся текущей проекцией
-enforcement и persistence. G4-01 может отображать authority scopes версии 1 в
-эти действия при создании approval UX и симулятора разрешений. G4-00 не
+enforcement и persistence. Approval enforcement может отображать authority scopes версии 1 в
+эти действия при создании approval UX и симулятора разрешений. Решение по схеме не
 мигрирует существующие строки подтверждений и grants.
 
 Неизвестные версии схемы, resource targets, presets, lifetime, операции и
@@ -74,8 +74,8 @@ manifest является источником vocabulary для докумен�
 
 ## Последствия
 
-G4-00 не выдаёт полномочия на filesystem, process, network, GitHub, browser,
+Схема не выдаёт полномочия на filesystem, process, network, GitHub, browser,
 MCP, integration или дочерних агентов. Этап не меняет sandbox settings, не
 сохраняет новую policy, не отзывает существующие grants, не обращается к
-credentials и не выполняет live mutations. G4-01 и последующие этапы должны
+credentials и не выполняет live mutations. Последующие consumers должны
 использовать эту схему вместо создания локальных словарей target или lifetime.

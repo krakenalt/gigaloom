@@ -42,10 +42,9 @@ EVIDENCE_FILES = {
     "web-provenance.json": "_build/provenance.json",
 }
 SOURCE_EVIDENCE_FILES = {
-    "external-evidence.json": Path("release/0.7-external-evidence.json"),
-    "native-agent-gateway-report.md": Path(
-        "release/0.7-native-agent-gateway-candidate-report.md"
-    ),
+    "artifact-set.toml": Path("release/artifact-set.toml"),
+    "candidate-report.md": Path("release/candidate-report.md"),
+    "external-evidence.json": Path("release/external-evidence.json"),
     "run-capsule-fixture.json": Path("tests/fixtures/run_capsules/read_only_run.json"),
 }
 _MAX_MEMBER_BYTES = 32 * 1024 * 1024

@@ -20,12 +20,12 @@ Diagnostics are read-only by default and redact exported support data.
 
 # Performance budgets
 
-Benchmark schemas stay stable; new implementation modules stay below 600 lines.
+Keep benchmark schemas stable and honor `architecture/module-budgets.json`.
 
 # Focused validation commands
 
-`uv run pytest tests/harness/test_diagnostics_tree.py tests/harness/test_doctor.py -n 0`
+`./scripts/ci-base.sh pytest tests/harness/test_diagnostics_tree.py tests/harness/test_doctor.py -q`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T20/T00; `@krakenalt`.
+Owner: `@krakenalt`.

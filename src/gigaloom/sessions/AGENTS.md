@@ -24,8 +24,8 @@ Bound scans and page queries; ratchet every listed legacy module.
 
 # Focused validation commands
 
-`uv run pytest tests/harness -k 'session or catalog' -n 0`
+`./scripts/ci-base.sh pytest tests/harness -k 'session or catalog' -q`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T02/T20; `@krakenalt`.
+Owner: `@krakenalt`.

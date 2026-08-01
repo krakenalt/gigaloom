@@ -29,6 +29,10 @@ const automationComponent = lazyRouteComponent(() => import("./surfaces/automati
 const evaluationComponent = lazyRouteComponent(() => import("./surfaces/evaluation"), "EvaluationSurface");
 const integrationsComponent = lazyRouteComponent(() => import("./surfaces/integrations"), "IntegrationsSurface");
 const projectsComponent = lazyRouteComponent(() => import("./surfaces/projects"), "ProjectsSurface");
+const codingAgentsComponent = lazyRouteComponent(
+  () => import("./features/coding-agents/CodingAgentsMarketplace"),
+  "CodingAgentsMarketplace",
+);
 const routeAdvisorComponent = lazyRouteComponent(() => import("./surfaces/projects"), "RouteAdvisorSurface");
 const mcpAppComponent = lazyRouteComponent(() => import("./surfaces/projects"), "McpAppSurface");
 
@@ -49,6 +53,7 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/web/runs", component: runsComponent }),
   createRoute({ getParentRoute: () => rootRoute, path: "/web/runs/$runId", component: runsComponent }),
   createRoute({ getParentRoute: () => rootRoute, path: "/web/projects", component: projectsComponent }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/web/coding-agents", component: codingAgentsComponent }),
   createRoute({ getParentRoute: () => rootRoute, path: "/web/projects/routes/$routeDecisionId", component: routeAdvisorComponent }),
   createRoute({ getParentRoute: () => rootRoute, path: "/web/projects/mcp-apps/$serverId/$resourceSha256", component: mcpAppComponent }),
   createRoute({ beforeLoad: () => { throw redirect({ to: "/web/automation/workflows" }); }, getParentRoute: () => rootRoute, path: "/web/automation" }),

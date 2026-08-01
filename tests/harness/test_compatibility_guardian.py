@@ -32,7 +32,7 @@ def test_guardian_runs_deterministic_cli_sdk_schema_and_marketplace_fixtures():
 
     assert first == second
     assert first["schema_version"] == 1
-    assert first["fixture_version"] == "n7-05-v1"
+    assert first["fixture_version"] == "compatibility-guardian.v1"
     assert first["ok"] is True
     assert first["block_execution"] is False
     assert first["summary"]["blocked"] == 0

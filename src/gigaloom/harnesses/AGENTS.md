@@ -20,12 +20,12 @@ Use controlled argv/cwd/env, bounded output, and redacted diagnostics.
 
 # Performance budgets
 
-Keep adapter imports lazy and new modules below 600 lines.
+Keep adapter imports lazy and honor `architecture/module-budgets.json`.
 
 # Focused validation commands
 
-`uv run pytest tests/harness -k 'harness or adapter' -n 0`
+`./scripts/ci-base.sh pytest tests/harness -k 'harness or adapter' -q`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T17/T20; `@krakenalt`.
+Owner: `@krakenalt`.

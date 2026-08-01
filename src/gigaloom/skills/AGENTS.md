@@ -20,12 +20,12 @@ Validate paths and package contents before installation or publication.
 
 # Performance budgets
 
-Keep catalog operations bounded and new modules below 600 lines.
+Keep catalog operations bounded and honor `architecture/module-budgets.json`.
 
 # Focused validation commands
 
-`uv run pytest tests/harness -k skill -n 0`
+`./scripts/ci-base.sh pytest tests/harness -k skill -q`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T16/T20; `@krakenalt`.
+Owner: `@krakenalt`.

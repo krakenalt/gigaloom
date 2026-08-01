@@ -32,7 +32,7 @@ from gigaloom.diagnostics.performance.workloads.runtime.instrumentation import (
 
 
 SCHEMA_VERSION: Final[str] = "gigaloom.runtime-scaling-baseline.v1"
-FIXTURE_SET_VERSION: Final[str] = "t01-3.v1"
+FIXTURE_SET_VERSION: Final[str] = "runtime-workload.v1"
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,0 +1,45 @@
+{
+  "captured_at": "2026-08-01",
+  "environment": {
+    "implementation": "CPython",
+    "mode": "hermetic official-schema fixture",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "python": "3.14.3"
+  },
+  "measurement": {
+    "accepted_budget": {
+      "max_authors_per_entry": 32,
+      "max_distributions_per_entry": 128,
+      "max_document_bytes": 4194304,
+      "max_entries": 1000,
+      "max_environment_items": 64,
+      "max_search_results": 100,
+      "non_portable_local_decode_p95_ms": 5.0,
+      "non_portable_local_search_p95_ms": 0.05
+    },
+    "before": "new path; no acp_registry.snapshot_decode or acp_registry.search workload existed",
+    "deterministic_fixture": {
+      "document_bytes": 3281,
+      "distribution_families": 3,
+      "entries": 6,
+      "network_requests_per_local_search": 0
+    },
+    "local_samples": {
+      "snapshot_decode": {
+        "p50_ms": 0.378334,
+        "p95_ms": 0.413375,
+        "samples": 1000
+      },
+      "search": {
+        "p50_ms": 0.000708,
+        "p95_ms": 0.000916,
+        "samples": 10000
+      }
+    },
+    "workload_ids": [
+      "acp_registry.snapshot_decode",
+      "acp_registry.search"
+    ]
+  },
+  "variance_note": "The blocking gate uses deterministic byte, item, and network-operation ceilings; host-specific wall time is informational."
+}

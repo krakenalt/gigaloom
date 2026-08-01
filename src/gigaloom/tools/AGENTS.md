@@ -4,7 +4,7 @@ Tool/MCP contracts, managed configuration, inventory, policy, and probes.
 
 # Public API
 
-Cross-context callers use `tools/api.py` and declared subpackage APIs.
+Cross-context callers use package exports and `tools/mcp/api.py`.
 
 # Allowed imports
 
@@ -20,12 +20,12 @@ Keep secret values out of previews, records, logs, and generated config.
 
 # Performance budgets
 
-Bound probes and inventories; new modules stay below 600 lines.
+Bound probes/inventories and honor `architecture/module-budgets.json`.
 
 # Focused validation commands
 
-`uv run pytest tests/harness -k 'tool or mcp' -n 0`
+`./scripts/ci-base.sh pytest tests/harness -k 'tool or mcp' -q`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T16/T20; `@krakenalt`.
+Owner: `@krakenalt`.

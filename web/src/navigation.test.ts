@@ -11,6 +11,7 @@ describe("Cockpit V2 route contract", () => {
       "Workbench",
       "Runs",
       "Projects",
+      "Coding Agents",
       "Automation",
       "Evaluation",
       "Plugins",
@@ -20,6 +21,7 @@ describe("Cockpit V2 route contract", () => {
   it("maps exact and deep links without claiming unknown routes", () => {
     expect(surfaceForPath("/web/work/session_123")).toBe("work");
     expect(surfaceForPath("/web/projects/routes/route_123")).toBe("projects");
+    expect(surfaceForPath("/web/coding-agents")).toBe("coding-agents");
     expect(surfaceForPath("/web/runs/run_123/")).toBe("runs");
     expect(surfaceForPath("/web/automation/workflows")).toBe("automation");
     expect(surfaceForPath("/web/evaluation/baselines")).toBe("evaluation");
@@ -100,8 +102,23 @@ describe("Cockpit V2 route contract", () => {
     expect(shellSource).toContain("<ApprovalIcon />");
     expect(shellSource).toContain("<AttentionIcon />");
     expect(shellSource).toContain("<SettingsIcon />");
+    expect(shellSource).toContain("useQuery(settingsSummaryOptions())");
+    expect(shellSource).not.toContain("useQuery(settingsOptions())");
     expect(shellSource).not.toContain('className="cockpit-header"');
     expect(shellSource).not.toContain('message(preferences.locale, "connected")');
+  });
+
+  it("loads the Coding Agents marketplace through its own lazy route", () => {
+    const routerSource = readFileSync(
+      fileURLToPath(new URL("./router.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(routerSource).toContain('path: "/web/coding-agents"');
+    expect(routerSource).toContain(
+      'import("./features/coding-agents/CodingAgentsMarketplace")',
+    );
+    expect(routerSource).toContain('"CodingAgentsMarketplace"');
   });
 
   it("removes retired full-document authoring transitions", () => {

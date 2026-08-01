@@ -51,7 +51,7 @@ giga schedule preview \
   --json
 ```
 
-The first command is the side-effect-free N7-05 product fixture: it checks the
+The first command is the side-effect-free compatibility guardian product fixture: it checks the
 reviewed Codex/Claude/Gemini CLI windows, native protocol admissions, Adapter
 and Integration SDK/schema versions, and marketplace source contracts. It
 returns non-zero before provider execution when any required contract drifts.

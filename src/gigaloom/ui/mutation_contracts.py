@@ -4,7 +4,6 @@ The route inventory remains the single fail-closed source for mounted mutations.
 Shared enum definitions live in a small dependency-light companion module.
 Route records stay here so policy owners and retained evidence remain adjacent.
 The split ratchets this legacy module without changing its public import facade.
-New routes must still declare exact controls, owners, and conformance evidence.
 """
 
 from __future__ import annotations
@@ -23,9 +22,8 @@ from gigaloom.runtime.policy import (
 )
 from gigaloom.environment_actions import ENVIRONMENT_COMMIT_OWNER
 from gigaloom.environment_push import ENVIRONMENT_PUSH_OWNER
-from gigaloom.environment_pull_requests import (
-    ENVIRONMENT_PULL_REQUEST_OWNER,
-)
+from gigaloom.environment_pull_requests import ENVIRONMENT_PULL_REQUEST_OWNER
+from gigaloom.ui import operator_mutation_contracts as operator_mutations
 from gigaloom.ui import native_gateway_mutation_contracts as native_gateway
 from gigaloom.ui.mutation_contract_models import (
     ConformanceBehavior,
@@ -304,6 +302,7 @@ CONFORMANCE_EVIDENCE = {
                 "tests/harness/test_integration_flows.py::test_flow_rejects_secret_values_stale_approval_and_records_failure",
             ),
         ),
+        *operator_mutations.CONFORMANCE_EVIDENCE,
         *native_gateway.CONFORMANCE_EVIDENCE,
         ConformanceEvidence(
             id="auth.local_access",
@@ -391,6 +390,7 @@ def _many(
 
 
 MUTATION_ROUTE_CONTRACTS = (
+    *operator_mutations.MUTATION_ROUTE_CONTRACTS,
     *native_gateway.MUTATION_ROUTE_CONTRACTS,
     *_many(
         "POST",

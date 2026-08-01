@@ -416,7 +416,7 @@ def authorize_github_capability(
 
 
 def github_access_manifest() -> dict[str, Any]:
-    """Return the source-owned G4-03 authority and privacy contract."""
+    """Return the source-owned GitHub authority and privacy contract."""
     return {
         "schema_version": GITHUB_ACCESS_SCHEMA_VERSION,
         "authority_surfaces": {

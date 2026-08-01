@@ -25,3 +25,27 @@ jobs:
 
       - name: Run actionlint
         uses: devops-actions/actionlint@v0.1.12
+
+  workflow-contracts:
+    name: Validate workflow contracts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Run isolated workflow contract tests
+        run: >-
+          uv run --no-project --python 3.13
+          --with pytest
+          --with pytest-asyncio
+          --with pytest-xdist
+          --with pyyaml
+          pytest
+          tests/test_gigaloom_governance_contract.py
+          tests/test_gigaloom_quality_workflows.py
+          tests/test_gigaloom_release_contract.py
+          -q -n 0

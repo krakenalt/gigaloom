@@ -51,6 +51,47 @@ ActionInboxSnapshot: Any
 ActionInboxStatus: Any
 ActionInboxValidationError: Any
 ActionConsequence: Any
+CredentialEgressDenied: Any
+CredentialEgressResult: Any
+CredentialLeaseDeniedError: Any
+CredentialLeaseNotFoundError: Any
+CredentialQuotaMetadata: Any
+CredentialQuotaStatus: Any
+CredentialSourceConflictError: Any
+CredentialSourceNotFoundError: Any
+CredentialSourceProjection: Any
+CredentialSourceRegistration: Any
+CredentialSourceScope: Any
+CredentialTransportCancelled: Any
+CredentialTransportResult: Any
+CredentialedTransportPort: Any
+GitHubLikeCredentialRequest: Any
+HermeticCredentialEgress: Any
+InMemoryCredentialBroker: Any
+credential_action_scope_digest: Any
+credential_source_projection_to_dict: Any
+
+_CREDENTIAL_EXPORTS = (
+    "CredentialEgressDenied",
+    "CredentialEgressResult",
+    "CredentialLeaseDeniedError",
+    "CredentialLeaseNotFoundError",
+    "CredentialQuotaMetadata",
+    "CredentialQuotaStatus",
+    "CredentialSourceConflictError",
+    "CredentialSourceNotFoundError",
+    "CredentialSourceProjection",
+    "CredentialSourceRegistration",
+    "CredentialSourceScope",
+    "CredentialTransportCancelled",
+    "CredentialTransportResult",
+    "CredentialedTransportPort",
+    "GitHubLikeCredentialRequest",
+    "HermeticCredentialEgress",
+    "InMemoryCredentialBroker",
+    "credential_action_scope_digest",
+    "credential_source_projection_to_dict",
+)
 
 __all__ = [
     "AdmissionDeniedError",
@@ -82,6 +123,7 @@ __all__ = [
     "CostObservationConflictError",
     "CostReceiptConflictError",
     "CostReceiptRecord",
+    *_CREDENTIAL_EXPORTS,
     "EnforcementLevel",
     "JobAttemptStatus",
     "NativeProcessOutputRecord",
@@ -99,6 +141,7 @@ __all__ = [
 ]
 
 _LAZY_EXPORTS = {
+    **{name: ("gigaloom.runtime.credentials", name) for name in _CREDENTIAL_EXPORTS},
     "AdmissionDeniedError": (
         "gigaloom.runtime.cost",
         "AdmissionDeniedError",

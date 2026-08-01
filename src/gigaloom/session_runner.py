@@ -23,16 +23,26 @@ from gigaloom.execution.attachments import (
     run_attachment_metadata,
 )
 from gigaloom.execution.continuation import build_continuation_plan
-from gigaloom.execution.finalization import RunCompletionHook, RunFinalizationService
+from gigaloom.execution.finalization import (
+    RunCompletionHook,
+    RunFinalizationService,
+    RunLaneLifecycle,
+)
 from gigaloom.execution.invocation import (
     HarnessExecutionService,
     InvocationAccumulator,
     cancel_requested,
 )
+from gigaloom.execution.lane_lifecycle import prepare_lane_run_metadata
 from gigaloom.execution.milestones import PersistenceMilestone
 from gigaloom.execution.options import RunOptions
 from gigaloom.execution.persistence import RunPersistenceService
 from gigaloom.execution.preparation import RunPreparationService
+from gigaloom.execution.run_metadata import (
+    agent_run_metadata,
+    workbench_admission_run_metadata,
+    workbench_session_selection_metadata,
+)
 from gigaloom.execution.trust_context import ExecutionTrustTracker
 from gigaloom.managed_mcp import HeadlessManagedMCPSnapshotStore
 from gigaloom.mcp import build_mcp_inventory
@@ -204,6 +214,7 @@ class HarnessSessionRunner:
         memory_store: FilesystemProjectMemoryStore | None = None,
         provider_account_provider: ProviderAccountBindingProvider | None = None,
         run_completion_hook: RunCompletionHook | None = None,
+        run_lane_lifecycle: RunLaneLifecycle | None = None,
     ) -> None:
         self.registry = registry
         self.config = config
@@ -213,6 +224,7 @@ class HarnessSessionRunner:
         )
         self.memory_store = memory_store or FilesystemProjectMemoryStore()
         self.provider_account_provider = provider_account_provider
+        self.run_lane_lifecycle = run_lane_lifecycle
         self.admission_service = RunAdmissionService()
         self.preparation_service = RunPreparationService()
         self.invocation_service = HarnessExecutionService()
@@ -221,7 +233,17 @@ class HarnessSessionRunner:
             id_factory=new_id,
             clock=utc_now,
         )
-        self.finalization_service = RunFinalizationService(run_completion_hook)
+        if (
+            run_lane_lifecycle is not None
+            and run_completion_hook is not None
+            and run_completion_hook is not run_lane_lifecycle
+        ):
+            raise ValueError(
+                "run lane lifecycle must own the configured completion hook"
+            )
+        self.finalization_service = RunFinalizationService(
+            run_completion_hook or run_lane_lifecycle
+        )
 
     def preflight(
         self,
@@ -391,8 +413,16 @@ class HarnessSessionRunner:
                 ),
                 "trust_context": trust_tracker.snapshot().to_dict(),
                 **edited_message_metadata(_edit_message_id(options)),
-                **_agent_metadata(options),
-                **_workbench_admission_metadata(options),
+                **agent_run_metadata(options),
+                **workbench_admission_run_metadata(options),
+                **prepare_lane_run_metadata(
+                    self.run_lane_lifecycle,
+                    self.store,
+                    session=session,
+                    options=options,
+                    payload=payload,
+                    provider_account_binding=provider_account_binding,
+                ),
                 **(
                     {PROVIDER_ACCOUNT_BINDING_KEY: provider_account_binding}
                     if provider_account_binding is not None
@@ -426,7 +456,7 @@ class HarnessSessionRunner:
             workspace=options["workspace"],
             metadata={
                 **dict(session.metadata),
-                **_workbench_session_selection_metadata(options),
+                **workbench_session_selection_metadata(options),
             },
         )
         self._schedule_session_title(session, run.id, options)
@@ -540,8 +570,17 @@ class HarnessSessionRunner:
                 else {}
             ),
             "trust_context": trust_tracker.snapshot().to_dict(),
-            **_agent_metadata(options),
-            **_workbench_admission_metadata(options),
+            **agent_run_metadata(options),
+            **workbench_admission_run_metadata(options),
+            **prepare_lane_run_metadata(
+                self.run_lane_lifecycle,
+                self.store,
+                session=session,
+                options=options,
+                payload=payload,
+                provider_account_binding=provider_account_binding,
+                existing_run_id=existing_run_id,
+            ),
             **(
                 {PROVIDER_ACCOUNT_BINDING_KEY: provider_account_binding}
                 if provider_account_binding is not None
@@ -965,6 +1004,7 @@ class HarnessSessionRunner:
         )
         updated_run = terminal_result.runs[-1]
         completion_metadata = self.finalization_service.capture(run.id, finished_at)
+        updated_run = self.store.get_run(run.id)
         session_patch: dict[str, Any] = {
             "default_harness_id": options["harness_id"],
             "default_model": options["model"],
@@ -978,7 +1018,7 @@ class HarnessSessionRunner:
         )
         latest_session = self.store.get_session(session.id)
         session_metadata = {**latest_session.metadata, **project_metadata}
-        session_metadata.update(_workbench_session_selection_metadata(options))
+        session_metadata.update(workbench_session_selection_metadata(options))
         if isinstance(app_server_thread, Mapping) and app_server_thread:
             session_metadata["app_server_thread"] = dict(app_server_thread)
             session_metadata.pop("app_server_fork", None)
@@ -1793,51 +1833,6 @@ def _permission_actions(value: Any) -> tuple[PermissionAction, ...]:
     if len(set(parsed)) != len(parsed):
         raise ValueError("required_permission_actions contains duplicates")
     return tuple(sorted(parsed, key=lambda item: item.value))
-
-
-def _agent_metadata(options: Mapping[str, Any]) -> dict[str, Any]:
-    """Return immutable, redacted AgentProfile identity for run history."""
-    agent_id = _optional_text(options.get("agent_id"))
-    snapshot = options.get("agent_profile_snapshot")
-    if agent_id is None or not isinstance(snapshot, Mapping):
-        return {}
-    metadata = {
-        "agent_id": agent_id,
-        "agent_profile_snapshot": dict(snapshot),
-    }
-    execution_plan = options.get("agent_execution_plan")
-    if isinstance(execution_plan, Mapping):
-        metadata["agent_execution_plan"] = dict(execution_plan)
-    return metadata
-
-
-def _workbench_admission_metadata(options: Mapping[str, Any]) -> dict[str, Any]:
-    """Retain the content-free product admission receipt on each run."""
-    admission = _mapping(_mapping(options.get("extra")).get("workbench_admission"))
-    if admission.get("schema_version") != 1:
-        return {}
-    return {"workbench_admission": dict(admission)}
-
-
-def _workbench_session_selection_metadata(
-    options: Mapping[str, Any],
-) -> dict[str, Any]:
-    """Retain explicit intent and authority independently from the mode alias."""
-    admission = _mapping(_mapping(options.get("extra")).get("workbench_admission"))
-    if admission.get("schema_version") != 1:
-        return {}
-    diagnostics = _mapping(admission.get("diagnostics"))
-    compatibility = _mapping(diagnostics.get("compatibility"))
-    return {
-        "workbench_selection": {
-            "schema_version": 1,
-            "kind": admission.get("kind"),
-            "intent": admission.get("intent"),
-            "authority": admission.get("authority"),
-            "input_source": admission.get("input_source"),
-            "compatibility_warning": compatibility.get("warning"),
-        }
-    }
 
 
 def _request_extra(

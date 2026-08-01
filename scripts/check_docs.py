@@ -47,7 +47,7 @@ class Issue:
 
 
 def tracked_markdown_files(root: Path) -> list[Path]:
-    """Return tracked public Markdown sources, excluding local coordination docs."""
+    """Return tracked public Markdown sources, excluding coordination and archive docs."""
     result = subprocess.run(
         ["git", "ls-files", "*.md", "*.mdx"],
         cwd=root,
@@ -55,7 +55,7 @@ def tracked_markdown_files(root: Path) -> list[Path]:
         capture_output=True,
         text=True,
     )
-    excluded = ("docs/internal/", "docs/codex/", "local/")
+    excluded = ("docs/internal/", "docs/codex/", "docs/archive/", "local/")
     return [
         root / relative
         for relative in result.stdout.splitlines()
@@ -102,7 +102,7 @@ def check_locale_coverage(root: Path) -> list[Issue]:
     issues: list[Issue] = []
     for source in sorted((root / PUBLIC_DOC_PREFIX).rglob("*.md")):
         relative = source.relative_to(root / PUBLIC_DOC_PREFIX)
-        if relative.parts[0] in {"internal", "codex"}:
+        if relative.parts[0] in {"internal", "codex", "archive"}:
             continue
         locale = root / RU_DOC_ROOT / relative
         if not locale.exists():
@@ -134,10 +134,10 @@ def check_locale_coverage(root: Path) -> list[Issue]:
 
 
 def check_package_versions(root: Path) -> list[Issue]:
-    """Require Harness changelogs to begin with the package metadata version."""
+    """Require changelogs to begin with the canonical release SemVer."""
     issues: list[Issue] = []
-    metadata = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
-    version = metadata["project"]["version"]
+    release = tomllib.loads((root / "release/version.toml").read_text(encoding="utf-8"))
+    version = release["version"]
     for filename in ("CHANGELOG.md", "CHANGELOG_en.md"):
         path = root / filename
         match = CHANGELOG_VERSION_RE.search(path.read_text(encoding="utf-8"))

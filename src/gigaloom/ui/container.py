@@ -7,9 +7,14 @@ from pathlib import Path
 from typing import Any
 
 from gigaloom.application import SessionApplicationService
+from gigaloom.automation.api import (
+    FilesystemVisualArtifactStore,
+    FilesystemVisualGateStore,
+)
 from gigaloom.arena import FilesystemHarnessArenaStore
 from gigaloom.attachments import FilesystemAttachmentStore
 from gigaloom.config import HarnessConfig
+from gigaloom.diagnostics.api import RecoveryReceiptService
 from gigaloom.environment_actions import (
     EnvironmentCommitError,
     EnvironmentCommitService,
@@ -31,7 +36,7 @@ from gigaloom.execution.api import (
     RouteAdvisorApplicationService,
     RouteRecommendationSource,
 )
-from gigaloom.harnesses.api import AgentProfileV1, load_builtin_agent_profiles
+from gigaloom.harnesses.api import AgentProfileV1
 from gigaloom.github_environments import GitHubEnvironmentService
 from gigaloom.handoff_capsules import HandoffCapsuleService
 from gigaloom.integration_flows import IntegrationFlowService
@@ -51,6 +56,7 @@ from gigaloom.projects.api import LaunchResolutionContextV1
 from gigaloom.provider_authentication_broker import NativeLoginBroker
 from gigaloom.provider_settings import ProviderSettingsService
 from gigaloom.registry import HarnessRegistry, create_default_registry
+from gigaloom.runtime.api import InMemoryCredentialBroker
 from gigaloom.runtime.payloads import DurableJobPayloadStore
 from gigaloom.runtime.policy import PolicyEngine
 from gigaloom.runtime.action_inbox.api import ActionInboxService
@@ -60,7 +66,12 @@ from gigaloom.runtime.reconcile import (
 )
 from gigaloom.runtime.store import RuntimeCoordinationStore
 from gigaloom.runtime.worker import DurableJobDispatcher
-from gigaloom.review.api import RouteDecisionRepository
+from gigaloom.review.api import (
+    FilesystemLaneDeltaPacketStore,
+    LaneDeltaBuilder,
+    LaneDeltaLifecycleService,
+    RouteDecisionRepository,
+)
 from gigaloom.review.capsules import (
     CapsuleSigner,
     FilesystemRunCapsuleRepository,
@@ -82,10 +93,15 @@ from gigaloom.ui.remote_identity import RemoteOIDCClient
 from gigaloom.ui.security import HarnessUISecurity
 from gigaloom.ui.services import ActiveHeadlessRun
 from gigaloom.ui.services.approvals import ApprovalGateService
+from gigaloom.ui.services.agent_runtimes import (
+    AgentRuntimeWebBundle,
+    build_agent_runtime_web_bundle,
+)
 from gigaloom.ui.services.context_impact import (
     ContextProjectionQuery,
     ImpactProjectionService,
 )
+from gigaloom.ui.services.credentials import CredentialOperatorService
 from gigaloom.ui.services.legacy_bundles import (
     LegacyFullBundleCompatibility,
 )
@@ -98,6 +114,7 @@ from gigaloom.ui.services.route_advisor import RouteAdvisorWebService
 from gigaloom.ui.services.run_capsules import (
     OperatorEvidenceObservedInputsProvider,
     RunCapsuleEvidenceQuery,
+    SessionLaneDeltaReferenceProvider,
 )
 from gigaloom.ui.streaming.operator_events import OperatorEventBroker
 from gigaloom.workbench_protocol import WorkbenchBackbone
@@ -105,6 +122,19 @@ from gigaloom.workbench_resources import (
     WorkbenchPreferenceStore,
     WorkbenchResourceService,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class OperationalBackendOwners:
+    """Stateful owners shared by later operational product surfaces."""
+
+    credential_broker: InMemoryCredentialBroker
+    credential_operator: CredentialOperatorService
+    recovery_receipts: RecoveryReceiptService
+    lane_delta_builder: LaneDeltaBuilder
+    lane_delta_store: FilesystemLaneDeltaPacketStore
+    visual_artifact_store: FilesystemVisualArtifactStore
+    visual_gate_store: FilesystemVisualGateStore
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +188,8 @@ class AppServices:
     operator_evidence_query: OperatorEvidenceQuery | None
     action_inbox_service: ActionInboxService
     operator_event_broker: OperatorEventBroker
+    operational_backends: OperationalBackendOwners
+    agent_runtimes: AgentRuntimeWebBundle
     project_catalog_service: ProjectCatalogWebService
     route_advisor_service: RouteAdvisorWebService
     mcp_app_host_service: MCPAppHostService
@@ -327,7 +359,10 @@ def build_app_services(
             group_service=grouped_integration_service,
         )
     )
-    profiles = agent_profiles or load_builtin_agent_profiles()
+    agent_runtimes = build_agent_runtime_web_bundle(config, profiles=agent_profiles)
+    profiles = agent_runtimes.profiles
+    lane_delta_builder = LaneDeltaBuilder()
+    lane_delta_store = FilesystemLaneDeltaPacketStore(config.data_dir)
     capsule_repository = FilesystemRunCapsuleRepository(config.data_dir)
     capsule_lifecycle = (
         RunCapsuleLifecycleService(
@@ -338,6 +373,13 @@ def build_app_services(
         if run_capsule_capture_ports is not None
         else None
     )
+    lane_delta_lifecycle = LaneDeltaLifecycleService(
+        session_store=session_store,
+        builder=lane_delta_builder,
+        packet_store=lane_delta_store,
+        capsule_repository=capsule_repository,
+        delegate=capsule_lifecycle,
+    )
     runner = HarnessSessionRunner(
         registry=registry,
         config=config,
@@ -345,7 +387,8 @@ def build_app_services(
         attachment_store=attachment_store,
         memory_store=memory_store,
         provider_account_provider=native_login_broker,
-        run_completion_hook=capsule_lifecycle,
+        run_completion_hook=lane_delta_lifecycle,
+        run_lane_lifecycle=lane_delta_lifecycle,
     )
     dispatcher = (
         DurableJobDispatcher(
@@ -400,7 +443,10 @@ def build_app_services(
     capsule_evidence_query = RunCapsuleEvidenceQuery(
         capsule_repository,
         OperatorEvidenceObservedInputsProvider(operator_evidence_query),
+        SessionLaneDeltaReferenceProvider(session_store, lane_delta_store),
     )
+    visual_evidence_root = Path(config.data_dir) / "automation" / "visual-qa-v1"
+    credential_broker = InMemoryCredentialBroker("gigaloom-fake-broker-v1")
     return AppServices(
         config=config,
         ui_security=HarnessUISecurity(config, oidc_client=remote_oidc_client),
@@ -494,6 +540,18 @@ def build_app_services(
         operator_evidence_query=operator_evidence_query,
         action_inbox_service=action_inbox_service or ActionInboxService(()),
         operator_event_broker=operator_event_broker or OperatorEventBroker(),
+        operational_backends=OperationalBackendOwners(
+            credential_broker=credential_broker,
+            credential_operator=CredentialOperatorService.with_fake_broker_demo(
+                credential_broker
+            ),
+            recovery_receipts=RecoveryReceiptService(),
+            lane_delta_builder=lane_delta_builder,
+            lane_delta_store=lane_delta_store,
+            visual_artifact_store=FilesystemVisualArtifactStore(visual_evidence_root),
+            visual_gate_store=FilesystemVisualGateStore(visual_evidence_root),
+        ),
+        agent_runtimes=agent_runtimes,
         project_catalog_service=project_catalog_service,
         route_advisor_service=route_advisor_service,
         mcp_app_host_service=MCPAppHostService(),

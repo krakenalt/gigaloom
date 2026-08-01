@@ -1,0 +1,152 @@
+{
+  "backend": {
+    "cold": {
+      "component_p50_ms": {
+        "build_mcp_inventory": 0.014,
+        "diagnostics.snapshot": 0.031,
+        "harness.availability": 672.481,
+        "harness.spec": 0.415,
+        "harness_registry.list": 0.01,
+        "load_project_config": 0.04,
+        "load_project_state": 0.032,
+        "provider_registry.list": 0.352,
+        "resolve_project": 15.999,
+        "settings_store.load": 0.377
+      },
+      "operation_counts": {
+        "filesystem_reads": {
+          "maximum": 24,
+          "minimum": 13,
+          "p50": 13
+        },
+        "harness_availability_calls": {
+          "maximum": 5,
+          "minimum": 5,
+          "p50": 5
+        },
+        "subprocesses_started": {
+          "maximum": 9,
+          "minimum": 4,
+          "p50": 4
+        }
+      },
+      "response_bytes": {
+        "maximum": 8277,
+        "minimum": 8272
+      },
+      "wall": {
+        "max_ms": 2120.169,
+        "min_ms": 730.192,
+        "p50_ms": 738.495,
+        "p95_ms": 1843.859,
+        "samples": 5
+      }
+    },
+    "fixture_bounds": {
+      "harnesses": 5,
+      "mcp_servers": 0,
+      "providers": 0
+    },
+    "warm": {
+      "component_p50_ms": {
+        "build_mcp_inventory": 0.014,
+        "diagnostics.snapshot": 0.034,
+        "harness.availability": 678.272,
+        "harness.spec": 0.424,
+        "harness_registry.list": 0.01,
+        "load_project_config": 0.046,
+        "load_project_state": 0.032,
+        "provider_registry.list": 1.139,
+        "resolve_project": 15.477,
+        "settings_store.load": 0.95
+      },
+      "operation_counts": {
+        "filesystem_reads": {
+          "maximum": 13,
+          "minimum": 13,
+          "p50": 13
+        },
+        "harness_availability_calls": {
+          "maximum": 5,
+          "minimum": 5,
+          "p50": 5
+        },
+        "subprocesses_started": {
+          "maximum": 4,
+          "minimum": 4,
+          "p50": 4
+        }
+      },
+      "response_bytes": {
+        "maximum": 8504,
+        "minimum": 8496
+      },
+      "wall": {
+        "max_ms": 724.225,
+        "min_ms": 687.056,
+        "p50_ms": 698.504,
+        "p95_ms": 719.452,
+        "samples": 5
+      }
+    }
+  },
+  "browser": {
+    "api_requests_before_first_section": {
+      "maximum": 11,
+      "minimum": 10,
+      "required_settings_requests": [
+        "POST /auth/local/recover",
+        "GET /api/settings",
+        "GET /auth/status",
+        "GET /api/providers",
+        "GET /api/provider-accounts"
+      ]
+    },
+    "browser": "chromium",
+    "cold_first_section": {
+      "max_ms": 3431.592,
+      "min_ms": 3400.974,
+      "p50_ms": 3415.78,
+      "p95_ms": 3430.824,
+      "samples": 5
+    },
+    "interaction_latency": {
+      "max_ms": 14.1,
+      "min_ms": 11.4,
+      "p50_ms": 12.7,
+      "p95_ms": 13.94,
+      "samples": 5
+    },
+    "settings_route_chunk_bytes": 29547,
+    "viewport": {
+      "height": 1000,
+      "width": 1440
+    }
+  },
+  "captured_at": "2026-08-01",
+  "environment": {
+    "implementation": "CPython",
+    "machine": "arm64",
+    "node": "22.13.0",
+    "platform": "Darwin",
+    "python": "3.13.8"
+  },
+  "measurement": {
+    "backend": "five disposable applications; first and second full /api/settings request per application",
+    "browser": "five fresh Chromium contexts from local recovery through the first visible Settings section",
+    "collectors": [
+      "capture_backend.py",
+      "capture_browser.mjs"
+    ],
+    "wall_time_portable": false
+  },
+  "privacy": {
+    "content_free": true,
+    "external_network_accessed": false,
+    "native_homes_accessed": false,
+    "provider_traffic": false,
+    "temporary_state_only": true
+  },
+  "schema_version": "gigaloom.settings-initial-load.v1",
+  "source_commit": "183497e94dab0ec4916ff821ce8a21f93e03c705"
+}

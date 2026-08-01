@@ -25,14 +25,14 @@
   },
   "backup_owners": {
     "github": {
-      "acceptance_gate": "S5-02",
+      "acceptance_gate": "github-backup-acceptance",
       "distinct_from_primary": true,
       "role": "backup-github-maintainer",
       "state": "blocked_pending_acceptance",
       "two_factor_authentication_required": true
     },
     "pypi": {
-      "acceptance_gate": "S5-04",
+      "acceptance_gate": "pypi-backup-acceptance",
       "distinct_from_primary": true,
       "role": "backup-pypi-owner",
       "state": "blocked_pending_acceptance",
@@ -45,7 +45,7 @@
       "name": "Ruslan Yakupov"
     },
     "pypi": {
-      "account": "blocked_pending_S5_04_verification",
+      "account": "blocked_pending_pypi_owner_verification",
       "name": "Ruslan Yakupov",
       "role": "primary-pypi-owner"
     }
@@ -53,7 +53,7 @@
   "rulesets": {
     "main": {
       "bypass": "none",
-      "enforcement": "active_after_S5-02",
+      "enforcement": "active_after_github_backup_acceptance",
       "name": "protect-main",
       "required_checks": [
         "Frontend / static and browser",
@@ -83,7 +83,7 @@
     },
     "release_tags": {
       "bypass": "release_workflow_and_repository_admin_emergency_only_with_audit",
-      "enforcement": "active_after_S5-02",
+      "enforcement": "active_after_github_backup_acceptance",
       "name": "protect-gigaloom-release-tags",
       "target": "refs/tags/v*",
       "block_deletions": true,

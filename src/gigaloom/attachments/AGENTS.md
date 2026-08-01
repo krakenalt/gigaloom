@@ -20,12 +20,12 @@ Validate paths, content limits, and redaction before persistence.
 
 # Performance budgets
 
-Keep file reads bounded and new modules below 600 lines.
+Keep file reads bounded and honor `architecture/module-budgets.json`.
 
 # Focused validation commands
 
-`uv run pytest tests/harness -k attachment -n 0`
+`./scripts/ci-base.sh pytest tests/harness -k attachment -q`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T06/T20; `@krakenalt`.
+Owner: `@krakenalt`.

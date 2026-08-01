@@ -20,12 +20,12 @@ No user-state I/O or secret resolution.
 
 # Performance budgets
 
-New Python modules stay below 600 lines and avoid import-time work.
+Avoid import-time work and honor `architecture/module-budgets.json`.
 
 # Focused validation commands
 
-`uv run pytest tests/harness/architecture -n 0`
+`./scripts/ci-base.sh pytest tests/harness/architecture -q`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T15/T20; `@krakenalt`.
+Owner: `@krakenalt`.

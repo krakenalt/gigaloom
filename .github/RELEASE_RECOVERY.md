@@ -1,7 +1,12 @@
 # GigaLoom release recovery
 
 The release path is intentionally fail-closed and split into two phases.
-Candidate builds never publish. They bind one `release/release.json` identity,
+`release/version.toml` is the only hand-edited identity;
+`./scripts/release bump <version>` generates and verifies all ecosystem
+projections in one rollback-protected operation. The independent `verify`
+command rejects later drift before a candidate is built.
+Candidate builds never publish. They bind one
+generated `release/release.json` identity,
 one exact `main` commit, the Python wheel and sdist, the public npm tarball,
 content parity evidence, hashes, licenses, SBOMs, and provenance in one retained
 candidate artifact. A later protected publish phase may consume only that exact
@@ -10,7 +15,8 @@ artifact; it must not rebuild release files.
 The release guard accepts only the standalone `krakenalt/gigaloom` repository,
 history at or after the frozen standalone anchor in `release-policy.json`, the
 standard `v<release>` tag, and the exact Python/npm version mapping declared by
-the release manifest. Legacy tag prefixes and metadata drift fail closed.
+the canonical identity and generated release manifest. Legacy tag prefixes and
+metadata drift fail closed.
 
 The committed target lock resolves the optional gateway dependency from the
 public package index. Do not add a token secret, temporary index, local source
@@ -38,6 +44,11 @@ required registry identities and protected environments are ready.
 - Existing PyPI or npm version: stop. Published versions are immutable; advance
   both versions in the release manifest and build a new candidate instead of
   overwriting or deleting files.
+- Existing GitHub Release for the candidate tag before registry publication:
+  stop before either registry write. Do not delete, overwrite, or silently
+  adopt it. After both registries are proven byte-identical to the retained
+  candidate, an explicitly reviewed `release-assets-only` recovery may adopt
+  only that exact-tag Release when it is mutable and has zero uploaded assets.
 - npm succeeded but PyPI failed: do not rebuild and do not republish npm.
   Preserve the exact retained candidate artifact and registry receipts, then
   retry only the missing PyPI operation if the protected recovery procedure
@@ -76,7 +87,14 @@ completion starts the initial publication path. The resolver uses the
 triggering workflow run ID directly and requires one unexpired SHA-named
 artifact. The protected job downloads that exact retained bundle, records its
 manifest digest, and verifies its checksums, tag, ancestry, metadata, parity,
-and legacy-identifier guard. The protected job never runs a build command.
+and legacy-identifier guard. Before an initial or missing-registry recovery it
+also requires the exact GitHub Release tag to be vacant, so a pre-created
+release cannot strand an otherwise successful registry publication. The
+protected job never runs a build command. After both registries are proven, the
+final boundary must either remain vacant or be one mutable exact-tag Release
+with zero uploaded assets. The latter is adopted without asset overwrite and
+its title, draft, prerelease, and Latest state are normalized to the canonical
+release channel.
 Record the candidate run ID, full candidate commit SHA, and manifest digest as
 soon as they are available so the recovery inputs remain reproducible.
 
@@ -99,7 +117,8 @@ Select exactly one recovery mode:
   and the npm version must be absent. Only npm is published.
 - `release-assets-only`: both registries must already contain the exact
   candidate bytes. Neither registry is published; the GitHub Release is
-  created last from the retained bundle.
+  created last from the retained bundle, or an empty mutable exact-tag Release
+  is adopted without overwriting assets.
 
 The release guard assigns npm `next` and GitHub Pre-release without `Latest` to
 alpha, beta, and release-candidate versions. Stable versions receive npm
@@ -114,5 +133,7 @@ registry outage stops publication. Do not change modes to bypass that failure.
 Keep the workflow run, deployment record, candidate run ID, candidate manifest
 digest, registry responses, and GitHub Release URL as the release receipt. If
 GitHub Release creation fails after both registries succeed, rerun only
-`release-assets-only` after confirming that no release for the tag exists; never
-rebuild, republish, move the tag, or overwrite a release asset.
+`release-assets-only` after confirming that the tag is vacant or occupied only
+by the reviewed empty mutable exact-tag Release. Any uploaded asset, immutable
+Release, or mismatched tag stops recovery; never rebuild, republish, move the
+tag, or overwrite a release asset.

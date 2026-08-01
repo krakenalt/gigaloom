@@ -2,6 +2,7 @@
   "schema_version": 1,
   "source": "gigaloom.cli_commands.parser.build_parser",
   "registered_commands": [
+    "acp",
     "agent",
     "benchmark",
     "bootstrap",
@@ -14,6 +15,7 @@
     "eval",
     "handoff",
     "harness",
+    "headless",
     "init",
     "integration",
     "memory",
@@ -22,6 +24,7 @@
     "preset",
     "project",
     "provider",
+    "reliability",
     "route",
     "run",
     "runtime",

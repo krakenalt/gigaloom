@@ -20,12 +20,12 @@ Preserve transactional compensation, trust policy, and secret redaction.
 
 # Performance budgets
 
-Keep discovery bounded and new modules below 600 lines.
+Keep discovery bounded and honor `architecture/module-budgets.json`.
 
 # Focused validation commands
 
-`uv run pytest tests/harness -k integration -n 0`
+`./scripts/ci-base.sh pytest tests/harness -k integration -q`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T16/T20; `@krakenalt`.
+Owner: `@krakenalt`.

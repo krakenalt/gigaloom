@@ -66,6 +66,10 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
 
+      - name: Verify completed candidate release projections
+        if: github.event_name == 'workflow_run'
+        run: python3 scripts/release.py verify
+
       - name: Resolve manual recovery or completed candidate
         id: candidate
         uses: actions/github-script@v8
@@ -239,20 +243,22 @@ jobs:
         env:
           CANDIDATE_SHA: ${{ needs.resolve.outputs.candidate_sha }}
           RELEASE_TAG: ${{ needs.resolve.outputs.git_tag }}
-        run: >-
-          python3 scripts/release_guard.py
-          --policy .github/release-policy.json
-          --release-manifest release/release.json
-          --python-metadata pyproject.toml
-          --npm-metadata web/package.json
-          --event-name publish
-          --repository "${GITHUB_REPOSITORY}"
-          --ref "refs/tags/${RELEASE_TAG}"
-          --commit "${CANDIDATE_SHA}"
-          --release-tag "${RELEASE_TAG}"
-          --release-target main
-          --main-ref origin/main
-          --github-output "${GITHUB_OUTPUT}"
+        run: |
+          python3 scripts/release.py verify
+          python3 scripts/release_guard.py \
+            --policy .github/release-policy.json \
+            --release-version release/version.toml \
+            --release-manifest release/release.json \
+            --python-metadata pyproject.toml \
+            --npm-metadata web/package.json \
+            --event-name publish \
+            --repository "${GITHUB_REPOSITORY}" \
+            --ref "refs/tags/${RELEASE_TAG}" \
+            --commit "${CANDIDATE_SHA}" \
+            --release-tag "${RELEASE_TAG}" \
+            --release-target main \
+            --main-ref origin/main \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Download exact retained candidate bundle
         uses: actions/download-artifact@v8
@@ -283,6 +289,30 @@ jobs:
             --wheel dist/release-candidate/*.whl \
             --sdist dist/release-candidate/*.tar.gz \
             --npm-tarball dist/release-candidate/*.tgz
+
+      - name: Require a vacant GitHub Release tag before registry mutation
+        if: needs.resolve.outputs.recovery_mode != 'release-assets-only'
+        uses: actions/github-script@v8
+        env:
+          RELEASE_TAG: ${{ steps.guard.outputs.tag }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            try {
+              const { data: release } = await github.rest.repos.getReleaseByTag({
+                ...context.repo,
+                tag: process.env.RELEASE_TAG,
+              });
+              core.setFailed(
+                `GitHub Release ${release.html_url} already occupies ` +
+                `${process.env.RELEASE_TAG}; stop before publishing either registry`,
+              );
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+              core.info(`GitHub Release tag ${process.env.RELEASE_TAG} is vacant`);
+            }
 
       - name: Prove requested recovery mode against public registries
         env:
@@ -327,15 +357,64 @@ jobs:
           --attempts 12
           --retry-seconds 10
 
-      - name: Create GitHub Release last from the retained bundle
+      - name: Inspect the exact-tag GitHub Release boundary
+        id: github_release
+        uses: actions/github-script@v8
         env:
+          RELEASE_TAG: ${{ steps.guard.outputs.tag }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const tag = process.env.RELEASE_TAG;
+            try {
+              const { data: release } = await github.rest.repos.getReleaseByTag({
+                ...context.repo,
+                tag,
+              });
+              if (release.tag_name !== tag) {
+                throw new Error(
+                  `GitHub returned tag ${release.tag_name} for exact tag ${tag}`,
+                );
+              }
+              if (release.immutable === true) {
+                throw new Error(`GitHub Release ${release.html_url} is immutable`);
+              }
+              if (release.assets.length !== 0) {
+                const names = release.assets.map((asset) => asset.name).sort();
+                throw new Error(
+                  `GitHub Release ${release.html_url} already has uploaded assets: ` +
+                  names.join(", "),
+                );
+              }
+              core.setOutput("exists", "true");
+              core.notice(
+                `Adopting empty mutable exact-tag GitHub Release ${release.html_url}`,
+              );
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+              core.setOutput("exists", "false");
+              core.info(`GitHub Release tag ${tag} is vacant`);
+            }
+
+      - name: Finalize GitHub Release last from the retained bundle
+        env:
+          EXISTING_RELEASE: ${{ steps.github_release.outputs.exists }}
           GH_TOKEN: ${{ github.token }}
           IS_PRERELEASE: ${{ steps.guard.outputs.is_prerelease }}
           RELEASE_TAG: ${{ steps.guard.outputs.tag }}
         run: |
-          release_flags=(--latest)
+          release_flags=(--draft=false --prerelease=false --latest)
           if [[ "${IS_PRERELEASE}" == "true" ]]; then
-            release_flags=(--prerelease --latest=false)
+            release_flags=(--draft=false --prerelease --latest=false)
+          fi
+          if [[ "${EXISTING_RELEASE}" == "true" ]]; then
+            gh release upload "${RELEASE_TAG}" dist/release-candidate/*
+            gh release edit "${RELEASE_TAG}" \
+              --title "GigaLoom ${{ steps.guard.outputs.release }}" \
+              "${release_flags[@]}"
+            exit 0
           fi
           gh release create "${RELEASE_TAG}" \
             dist/release-candidate/* \

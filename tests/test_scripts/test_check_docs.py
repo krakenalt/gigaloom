@@ -103,3 +103,33 @@ def test_source_repository_links_are_limited_to_history_and_gateway_docs(
     issues = docs_module.check_standalone_identity(tmp_path, [current_guide])
 
     assert any("not scoped to gateway/history" in issue.message for issue in issues)
+
+
+def test_locale_coverage_skips_archived_documents(tmp_path: Path) -> None:
+    docs_module = load_docs_module()
+    archive = tmp_path / "docs" / "archive"
+    archive.mkdir(parents=True)
+    (archive / "historical-plan.md").write_text("# Historical plan\n", encoding="utf-8")
+
+    assert docs_module.check_locale_coverage(tmp_path) == []
+
+
+def test_changelog_version_uses_canonical_semver_for_prereleases(
+    tmp_path: Path,
+) -> None:
+    docs_module = load_docs_module()
+    release = tmp_path / "release"
+    release.mkdir()
+    (release / "version.toml").write_text(
+        'version = "0.8.0-alpha.1"\n', encoding="utf-8"
+    )
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nversion = "0.8.0a1"\n', encoding="utf-8"
+    )
+    for name in ("CHANGELOG.md", "CHANGELOG_en.md"):
+        (tmp_path / name).write_text(
+            "# Changelog\n\n## [0.8.0-alpha.1] - Unreleased\n",
+            encoding="utf-8",
+        )
+
+    assert docs_module.check_package_versions(tmp_path) == []

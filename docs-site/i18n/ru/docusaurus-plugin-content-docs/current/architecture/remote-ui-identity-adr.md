@@ -1,8 +1,8 @@
 # ADR: граница идентификации удалённого UI
 
-Статус: принято для slice G3-04 roadmap GigaLoom 2026-07-26.
+Статус: решение по remote UI identity принято 2026-07-26.
 
-Статус реализации: реализовано в G3-05 2026-07-26. Deployment и live
+Статус реализации: remote identity runtime реализован 2026-07-26. Deployment и live
 identity-provider configuration остаются внешними gates.
 
 ## Контекст
@@ -22,7 +22,7 @@ process-local cookie. Даже с TLS, проверкой Host, защитой C
 ## Решение
 
 Удалённый multi-user UI остаётся в текущем roadmap, но требует отдельной
-реализации G3-05 и deployment gate. Поддерживаемая граница — один статически
+реализации remote identity runtime и deployment gate. Поддерживаемая граница — один статически
 настроенный и принадлежащий deployment OpenID Connect issuer на один deployment
 GigaLoom.
 
@@ -37,7 +37,7 @@ GigaLoom выступает confidential Backend for Frontend (BFF):
 - browser API ограничен тем же origin GigaLoom;
 - issuer, client id, внешний HTTPS origin и callback URI задаются точно.
 
-Допускаются только metadata и алгоритмы, явно проверенные в G3-05. Исключены
+Допускаются только metadata и алгоритмы, явно проверенные identity runtime. Исключены
 выбираемый пользователем issuer, dynamic client registration, implicit и
 password flows, локальная база паролей, social-login aggregation и вставка
 bearer-token через форму.
@@ -48,7 +48,7 @@ bearer-token через форму.
 Email, display name, domain и другие изменяемые claims не являются ключами
 идентичности.
 
-G3-05 реализует две роли:
+Remote identity runtime реализует две роли:
 
 - `viewer`: только чтение ограниченного product state без mutation, execution,
   approval, secret resolution или изменения интеграций;
@@ -92,7 +92,7 @@ audit receipts.
 Локальный logout сначала отзывает серверную сессию GigaLoom и только затем при
 наличии проверенной capability может перейти к RP-initiated logout провайдера.
 
-G3-05 должен поддержать глобальный, actor-specific и session-specific revoke.
+Remote identity runtime должен поддержать глобальный, actor-specific и session-specific revoke.
 Проверенный OIDC back-channel logout token может отозвать сессии по issuer и
 `sid` или `sub`; replay, неверная подпись, тип или audience закрываются
 fail-closed. Issuer без допущенной logout capability получает только
@@ -119,7 +119,7 @@ deployment и проверяются doctor до remote startup.
 
 | Угроза | Обязательный контроль |
 | --- | --- |
-| Утечка или replay общего bootstrap | Удалить его из remote auth; отвергать non-loopback startup до G3-05. |
+| Утечка или replay общего bootstrap | Удалить его из remote auth; отвергать non-loopback startup до настройки identity runtime. |
 | Перехват или injection authorization code | Exact redirect URI, одноразовая transaction state, Authorization Code, PKCE `S256` и nonce. |
 | Issuer mix-up или token substitution | Один точный issuer; проверка `iss`, signature, algorithm, `aud`, `azp`, nonce и key provenance. |
 | CSRF или login CSRF | Browser-bound одноразовый state, PKCE/nonce, exact Origin, strict cookie и custom mutation header. |
@@ -145,7 +145,7 @@ process, собственного IdP, SCIM, dynamic registration, local passwor
 
 ## Переход и gates
 
-G3-05 реализует этот profile с hermetic issuer fixtures. Non-loopback startup
+Remote identity runtime реализует этот profile с hermetic issuer fixtures. Non-loopback startup
 теперь требует полной статической OIDC configuration и явного
 `--allow-remote`; partial config, legacy bootstrap-token input и Host allowlist
 работают fail-closed. OS-local команда `giga ui-identity` проверяет profile без
@@ -167,7 +167,7 @@ reverse-proxy deployment и запуск listener с реальным identity p
 
 ## Последствия
 
-Обмен общего remote bearer больше не является продуктным режимом. G3-05
+Обмен общего remote bearer больше не является продуктным режимом. Identity runtime
 предоставляет принятую identity/session boundary, но не регистрирует и не
 настраивает issuer, не развёртывает proxy, не публикует listener, не выдаёт
 action authority, network/GitHub access и не разрешает live OIDC traffic.

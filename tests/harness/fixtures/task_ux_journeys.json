@@ -6,7 +6,7 @@
       "web_route": "/web/work",
       "web_surface": "work",
       "api_routes": ["POST /api/sessions/run"],
-      "other_surfaces": ["cli", "tui"],
+      "other_surfaces": ["cli"],
       "authority": {
         "ceiling": "read_only",
         "mutation": "none"
@@ -18,7 +18,7 @@
       "web_route": "/web/work",
       "web_surface": "work",
       "api_routes": ["POST /api/sessions/run", "GET /api/runs/{run_id}/diff"],
-      "other_surfaces": ["cli", "tui"],
+      "other_surfaces": ["cli"],
       "authority": {
         "ceiling": "read_only",
         "mutation": "none"
@@ -95,7 +95,7 @@
       "web_route": "/web/work",
       "web_surface": "work",
       "api_routes": ["GET /api/approvals", "POST /api/approvals/{approval_id}/decision"],
-      "other_surfaces": ["tui"],
+      "other_surfaces": ["cli"],
       "authority": {
         "ceiling": "explicit_operation",
         "mutation": "pending_until_decided"
@@ -110,7 +110,7 @@
         "POST /api/workflows/{workflow_id}/run",
         "GET /api/runs/{run_id}/events/stream"
       ],
-      "other_surfaces": ["tui"],
+      "other_surfaces": ["cli"],
       "authority": {
         "ceiling": "original_request",
         "mutation": "idempotent_replay_only"

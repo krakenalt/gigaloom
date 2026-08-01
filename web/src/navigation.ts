@@ -4,6 +4,7 @@ export const primarySurfaces = [
   { id: "work", label: "Workbench", messageKey: "workbench", path: "/web/work" },
   { id: "runs", label: "Runs", messageKey: "runs", path: "/web/runs" },
   { id: "projects", label: "Projects", messageKey: "projects", path: "/web/projects" },
+  { id: "coding-agents", label: "Coding Agents", messageKey: "codingAgents", path: "/web/coding-agents" },
   { id: "automation", label: "Automation", messageKey: "automationNav", path: "/web/automation" },
   { id: "evaluation", label: "Evaluation", messageKey: "evaluation", path: "/web/evaluation" },
   { id: "integrations", label: "Plugins", messageKey: "plugins", path: "/web/plugins" },

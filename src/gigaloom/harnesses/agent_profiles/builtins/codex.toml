@@ -9,7 +9,7 @@ platform_support = ["darwin", "linux", "win32"]
 [source]
 kind = "builtin"
 origin = "gigaloom:builtin/codex.toml"
-revision = "0.7.0-alpha.1-p0-02"
+revision = "builtin-agent-profile.v1"
 trust_class = "first_party"
 reviewed = true
 

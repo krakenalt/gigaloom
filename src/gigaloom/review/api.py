@@ -53,8 +53,33 @@ _CAPSULE_EXPORTS = (
     "export_run_capsule",
     "verify_run_capsule",
 )
+_LANE_DELTA_EXPORTS = (
+    "FilesystemLaneDeltaPacketStore",
+    "LANE_DELTA_METADATA_KEY",
+    "LANE_DELTA_RECORD_KIND",
+    "LANE_DELTA_REFERENCE_KIND",
+    "LANE_IDENTITY_FIELD_COUNT",
+    "LANE_PLAN_METADATA_KEY",
+    "LANE_STATE_METADATA_KEY",
+    "MAX_EXPLICIT_CONTENT_PACKET_BYTES",
+    "MAX_LANE_ATTACHMENTS",
+    "MAX_LANE_DELTA_PACKET_BYTES",
+    "LaneAttachmentObservationV1",
+    "LaneDeltaBuildError",
+    "LaneDeltaBuildRequestV1",
+    "LaneDeltaBuilder",
+    "LaneDeltaConflictError",
+    "LaneDeltaIntegrityError",
+    "LaneDeltaLifecycleError",
+    "LaneDeltaLifecycleService",
+    "LaneDeltaStorageError",
+    "StaleLaneSourceError",
+    "StoredLaneDeltaPacketV1",
+    "lane_state_for_run",
+    "planned_changed_selectors",
+)
 
-__all__ = [*_ROUTE_DECISION_EXPORTS, *_CAPSULE_EXPORTS]
+__all__ = [*_ROUTE_DECISION_EXPORTS, *_CAPSULE_EXPORTS, *_LANE_DELTA_EXPORTS]
 
 _LAZY_EXPORTS = {
     **{
@@ -62,6 +87,10 @@ _LAZY_EXPORTS = {
         for name in _ROUTE_DECISION_EXPORTS
     },
     **{name: ("gigaloom.review.capsules.api", name) for name in _CAPSULE_EXPORTS},
+    **{
+        name: ("gigaloom.review.handoffs.lane_delta.api", name)
+        for name in _LANE_DELTA_EXPORTS
+    },
 }
 
 

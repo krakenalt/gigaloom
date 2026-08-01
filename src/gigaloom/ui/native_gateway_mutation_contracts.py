@@ -39,7 +39,7 @@ CONFORMANCE_EVIDENCE = (
         ),
         test_nodes=(
             "tests/harness/test_route_advisor_api.py::test_web_inspects_eligible_rejected_selected_and_manual_override",
-            "tests/harness/test_route_advisor_b3_integration.py::test_manual_override_requires_new_confirmation_for_exact_route",
+            "tests/harness/test_route_advisor_integration.py::test_manual_override_requires_new_confirmation_for_exact_route",
         ),
     ),
     ConformanceEvidence(

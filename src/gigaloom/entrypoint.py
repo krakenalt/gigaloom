@@ -3,16 +3,14 @@
 from __future__ import annotations
 
 import sys
+from typing import TYPE_CHECKING, Any
 
-from gigaloom.cli_commands.launcher import render_launcher_summary
 from gigaloom.cli_commands.metadata import run_metadata_command
-from gigaloom.harnesses.agent_profiles import (
-    AgentProfileRegistry,
-    build_core_command_collision_contract,
-    load_builtin_agent_profiles,
-)
-from gigaloom.native.api import AgentResolutionKind, TerminalContext
-from gigaloom.native_cli_facade import run_native_namespace
+
+
+if TYPE_CHECKING:
+    from gigaloom.harnesses.agent_profiles import AgentProfileRegistry
+    from gigaloom.native.api import TerminalContext
 
 
 def main(
@@ -27,6 +25,9 @@ def main(
     if metadata_result is not None:
         return metadata_result
     if not arguments:
+        from gigaloom.cli_commands.launcher import render_launcher_summary
+        from gigaloom.harnesses.agent_profiles import load_builtin_agent_profiles
+
         profiles = (
             registry.profiles if registry is not None else load_builtin_agent_profiles()
         )
@@ -41,6 +42,8 @@ def main(
         return 0
     if arguments[0].startswith("-"):
         return _run_core_command(arguments)
+
+    from gigaloom.native.api import AgentResolutionKind, TerminalContext
 
     profiles = registry or _default_registry()
     resolution = profiles.resolve(arguments[0])
@@ -71,6 +74,12 @@ def main(
 
 
 def _default_registry() -> AgentProfileRegistry:
+    from gigaloom.harnesses.agent_profiles import (
+        AgentProfileRegistry,
+        build_core_command_collision_contract,
+        load_builtin_agent_profiles,
+    )
+
     return AgentProfileRegistry.build(
         load_builtin_agent_profiles(),
         collision_contract=build_core_command_collision_contract(
@@ -96,3 +105,10 @@ def _run_core_command(arguments: list[str]) -> int:
     from gigaloom.cli_commands.main import main as cli_main
 
     return cli_main(arguments)
+
+
+def run_native_namespace(*args: Any, **kwargs: Any) -> Any:
+    """Load the native facade only when an agent route is selected."""
+    from gigaloom.native_cli_facade import run_native_namespace as run
+
+    return run(*args, **kwargs)

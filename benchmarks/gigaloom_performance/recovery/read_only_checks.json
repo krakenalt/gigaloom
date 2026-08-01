@@ -1,0 +1,24 @@
+{
+  "captured_at": "2026-08-01",
+  "environment": {
+    "implementation": "CPython",
+    "mode": "hermetic temporary state"
+  },
+  "measurement": {
+    "accepted_budget": {
+      "max_file_bytes": 16777216,
+      "max_files": 10000,
+      "max_records_per_file": 10000,
+      "max_sqlite_bytes": 268435456,
+      "max_total_bytes": 134217728
+    },
+    "before": "new path; no recovery.scan.bounded workload existed",
+    "deterministic_fixture": {
+      "attachment_blobs": 1,
+      "json_records": 5,
+      "sqlite_databases": 2
+    },
+    "workload_id": "recovery.scan.bounded"
+  },
+  "variance_note": "The gate uses deterministic operation ceilings; host-specific wall time is informational."
+}

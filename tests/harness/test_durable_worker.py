@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from gigaloom import cli
+import gigaloom.runtime.worker as worker_module
 from gigaloom.arena import FilesystemHarnessArenaStore, queue_arena
 from gigaloom.config import HarnessConfig
 from gigaloom.harnesses.base import BaseHarness
@@ -51,6 +52,49 @@ from gigaloom.types import (
     HarnessSpec,
 )
 from gigaloom.ui.app import create_app
+
+
+def test_dispatcher_defers_and_reuses_submitter_fingerprint(tmp_path, monkeypatch):
+    calls = []
+    fingerprint = {
+        "os": "darwin",
+        "harnesses": {"echo": {"available": True}},
+    }
+
+    def build_fingerprint(registry, harness_id):
+        calls.append((registry, harness_id))
+        return fingerprint
+
+    monkeypatch.setattr(
+        worker_module, "build_submission_fingerprint", build_fingerprint
+    )
+    config = HarnessConfig(data_dir=str(tmp_path))
+    registry = create_default_registry(include_entry_points=False)
+    sessions = FilesystemHarnessSessionStore(tmp_path)
+    runtime = RuntimeCoordinationStore(tmp_path)
+    dispatcher = DurableJobDispatcher(
+        runtime_store=runtime,
+        payload_store=DurableJobPayloadStore(tmp_path),
+        runner=HarnessSessionRunner(registry=registry, config=config, store=sessions),
+    )
+
+    assert calls == []
+
+    session = sessions.create_session(title="lazy fingerprint")
+    submissions = [
+        dispatcher.submit(
+            session.id,
+            {"harness_id": "echo", "prompt": prompt, "mode": "read"},
+            idempotency_key=f"lazy-fingerprint-{index}",
+        )
+        for index, prompt in enumerate(("first", "second"))
+    ]
+
+    assert calls == [(registry, "echo")]
+    assert [item.job.required_capability_fingerprint for item in submissions] == [
+        fingerprint,
+        fingerprint,
+    ]
 
 
 def test_durable_dispatcher_worker_executes_once_and_preserves_logical_message(

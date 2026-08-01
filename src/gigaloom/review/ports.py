@@ -78,7 +78,7 @@ _EXPORTS = {
 }
 
 # Runtime and session implementations are injected. These names intentionally
-# remain annotation-only until T00 exposes the frozen protocols from api.py.
+# remain annotation-only until the public API exposes the frozen protocols.
 DurableJobDispatcher = Any
 HarnessSessionStore = Any
 RuntimeCoordinationStore = Any

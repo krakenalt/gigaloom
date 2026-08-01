@@ -24,8 +24,8 @@ Avoid import-time network/discovery work; ratchet listed target modules.
 
 # Focused validation commands
 
-`uv run pytest tests/harness -k 'provider or compatible' -n 0`
+`./scripts/ci-base.sh pytest tests/harness -k 'provider or compatible' -q`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T17/T20; `@krakenalt`.
+Owner: `@krakenalt`.

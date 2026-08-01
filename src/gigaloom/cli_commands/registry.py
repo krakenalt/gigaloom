@@ -31,6 +31,28 @@ _AGENT_PROFILE_HANDLERS = frozenset(
         "_handle_agent_profile_remove",
     }
 )
+_AGENT_RUNTIME_HANDLERS = frozenset(
+    {
+        "_handle_agent_runtime_add",
+        "_handle_agent_runtime_inspect",
+        "_handle_agent_runtime_list",
+        "_handle_agent_runtime_lock",
+        "_handle_agent_runtime_outdated",
+        "_handle_agent_runtime_probe",
+        "_handle_agent_runtime_remove",
+        "_handle_agent_runtime_rollback",
+        "_handle_agent_runtime_search",
+        "_handle_agent_runtime_sync",
+        "_handle_agent_runtime_update",
+    }
+)
+_HEADLESS_HANDLERS = frozenset(
+    {
+        "_handle_headless_contract",
+        "_handle_headless_doctor",
+        "_handle_headless_env",
+    }
+)
 _UI_HANDLERS = frozenset(
     {
         "_handle_ui",
@@ -77,12 +99,21 @@ _ROUTE_ADVISOR_HANDLERS = frozenset(
     }
 )
 _CAPSULE_HANDLERS = frozenset({"_handle_capsule_export", "_handle_capsule_verify"})
+_RELIABILITY_HANDLERS = frozenset(
+    {"_handle_reliability_check", "_handle_reliability_simulate"}
+)
+_UPGRADE_RADAR_HANDLERS = frozenset({"_handle_agent_upgrade_check"})
+_VISUAL_EVAL_HANDLERS = frozenset({"_handle_eval_visual"})
 
 
 def resolve_handler(name: str) -> CommandHandler:
     """Import and return one registered command handler."""
     if name in _AGENT_PROFILE_HANDLERS:
         module_name = "gigaloom.cli_commands.handlers.agent_profiles"
+    elif name in _AGENT_RUNTIME_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.agent_runtimes"
+    elif name in _HEADLESS_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.headless"
     elif name in _PROVIDER_HANDLERS:
         module_name = "gigaloom.cli_commands.handlers.provider"
     elif name in _HARNESS_HANDLERS:
@@ -102,6 +133,12 @@ def resolve_handler(name: str) -> CommandHandler:
         module_name = "gigaloom.cli_commands.handlers.route_advisor"
     elif name in _CAPSULE_HANDLERS:
         module_name = "gigaloom.cli_commands.handlers.capsules"
+    elif name in _RELIABILITY_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.reliability"
+    elif name in _UPGRADE_RADAR_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.upgrade_radar"
+    elif name in _VISUAL_EVAL_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.visual_eval"
     elif name == "_handle_run_command":
         module_name = "gigaloom.cli_commands.handlers.runs"
     else:

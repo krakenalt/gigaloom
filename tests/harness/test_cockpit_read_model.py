@@ -439,6 +439,12 @@ def test_cockpit_run_artifacts_and_heavy_evidence_are_lazy_and_bounded(tmp_path)
                 "worktree_path": "/redacted/worktree",
             },
             "pr_artifact": {"title": "bounded", "body": "report " + ("y" * 8000)},
+            "lane_delta": {
+                "packet_sha256": "a" * 64,
+                "size_bytes": 2048,
+                "content_free": True,
+                "hidden_state_portability_claimed": False,
+            },
         },
     )
     store.append_event(
@@ -481,6 +487,12 @@ def test_cockpit_run_artifacts_and_heavy_evidence_are_lazy_and_bounded(tmp_path)
                     + '",\n  "title": "bounded"\n}'
                 ),
                 "projection_url": f"/api/cockpit/runs/{run.id}/report",
+            },
+            {
+                "type": "lane_delta",
+                "byte_count": 2048,
+                "sha256": "a" * 64,
+                "content_free": True,
             },
         ]
 

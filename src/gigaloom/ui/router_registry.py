@@ -4,9 +4,16 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from gigaloom.diagnostics.api import UpgradeRadarReportStore
 from gigaloom.provider_authentication_broker import NativeLoginBroker
 from gigaloom.ui.container import AppServices
 from gigaloom.ui.routers.agents import router as agents_router
+from gigaloom.ui.routers.agent_installations import (
+    create_router as create_agent_installations_router,
+)
+from gigaloom.ui.routers.agent_registry import (
+    create_router as create_agent_registry_router,
+)
 from gigaloom.ui.routers.approvals import router as approvals_router
 from gigaloom.ui.routers.arena import create_router as create_arena_router
 from gigaloom.ui.routers.attachments import (
@@ -18,6 +25,9 @@ from gigaloom.ui.routers.cockpit import router as cockpit_router
 from gigaloom.ui.routers.compatibility import router as compatibility_router
 from gigaloom.ui.routers.context_impact import (
     create_router as create_context_impact_router,
+)
+from gigaloom.ui.routers.credentials import (
+    create_router as create_credentials_router,
 )
 from gigaloom.ui.routers.editor import create_router as create_editor_router
 from gigaloom.ui.routers.environments import router as environments_router
@@ -66,6 +76,12 @@ from gigaloom.ui.routers.run_history import (
 from gigaloom.ui.routers.route_advisor import (
     create_router as create_route_advisor_router,
 )
+from gigaloom.ui.routers.reliability import (
+    create_router as create_reliability_router,
+)
+from gigaloom.ui.routers.upgrade_radar import (
+    create_router as create_upgrade_radar_router,
+)
 from gigaloom.ui.routers.run_capsules import (
     create_router as create_run_capsules_router,
 )
@@ -111,6 +127,18 @@ def install_application_routers(
     app.include_router(create_catalog_router(services))
     app.include_router(create_projects_router(services))
     app.include_router(create_context_impact_router(services))
+    app.include_router(
+        create_credentials_router(services.operational_backends.credential_operator)
+    )
+    app.include_router(
+        create_reliability_router(
+            services.operational_backends.recovery_receipts.checks,
+            data_root=services.config.data_dir,
+        )
+    )
+    app.include_router(
+        create_upgrade_radar_router(UpgradeRadarReportStore(services.config.data_dir))
+    )
     app.include_router(create_editor_router(services))
     app.include_router(create_project_memory_router(services))
     app.include_router(create_project_tools_router(services))
@@ -126,6 +154,10 @@ def install_application_routers(
     )
     app.include_router(create_native_processes_router(services))
     app.include_router(agents_router)
+    app.include_router(create_agent_registry_router(services.agent_runtimes.registry))
+    app.include_router(
+        create_agent_installations_router(services.agent_runtimes.installations)
+    )
     app.include_router(automation_router)
     app.include_router(approvals_router)
     app.include_router(cockpit_router)

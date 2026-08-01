@@ -33,7 +33,7 @@ These rules apply to `src/gigaloom/**` in addition to the root contract.
   native Codex, Claude, or Gemini home.
 - Keep Cockpit assets integrity-checked and available from installed artifacts.
   Do not add a second packaged UI or a new frontend build architecture without
-  an explicit roadmap slice.
+  an explicitly authorized architecture change.
 
 ## Ownership guide
 

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import argparse
 
-from gigaloom.cli_commands.commands import agent_profiles
-
 
 def register(
     subparsers: argparse._SubParsersAction,
@@ -40,7 +38,17 @@ def register(
     eval_run.add_argument("--json", action="store_true")
     eval_run.set_defaults(handler="_handle_eval_run")
 
-    agent_profiles.register(subparsers)
+    eval_visual = eval_subparsers.add_parser("visual")
+    eval_visual.add_argument("--url", required=True)
+    eval_visual.add_argument(
+        "--assert",
+        dest="assertions",
+        action="append",
+        required=True,
+        choices=("no-console-errors", "no-horizontal-overflow"),
+    )
+    eval_visual.add_argument("--json", action="store_true")
+    eval_visual.set_defaults(handler="_handle_eval_visual")
 
     workflow = subparsers.add_parser("workflow")
     workflow_subparsers = workflow.add_subparsers(dest="workflow_command")

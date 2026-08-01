@@ -1,8 +1,8 @@
 # ADR: Frontend asset build architecture
 
-Status: accepted for GigaLoom roadmap slice G8-03 on 2026-07-28.
+Status: accepted as the frontend asset-build architecture on 2026-07-28.
 
-Implementation status: implemented by G8-04 on 2026-07-28. Compiled bundles are
+Implementation status: implemented by the frontend asset producer on 2026-07-28. Compiled bundles are
 ignored; the deterministic producer, Python-only fail-closed consumer,
 commit-bound CI/release handoff, sealed sdist, SBOM/license evidence, and
 rollback contract described here are enforced in source and tests.
@@ -19,7 +19,7 @@ the frontend source and npm toolchain while retaining the compiled assets. It
 can therefore build an offline wheel without Node.js, but it cannot regenerate
 those assets or prove that they match the authored frontend revision.
 
-G8-04 must remove compiled JS, CSS, source maps, and generated declarations
+The frontend asset producer must remove compiled JS, CSS, source maps, and generated declarations
 from Git without weakening these properties:
 
 - clean source can produce both wheel and sdist;
@@ -60,7 +60,7 @@ does not describe or provision that non-Python graph. It would also make an
 sdist-to-wheel build depend on Node and frontend source, and would add hidden
 side effects to editable installs.
 
-This option is rejected. G8-04 may add a Python-only Hatch hook that validates
+This option is rejected. The frontend asset producer may add a Python-only Hatch hook that validates
 and includes an already-produced tree; that is a consumer guard, not a Node
 build hook.
 
@@ -90,7 +90,7 @@ This option is selected.
 
 ## Decision
 
-G8-04 will implement the following contract.
+The frontend asset producer implements the following contract.
 
 1. Authored TypeScript, configuration, the npm lockfile, the canonical brand
    source, and deterministic producer scripts remain tracked. Compiled output
@@ -132,7 +132,7 @@ unbound mutable asset location, or silently build a wheel without Cockpit.
 
 ## Spike evidence
 
-The G8-03 local spike used a Git archive of the accepted G8-02 revision and
+The frontend architecture spike used a Git archive of the accepted asset-contract revision and
 removed compiled assets only inside that temporary copy.
 
 - `npm ci --offline --ignore-scripts` restored 301 packages from the local
@@ -151,7 +151,7 @@ removed compiled assets only inside that temporary copy.
 
 The local spike had Node.js 22.12 while the repository contract and CI require
 22.13 or newer; npm reported that mismatch. The architecture decision does not
-accept that local runtime as release evidence. G8-04 must run reproducibility,
+accept that local runtime as release evidence. The asset producer must run reproducibility,
 platform, SBOM/license, and release recovery gates under the pinned toolchain.
 
 ## Consequences
@@ -161,7 +161,7 @@ when it consumes a verified tree. Frontend production becomes an explicit
 supply-chain stage with reviewable evidence rather than an implicit side
 effect or tracked source.
 
-The cost is a new staging/verification contract and CI artifact handoff. G8-04
+The cost is a new staging/verification contract and CI artifact handoff. The asset producer
 must implement and test that contract before deleting any tracked compiled
 file. Until then, the current bundle remains the rollback and packaging source.
 

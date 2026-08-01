@@ -63,7 +63,7 @@ const config: Config = {
             locale === 'ru'
               ? `https://github.com/krakenalt/gigaloom/edit/main/docs-site/i18n/ru/docusaurus-plugin-content-docs/current/${docPath}`
               : `https://github.com/krakenalt/gigaloom/edit/main/docs/${docPath}`,
-          exclude: ['internal/**', 'codex/**'],
+          exclude: ['internal/**', 'codex/**', 'archive/**'],
         },
         blog: false,
         pages: false,

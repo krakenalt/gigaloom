@@ -13,6 +13,6 @@ WORKLOADS: Final[tuple[WorkloadSpec, ...]] = (
         variants=("version_cold", "version_warm", "help_cold", "help_warm"),
         required_metrics=("wall_ms", "cpu_ms", "rss_bytes"),
         required_counters=("modules_loaded", "subprocesses_started"),
-        future_gate="G-PERF",
+        future_gate="performance-regression-followup",
     ),
 )

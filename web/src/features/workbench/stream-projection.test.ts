@@ -7,7 +7,7 @@ import {
 import type { RunStreamEvent, RunStreamSnapshot } from "../../stream-store";
 
 describe("Workbench stream projection", () => {
-  it("consumes the T13 selector contract through a bounded stable projection", () => {
+  it("consumes the selector contract through a bounded stable projection", () => {
     const events = Array.from(
       { length: WORKBENCH_STREAM_EVENT_BUDGET + 5 },
       (_, index): RunStreamEvent => ({

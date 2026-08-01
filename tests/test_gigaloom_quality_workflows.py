@@ -46,7 +46,6 @@ def test_required_quality_jobs_are_independent_and_standalone():
     for forbidden in (
         "git push",
         "packages/gpt2giga/",
-        "blocked_pending_S5_03B",
     ):
         assert forbidden not in text
     assert "Public registry / exact gateway lock" in text
@@ -57,6 +56,67 @@ def test_required_quality_jobs_are_independent_and_standalone():
     assert "test-results/browser-qa" in text
     assert "scripts/check_legacy_identifiers.py" in text
     assert "--npm-tarball dist/web/gigaloom-web-*.tgz" in text
+    assert text.index("uv lock --check") < text.index(
+        "npm --prefix web ci --ignore-scripts"
+    )
+    assert "steps.browser_qa.outcome != 'skipped'" in text
+
+
+def test_dependabot_cannot_narrow_required_quality_checks():
+    workflow = _workflow("ci.yaml")
+    jobs = workflow["jobs"]
+    required_condition = (
+        "github.event_name != 'pull_request' || "
+        "github.event.pull_request.draft == false"
+    )
+
+    assert "paths" not in workflow["on"]["pull_request"]
+    assert "dependabot" not in _workflow_text("ci.yaml").casefold()
+    for job in jobs.values():
+        assert job["if"] == required_condition
+
+    assert jobs["python"]["strategy"]["matrix"]["python-version"] == [
+        "3.11",
+        "3.13",
+        "3.14",
+    ]
+    assert jobs["terminal"]["strategy"]["matrix"] == {
+        "os": ["ubuntu-latest", "macos-latest", "windows-latest"],
+        "python-version": ["3.11", "3.13", "3.14"],
+    }
+
+
+def test_workflow_changes_run_lint_and_isolated_contract_tests():
+    workflow = _workflow("actionlint.yaml")
+    assert set(workflow["jobs"]) == {"actionlint", "workflow-contracts"}
+
+    contract_run = workflow["jobs"]["workflow-contracts"]["steps"][-1]["run"]
+    assert "uv run --no-project --python 3.13" in contract_run
+    for test in (
+        "tests/test_gigaloom_governance_contract.py",
+        "tests/test_gigaloom_quality_workflows.py",
+        "tests/test_gigaloom_release_contract.py",
+    ):
+        assert test in contract_run
+
+
+def test_dependency_and_docs_paths_match_their_owned_inputs():
+    dependency_review = _workflow("dependency-review.yaml")
+    assert set(dependency_review["on"]["pull_request"]["paths"]) == {
+        ".github/workflows/**",
+        "docs-site/package-lock.json",
+        "docs-site/package.json",
+        "pyproject.toml",
+        "uv.lock",
+        "web/package-lock.json",
+        "web/package.json",
+    }
+
+    docs = _workflow("docs-pages.yaml")
+    for event in ("push", "pull_request"):
+        paths = docs["on"][event]["paths"]
+        assert "docs-site/**" in paths
+        assert "pyproject.toml" not in paths
 
 
 def test_python_type_gate_is_pinned_and_cannot_silently_narrow():

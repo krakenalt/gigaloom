@@ -1,4 +1,4 @@
-"""Registered Wave A state migrations in deterministic execution order."""
+"""Registered release-state migrations in deterministic execution order."""
 
 from __future__ import annotations
 

@@ -11,6 +11,14 @@
 .settings-category-rail a:hover, .settings-category-rail a:focus-visible { background: var(--accent-soft); color: var(--accent); }
 .settings-sections { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .settings-section { min-width: 0; scroll-margin-top: 78px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); padding: 18px; }
+.settings-section-deferred { min-height: 220px; content-visibility: auto; contain-intrinsic-size: auto 260px; }
+#settings-provider, #settings-routesModels { min-height: 520px; contain-intrinsic-size: auto 620px; }
+.settings-section-placeholder { min-height: 130px; border-radius: 7px; background: linear-gradient(100deg, var(--surface-muted) 20%, var(--surface) 45%, var(--surface-muted) 70%); background-size: 220% 100%; opacity: .55; }
+.settings-section-skeleton { min-height: 130px; display: grid; align-content: start; gap: 10px; color: var(--muted); font-size: 10px; }
+.settings-section-skeleton i { height: 34px; border-radius: 6px; background: var(--surface-muted); }
+.settings-section-error { min-height: 110px; display: grid; align-content: center; gap: 5px; border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border)); border-radius: 7px; color: var(--danger); padding: 14px; }
+.settings-section-error span, .settings-summary-warning { color: var(--muted); font-size: 10px; }
+.settings-summary-warning { display: block; margin-top: 7px; }
 .settings-section > header { margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 13px; }
 .settings-section h2 { margin: 0; font-size: 16px; }
 .settings-section > header p { max-width: 660px; margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
@@ -43,10 +51,39 @@
 .provider-account-card .settings-facts { grid-template-columns: 1fr; }
 .provider-account-recovery { min-height: 42px; display: grid; gap: 4px; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
 .provider-account-recovery strong { color: var(--text); font-size: 9px; text-transform: uppercase; }
+.credential-operator-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.credential-operator-heading > div { min-width: 0; display: grid; gap: 3px; }
+.credential-operator-heading strong { font-size: 12px; }
+.credential-operator-heading span:not(.content-free-badge) { color: var(--muted); font-size: 9px; line-height: 1.45; }
+.credential-source-grid, .credential-lease-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.credential-card { min-width: 0; display: grid; align-content: start; gap: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 13px; }
+.credential-card[data-state="expired"], .credential-card[data-state="revoked"] { background: color-mix(in srgb, var(--surface-muted) 55%, var(--surface)); }
+.credential-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.credential-card > header > div { min-width: 0; display: grid; gap: 3px; }
+.credential-card > header strong, .credential-card > header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.credential-card > header strong { font-size: 11px; }
+.credential-card > header small { color: var(--muted); font-size: 8px; }
+.credential-card .settings-facts { grid-template-columns: 1fr; }
+.credential-card > button { justify-self: start; }
+.credential-revoke-confirmation { display: flex; flex-wrap: wrap; gap: 7px; }
+.credential-empty-state { margin: 0; border: 1px dashed var(--border); border-radius: 7px; color: var(--muted); padding: 18px; font-size: 10px; }
+.reliability-check-panel { display: grid; gap: 12px; margin-top: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 14px; }
+.reliability-check-panel > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.reliability-check-panel > header > div { display: grid; gap: 4px; }
+.reliability-check-panel > header p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.reliability-check-panel > button { justify-self: start; }
+.reliability-check-result { display: grid; gap: 10px; border-top: 1px solid var(--border); padding-top: 12px; }
+.reliability-check-result > small { color: var(--muted); font-size: 8px; overflow-wrap: anywhere; }
+.reliability-check-list { display: grid; gap: 6px; }
+.reliability-check-list article { min-width: 0; display: grid; gap: 4px; border: 1px solid var(--border); border-radius: 6px; padding: 9px 10px; }
+.reliability-check-list article > div { display: flex; justify-content: space-between; gap: 8px; font-size: 9px; text-transform: capitalize; }
+.reliability-check-list article code, .reliability-check-list article small { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .settings-subheading { margin: 18px 0 10px; color: var(--text); font-size: 12px; }
 .settings-subheading:first-child { margin-top: 0; }
 .provider-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 .provider-toolbar select { min-width: 0; flex: 1; height: 38px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); padding: 0 9px; }
+.settings-inline-select { max-width: 420px; display: grid; gap: 6px; margin-bottom: 12px; color: var(--muted); font-size: 10px; font-weight: 750; }
+.settings-inline-select select { height: 38px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); padding: 0 9px; }
 .provider-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-bottom: 14px; }
 .provider-list > button { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 7px; padding: 9px; text-align: left; }
 .provider-list > button.selected { border-color: var(--accent); background: var(--accent-soft); }
@@ -77,6 +114,8 @@
   .settings-section { padding: 14px; }
   .settings-field-grid, .settings-facts { grid-template-columns: 1fr; }
   .provider-account-grid { grid-template-columns: 1fr; }
+  .credential-source-grid, .credential-lease-grid { grid-template-columns: 1fr; }
+  .reliability-check-panel > header { flex-direction: column; }
   .provider-toolbar { align-items: stretch; flex-direction: column; }
   .provider-list { grid-template-columns: 1fr; }
   .provider-route-list > div { grid-template-columns: 72px minmax(0, 1fr); }

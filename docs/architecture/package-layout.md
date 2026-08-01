@@ -1,7 +1,7 @@
 # ADR: Bounded-context package layout
 
-Status: accepted as the T15 Phase A architecture handoff for gate `G-ARCH` on
-2026-07-29 and finalized as the T20 package contract on 2026-07-30.
+Status: accepted as the package-layout architecture handoff on
+2026-07-29 and finalized as the package contract on 2026-07-30.
 
 ## Context
 
@@ -20,7 +20,7 @@ legacy tree to become compliant in one commit.
 
 The machine-readable policy is
 `architecture/module-budgets.json`. It is pinned to
-the frozen `G0` source revision and records current root-module exceptions,
+the frozen architecture source revision and records current root-module exceptions,
 module-size ceilings, import rules, owners, and removal gates.
 
 ## Decision
@@ -66,7 +66,7 @@ tree.
 | `projects` | Project configuration, memory, backup, workspace resolution, worktrees, and environment actions | `projects/api.py` |
 | `attachments` | Attachment models, limits, MIME handling, rendering, and storage | `attachments/api.py` |
 | `integrations` | Catalogs, installable packages, lifecycle, flows, groups, and integration SDK | `integrations/api.py` |
-| `tools` | Tool contracts, profiles, policy, secrets, and managed or external MCP lifecycle | `tools/api.py` |
+| `tools` | Tool contracts, profiles, policy, secrets, and managed or external MCP lifecycle | Package exports and `tools/mcp/api.py` |
 | `skills` | Built-in, external, and portable skills plus library, authoring, and catalog proxy behavior | `skills/api.py` |
 | `automation` | Agents, workflows, schedules, evaluations, arena, and attention services | Subcontext contracts and application services |
 | `review` | Provenance, reviewed evidence, artifacts, replay, promotions, handoffs, and support exports | Explicit read and reviewed-mutation contracts |
@@ -297,7 +297,7 @@ Additional review limits are:
 | TypeScript model or API file | 100–300 lines | 450 lines |
 | CSS file | 100–300 lines | 450 lines |
 
-Every Python module above 600 lines at `G0` has its exact physical-line count
+Every Python module above 600 lines at the architecture baseline has its exact physical-line count
 recorded as a ceiling. It may shrink or disappear, but it may not grow. Each
 structural slice reduces an owned legacy god-file by at least 15 percent while
 that file remains above its hard limit. The manifest is updated downward after
@@ -351,7 +351,7 @@ provider passthrough, or approval semantics implicitly.
 | R3 | Migrate consumers to public facades and reject new legacy imports |
 | R4 | Remove only compatibility shims with installed-artifact evidence; close or document remaining exceptions |
 
-`core` and `contracts` extraction is a separately approved Phase B. It starts
+`core` and `contracts` extraction is a separately approved change. It starts
 only after the integration owner confirms that hot-path owners have stopped
 changing the shared modules. Until that gate, `types.py`, `config.py`,
 the compatibility surface in `execution/__init__.py`, `safe_paths.py`, and
@@ -361,23 +361,23 @@ the compatibility surface in `execution/__init__.py`, `safe_paths.py`, and
 
 | Area | Owner |
 | --- | --- |
-| Session storage and queries | T02 |
-| Runtime DB and facade foundation | T03 |
-| Runtime jobs | T04 after the runtime-foundation gate |
-| Runtime workers and wakeup | T05 after the runtime-foundation gate |
-| Runner and new `execution` modules | T06 |
-| FastAPI composition, services, streaming, and routers | T07 |
-| CLI and entrypoint | T08 |
-| Frontend API and query contracts | T11 |
-| Frontend Workbench | T12 |
-| Frontend streaming and bounded rendering | T13 |
-| Architecture manifest, tests, and this ADR | T15 |
-| `core` and `contracts` Phase B | T15 or T00 after explicit approval |
-| Integrations, tools, and skills | T16 |
-| Providers and built-in harnesses | T17 |
-| Automation and review | T18 |
-| Projects, workspace, and environments | T19 |
-| Cross-cutting import migration, diagnostics, docs, and final cleanup | T20 |
+| Session storage and queries | Sessions maintainers |
+| Runtime DB and facade foundation | Runtime maintainers |
+| Runtime jobs | Runtime queue maintainers after the runtime-foundation gate |
+| Runtime workers and wakeup | Runtime worker maintainers after the runtime-foundation gate |
+| Runner and new `execution` modules | Execution maintainers |
+| FastAPI composition, services, streaming, and routers | UI/backend maintainers |
+| CLI and entrypoint | CLI maintainers |
+| Frontend API and query contracts | Web API maintainers |
+| Frontend Workbench | Web Workbench maintainers |
+| Frontend streaming and bounded rendering | Web streaming maintainers |
+| Architecture manifest, tests, and this ADR | Architecture maintainers |
+| `core` and `contracts` extraction | Core/contracts maintainers after explicit approval |
+| Integrations, tools, and skills | Integrations maintainers |
+| Providers and built-in harnesses | Provider/harness maintainers |
+| Automation and review | Automation/review maintainers |
+| Projects, workspace, and environments | Project maintainers |
+| Cross-cutting import migration, diagnostics, docs, and final cleanup | Architecture maintainers |
 
 Frozen shared contracts such as the registry and runtime policy or model
 surfaces change only through the integration owner. A thread that needs another

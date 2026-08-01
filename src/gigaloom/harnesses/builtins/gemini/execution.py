@@ -9,7 +9,6 @@ from pathlib import Path
 import time
 from typing import Any, Mapping
 
-from gigaloom.harness_model import signed_harness_model_headers
 from gigaloom.gemini_acp import (
     GeminiAcpError,
 )
@@ -42,30 +41,6 @@ from gigaloom.types import (
     HarnessEvent,
     HarnessRequest,
 )
-
-MODE_TO_APPROVAL = {
-    "plan": "--approval-mode=plan",
-    "read": "--approval-mode=plan",
-}
-
-
-def gemini_cli_custom_headers(
-    context: HarnessContext,
-    model: str,
-) -> str:
-    """Pin all Gemini CLI requests to the Harness-selected model."""
-    harness_headers = ",".join(
-        f"{name}:{value}"
-        for name, value in signed_harness_model_headers(
-            protocol="gemini",
-            model=model,
-            key=context.harness_model_key,
-        )
-    )
-    existing_headers = context.extra_env.get("GEMINI_CLI_CUSTOM_HEADERS")
-    if existing_headers and harness_headers:
-        return f"{existing_headers},{harness_headers}"
-    return existing_headers or harness_headers
 
 
 def _write_gemini_settings(home: Path) -> None:

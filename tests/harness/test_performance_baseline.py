@@ -40,7 +40,7 @@ from gigaloom.performance_workloads.runtime.profile import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _assert_g6_03_report_contract(report, *, profile):
+def _assert_performance_report_contract(report, *, profile):
     assert report["baseline"] == {
         "id": REGRESSION_BASELINE_ID,
         "profile": profile,
@@ -118,7 +118,7 @@ def test_performance_baseline_imports_without_posix_resource_module():
 def test_performance_baseline_is_bounded_content_free_and_machine_readable():
     report = run_performance_baseline(samples=2)
 
-    _assert_g6_03_report_contract(report, profile="ci-smoke")
+    _assert_performance_report_contract(report, profile="ci-smoke")
     assert report["schema_version"] == SCHEMA_VERSION
     assert report["fixture_set_version"] == FIXTURE_SET_VERSION
     assert report["samples_per_probe"] == 2
@@ -237,7 +237,7 @@ def test_runtime_scaling_profile_captures_required_content_free_fixtures():
     report = run_runtime_scaling_baseline(samples=1)
 
     assert report["schema_version"] == "gigaloom.runtime-scaling-baseline.v1"
-    assert report["fixture_set_version"] == "t01-3.v1"
+    assert report["fixture_set_version"] == "runtime-workload.v1"
     assert report["profile"] == "runtime-detail"
     assert len(report["source_commit"]) == 40
     assert report["samples_per_case"] == 1
@@ -361,7 +361,7 @@ def test_runtime_scaling_profile_captures_required_content_free_fixtures():
 def test_local_detail_profile_keeps_bounded_content_free_samples():
     report = run_performance_baseline(samples=1, profile="local-detail")
 
-    _assert_g6_03_report_contract(report, profile="local-detail")
+    _assert_performance_report_contract(report, profile="local-detail")
     assert {result["id"] for result in report["results"]} == set(
         DETAIL_REFERENCE_BUDGETS_MS
     )
@@ -390,7 +390,7 @@ def test_local_detail_profile_keeps_bounded_content_free_samples():
         < REPORT_ARTIFACT_MAX_BYTES["local-detail"]
     )
     assert storage["schema_version"] == "gigaloom.session-storage-baseline.v1"
-    assert storage["fixture_set_version"] == "t01-2.v1"
+    assert storage["fixture_set_version"] == "session-workload.v1"
     assert storage["samples_per_case"] == 1
     assert storage["privacy"] == report["privacy"]
     assert storage["measurement_contract"] == {
@@ -508,9 +508,9 @@ def test_local_detail_profile_keeps_bounded_content_free_samples():
 def test_runtime_detail_profile_is_ranked_bounded_and_content_free():
     report = run_performance_baseline(samples=1, profile="runtime-detail")
 
-    _assert_g6_03_report_contract(report, profile="runtime-detail")
+    _assert_performance_report_contract(report, profile="runtime-detail")
     assert report["schema_version"] == "gigaloom.runtime-performance-profile.v3"
-    assert report["fixture_set_version"] == "g6-02.v1"
+    assert report["fixture_set_version"] == "runtime-performance.v1"
     assert len(report["source_commit"]) == 40
     assert report["privacy"] == {
         "content_captured": False,
@@ -521,8 +521,8 @@ def test_runtime_detail_profile_is_ranked_bounded_and_content_free():
         "temporary_state_only": True,
     }
     assert report["measurement_contract"]["optimization_performed"] is True
-    assert report["measurement_contract"]["g6_01_authorized"] is True
-    assert report["measurement_contract"]["g6_02_authorized"] is True
+    assert report["measurement_contract"]["runtime_measurement_authorized"] is True
+    assert report["measurement_contract"]["filesystem_scan_repair_authorized"] is True
     assert report["missing_coverage"] == {}
     assert (
         report["runtime_scaling_baseline"]["schema_version"]
@@ -574,7 +574,7 @@ def test_runtime_detail_profile_is_ranked_bounded_and_content_free():
     decisions = {item["id"]: item["status"] for item in report["candidate_repairs"]}
     assert decisions == {
         "demand_driven_worker_wakeup": "implemented_within_budget",
-        "conflict_aware_worker_concurrency": "not_selected_by_G6-01",
+        "conflict_aware_worker_concurrency": "not_selected_by_runtime_policy",
         "ranked_request_hot_path_repairs": (
             "bounded_filesystem_scan_repair_implemented"
         ),

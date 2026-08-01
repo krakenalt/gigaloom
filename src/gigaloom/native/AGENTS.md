@@ -24,8 +24,8 @@ Avoid eager discovery and ratchet every listed legacy module.
 
 # Focused validation commands
 
-`uv run pytest tests/harness -k native -n 0`
+`./scripts/ci-base.sh pytest tests/harness -k native -q`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T17/T20; `@krakenalt`.
+Owner: `@krakenalt`.

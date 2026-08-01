@@ -168,7 +168,7 @@ def _claude_compatibility(
         "transports": tuple(item.value for item in transports),
         "capabilities": ("chat", "streaming", "usage"),
         "native_auth": native_auth,
-        "structured_transport": "blocked-by-n2-04",
+        "structured_transport": "blocked-by-unreviewed-claude-sdk",
     }
     revision = _semantic_revision(semantic)
     return AdapterProtocolCompatibility(

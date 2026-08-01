@@ -110,7 +110,7 @@ def test_stable_contexts_have_local_ownership_contracts(
         "# Persistence/security invariants",
         "# Performance budgets",
         "# Focused validation commands",
-        "# Owner thread/CODEOWNERS",
+        "# Owner/CODEOWNERS",
     )
     for context in policy["target_contexts"]:
         path = package_root / context

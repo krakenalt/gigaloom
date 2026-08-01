@@ -1,6 +1,6 @@
 # ADR: Authority and approval schema
 
-Status: accepted for GigaLoom roadmap slice G4-00 on 2026-07-27.
+Status: accepted as the authority-schema v1 decision on 2026-07-27.
 
 ## Context
 
@@ -10,7 +10,7 @@ current action taxonomy is an enforcement projection, not a complete authority
 contract: a filesystem path is not a network endpoint, a GitHub repository is
 not local Git, and changing an approval reviewer must not change the sandbox.
 
-G4 needs one versioned source before adding approval UX, network grants, GitHub
+The authority boundary needs one versioned source before adding approval UX, network grants, GitHub
 grants, or first-run diagnostics.
 
 ## Decision
@@ -50,7 +50,7 @@ Human review and auto review are reviewer identities. They do not alter the
 `advisory_or_unobservable` boundary.
 
 Child authority is valid only when the child target is identical to a target in
-the parent ceiling and the child operations are a subset. G4-00 deliberately
+the parent ceiling and the child operations are a subset. This schema deliberately
 chooses this strict rule; future code may add a separately reviewed narrower
 target relation, but must never infer one from strings.
 
@@ -61,9 +61,9 @@ operation.
 ## Compatibility
 
 `gigaloom.runtime.policy.PermissionAction` remains the current
-enforcement and persistence projection. G4-01 may map version-1 authority
+enforcement and persistence projection. Approval enforcement may map version-1 authority
 scopes into those actions while it builds the approval UX and permission
-simulator. Existing approval rows and grants are not migrated by G4-00.
+simulator. Existing approval rows and grants are not migrated by this schema decision.
 
 Unknown schema versions, resource targets, presets, lifetimes, operations, and
 invalid digests fail closed. The source-derived manifest is the documentation
@@ -71,8 +71,8 @@ and UI vocabulary authority.
 
 ## Consequences
 
-G4-00 does not grant filesystem, process, network, GitHub, browser, MCP,
+This schema does not grant filesystem, process, network, GitHub, browser, MCP,
 integration, or child-agent authority. It does not change sandbox settings,
 persist new policy, revoke existing grants, access credentials, or perform live
-mutations. G4-01 and later slices must consume this schema instead of creating
+mutations. Later authority consumers must use this schema instead of creating
 local target or lifetime vocabularies.

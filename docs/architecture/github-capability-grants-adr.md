@@ -1,6 +1,6 @@
 # ADR: GitHub capability grants
 
-Status: accepted for GigaLoom roadmap slice G4-03 on 2026-07-27.
+Status: accepted as the GitHub capability-grant decision on 2026-07-27.
 
 ## Context
 
@@ -48,8 +48,8 @@ repository identity, pull-request state, issue/check counts, and recent Actions
 orientation available without granting a hosted write.
 
 Orientation still requires separately admitted network/CLI execution at the
-actual transport boundary. The G4-03 contract is semantic authorization only;
-it does not contact GitHub or weaken G4-02 network controls.
+actual transport boundary. The capability-grant contract is semantic
+authorization only; it does not contact GitHub or weaken scoped-network controls.
 
 ## Hosted writes
 
@@ -69,7 +69,7 @@ changed payload, changed credential identity or permission set, expired
 preview, or expired/revoked grant requires a fresh preview and decision.
 
 Existing pull-request creation remains owned by its immutable-state service.
-G4-03 provides the common semantic seam; it does not silently re-authorize or
+The capability-grant contract provides the common semantic seam; it does not silently re-authorize or
 execute that older flow.
 
 ## Audit and privacy

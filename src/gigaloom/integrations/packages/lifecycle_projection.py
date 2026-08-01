@@ -48,7 +48,7 @@ from .lifecycle_support import *  # noqa: F403
 
 
 class _LifecycleProjectionMixin:
-    """Implementation slice for integration lifecycle operations."""
+    """Internal integration-lifecycle projections."""
 
     def _state_projection(
         self,

@@ -5,6 +5,48 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 и проект придерживается [Семантического версионирования](https://semver.org/lang/ru/).
 
+## [0.8.0] - Unreleased
+
+### Изменено
+
+- Metadata-only пути `giga --help` и `giga --version` больше не импортируют
+  runtime, provider и native-agent граф.
+- Durable API composition откладывает compatibility probes до первой отправки
+  задания выбранному harness, а затем переиспользует точное worker-compatible
+  требование.
+- `./scripts/release bump <version>` выполняет rollback-protected,
+  self-verifying проекцию версии с machine-readable receipt и обновляет
+  packaged product inventory.
+- Инструкции для OpenAI Codex теперь явно маршрутизируют работу по surface и
+  фиксируют authority, simplicity, performance evidence, validation и release
+  gates.
+- README теперь описывает surfaces версии 0.8 и использует живые shields
+  фактических quality/docs workflows, PyPI, npm и поддерживаемых Python versions.
+- Изменения GitHub Actions запускают изолированные workflow contract tests, а
+  quality workflow отклоняет рассинхрон Python metadata и `uv.lock` до тяжёлых
+  frontend и browser gates.
+- Dependabot группирует только minor/patch maintenance; major upgrades остаются
+  отдельными PR и больше не блокируют совместимые обновления в общей группе.
+- PR от Dependabot сохраняют полные required quality и platform matrices;
+  contract tests запрещают actor-specific skip и динамическое сужение, а
+  вспомогательные docs, dependency-review и Actions workflows остаются
+  path-scoped по своим входам.
+- Docs build больше не запускается на Python-only metadata, а dependency review
+  теперь охватывает `uv.lock` и manifests/lockfile сайта документации.
+
+### Исправлено
+
+- Protected release workflow теперь проверяет, что exact GitHub Release tag
+  свободен до первой записи в registry, и не оставляет npm/PyPI publication без
+  завершаемого release boundary из-за заранее созданного Release. После
+  доказательства точных registry bytes recovery может принять только пустой
+  mutable exact-tag Release и никогда не перезаписывает загруженные assets.
+- Changelog prerelease теперь проверяется по canonical SemVer, а не по его
+  PEP 440 projection; reusable candidate report больше не переносит устаревшие
+  результаты запусков в следующую версию.
+- Удалены дублирующиеся неиспользуемые Gemini CLI helpers для approval/header
+  из execution и streaming modules.
+
 ## [0.7.0] - 2026-07-31
 
 ### Изменено
@@ -296,6 +338,8 @@
 - **Tools, MCP и policy**: добавлены общие tool/secret contracts, discovery и dry-run синхронизация MCP profiles, managed MCP configuration, preflight diagnostics и approval-gated действия.
 - **Диагностика и документация**: добавлены `giga doctor`, inspect/config/session/native команды, alpha quickstart, migration guide и описание ограничений первого релиза.
 ---
+
+[0.8.0]: https://github.com/krakenalt/gigaloom/compare/v0.7.0...v0.8.0
 
 [0.7.0]: https://github.com/krakenalt/gigaloom/compare/v0.7.0-alpha.1...v0.7.0
 [0.7.0a1]: https://github.com/krakenalt/gigaloom/compare/v0.6.0-alpha.1...v0.7.0-alpha.1

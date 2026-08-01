@@ -42,6 +42,10 @@ from gigaloom.sessions.store import (
 from gigaloom.session_titles import title_diagnostics
 from gigaloom.ui.async_execution import ContractAPIRouter, run_stream_offload
 from gigaloom.ui.services import session_queries as queries
+from gigaloom.ui.services.run_artifacts import (
+    cockpit_run_artifacts as _artifact_metadata,
+    retained_run_report as _retained_report,
+)
 from gigaloom.worktrees import run_diff_response
 
 
@@ -762,45 +766,6 @@ def _artifact_projection(run: HarnessRun) -> dict[str, Any]:
         "created_at": run.created_at,
         "artifacts": _artifact_metadata(run),
     }
-
-
-def _artifact_metadata(run: HarnessRun) -> list[dict[str, Any]]:
-    metadata = dict(run.metadata)
-    execution = metadata.get("workspace_execution")
-    execution = dict(execution) if isinstance(execution, Mapping) else {}
-    artifacts: list[dict[str, Any]] = []
-    patch = str(execution.get("patch") or metadata.get("diff") or "")
-    if patch:
-        artifacts.append(
-            {
-                "type": "diff",
-                "byte_count": len(patch.encode("utf-8")),
-                "projection_url": f"/api/cockpit/runs/{run.id}/diff",
-            }
-        )
-    if execution.get("worktree_path"):
-        artifacts.append({"type": "worktree", "byte_count": None})
-    if isinstance(metadata.get("pr_artifact"), Mapping):
-        artifacts.append(
-            {
-                "type": "pr_report",
-                "byte_count": len(_retained_report(metadata).encode("utf-8")),
-                "projection_url": f"/api/cockpit/runs/{run.id}/report",
-            }
-        )
-    return artifacts
-
-
-def _retained_report(metadata: Mapping[str, Any]) -> str:
-    for key in ("pr_artifact", "report", "test_report", "summary"):
-        value = metadata.get(key)
-        if value:
-            return (
-                value
-                if isinstance(value, str)
-                else json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True)
-            )
-    return ""
 
 
 def run_snapshot_revision(run: HarnessRun) -> str:

@@ -1,5 +1,11 @@
 # GigaLoom performance baseline
 
+The dated operational-foundation snapshot under `baselines/` records the
+pre-change cold CLI, API, Settings, source-inventory, and release-bump facts
+used by the 0.8 architecture decision. Its absolute timings are host evidence,
+not portable budgets; later gates must compare stable workload counters or
+reviewed environment-matched measurements.
+
 Run the bounded, hermetic CI smoke profile:
 
 ```bash
@@ -14,25 +20,25 @@ network latency look like a local-code regression. All profiles use only
 temporary content-free fixtures: they do not read native provider homes, send
 provider traffic, or retain prompts, responses, tokens, or credentials.
 
-Every report records the tracked G6-03 baseline and a SHA-256 fingerprint of
+Every report records the tracked performance baseline baseline and a SHA-256 fingerprint of
 its Python/platform/SQLite environment. The writer rejects reports above the
 profile limit: 64 KiB for CI smoke, 512 KiB for local detail, and 2 MiB for
 runtime detail. Pull-request CI retains the smoke artifact for 7 days.
 Nightly and manual-dispatch runs capture both detailed profiles and retain
 their bounded artifacts for 14 days.
 
-Measure the G6 durable worker and request path locally:
+Measure the durable worker and request path locally:
 
 ```bash
 uv run giga benchmark performance --profile runtime-detail --samples 20 \
-  --output docs/internal/evidence/GIGALOOM_G6_02_RUNTIME_PROFILE_2026-07-27.json
+  --output docs/internal/evidence/GIGALOOM_RUNTIME_PROFILE_2026-07-27.json
 ```
 
 The runtime profile uses temporary content-free sessions and the local `echo`
 harness. It records wall/CPU/process-peak-RSS, context-switch wakeups, bounded
 SQLite statement counts, queue throughput/fairness, lock contention, worker
 lifecycle/recovery, explicit loopback wake delivery, and API/SSE/Web
-attribution. Schema v3 also embeds the T01 runtime scaling baseline: 10,000-job
+attribution. Schema v3 also embeds the runtime scaling baseline: 10,000-job
 queue scans (including 90% incompatible jobs and a compatible job at the end
 of the candidate window), 2/8-worker claims, runs-center revision queries at
 100/1,000/10,000/50,000 rows, and heartbeat/idle/schedule/recovery/reconcile
@@ -48,7 +54,7 @@ parsed, claims, duplicates, wakeups, and maintenance cycles.
 The legacy runtime profile accepts a maximum 65 projected steady empty cycles
 per minute and 250 ms p95 explicit wake latency. It keeps higher concurrency,
 stop-on-idle ownership, and broader API/database/event repairs unselected after
-the bounded G6-02 duplicate filesystem-scan repair; it does not access provider,
+the bounded runtime performance repair duplicate filesystem-scan repair; it does not access provider,
 external-network, or native-home state.
 
 The JSON report is schema-versioned. Detailed profiles record wall and CPU

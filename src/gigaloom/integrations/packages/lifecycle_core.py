@@ -48,7 +48,7 @@ from .lifecycle_support import *  # noqa: F403
 
 
 class _LifecycleCoreMixin:
-    """Implementation slice for integration lifecycle operations."""
+    """Internal integration-lifecycle operations."""
 
     def __init__(
         self,

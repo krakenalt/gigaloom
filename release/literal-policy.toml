@@ -1,0 +1,99 @@
+schema_version = 1
+
+[implementation_labels]
+allow_path_globs = [
+  "CHANGELOG.md",
+  "CHANGELOG_en.md",
+  "docs/archive/**",
+  "benchmarks/gigaloom_performance/baselines/**",
+  "uv.lock",
+  "web/package-lock.json",
+  "docs-site/package-lock.json",
+]
+
+[[implementation_labels.patterns]]
+id = "coded_task"
+regex = "(?<![A-Za-z0-9])(?:[CGINPSTW]\\d{1,2}[-_/](?:[A-Z]?\\d+[A-Z]?|[A-Z][A-Z0-9-]*)|C-\\d+|P\\d+\\.\\d+)(?![A-Za-z0-9])"
+
+[[implementation_labels.patterns]]
+id = "lowercase_task_revision"
+regex = "(?<![A-Za-z0-9])[ginpst]\\d{1,2}[-_]\\d+[a-z]?(?![A-Za-z0-9])"
+
+[[implementation_labels.patterns]]
+id = "bare_task"
+regex = "(?<![A-Za-z0-9_])(?:[GINW]\\d{1,2}|T(?:0\\d|1[1-9]|20))(?![A-Za-z0-9_])"
+
+[[implementation_labels.patterns]]
+id = "owner_chain"
+regex = "(?<![A-Za-z0-9])T\\d{2}(?:/T\\d{2})+(?![A-Za-z0-9])"
+
+[[implementation_labels.patterns]]
+id = "planning_term"
+regex = "(?i)\\b(?:roadmap\\s+slice|implementation\\s+slice|phase\\s+[A-Z0-9]|wave\\s+[A-Z0-9]|checkpoint\\s+I\\d+|thread[_ -]*[AB]\\d+)\\b"
+
+[[implementation_labels.patterns]]
+id = "roadmap_gate"
+regex = "(?<![A-Za-z0-9])G-[A-Z][A-Z0-9-]*(?![A-Za-z0-9])"
+
+[[implementation_labels.path_patterns]]
+id = "task_path_segment"
+regex = "(?i)(?:^|[/_.-])(?:p\\d+(?:_\\d+)?|i\\d+|b\\d+|thread[_-]?[ab]\\d+)(?=$|[/_.-])"
+
+[release_identity]
+canonical_source = "release/version.toml"
+canonical_field = "version"
+
+[[release_identity.categories]]
+name = "release_projection"
+path_globs = [
+  "pyproject.toml",
+  "release/artifact-set.toml",
+  "release/candidate-report.md",
+  "release/external-evidence.json",
+  "release/release.json",
+  "release/version.toml",
+  "web/package.json",
+  "web/package-lock.json",
+]
+
+[[release_identity.categories]]
+name = "generated_package_documentation"
+path_globs = [
+  "README.md",
+  "docs/*.md",
+  "docs/**/*.md",
+  "docs-site/i18n/**/*.md",
+  "web/README.md",
+  "web/scripts/package-contract.mjs",
+  "web/scripts/package-contract.unit.mjs",
+]
+
+[[release_identity.categories]]
+name = "release_history"
+path_globs = [
+  "CHANGELOG.md",
+  "CHANGELOG_en.md",
+]
+
+[[release_identity.categories]]
+name = "dependency_lock"
+path_globs = [
+  "uv.lock",
+  "docs-site/package-lock.json",
+]
+
+[[release_identity.categories]]
+name = "compatibility_or_schema_evidence"
+path_globs = [
+  "src/gigaloom/evidence/**",
+  "src/gigaloom/harnesses/acp/contracts.py",
+  "src/gigaloom/harnesses/agent_profiles/builtins/**",
+  "src/gigaloom/projects/release_migration.py",
+]
+
+[[release_identity.categories]]
+name = "fixture"
+path_globs = [
+  "tests/**",
+  "benchmarks/**",
+]

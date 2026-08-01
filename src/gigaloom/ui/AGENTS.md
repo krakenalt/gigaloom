@@ -24,8 +24,8 @@ Bound polling/streaming and ratchet every listed legacy module.
 
 # Focused validation commands
 
-`uv run pytest tests/harness -k 'ui or router or sse' -n 0`
+`./scripts/ci-base.sh pytest tests/harness -k 'ui or router or sse' -q`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T07/T11/T20; `@krakenalt`.
+Owner: `@krakenalt`.
