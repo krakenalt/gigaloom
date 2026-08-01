@@ -55,8 +55,12 @@ _CAPSULE_EXPORTS = (
 )
 _LANE_DELTA_EXPORTS = (
     "FilesystemLaneDeltaPacketStore",
+    "LANE_DELTA_METADATA_KEY",
     "LANE_DELTA_RECORD_KIND",
+    "LANE_DELTA_REFERENCE_KIND",
     "LANE_IDENTITY_FIELD_COUNT",
+    "LANE_PLAN_METADATA_KEY",
+    "LANE_STATE_METADATA_KEY",
     "MAX_EXPLICIT_CONTENT_PACKET_BYTES",
     "MAX_LANE_ATTACHMENTS",
     "MAX_LANE_DELTA_PACKET_BYTES",
@@ -66,9 +70,13 @@ _LANE_DELTA_EXPORTS = (
     "LaneDeltaBuilder",
     "LaneDeltaConflictError",
     "LaneDeltaIntegrityError",
+    "LaneDeltaLifecycleError",
+    "LaneDeltaLifecycleService",
     "LaneDeltaStorageError",
     "StaleLaneSourceError",
     "StoredLaneDeltaPacketV1",
+    "lane_state_for_run",
+    "planned_changed_selectors",
 )
 
 __all__ = [*_ROUTE_DECISION_EXPORTS, *_CAPSULE_EXPORTS, *_LANE_DELTA_EXPORTS]

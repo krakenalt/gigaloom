@@ -439,7 +439,7 @@
       },
       {
         "path": "session_runner.py",
-        "max_lines": 1857,
+        "max_lines": 1852,
         "owner": "execution/architecture",
         "removal_gate": "session-runner-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
@@ -488,14 +488,14 @@
       },
       {
         "path": "ui/routers/cockpit.py",
-        "max_lines": 984,
+        "max_lines": 949,
         "owner": "ui/architecture",
         "removal_gate": "ui-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "ui/routers/runs.py",
-        "max_lines": 1221,
+        "max_lines": 1189,
         "owner": "ui/architecture",
         "removal_gate": "ui-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."

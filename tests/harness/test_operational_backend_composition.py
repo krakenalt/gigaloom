@@ -18,6 +18,9 @@ def test_bounded_context_facades_export_operational_backends() -> None:
     """Cross-context callers receive the exact owning implementations."""
     assert runtime_api.InMemoryCredentialBroker is credentials.InMemoryCredentialBroker
     assert review_api.LaneDeltaBuilder is lane_delta_api.LaneDeltaBuilder
+    assert (
+        review_api.planned_changed_selectors is lane_delta_api.planned_changed_selectors
+    )
     assert automation_api.run_visual_gate is visual_api.run_visual_gate
     assert diagnostics_api.RecoveryReceiptService is recovery.RecoveryReceiptService
     assert diagnostics_api.FaultLabRunner is fault_lab.FaultLabRunner
@@ -35,7 +38,8 @@ def test_application_container_owns_stateful_operational_backends(tmp_path) -> N
         registry=create_default_registry(include_entry_points=False),
     )
 
-    owners = app_services(app).operational_backends
+    services = app_services(app)
+    owners = services.operational_backends
 
     assert isinstance(owners.credential_broker, credentials.InMemoryCredentialBroker)
     assert owners.credential_broker.broker_id == "gigaloom-fake-broker-v1"
@@ -52,6 +56,10 @@ def test_application_container_owns_stateful_operational_backends(tmp_path) -> N
     )
     assert owners.lane_delta_store.root == data_dir / "review" / "lane-deltas-v1"
     assert owners.lane_delta_store.allow_explicit_content is False
+    assert isinstance(
+        services.session_runner.run_lane_lifecycle,
+        lane_delta_api.LaneDeltaLifecycleService,
+    )
     assert isinstance(
         owners.visual_artifact_store,
         visual_api.FilesystemVisualArtifactStore,

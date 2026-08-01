@@ -69,6 +69,7 @@ from gigaloom.runtime.worker import DurableJobDispatcher
 from gigaloom.review.api import (
     FilesystemLaneDeltaPacketStore,
     LaneDeltaBuilder,
+    LaneDeltaLifecycleService,
     RouteDecisionRepository,
 )
 from gigaloom.review.capsules import (
@@ -113,6 +114,7 @@ from gigaloom.ui.services.route_advisor import RouteAdvisorWebService
 from gigaloom.ui.services.run_capsules import (
     OperatorEvidenceObservedInputsProvider,
     RunCapsuleEvidenceQuery,
+    SessionLaneDeltaReferenceProvider,
 )
 from gigaloom.ui.streaming.operator_events import OperatorEventBroker
 from gigaloom.workbench_protocol import WorkbenchBackbone
@@ -359,6 +361,8 @@ def build_app_services(
     )
     agent_runtimes = build_agent_runtime_web_bundle(config, profiles=agent_profiles)
     profiles = agent_runtimes.profiles
+    lane_delta_builder = LaneDeltaBuilder()
+    lane_delta_store = FilesystemLaneDeltaPacketStore(config.data_dir)
     capsule_repository = FilesystemRunCapsuleRepository(config.data_dir)
     capsule_lifecycle = (
         RunCapsuleLifecycleService(
@@ -369,6 +373,13 @@ def build_app_services(
         if run_capsule_capture_ports is not None
         else None
     )
+    lane_delta_lifecycle = LaneDeltaLifecycleService(
+        session_store=session_store,
+        builder=lane_delta_builder,
+        packet_store=lane_delta_store,
+        capsule_repository=capsule_repository,
+        delegate=capsule_lifecycle,
+    )
     runner = HarnessSessionRunner(
         registry=registry,
         config=config,
@@ -376,7 +387,8 @@ def build_app_services(
         attachment_store=attachment_store,
         memory_store=memory_store,
         provider_account_provider=native_login_broker,
-        run_completion_hook=capsule_lifecycle,
+        run_completion_hook=lane_delta_lifecycle,
+        run_lane_lifecycle=lane_delta_lifecycle,
     )
     dispatcher = (
         DurableJobDispatcher(
@@ -431,6 +443,7 @@ def build_app_services(
     capsule_evidence_query = RunCapsuleEvidenceQuery(
         capsule_repository,
         OperatorEvidenceObservedInputsProvider(operator_evidence_query),
+        SessionLaneDeltaReferenceProvider(session_store, lane_delta_store),
     )
     visual_evidence_root = Path(config.data_dir) / "automation" / "visual-qa-v1"
     credential_broker = InMemoryCredentialBroker("gigaloom-fake-broker-v1")
@@ -533,8 +546,8 @@ def build_app_services(
                 credential_broker
             ),
             recovery_receipts=RecoveryReceiptService(),
-            lane_delta_builder=LaneDeltaBuilder(),
-            lane_delta_store=FilesystemLaneDeltaPacketStore(config.data_dir),
+            lane_delta_builder=lane_delta_builder,
+            lane_delta_store=lane_delta_store,
             visual_artifact_store=FilesystemVisualArtifactStore(visual_evidence_root),
             visual_gate_store=FilesystemVisualGateStore(visual_evidence_root),
         ),

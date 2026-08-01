@@ -7,6 +7,12 @@ from gigaloom.review.handoffs.lane_delta.api import (
     LaneDeltaBuildError,
     LaneDeltaBuildRequestV1,
     LaneDeltaBuilder,
+    LANE_DELTA_METADATA_KEY,
+    LANE_DELTA_REFERENCE_KIND,
+    LANE_PLAN_METADATA_KEY,
+    LANE_STATE_METADATA_KEY,
+    LaneDeltaLifecycleError,
+    LaneDeltaLifecycleService,
     LANE_DELTA_RECORD_KIND,
     MAX_EXPLICIT_CONTENT_PACKET_BYTES,
     MAX_LANE_DELTA_PACKET_BYTES,
@@ -16,6 +22,8 @@ from gigaloom.review.handoffs.lane_delta.api import (
     LaneDeltaStorageError,
     StaleLaneSourceError,
     StoredLaneDeltaPacketV1,
+    lane_state_for_run,
+    planned_changed_selectors,
 )
 
 __all__ = [
@@ -25,6 +33,12 @@ __all__ = [
     "LaneDeltaBuildError",
     "LaneDeltaBuildRequestV1",
     "LaneDeltaBuilder",
+    "LANE_DELTA_METADATA_KEY",
+    "LANE_DELTA_REFERENCE_KIND",
+    "LANE_PLAN_METADATA_KEY",
+    "LANE_STATE_METADATA_KEY",
+    "LaneDeltaLifecycleError",
+    "LaneDeltaLifecycleService",
     "LANE_DELTA_RECORD_KIND",
     "MAX_EXPLICIT_CONTENT_PACKET_BYTES",
     "MAX_LANE_DELTA_PACKET_BYTES",
@@ -34,4 +48,6 @@ __all__ = [
     "LaneDeltaStorageError",
     "StaleLaneSourceError",
     "StoredLaneDeltaPacketV1",
+    "lane_state_for_run",
+    "planned_changed_selectors",
 ]

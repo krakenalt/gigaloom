@@ -140,6 +140,47 @@ class FilesystemLaneDeltaPacketStore:
             size_bytes=len(data),
         )
 
+    def load_by_digests(
+        self,
+        packet_id: str,
+        *,
+        expected_source_lane_digest: str,
+        expected_destination_lane_digest: str,
+    ) -> StoredLaneDeltaPacketV1:
+        """Load one packet against exact caller-retained lane digests."""
+        validate_digest(
+            expected_source_lane_digest,
+            field_name="expected source lane digest",
+        )
+        validate_digest(
+            expected_destination_lane_digest,
+            field_name="expected destination lane digest",
+        )
+        path = self._path(packet_id)
+        try:
+            data = _read_bounded(path, MAX_LANE_DELTA_PACKET_BYTES)
+        except FileNotFoundError as error:
+            raise KeyError(packet_id) from error
+        except OSError as error:
+            raise LaneDeltaStorageError("lane packet could not be read") from error
+        packet, packet_sha256 = _decode_record(data)
+        if packet.packet_id != packet_id:
+            raise LaneDeltaIntegrityError("lane packet lookup binding does not match")
+        if packet.source_lane.lane_digest != expected_source_lane_digest:
+            raise StaleLaneSourceError(
+                "stored lane packet source digest does not match"
+            )
+        if packet.destination_lane.lane_digest != expected_destination_lane_digest:
+            raise LaneDeltaIntegrityError(
+                "stored lane packet destination digest does not match"
+            )
+        self._admit_content_mode(packet.content_mode, len(data))
+        return StoredLaneDeltaPacketV1(
+            packet=packet,
+            packet_sha256=packet_sha256,
+            size_bytes=len(data),
+        )
+
     def _encode(self, packet: LaneDeltaPacketV1) -> tuple[bytes, str]:
         if not isinstance(packet, LaneDeltaPacketV1):
             raise LaneDeltaIntegrityError("lane packet is invalid")

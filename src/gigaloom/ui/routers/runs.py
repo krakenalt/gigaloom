@@ -46,6 +46,10 @@ from gigaloom.sessions.event_stream import (
 from gigaloom.support_bundle import build_run_support_bundle
 from gigaloom.ui.dependencies import app_services
 from gigaloom.ui.routers.schemas import RunBundleResponse
+from gigaloom.ui.services.run_artifacts import (
+    run_artifact_inventory as _artifact_inventory,
+    run_artifact_summary as _artifact_summary,
+)
 from gigaloom.ui.services.session_queries import event_for_run
 
 
@@ -590,42 +594,6 @@ def _status_group(status: JobStatus) -> str:
     if status is JobStatus.SUCCEEDED:
         return "completed"
     return status.value
-
-
-def _artifact_summary(run: HarnessRun | None) -> dict[str, bool]:
-    metadata = dict(run.metadata) if run is not None else {}
-    execution = metadata.get("workspace_execution")
-    execution = dict(execution) if isinstance(execution, Mapping) else {}
-    pr_artifact = metadata.get("pr_artifact")
-    return {
-        "worktree": bool(execution.get("worktree_path")),
-        "diff": bool(execution.get("patch") or metadata.get("diff")),
-        "pr": isinstance(pr_artifact, Mapping),
-    }
-
-
-def _artifact_inventory(
-    artifacts: Mapping[str, bool], workflow: Mapping[str, Any] | None
-) -> list[dict[str, Any]]:
-    """Return artifact presence and lineage without paths or captured content."""
-    inventory = [
-        {"type": artifact_type, "source": "run"}
-        for artifact_type in ("worktree", "diff", "pr")
-        if artifacts.get(artifact_type)
-    ]
-    if workflow:
-        for step in workflow.get("steps", ()):
-            if not isinstance(step, Mapping):
-                continue
-            for artifact_type in step.get("artifact_types", ()):
-                item = {
-                    "type": str(artifact_type),
-                    "source": "workflow_step",
-                    "step_id": str(step.get("id") or ""),
-                }
-                if item not in inventory:
-                    inventory.append(item)
-    return inventory
 
 
 def _ownership_summary(job: RuntimeJob, attempt: JobAttempt | None) -> dict[str, Any]:

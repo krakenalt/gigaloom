@@ -97,8 +97,13 @@ def test_persists_canonical_packet_atomically_and_loads_by_exact_lanes(
         expected_source_lane=packet.source_lane,
         expected_destination_lane=packet.destination_lane,
     )
+    loaded_by_digest = store.load_by_digests(
+        packet.packet_id,
+        expected_source_lane_digest=packet.source_lane.lane_digest,
+        expected_destination_lane_digest=packet.destination_lane.lane_digest,
+    )
 
-    assert first == second == loaded
+    assert first == second == loaded == loaded_by_digest
     path = _stored_path(tmp_path)
     data = path.read_bytes()
     assert (
@@ -149,6 +154,18 @@ def test_detects_tampering_and_wrong_expected_lane(tmp_path: Path) -> None:
             packet.packet_id,
             expected_source_lane=_lane("other-source"),
             expected_destination_lane=packet.destination_lane,
+        )
+    with pytest.raises(StaleLaneSourceError, match="source digest"):
+        store.load_by_digests(
+            packet.packet_id,
+            expected_source_lane_digest=_lane("other-source").lane_digest,
+            expected_destination_lane_digest=packet.destination_lane.lane_digest,
+        )
+    with pytest.raises(LaneDeltaIntegrityError, match="destination digest"):
+        store.load_by_digests(
+            packet.packet_id,
+            expected_source_lane_digest=packet.source_lane.lane_digest,
+            expected_destination_lane_digest=_lane("other-destination").lane_digest,
         )
 
     path = _stored_path(tmp_path)

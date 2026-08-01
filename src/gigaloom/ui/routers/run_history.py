@@ -14,6 +14,7 @@ from gigaloom.pr_artifacts import (
 )
 from gigaloom.provenance import build_replay_request, run_provenance_to_dict
 from gigaloom.provider_account_sessions import ProviderAccountSessionError
+from gigaloom.review.api import LANE_STATE_METADATA_KEY, lane_state_for_run
 from gigaloom.sessions import (
     RunNotFoundError,
     SessionNotFoundError,
@@ -132,6 +133,11 @@ def create_router(services: AppServices) -> APIRouter:
                     metadata={
                         **dict(replay_session.metadata),
                         "replay_source": replay_source,
+                        **(
+                            {LANE_STATE_METADATA_KEY: lane_state}
+                            if (lane_state := lane_state_for_run(run)) is not None
+                            else {}
+                        ),
                     },
                 )
                 submission = services.job_dispatcher.submit(

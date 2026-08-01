@@ -6,6 +6,8 @@ import asyncio
 from dataclasses import replace
 from typing import Any, Mapping
 
+from gigaloom.provider_account_sessions import PROVIDER_ACCOUNT_BINDING_KEY
+from gigaloom.review.api import LANE_STATE_METADATA_KEY, lane_state_for_run
 from gigaloom.sessions import (
     HarnessSessionStore,
 )
@@ -42,6 +44,9 @@ def _fork_session_from_run(
     metadata.pop("app_server_thread", None)
     metadata.pop("structured_session_link", None)
     metadata.pop("app_server_fork", None)
+    metadata.pop(PROVIDER_ACCOUNT_BINDING_KEY, None)
+    if (lane_state := lane_state_for_run(run)) is not None:
+        metadata[LANE_STATE_METADATA_KEY] = lane_state
     if source_thread.get("thread_id"):
         metadata["app_server_fork"] = {
             "thread_id": source_thread["thread_id"],
