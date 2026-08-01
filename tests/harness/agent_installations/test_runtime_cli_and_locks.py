@@ -119,8 +119,11 @@ class FakeCoordinator:
         local_agent_id,
         confirmed,
         allow_unverified,
+        expected_plan_id=None,
+        cancellation=None,
+        progress=None,
     ):  # noqa: ANN001, ANN201
-        del inventory, allow_unverified
+        del inventory, allow_unverified, expected_plan_id, cancellation, progress
         assert confirmed is True
         self.install_calls += 1
         return _install_entry(
@@ -151,6 +154,9 @@ class FakeCoordinator:
             confirmed=confirmed,
             allow_unverified=False,
         )
+
+    def recover_abandoned(self):  # noqa: ANN201
+        return ()
 
 
 def _digest(value: str) -> str:

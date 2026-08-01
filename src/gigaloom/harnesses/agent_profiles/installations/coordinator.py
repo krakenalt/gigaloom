@@ -19,10 +19,14 @@ from gigaloom.contracts import (
 )
 from gigaloom.harnesses.agent_profiles.installations.binary import (
     BinaryAgentInstaller,
+    StagingRecoveryResult,
 )
 from gigaloom.harnesses.agent_profiles.installations.commands import (
     PackageCommandRunner,
     SubprocessPackageCommandRunner,
+)
+from gigaloom.harnesses.agent_profiles.installations.journal import (
+    InstallCancellationToken,
 )
 from gigaloom.harnesses.agent_profiles.installations.models import (
     DistributionResolutionV1,
@@ -181,22 +185,39 @@ class LocalAgentInstallCoordinator:
         local_agent_id: str | None,
         confirmed: bool,
         allow_unverified: bool,
+        expected_plan_id: str | None = None,
+        cancellation: InstallCancellationToken | None = None,
+        progress: Callable[[str, str], None] | None = None,
     ) -> ManagedAgentOnboardingResult:
         """Execute exactly one confirmed install and onboarding transaction."""
         if not confirmed:
             raise ValueError("managed agent install requires explicit confirmation")
         self._require_network_isolation()
-        result = self.preview(
-            entry,
-            catalog,
-            inventory=inventory,
-            local_agent_id=local_agent_id,
-        )
-        candidate = self._candidate(result)
+        _checkpoint(cancellation, progress, "resolving", "registry_entry_selected")
+        if expected_plan_id is None:
+            result = self.preview(
+                entry,
+                catalog,
+                inventory=inventory,
+                local_agent_id=local_agent_id,
+            )
+            candidate = self._candidate(result)
+        else:
+            candidate = self._reviewed_candidate(
+                expected_plan_id,
+                entry,
+                catalog,
+                inventory=inventory,
+                local_agent_id=local_agent_id,
+            )
+            result = candidate.result
+        _checkpoint(cancellation, progress, "planned", result.reason_code)
         return self._execute(
             entry,
             candidate,
             allow_unverified=allow_unverified,
+            cancellation=cancellation,
+            progress=progress,
         )
 
     def probe(
@@ -234,6 +255,14 @@ class LocalAgentInstallCoordinator:
         if not _candidate_matches_lock(candidate, lock):
             raise ValueError("resolved managed agent differs from the exact lock")
         return self._execute(entry, candidate, allow_unverified=False)
+
+    def recover_abandoned(self) -> tuple[StagingRecoveryResult, ...]:
+        """Recover only staging directories carrying an owned binary journal."""
+        return BinaryAgentInstaller(
+            self._data_root,
+            self._binary_transport,
+            clock=self._clock,
+        ).recover_abandoned()
 
     def _resolve_npx(
         self,
@@ -286,12 +315,15 @@ class LocalAgentInstallCoordinator:
         candidate: _ResolvedCandidate,
         *,
         allow_unverified: bool,
+        cancellation: InstallCancellationToken | None = None,
+        progress: Callable[[str, str], None] | None = None,
     ) -> ManagedAgentOnboardingResult:
         plan = candidate.result.plan
         if plan is None:
             raise ValueError(_planning_failure(candidate.result))
         transitions = ()
         bytes_received = 0
+        _checkpoint(cancellation, progress, "installing", "install_started")
         if plan.distribution_kind is ACPDistributionKind.BINARY:
             installed = BinaryAgentInstaller(
                 self._data_root,
@@ -301,6 +333,7 @@ class LocalAgentInstallCoordinator:
                 plan,
                 confirmed=True,
                 allow_unverified=allow_unverified,
+                cancellation=cancellation,
             )
             artifact = installed.artifact
             transitions = installed.transitions
@@ -338,7 +371,8 @@ class LocalAgentInstallCoordinator:
                 .install(plan, resolution, confirmed=True)
                 .artifact
             )
-        return ManagedAgentOnboardingService(
+        _checkpoint(cancellation, progress, "probing", "artifact_installed")
+        result = ManagedAgentOnboardingService(
             str(self._data_root),
             self._probe,
             clock=self._clock,
@@ -350,6 +384,12 @@ class LocalAgentInstallCoordinator:
             transitions=transitions,
             bytes_received=bytes_received,
         )
+        if progress is not None:
+            progress(
+                "activated" if result.active else "retained_inactive",
+                f"activation_{result.activation.status.value}",
+            )
+        return result
 
     def _plan_with(
         self,
@@ -395,6 +435,31 @@ class LocalAgentInstallCoordinator:
             candidate = self._preview_cache.pop(result.plan.plan_id, None)
         if candidate is None or candidate.result != result:
             raise ValueError("managed agent preview evidence is unavailable")
+        return candidate
+
+    def _reviewed_candidate(
+        self,
+        plan_id: str,
+        entry: ACPRegistryEntryV1,
+        catalog: ACPRegistryCatalog,
+        *,
+        inventory: AgentIdentityInventory,
+        local_agent_id: str | None,
+    ) -> _ResolvedCandidate:
+        with self._preview_lock:
+            candidate = self._preview_cache.pop(plan_id, None)
+        plan = None if candidate is None else candidate.result.plan
+        if (
+            plan is None
+            or plan.plan_id != plan_id
+            or plan.registry_id != entry.registry_id
+            or plan.entry_digest != entry.entry_digest
+            or plan.snapshot_digest != catalog.snapshot.snapshot_digest
+            or plan.local_agent_id != (local_agent_id or entry.registry_id)
+            or plan.expires_at <= self._now()
+            or inventory.collision_namespaces(plan.local_agent_id)
+        ):
+            raise ValueError("reviewed_agent_install_plan_changed")
         return candidate
 
     def _require_network_isolation(self) -> None:
@@ -513,3 +578,19 @@ def _planning_failure(result: InstallPlanningResult) -> str:
     if result.proposed_local_agent_id is not None:
         return f"{result.reason_code}; choose --as {result.proposed_local_agent_id}"
     return result.reason_code
+
+
+def _checkpoint(
+    cancellation: InstallCancellationToken | None,
+    progress: Callable[[str, str], None] | None,
+    state: str,
+    reason_code: str,
+) -> None:
+    if cancellation is not None and cancellation.cancelled:
+        from gigaloom.harnesses.agent_profiles.installations.errors import (
+            AgentInstallCancelled,
+        )
+
+        raise AgentInstallCancelled("managed_agent_install_cancelled")
+    if progress is not None:
+        progress(state, reason_code)

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 import shutil
-from typing import Protocol, runtime_checkable
+from typing import Callable, Protocol, runtime_checkable
 
 from gigaloom.contracts import (
     ACPRegistryEntryV1,
@@ -22,6 +22,12 @@ from gigaloom.harnesses.agent_profiles.installations.locks import (
     build_agent_lock_set,
     read_agent_lock_file,
     write_agent_lock_file,
+)
+from gigaloom.harnesses.agent_profiles.installations.journal import (
+    InstallCancellationToken,
+)
+from gigaloom.harnesses.agent_profiles.installations.binary import (
+    StagingRecoveryResult,
 )
 from gigaloom.harnesses.agent_profiles.installations.planner import (
     AgentIdentityInventory,
@@ -71,6 +77,9 @@ class AgentRuntimeInstallCoordinator(Protocol):
         local_agent_id: str | None,
         confirmed: bool,
         allow_unverified: bool,
+        expected_plan_id: str | None = None,
+        cancellation: InstallCancellationToken | None = None,
+        progress: Callable[[str, str], None] | None = None,
     ) -> ManagedAgentOnboardingResult:
         """Execute one confirmed add/update transaction."""
 
@@ -90,6 +99,9 @@ class AgentRuntimeInstallCoordinator(Protocol):
         confirmed: bool,
     ) -> ManagedAgentOnboardingResult:
         """Install exactly one lock entry without upgrading it."""
+
+    def recover_abandoned(self) -> tuple[StagingRecoveryResult, ...]:
+        """Recover only owned abandoned install staging directories."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,6 +174,9 @@ class AgentRuntimeService:
         confirmed: bool = False,
         allow_unverified: bool = False,
         refresh: bool = False,
+        expected_plan_id: str | None = None,
+        cancellation: InstallCancellationToken | None = None,
+        progress: Callable[[str, str], None] | None = None,
     ) -> InstallPlanningResult | ManagedAgentOnboardingResult:
         """Resolve one unique entry, then preview or execute one transaction."""
         catalog = self._registry.catalog(refresh=refresh)
@@ -183,6 +198,9 @@ class AgentRuntimeService:
             local_agent_id=local_agent_id,
             confirmed=True,
             allow_unverified=allow_unverified,
+            expected_plan_id=expected_plan_id,
+            cancellation=cancellation,
+            progress=progress,
         )
 
     def list(self) -> tuple[AgentRuntimeSummary, ...]:
@@ -233,6 +251,8 @@ class AgentRuntimeService:
         confirmed: bool,
         allow_unverified: bool = False,
         refresh: bool = False,
+        cancellation: InstallCancellationToken | None = None,
+        progress: Callable[[str, str], None] | None = None,
     ) -> ManagedAgentOnboardingResult:
         """Install the explicit current registry entry side-by-side, never silently."""
         if not confirmed:
@@ -260,6 +280,8 @@ class AgentRuntimeService:
             local_agent_id=local_agent_id,
             confirmed=True,
             allow_unverified=allow_unverified,
+            cancellation=cancellation,
+            progress=progress,
         )
 
     def rollback(self, local_agent_id: str) -> AgentActivationV1:
@@ -299,6 +321,10 @@ class AgentRuntimeService:
             self._records.remove_record(record.artifact.install_id)
             removed += 1
         return removed
+
+    def recover_abandoned(self) -> tuple[StagingRecoveryResult, ...]:
+        """Recover only coordinator-owned abandoned install staging state."""
+        return self._coordinator.recover_abandoned()
 
     def lock(self, output: str | Path) -> AgentLockSet:
         """Write byte-stable locks for current active pointers only."""
