@@ -224,7 +224,19 @@ class BinaryAgentInstaller:
         )
         self._checkpoint(token, journal, "extracted", artifact_digest)
         managed_root = self._final_root(plan, artifact_digest)
-        install_id = f"install-{canonical_digest({'plan_id': plan.plan_id, 'artifact_digest': artifact_digest})[:24]}"
+        install_id = (
+            "install-"
+            + canonical_digest(
+                {
+                    "registry_id": plan.registry_id,
+                    "local_agent_id": plan.local_agent_id,
+                    "version": plan.version,
+                    "platform": plan.platform,
+                    "architecture": plan.architecture,
+                    "artifact_digest": artifact_digest,
+                }
+            )[:24]
+        )
         installed_at = self._now()
         artifact = ManagedAgentArtifactV1(
             install_id=install_id,

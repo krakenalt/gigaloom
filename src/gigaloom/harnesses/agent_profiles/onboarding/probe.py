@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import re
 import tempfile
-from typing import Protocol, runtime_checkable
+from typing import Protocol, cast, runtime_checkable
 
 from gigaloom.contracts import ManagedAgentArtifactV1
 from gigaloom.contracts.operational_validation import canonical_digest
@@ -222,6 +222,52 @@ def managed_probe_to_dict(value: ManagedAcpProbeReceipt) -> dict[str, object]:
     }
 
 
+def managed_probe_from_dict(value: Mapping[str, object]) -> ManagedAcpProbeReceipt:
+    """Strictly restore one content-free probe receipt from private state."""
+    expected = {
+        "state",
+        "protocol_state",
+        "protocol_version",
+        "capability_snapshot_digest",
+        "process_fingerprint",
+        "executable_observed",
+        "handshake_digest",
+        "auth_methods",
+        "capabilities",
+        "losses",
+        "warnings",
+        "native_home_isolated",
+        "network_policy",
+        "receipt_digest",
+        "session_created",
+        "prompt_sent",
+        "content_free",
+    }
+    if set(value) != expected:
+        raise ValueError("managed probe state fields are invalid")
+    return ManagedAcpProbeReceipt(
+        state=ManagedProbeState(_string(value["state"])),
+        protocol_state=_string(value["protocol_state"]),
+        protocol_version=_optional_string(value["protocol_version"]),
+        capability_snapshot_digest=_optional_string(
+            value["capability_snapshot_digest"]
+        ),
+        process_fingerprint=_string(value["process_fingerprint"]),
+        executable_observed=_boolean(value["executable_observed"]),
+        handshake_digest=_string(value["handshake_digest"]),
+        auth_methods=_string_tuple(value["auth_methods"]),
+        capabilities=_string_tuple(value["capabilities"]),
+        losses=_string_tuple(value["losses"]),
+        warnings=_string_tuple(value["warnings"]),
+        native_home_isolated=_boolean(value["native_home_isolated"]),
+        network_policy=_string(value["network_policy"]),
+        receipt_digest=_string(value["receipt_digest"]),
+        session_created=_boolean(value["session_created"]),
+        prompt_sent=_boolean(value["prompt_sent"]),
+        content_free=_boolean(value["content_free"]),
+    )
+
+
 def _failure_receipt(
     *,
     state: ManagedProbeState,
@@ -303,3 +349,25 @@ def _auth_method_ids(value: Mapping[str, object]) -> tuple[str, ...]:
 
 def _safe_identity(value: str) -> str:
     return value if _IDENTITY_RE.fullmatch(value) else "unknown"
+
+
+def _string(value: object) -> str:
+    if not isinstance(value, str):
+        raise ValueError("managed probe state value must be text")
+    return value
+
+
+def _optional_string(value: object) -> str | None:
+    return None if value is None else _string(value)
+
+
+def _boolean(value: object) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError("managed probe state value must be boolean")
+    return value
+
+
+def _string_tuple(value: object) -> tuple[str, ...]:
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise ValueError("managed probe state value must be a string array")
+    return tuple(cast(list[str], value))

@@ -29,9 +29,11 @@ from gigaloom.contracts import (
 )
 from gigaloom.contracts.compatibility_fingerprints import digest_command_tokens
 from gigaloom.contracts.operational_validation import canonical_digest
-from gigaloom.harnesses.agent_profiles.installations import (
-    DEFAULT_BINARY_EXTRACTION_LIMITS,
+from gigaloom.harnesses.agent_profiles.installations.activation import (
     ManagedAgentActivationStore,
+)
+from gigaloom.harnesses.agent_profiles.installations.binary import (
+    DEFAULT_BINARY_EXTRACTION_LIMITS,
 )
 from gigaloom.harnesses.agent_profiles.onboarding.models import (
     ManagedAcpProbeReceipt,
@@ -183,6 +185,7 @@ class ManagedAgentOnboardingService:
         )
         result = ManagedAgentOnboardingResult(
             artifact=artifact,
+            architecture=plan.architecture,
             profile=profile,
             probe=probe,
             compatibility=compatibility,

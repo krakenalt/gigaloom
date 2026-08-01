@@ -10,6 +10,10 @@ from gigaloom.harnesses.agent_profiles.installations.binary import (
     BinaryInstallResult,
     StagingRecoveryResult,
 )
+from gigaloom.harnesses.agent_profiles.installations.coordinator import (
+    LocalAgentInstallCoordinator,
+    discover_local_install_coordinator,
+)
 from gigaloom.harnesses.agent_profiles.installations.errors import (
     AgentInstallCancelled,
     AgentInstallError,
@@ -22,6 +26,12 @@ from gigaloom.harnesses.agent_profiles.installations.models import (
     DistributionResolutionV1,
     InstallPlanningResult,
     InstallSelectionStatus,
+)
+from gigaloom.harnesses.agent_profiles.installations.locks import (
+    AgentLockSet,
+    build_agent_lock_set,
+    read_agent_lock_file,
+    write_agent_lock_file,
 )
 from gigaloom.harnesses.agent_profiles.installations.npx import (
     NpxAgentInstaller,
@@ -44,6 +54,13 @@ from gigaloom.harnesses.agent_profiles.installations.transport import (
     BinaryDownloadTransport,
     UrllibBinaryDownloadTransport,
 )
+from gigaloom.harnesses.agent_profiles.installations.runtime import (
+    AgentRegistrySearchPage,
+    AgentRuntimeInstallCoordinator,
+    AgentRuntimeRegistryPort,
+    AgentRuntimeService,
+    AgentRuntimeSummary,
+)
 from gigaloom.harnesses.agent_profiles.installations.uvx import (
     UvxAgentInstaller,
     UvxPackageResolver,
@@ -55,6 +72,12 @@ __all__ = [
     "AgentIdentityPlan",
     "AgentInstallPlanner",
     "AgentInstallPlannerPolicy",
+    "AgentLockSet",
+    "AgentRegistrySearchPage",
+    "AgentRuntimeInstallCoordinator",
+    "AgentRuntimeRegistryPort",
+    "AgentRuntimeService",
+    "AgentRuntimeSummary",
     "AgentInstallCancelled",
     "AgentInstallError",
     "BinaryAgentInstaller",
@@ -70,6 +93,7 @@ __all__ = [
     "InstallSelectionStatus",
     "InstallCancellationToken",
     "ManagedAgentActivationStore",
+    "LocalAgentInstallCoordinator",
     "NpxAgentInstaller",
     "NpxPackageResolution",
     "NpxPackageResolver",
@@ -79,5 +103,9 @@ __all__ = [
     "UvxAgentInstaller",
     "UvxPackageResolution",
     "UvxPackageResolver",
+    "build_agent_lock_set",
+    "discover_local_install_coordinator",
     "interpreter_fingerprint",
+    "read_agent_lock_file",
+    "write_agent_lock_file",
 ]

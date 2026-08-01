@@ -146,6 +146,18 @@ class ManagedAgentActivationStore:
             return None
         return value[0], value[2]
 
+    def deactivate(self, local_agent_id: str) -> bool:
+        """Atomically remove only the selected managed active pointer."""
+        pointer = self._pointer_path(local_agent_id)
+        ensure_private_directory(self._state_root)
+        with registry_cache_lock(self._state_root / ".activation.lock"):
+            if not pointer.exists():
+                return False
+            if pointer.is_symlink():
+                raise AgentInstallError("managed_agent_pointer_invalid")
+            pointer.unlink()
+            return True
+
     def _pointer_path(self, local_agent_id: str) -> Path:
         if not local_agent_id or any(
             character

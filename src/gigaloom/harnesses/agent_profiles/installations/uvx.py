@@ -257,7 +257,11 @@ class UvxAgentInstaller:
             "install-"
             + canonical_digest(
                 {
-                    "plan_id": plan.plan_id,
+                    "registry_id": plan.registry_id,
+                    "local_agent_id": plan.local_agent_id,
+                    "version": plan.version,
+                    "platform": plan.platform,
+                    "architecture": plan.architecture,
                     "lock_digest": resolution.evidence.lock_digest,
                     "interpreter_fingerprint": resolution.evidence.interpreter_fingerprint,
                 }

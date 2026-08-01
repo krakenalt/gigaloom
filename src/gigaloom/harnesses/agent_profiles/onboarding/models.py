@@ -16,6 +16,7 @@ from gigaloom.contracts.operational_validation import (
     validate_digest,
     validate_optional_digest,
     validate_text,
+    validate_identity,
 )
 from gigaloom.harnesses.agent_profiles.models import AgentProfileV1
 
@@ -106,6 +107,7 @@ class ManagedAgentOnboardingResult:
     """Generated route, probe evidence, activation, and terminal receipt."""
 
     artifact: ManagedAgentArtifactV1
+    architecture: str
     profile: AgentProfileV1
     probe: ManagedAcpProbeReceipt
     compatibility: CompatibilityObservationV1
@@ -116,6 +118,10 @@ class ManagedAgentOnboardingResult:
     def __post_init__(self) -> None:
         if not isinstance(self.artifact, ManagedAgentArtifactV1):
             raise ValueError("managed onboarding artifact is invalid")
+        validate_identity(
+            self.architecture,
+            field_name="managed onboarding architecture",
+        )
         if not isinstance(self.profile, AgentProfileV1):
             raise ValueError("managed onboarding profile is invalid")
         for value, expected, label in (
