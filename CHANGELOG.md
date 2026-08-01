@@ -20,6 +20,11 @@
 - Инструкции для OpenAI Codex теперь явно маршрутизируют работу по surface и
   фиксируют authority, simplicity, performance evidence, validation и release
   gates.
+- README теперь описывает surfaces версии 0.8 и использует живые shields
+  фактических quality/docs workflows, PyPI, npm и поддерживаемых Python versions.
+- Изменения GitHub Actions запускают изолированные workflow contract tests, а
+  quality workflow отклоняет рассинхрон Python metadata и `uv.lock` до тяжёлых
+  frontend и browser gates.
 
 ### Исправлено
 

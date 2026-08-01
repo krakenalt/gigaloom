@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import yaml
@@ -230,7 +231,10 @@ def test_actions_permissions_and_security_automation_are_specialized():
     codeql_init = next(
         step
         for step in codeql["jobs"]["analyze"]["steps"]
-        if step.get("uses") == "github/codeql-action/init@v4"
+        if re.fullmatch(
+            r"github/codeql-action/init@v4(?:\.\d+(?:\.\d+)?)?",
+            step.get("uses", ""),
+        )
     )
     assert codeql_init["with"]["queries"] == "security-extended"
     assert codeql["permissions"] == {

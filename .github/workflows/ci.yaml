@@ -40,6 +40,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            uv.lock
+
+      - name: Reject stale Python dependency locks first
+        run: uv lock --check
+
       - name: Set up Node.js 22.13
         uses: actions/setup-node@v7
         with:
@@ -59,13 +69,6 @@ jobs:
       - name: Produce clean commit-bound assets
         run: npm --prefix web run build:release
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-          cache-dependency-glob: |
-            uv.lock
-
       - name: Install standalone browser-QA runtime
         env:
           GIGALOOM_PYTHON: "3.13"
@@ -75,6 +78,7 @@ jobs:
         run: npm --prefix web exec -- playwright install --with-deps chromium
 
       - name: Run desktop and 390x844 browser QA
+        id: browser_qa
         env:
           CI: "true"
         run: npm --prefix web run test:e2e
@@ -91,7 +95,7 @@ jobs:
           retention-days: 7
 
       - name: Upload browser evidence
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.browser_qa.outcome != 'skipped' }}
         uses: actions/upload-artifact@v7
         with:
           name: gigaloom-browser-qa-${{ github.sha }}

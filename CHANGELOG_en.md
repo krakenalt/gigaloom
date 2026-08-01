@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the packaged product inventory.
 - OpenAI Codex guidance now routes work by surface and makes authority,
   simplicity, performance evidence, validation, and release gates explicit.
+- The README now describes the 0.8 surfaces and uses live shields for the real
+  quality/docs workflows, PyPI, npm, and supported Python versions.
+- GitHub Actions changes now run isolated workflow contract tests, while the
+  quality workflow rejects Python metadata and `uv.lock` drift before expensive
+  frontend and browser gates.
 
 ### Fixed
 

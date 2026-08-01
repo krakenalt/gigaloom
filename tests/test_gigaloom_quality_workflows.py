@@ -56,6 +56,24 @@ def test_required_quality_jobs_are_independent_and_standalone():
     assert "test-results/browser-qa" in text
     assert "scripts/check_legacy_identifiers.py" in text
     assert "--npm-tarball dist/web/gigaloom-web-*.tgz" in text
+    assert text.index("uv lock --check") < text.index(
+        "npm --prefix web ci --ignore-scripts"
+    )
+    assert "steps.browser_qa.outcome != 'skipped'" in text
+
+
+def test_workflow_changes_run_lint_and_isolated_contract_tests():
+    workflow = _workflow("actionlint.yaml")
+    assert set(workflow["jobs"]) == {"actionlint", "workflow-contracts"}
+
+    contract_run = workflow["jobs"]["workflow-contracts"]["steps"][-1]["run"]
+    assert "uv run --no-project --python 3.13" in contract_run
+    for test in (
+        "tests/test_gigaloom_governance_contract.py",
+        "tests/test_gigaloom_quality_workflows.py",
+        "tests/test_gigaloom_release_contract.py",
+    ):
+        assert test in contract_run
 
 
 def test_python_type_gate_is_pinned_and_cannot_silently_narrow():
