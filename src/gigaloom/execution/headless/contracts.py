@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 import hashlib
-from typing import Protocol, runtime_checkable
+from typing import Mapping, Protocol, runtime_checkable
 
 from gigaloom.contracts import (
     HeadlessEventKind,
@@ -140,8 +140,12 @@ class HeadlessExecutionResult:
     def __post_init__(self) -> None:
         if not isinstance(self.status, HeadlessBackendStatus):
             raise ValueError("headless backend status is invalid")
-        if self.result_ref is None and self.capsule_ref is None:
-            raise ValueError("headless backend result requires a result reference")
+        if (
+            self.status is HeadlessBackendStatus.SUCCEEDED
+            and self.result_ref is None
+            and self.capsule_ref is None
+        ):
+            raise ValueError("successful headless backend result requires an artifact")
         if self.result_ref is not None:
             validate_relative_path(
                 self.result_ref,
@@ -195,6 +199,20 @@ class HeadlessRouteResolverPort(Protocol):
 
 
 @runtime_checkable
+class HeadlessProgressSinkPort(Protocol):
+    """Bounded progress events whose envelope remains runner-owned."""
+
+    def emit(
+        self,
+        kind: HeadlessEventKind,
+        payload: Mapping[str, object],
+        *,
+        content_capture: bool = False,
+    ) -> None:
+        """Emit one non-terminal event through runner-owned sequencing."""
+
+
+@runtime_checkable
 class HeadlessExecutionPort(Protocol):
     """Execute one fully admitted request without interactive input."""
 
@@ -203,6 +221,7 @@ class HeadlessExecutionPort(Protocol):
         request: HeadlessExecutionRequest,
         *,
         cancel_event: object | None,
+        event_sink: HeadlessProgressSinkPort,
     ) -> HeadlessExecutionResult:
         """Run the selected backend and return one typed terminal outcome."""
 
@@ -212,6 +231,7 @@ __all__ = [
     "HeadlessExecutionPort",
     "HeadlessExecutionRequest",
     "HeadlessExecutionResult",
+    "HeadlessProgressSinkPort",
     "HeadlessRouteResolverPort",
     "HeadlessRouteSelectionV1",
     "HeadlessRunResult",

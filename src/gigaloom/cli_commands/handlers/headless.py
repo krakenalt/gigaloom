@@ -3,12 +3,23 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
+from datetime import datetime
+from typing import BinaryIO, TextIO
 
 from gigaloom.contracts import (
     HeadlessCapsuleMode,
     HeadlessEventFormat,
 )
-from gigaloom.execution.headless import HeadlessRunInput
+from gigaloom.execution.headless import (
+    HeadlessAdmissionError,
+    HeadlessEventStreamError,
+    HeadlessPathAuthority,
+    HeadlessRunInput,
+    HeadlessRunner,
+    emit_unadmitted_terminal,
+    write_headless_diagnostic,
+)
 
 
 def headless_input_from_args(
@@ -62,4 +73,76 @@ def headless_input_from_args(
     )
 
 
-__all__ = ["headless_input_from_args"]
+def run_headless_from_args(
+    args: argparse.Namespace,
+    *,
+    runner: HeadlessRunner,
+    authority: HeadlessPathAuthority,
+    run_id: str,
+    environment_contract_digest: str,
+    default_timeout_seconds: int,
+    stdin: TextIO | None,
+    stdout: BinaryIO,
+    stderr: TextIO,
+    cancel_event: object | None = None,
+    clock: Callable[[], datetime] | None = None,
+) -> int:
+    """Run the composed headless application and return its frozen exit code."""
+    try:
+        request = headless_input_from_args(
+            args,
+            run_id=run_id,
+            environment_contract_digest=environment_contract_digest,
+            default_timeout_seconds=default_timeout_seconds,
+        )
+        result = runner.run_streaming(
+            request,
+            authority=authority,
+            stdin=stdin,
+            stdout=stdout,
+            stderr=stderr,
+            cancel_event=cancel_event,
+        )
+        return int(result.exit_code)
+    except HeadlessAdmissionError as error:
+        return _emit_admission_failure(
+            run_id=run_id,
+            reason_code=error.reason_code,
+            stdout=stdout,
+            stderr=stderr,
+            clock=clock,
+        )
+    except (ValueError, HeadlessEventStreamError):
+        return _emit_admission_failure(
+            run_id=run_id,
+            reason_code="cli_admission_failed",
+            stdout=stdout,
+            stderr=stderr,
+            clock=clock,
+        )
+
+
+def _emit_admission_failure(
+    *,
+    run_id: str,
+    reason_code: str,
+    stdout: BinaryIO,
+    stderr: TextIO,
+    clock: Callable[[], datetime] | None,
+) -> int:
+    try:
+        emit_unadmitted_terminal(
+            run_id=run_id,
+            reason_code=reason_code,
+            stream=stdout,
+            clock=clock,
+        )
+    except HeadlessEventStreamError:
+        pass
+    write_headless_diagnostic(stderr, reason_code)
+    if reason_code in {"result_dir_unavailable", "result_dir_not_admitted"}:
+        return 50
+    return 2
+
+
+__all__ = ["headless_input_from_args", "run_headless_from_args"]

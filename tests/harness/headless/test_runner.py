@@ -19,6 +19,7 @@ from gigaloom.execution.headless import (
     HeadlessExecutionRequest,
     HeadlessExecutionResult,
     HeadlessPathAuthority,
+    HeadlessProgressSinkPort,
     HeadlessRouteSelectionV1,
     HeadlessRunInput,
     HeadlessRunner,
@@ -58,9 +59,11 @@ class _Executor:
         request: HeadlessExecutionRequest,
         *,
         cancel_event: object | None,
+        event_sink: HeadlessProgressSinkPort,
     ) -> HeadlessExecutionResult:
         self.requests.append(request)
         assert cancel_event is None
+        assert event_sink is not None
         return HeadlessExecutionResult(
             status=HeadlessBackendStatus.SUCCEEDED,
             result_ref="result.json",
