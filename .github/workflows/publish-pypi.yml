@@ -51,20 +51,22 @@ jobs:
 
       - name: Verify candidate repository, identity, commit, and ancestry
         id: guard
-        run: >-
-          python3 scripts/release_guard.py
-          --policy .github/release-policy.json
-          --release-manifest release/release.json
-          --python-metadata pyproject.toml
-          --npm-metadata web/package.json
-          --event-name candidate
-          --repository "${GITHUB_REPOSITORY}"
-          --ref "${GITHUB_REF}"
-          --commit "${GITHUB_SHA}"
-          --release-tag "${GITHUB_REF_NAME}"
-          --release-target main
-          --main-ref origin/main
-          --github-output "${GITHUB_OUTPUT}"
+        run: |
+          python3 scripts/release.py verify
+          python3 scripts/release_guard.py \
+            --policy .github/release-policy.json \
+            --release-version release/version.toml \
+            --release-manifest release/release.json \
+            --python-metadata pyproject.toml \
+            --npm-metadata web/package.json \
+            --event-name candidate \
+            --repository "${GITHUB_REPOSITORY}" \
+            --ref "${GITHUB_REF}" \
+            --commit "${GITHUB_SHA}" \
+            --release-tag "${GITHUB_REF_NAME}" \
+            --release-target main \
+            --main-ref origin/main \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Install pinned frontend dependencies
         run: npm --prefix web ci --ignore-scripts
@@ -91,13 +93,7 @@ jobs:
           mkdir -p dist/release-candidate
           uv build --wheel --sdist --no-sources --out-dir dist/release-candidate
           npm pack ./web --ignore-scripts --pack-destination dist/release-candidate
-          cp release/release.json dist/release-candidate/release.json
-          cp src/gigaloom/ui/web/assets/_build/licenses.json dist/release-candidate/licenses.json
-          cp src/gigaloom/ui/web/assets/_build/provenance.json dist/release-candidate/web-provenance.json
-          cp src/gigaloom/ui/web/assets/_build/sbom.cdx.json dist/release-candidate/sbom.cdx.json
-          cp release/0.7-external-evidence.json dist/release-candidate/external-evidence.json
-          cp release/0.7-native-agent-gateway-candidate-report.md dist/release-candidate/native-agent-gateway-report.md
-          cp tests/fixtures/run_capsules/read_only_run.json dist/release-candidate/run-capsule-fixture.json
+          python3 scripts/release.py stage --output dist/release-candidate
 
       - name: Verify immutable multi-registry candidate
         run: |

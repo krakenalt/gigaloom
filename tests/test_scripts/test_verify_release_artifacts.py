@@ -174,10 +174,9 @@ def _candidate(tmp_path: Path) -> dict[str, Path | str]:
     ):
         (artifacts / filename).write_bytes(files[embedded])
     source_evidence = {
-        "release/0.7-external-evidence.json": b'{"evidence":"external"}\n',
-        "release/0.7-native-agent-gateway-candidate-report.md": (
-            b"# Candidate report\n"
-        ),
+        "release/artifact-set.toml": b'schema_version = 1\nrelease = "test"\n',
+        "release/candidate-report.md": b"# Candidate report\n",
+        "release/external-evidence.json": b'{"evidence":"external"}\n',
         "tests/fixtures/run_capsules/read_only_run.json": (
             b'{"schema_version":"fixture"}\n'
         ),
@@ -187,11 +186,9 @@ def _candidate(tmp_path: Path) -> dict[str, Path | str]:
         source.parent.mkdir(parents=True, exist_ok=True)
         source.write_bytes(content)
     for filename, relative in (
-        ("external-evidence.json", "release/0.7-external-evidence.json"),
-        (
-            "native-agent-gateway-report.md",
-            "release/0.7-native-agent-gateway-candidate-report.md",
-        ),
+        ("artifact-set.toml", "release/artifact-set.toml"),
+        ("candidate-report.md", "release/candidate-report.md"),
+        ("external-evidence.json", "release/external-evidence.json"),
         (
             "run-capsule-fixture.json",
             "tests/fixtures/run_capsules/read_only_run.json",

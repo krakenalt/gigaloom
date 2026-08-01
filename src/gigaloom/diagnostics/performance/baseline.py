@@ -32,8 +32,8 @@ __all__ = ["run_performance_baseline", "write_performance_report"]
 
 
 SCHEMA_VERSION: Final[str] = "gigaloom.performance-baseline.v2"
-FIXTURE_SET_VERSION: Final[str] = "g6-03.v1"
-REGRESSION_BASELINE_ID: Final[str] = "gigaloom.performance-regression.g6-03.v1"
+FIXTURE_SET_VERSION: Final[str] = "performance-baseline.v1"
+REGRESSION_BASELINE_ID: Final[str] = "gigaloom.performance-regression.v1"
 DEFAULT_SMOKE_SAMPLES: Final[int] = 5
 MAX_SAMPLES: Final[int] = 100
 
@@ -67,7 +67,7 @@ REQUIRED_WORKLOADS: Final[tuple[dict[str, Any], ...]] = (
         "id": "session_scale",
         "variants": (1, 10, 100, "long_transcript"),
         "required_metrics": ("wall_ms", "cpu_ms", "rss_bytes"),
-        "future_gate": "G5-00",
+        "future_gate": "surface-performance-followup",
     },
     {
         "id": "worker_runtime",
@@ -87,7 +87,7 @@ REQUIRED_WORKLOADS: Final[tuple[dict[str, Any], ...]] = (
             "wakeups",
             "sqlite_writes",
         ),
-        "future_gate": "G6-00",
+        "future_gate": "runtime-performance-followup",
     },
     {
         "id": "web_pipeline",
@@ -107,7 +107,7 @@ REQUIRED_WORKLOADS: Final[tuple[dict[str, Any], ...]] = (
             "filesystem_ms",
             "provider_ms",
         ),
-        "future_gate": "G6-00",
+        "future_gate": "runtime-performance-followup",
     },
 )
 

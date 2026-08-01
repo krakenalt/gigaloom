@@ -83,6 +83,32 @@ def test_runs_center_lists_filters_and_resolves_lightweight_summary(tmp_path):
     assert runtime.get_job(job_id).status.value == "failed"
 
 
+def test_runs_center_projects_lane_delta_as_content_free_artifact_presence(tmp_path):
+    client, _runtime, sessions, run_id, _job_id, _event_id = _failed_run(tmp_path)
+    run = sessions.get_run(run_id)
+    sessions.update_run(
+        run_id,
+        metadata={
+            **dict(run.metadata),
+            "lane_delta": {
+                "packet_sha256": "a" * 64,
+                "size_bytes": 1024,
+                "content_free": True,
+                "hidden_state_portability_claimed": False,
+            },
+        },
+    )
+
+    response = client.get("/api/runs?status=failed&limit=1")
+
+    assert response.status_code == 200
+    assert response.json()["runs"][0]["artifact_inventory"][-1] == {
+        "type": "lane_delta",
+        "source": "run",
+    }
+    assert "packet_sha256" not in response.text
+
+
 def test_runs_center_stream_contract_is_global_content_free_and_routable(tmp_path):
     client, runtime, sessions, _run_id, _job_id, _event_id = _failed_run(tmp_path)
     revision = _runs_center_revision(runtime, sessions)

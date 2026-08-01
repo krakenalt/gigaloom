@@ -1,0 +1,243 @@
+{
+  "captured_at": "2026-08-01",
+  "collection": {
+    "api_scope": "first request in each new application process",
+    "cli_scope": "new process per invocation",
+    "collector": "one-off read-only Python harness using subprocess and FastAPI TestClient",
+    "commands": [
+      "npm --prefix web ci --ignore-scripts",
+      "npm --prefix web run build",
+      "./scripts/ci-base.sh sync-all-extras",
+      ".venv/bin/giga --version",
+      ".venv/bin/giga --help"
+    ],
+    "release_inventory_scope": "tracked UTF-8 files excluding changelogs and docs/archive",
+    "sample_count": 5,
+    "settings_scope": "first full /api/settings request in each new application process with temporary data and workspace roots"
+  },
+  "environment": {
+    "implementation": "CPython",
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "python": "3.13.8"
+  },
+  "measurement": {
+    "api_defaults_cold": {
+      "app_setup_wall": {
+        "max_ms": 4223.93,
+        "min_ms": 3670.464,
+        "p50_ms": 3716.824,
+        "p95_ms": 4124.757,
+        "samples": 5
+      },
+      "first_request_wall": {
+        "max_ms": 39.276,
+        "min_ms": 6.184,
+        "p50_ms": 6.239,
+        "p95_ms": 32.686,
+        "samples": 5
+      },
+      "openapi_operation_counts": {
+        "DELETE": 8,
+        "GET": 108,
+        "PATCH": 7,
+        "POST": 123,
+        "PUT": 3
+      },
+      "openapi_path_count": 228,
+      "process_total_wall": {
+        "max_ms": 7165.362,
+        "min_ms": 4522.733,
+        "p50_ms": 4554.048,
+        "p95_ms": 6644.46,
+        "samples": 5
+      },
+      "response_bytes": [609],
+      "top_level_fields": [16]
+    },
+    "cli": {
+      "help_cold": {
+        "ansi_observed": false,
+        "return_codes": [0],
+        "stderr_bytes": [0],
+        "stdout_bytes": [1078],
+        "wall": {
+          "max_ms": 110.44,
+          "min_ms": 85.454,
+          "p50_ms": 89.777,
+          "p95_ms": 107.102,
+          "samples": 5
+        }
+      },
+      "version_cold": {
+        "ansi_observed": false,
+        "return_codes": [0],
+        "stderr_bytes": [0],
+        "stdout_bytes": [26],
+        "wall": {
+          "max_ms": 529.422,
+          "min_ms": 87.571,
+          "p50_ms": 89.72,
+          "p95_ms": 443.191,
+          "samples": 5
+        }
+      }
+    },
+    "settings_cold": {
+      "app_setup_wall": {
+        "max_ms": 3816.868,
+        "min_ms": 3701.583,
+        "p50_ms": 3745.691,
+        "p95_ms": 3803.234,
+        "samples": 5
+      },
+      "diagnostics_content_free": [true],
+      "first_request_wall": {
+        "max_ms": 2741.706,
+        "min_ms": 2678.701,
+        "p50_ms": 2709.094,
+        "p95_ms": 2738.347,
+        "samples": 5
+      },
+      "harness_count": [5],
+      "mcp_server_count": [0],
+      "process_total_wall": {
+        "max_ms": 7447.227,
+        "min_ms": 7282.856,
+        "p50_ms": 7372.523,
+        "p95_ms": 7432.491,
+        "samples": 5
+      },
+      "provider_count": [0],
+      "response_bytes": [8157, 8158, 8160],
+      "top_level_fields": [8]
+    }
+  },
+  "privacy": {
+    "content_free": true,
+    "external_network_accessed": false,
+    "native_homes_accessed": false,
+    "provider_traffic": false,
+    "secrets_captured": false,
+    "temporary_state_only": true
+  },
+  "release_bump": {
+    "canonical_version_file_present": false,
+    "manual_projection_paths": [
+      "pyproject.toml",
+      "web/package.json",
+      "release/release.json",
+      "CHANGELOG.md"
+    ],
+    "mode": "manual_multi_file",
+    "projection_values": {
+      "pyproject": "0.7.0",
+      "release_manifest": {
+        "git_tag": "v0.7.0",
+        "npm_version": "0.7.0",
+        "python_version": "0.7.0",
+        "release": "0.7.0"
+      },
+      "web_package": "0.7.0"
+    },
+    "release_numbered_artifacts": [
+      "release/0.7-external-evidence.json",
+      "release/0.7-native-agent-gateway-candidate-report.md"
+    ],
+    "single_prepare_command_present": false,
+    "tracked_version_literal_classification": "raw candidate inventory; protocol, schema, dependency, fixture, and compatibility literals require semantic classification before cleanup",
+    "tracked_version_literal_file_count_excluding_changelogs_and_archive": 34,
+    "tracked_version_literal_files": [
+      "README.md",
+      "docs-site/i18n/ru/docusaurus-plugin-content-docs/current/gateway-integration.md",
+      "docs-site/i18n/ru/docusaurus-plugin-content-docs/current/harness.md",
+      "docs-site/i18n/ru/docusaurus-plugin-content-docs/current/index.md",
+      "docs-site/i18n/ru/docusaurus-plugin-content-docs/current/installation.md",
+      "docs-site/i18n/ru/docusaurus-plugin-content-docs/current/release.md",
+      "docs-site/package-lock.json",
+      "docs/gateway-integration.md",
+      "docs/harness.md",
+      "docs/index.md",
+      "docs/installation.md",
+      "docs/release.md",
+      "pyproject.toml",
+      "release/0.7-external-evidence.json",
+      "release/0.7-native-agent-gateway-candidate-report.md",
+      "release/release.json",
+      "src/gigaloom/evidence/product_inventory/v1/inventory.json",
+      "src/gigaloom/harnesses/acp/contracts.py",
+      "src/gigaloom/harnesses/agent_profiles/builtins/claude.toml",
+      "src/gigaloom/harnesses/agent_profiles/builtins/codex.toml",
+      "src/gigaloom/harnesses/agent_profiles/builtins/gemini.toml",
+      "src/gigaloom/harnesses/agent_profiles/builtins/pi.toml",
+      "src/gigaloom/projects/release_migration.py",
+      "tests/harness/acp/test_initialize.py",
+      "tests/harness/test_native_agent_gateway_i1.py",
+      "tests/harness/test_native_agent_gateway_migration.py",
+      "tests/harness/test_native_agent_gateway_release_journey.py",
+      "tests/harness/test_pi_agent_gateway_b1.py",
+      "tests/harness/test_run_capsule_bindings_e2e.py",
+      "uv.lock",
+      "web/README.md",
+      "web/package-lock.json",
+      "web/package.json",
+      "web/scripts/package-contract.unit.mjs"
+    ],
+    "workflow_release_numbered_artifact_references": {
+      ".github/workflows/publish-pypi.yml": [
+        "release/0.7-external-evidence.json",
+        "release/0.7-native-agent-gateway-candidate-report.md"
+      ]
+    }
+  },
+  "schema_version": "gigaloom.operational-foundation-baseline.v1",
+  "source_commit": "b927d523b28eceacf175e0fc5bd764083358d1d2",
+  "source_inventory": {
+    "codex_reviewed_range": {
+      "maximum_exclusive": "0.145.0",
+      "minimum": "0.144.0",
+      "source": "src/gigaloom/harnesses/agent_profiles/builtins/codex.toml"
+    },
+    "implementation_label_file_count_excluding_changelogs_and_archive": 17,
+    "implementation_label_classification": "raw auditor seed; historical ADR and benchmark paths require explicit archive or allowlist decisions",
+    "implementation_label_files": [
+      "benchmarks/harness_p0/manifest.json",
+      "benchmarks/harness_p0/specification.md",
+      "release/0.6-native-operator-baseline.md",
+      "release/adr/2026-07-30-clean-namespace-path-cutover.md",
+      "release/adr/2026-07-30-context-manifest-impact-radar.md",
+      "release/adr/2026-07-30-evidence-workspace-reviewed-arena.md",
+      "release/adr/2026-07-30-honest-cost-leases.md",
+      "release/adr/2026-07-30-managed-tmux-terminal-boundary.md",
+      "release/adr/2026-07-30-multi-registry-release-identity.md",
+      "release/adr/2026-07-30-native-codex-app-server-resume-compact.md",
+      "release/adr/2026-07-30-source-to-sink-guard.md",
+      "release/adr/2026-07-31-native-agent-terminal-ownership-dynamic-profiles.md",
+      "scripts/harness_p0_comparison.py",
+      "src/gigaloom/harnesses/agent_profiles/builtins/claude.toml",
+      "src/gigaloom/harnesses/agent_profiles/builtins/codex.toml",
+      "src/gigaloom/harnesses/agent_profiles/builtins/gemini.toml",
+      "tests/test_scripts/test_harness_p0_comparison.py"
+    ],
+    "registry_distribution_metadata": {
+      "source": "src/gigaloom/harnesses/agent_profiles/sources.py",
+      "state": "inert_discovery_only",
+      "supported_kinds": ["binary", "npx", "uvx"]
+    },
+    "settings_backend_combines": [
+      "settings_store",
+      "workspace_and_project",
+      "mcp_inventory_and_history",
+      "provider_registry",
+      "harness_availability_and_workbench_projection",
+      "diagnostics"
+    ],
+    "settings_frontend_blocks_whole_surface": true,
+    "settings_frontend_initial_queries": [
+      "settings",
+      "browser_access",
+      "providers",
+      "provider_accounts"
+    ]
+  }
+}

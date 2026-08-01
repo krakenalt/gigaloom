@@ -48,7 +48,7 @@ from .lifecycle_support import *  # noqa: F403
 
 
 class _LifecyclePolicyMixin:
-    """Implementation slice for integration lifecycle operations."""
+    """Internal integration-lifecycle policy operations."""
 
     def _preview(
         self,

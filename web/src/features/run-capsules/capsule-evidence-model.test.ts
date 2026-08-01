@@ -5,6 +5,7 @@ import {
   capsuleFindingTone,
   shortCapsuleDigest,
   summarizeCapsuleEvidence,
+  summarizeLaneDeltaReference,
 } from "./capsule-evidence-model";
 
 const evidence: RunCapsuleWebEvidence = {
@@ -39,6 +40,7 @@ const evidence: RunCapsuleWebEvidence = {
       },
     ],
   },
+  references: [],
   export_path: "/api/operator/runs/run_fixture/capsule/export?workspace_id=fixture",
 };
 
@@ -59,5 +61,35 @@ describe("Run Capsule evidence model", () => {
     expect(capsuleFindingTone("unverifiable")).toBe("warning");
     expect(shortCapsuleDigest("a".repeat(64))).toBe(`${"a".repeat(12)}…`);
     expect(shortCapsuleDigest(null)).toBe("unknown");
+  });
+
+  it("summarizes lane references without claiming hidden-state portability", () => {
+    const reference = {
+      schema_version: 1 as const,
+      kind: "gigaloom.lane_delta.reference.v1" as const,
+      packet_id: "lane-delta-fixture",
+      packet_sha256: "d".repeat(64),
+      size_bytes: 512,
+      source_lane_sha256: "e".repeat(64),
+      destination_lane_sha256: "f".repeat(64),
+      changed_selectors: ["route_id", "model_id"],
+      changed_anchor_reason_codes: ["route_id_changed", "model_id_changed"],
+      run_capsule_references: [
+        { role: "source" as const, sha256: "a".repeat(64), status: "captured" as const },
+        { role: "destination" as const, sha256: "b".repeat(64), status: "not_captured" as const },
+      ],
+      disclosure_mode: "packet" as const,
+      content_mode: "content_free" as const,
+      content_free: true as const,
+      hidden_state_portability_claimed: false as const,
+      omissions: ["provider_hidden_state"],
+    };
+
+    expect(summarizeLaneDeltaReference(reference)).toEqual({
+      changedSelectors: "route_id, model_id",
+      capturedCapsules: 1,
+      contentFree: true,
+      hiddenStatePortabilityClaimed: false,
+    });
   });
 });

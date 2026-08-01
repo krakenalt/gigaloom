@@ -50,7 +50,7 @@ WORKLOADS: Final[tuple[WorkloadSpec, ...]] = (
             "claimed_jobs",
             "duplicate_claims",
         ),
-        future_gate="G-PERF",
+        future_gate="performance-regression-followup",
     ),
 )
 

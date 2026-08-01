@@ -19,7 +19,8 @@
 }
 
 .capsule-evidence-summary,
-.capsule-finding dl {
+.capsule-finding dl,
+.capsule-lane-references dl {
   display: grid;
   gap: 0.75rem;
   grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
@@ -27,7 +28,8 @@
 }
 
 .capsule-evidence-summary div,
-.capsule-finding {
+.capsule-finding,
+.capsule-lane-references li {
   background: var(--surface-muted);
   border: 1px solid var(--border);
   border-radius: 0.75rem;
@@ -65,8 +67,51 @@
   padding: 0;
 }
 
+.capsule-lane-references {
+  min-width: 0;
+}
+
+.capsule-lane-references h4 {
+  margin-block: 0 0.75rem;
+}
+
+.capsule-lane-references ol {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.capsule-lane-references li {
+  border-inline-start: 0.25rem solid var(--accent);
+  min-width: 0;
+}
+
+.capsule-lane-references header {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.capsule-lane-references strong {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  overflow-wrap: anywhere;
+}
+
+.capsule-lane-references p {
+  color: var(--muted);
+  margin-block-end: 0;
+}
+
 @media (max-width: 40rem) {
   .capsule-evidence > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .capsule-lane-references header {
     align-items: flex-start;
     flex-direction: column;
   }

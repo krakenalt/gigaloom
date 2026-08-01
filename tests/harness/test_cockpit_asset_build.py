@@ -19,6 +19,8 @@ def test_authored_cockpit_inputs_use_stable_line_endings():
     assert "web/branding/** text eol=lf" in attributes
     assert "web/** text eol=lf" in attributes
     assert "release/release.json text eol=lf" in attributes
+    assert "release/version.toml text eol=lf" in attributes
+    assert "release/artifact-set.toml text eol=lf" in attributes
 
 
 def _contract_module():

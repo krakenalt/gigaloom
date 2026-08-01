@@ -68,6 +68,22 @@ class RunCompletionHook(Protocol):
         ...
 
 
+class RunLaneLifecycle(RunCompletionHook, Protocol):
+    """Completion hook that also freezes bounded lane facts before execution."""
+
+    def prepare_run_metadata(
+        self,
+        *,
+        session: Any,
+        options: Mapping[str, Any],
+        payload: Mapping[str, Any],
+        provider_account_binding: Mapping[str, Any] | None,
+        existing_run: Any | None = None,
+    ) -> dict[str, Any]:
+        """Return persistence-safe lane planning metadata."""
+        ...
+
+
 @dataclass(frozen=True)
 class TerminalRunOutcome:
     """Normalized terminal state persisted by the runner facade."""

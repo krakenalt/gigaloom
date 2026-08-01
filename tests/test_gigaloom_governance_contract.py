@@ -31,21 +31,21 @@ def test_named_ownership_is_fail_closed_until_distinct_backups_accept():
             "name": "Ruslan Yakupov",
         },
         "pypi": {
-            "account": "blocked_pending_S5_04_verification",
+            "account": "blocked_pending_pypi_owner_verification",
             "name": "Ruslan Yakupov",
             "role": "primary-pypi-owner",
         },
     }
     assert policy["backup_owners"] == {
         "github": {
-            "acceptance_gate": "S5-02",
+            "acceptance_gate": "github-backup-acceptance",
             "distinct_from_primary": True,
             "role": "backup-github-maintainer",
             "state": "blocked_pending_acceptance",
             "two_factor_authentication_required": True,
         },
         "pypi": {
-            "acceptance_gate": "S5-04",
+            "acceptance_gate": "pypi-backup-acceptance",
             "distinct_from_primary": True,
             "role": "backup-pypi-owner",
             "state": "blocked_pending_acceptance",
@@ -60,7 +60,7 @@ def test_named_ownership_is_fail_closed_until_distinct_backups_accept():
         "backup-pypi-owner",
         "primary-pypi-owner",
         "blocked_pending_acceptance",
-        "blocked_pending_S5_04_verification",
+        "blocked_pending_pypi_owner_verification",
         "distinct GitHub account",
         "distinct PyPI owner",
         "not transferred objects",
@@ -73,14 +73,14 @@ def test_named_ownership_is_fail_closed_until_distinct_backups_accept():
     )
     checklist = _words(".github/OWNER_RECOVERY_CHECKLIST.md")
     for contract in (
-        "S5-02",
-        "S5-04",
+        "GitHub backup acceptance",
+        "PyPI backup acceptance",
         "backup-github-maintainer",
         "backup-pypi-owner",
         "2FA enabled",
         "primary-owner-unavailable drill",
         "does not claim transferred comments",
-        "Public push remains blocked until S5-01",
+        "Public push remains blocked until repository authority is approved",
     ):
         assert contract in checklist
 

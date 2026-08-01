@@ -26,6 +26,6 @@ Keep adapter imports lazy and new modules below 600 lines.
 
 `uv run pytest tests/harness -k 'harness or adapter' -n 0`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T17/T20; `@krakenalt`.
+Owner: `@krakenalt`.

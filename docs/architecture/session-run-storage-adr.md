@@ -1,6 +1,6 @@
 # ADR: Per-run current-state storage
 
-Status: accepted for roadmap slice T02-5 on 2026-07-29.
+Status: accepted as the session/run storage decision on 2026-07-29.
 
 ## Context
 

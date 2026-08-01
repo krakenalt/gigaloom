@@ -26,6 +26,6 @@ No import-time discovery; new modules stay below 600 lines.
 
 `uv run pytest tests/harness/architecture tests/harness/test_contracts.py -n 0`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T15/T20; `@krakenalt`.
+Owner: `@krakenalt`.

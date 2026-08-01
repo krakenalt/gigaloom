@@ -40,7 +40,7 @@ _EXPIRY_PATTERN = re.compile(
 
 
 class ProviderAccountStatus(str, Enum):
-    """Public provider-account states admitted by G3-01."""
+    """Public provider-account states admitted by the login broker."""
 
     LOGGED_OUT = "logged_out"
     PENDING = "pending"

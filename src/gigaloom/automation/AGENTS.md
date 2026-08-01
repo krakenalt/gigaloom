@@ -26,6 +26,6 @@ Keep planning/evaluation bounded and new modules below 600 lines.
 
 `uv run pytest tests/harness -k 'workflow or schedule or eval or arena' -n 0`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T18/T20; `@krakenalt`.
+Owner: `@krakenalt`.

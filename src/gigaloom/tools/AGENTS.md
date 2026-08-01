@@ -26,6 +26,6 @@ Bound probes and inventories; new modules stay below 600 lines.
 
 `uv run pytest tests/harness -k 'tool or mcp' -n 0`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T16/T20; `@krakenalt`.
+Owner: `@krakenalt`.

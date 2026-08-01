@@ -103,3 +103,12 @@ def test_source_repository_links_are_limited_to_history_and_gateway_docs(
     issues = docs_module.check_standalone_identity(tmp_path, [current_guide])
 
     assert any("not scoped to gateway/history" in issue.message for issue in issues)
+
+
+def test_locale_coverage_skips_archived_documents(tmp_path: Path) -> None:
+    docs_module = load_docs_module()
+    archive = tmp_path / "docs" / "archive"
+    archive.mkdir(parents=True)
+    (archive / "historical-plan.md").write_text("# Historical plan\n", encoding="utf-8")
+
+    assert docs_module.check_locale_coverage(tmp_path) == []

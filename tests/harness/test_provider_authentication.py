@@ -159,7 +159,7 @@ def test_provider_authentication_markdown_matches_published_architecture_doc():
     matrix = build_provider_authentication_capability_matrix()
     rendered = render_provider_authentication_capability_matrix_markdown(matrix)
 
-    assert "G3-01 broker" in rendered
+    assert "embedded login broker" in rendered
     assert "Gemini CLI OAuth may not be harvested" in rendered
     assert (
         REPOSITORY_ROOT

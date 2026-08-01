@@ -1,8 +1,8 @@
 # Provider-owned authentication capability matrix
 
-Status: accepted for GigaLoom roadmap slice G3-00 on 2026-07-26.
+Status: accepted as the GigaLoom provider authentication matrix on 2026-07-26.
 
-> Generated from packaged schema-v1 primary-source evidence. It describes provider-owned surfaces; it does not authorize a login, credential read, browser launch, or G3-01 broker.
+> Generated from packaged schema-v1 primary-source evidence. It describes provider-owned surfaces; it does not authorize a login, credential read, browser launch, or embedded login broker.
 
 ## Frozen matrix
 
@@ -17,7 +17,7 @@ Status: accepted for GigaLoom roadmap slice G3-00 on 2026-07-26.
 - The provider CLI or selected cloud provider owns credentials, refresh, logout, and revocation.
 - An installed executable or compatible `--help` surface never proves that an account is ready.
 - GigaLoom may retain capability evidence, status class, source, and recovery guidance; it must not retain tokens, raw credential files, browser callbacks, or unredacted command output.
-- Version drift is fail-closed. G3-01 must re-review the exact CLI version before enabling a broker path.
+- Version drift is fail-closed. A broker implementation must re-review the exact CLI version before enabling a broker path.
 - Gemini CLI OAuth may not be harvested or piggybacked by third-party software. Only provider-owned interactive guidance or separately supported API-key/Vertex paths are admissible.
 
 ## Provider detail
@@ -69,4 +69,4 @@ Status: accepted for GigaLoom roadmap slice G3-00 on 2026-07-26.
 
 ## Consequences
 
-G3-01 may consume this matrix to design a bounded native login broker. That later slice still requires isolated homes, bounded subprocesses, typed status, cancellation and recovery tests. This slice does not launch provider commands, authenticate, inspect native homes, or bind accounts to sessions.
+A bounded native login broker may consume this matrix. That implementation still requires isolated homes, bounded subprocesses, typed status, cancellation and recovery tests. This matrix does not launch provider commands, authenticate, inspect native homes, or bind accounts to sessions.

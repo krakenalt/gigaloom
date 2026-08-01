@@ -58,7 +58,7 @@ from .validation import *  # noqa: F403
 
 
 class CatalogSourceType(str, Enum):
-    """Reviewed source families admitted to the N4 catalog."""
+    """Reviewed source families admitted to the integration catalog."""
 
     LOCAL_PRIVATE = "local_private"
     OFFICIAL_MCP_REGISTRY = "official_mcp_registry"

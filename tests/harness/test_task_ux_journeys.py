@@ -40,7 +40,7 @@ from gigaloom.ui.app import create_app
 
 FIXTURE = Path(__file__).parent / "fixtures" / "task_ux_journeys.json"
 OLD_SUPPORTED_STATE_FIXTURE = (
-    Path(__file__).parent / "fixtures" / "g8_02_old_supported_state.json"
+    Path(__file__).parent / "fixtures" / "legacy_supported_state.json"
 )
 EXPECTED_JOURNEYS = {
     "ask-question",
@@ -351,7 +351,7 @@ def test_old_supported_automation_state_recovers_through_cockpit_contracts(tmp_p
     started = client.post(
         "/api/workflows/recovered-review/run",
         json={
-            "idempotency_key": "g8-02-recovery-run",
+            "idempotency_key": "frontend-asset-recovery-run",
             "prompt": "Execute the recovered definition.",
             "workspace": str(workspace),
         },

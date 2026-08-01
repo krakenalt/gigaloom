@@ -1,6 +1,6 @@
 # ADR: Scoped network access
 
-Status: accepted for GigaLoom roadmap slice G4-02 on 2026-07-27.
+Status: accepted as the scoped-network-access v1 decision on 2026-07-27.
 
 ## Context
 
@@ -79,7 +79,7 @@ peer-address hash.
 
 ## Consequences
 
-G4-02 provides the reusable fail-closed seam for later Harness-owned network
+This contract provides the reusable fail-closed seam for later Harness-owned network
 consumers while preserving delegated provider sandboxes as a distinct
 enforcement boundary. A consumer is not protected merely because it creates an
 approval request; it must resolve through this contract and enforce the

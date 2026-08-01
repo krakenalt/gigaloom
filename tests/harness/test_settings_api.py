@@ -145,7 +145,7 @@ def test_guided_doctor_api_does_not_forward_browser_workspace_paths(
 
 
 def test_provider_settings_api_crud_is_reference_only_and_optimistic(tmp_path):
-    canary = "n3-06-provider-secret-canary"
+    canary = "provider-settings-secret-canary"
     client = _client(tmp_path)
     created = client.post(
         "/api/providers",
@@ -464,7 +464,7 @@ def test_settings_reject_stale_revision_without_overwriting(tmp_path):
 
 
 def test_secret_reference_settings_round_trip_references_only(tmp_path):
-    canary = "n1-02-settings-secret-canary"
+    canary = "settings-secret-canary"
     store = SecretReferenceSettingsStore(tmp_path / "data")
     initial = store.load()
     reference = SecretReference(

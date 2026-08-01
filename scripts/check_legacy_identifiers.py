@@ -37,9 +37,9 @@ _HISTORICAL_PATHS = frozenset(
     {
         "CHANGELOG.md",
         "CHANGELOG_en.md",
-        "release/0.6-native-operator-baseline.md",
-        "release/adr/2026-07-30-clean-namespace-path-cutover.md",
-        "release/adr/2026-07-30-multi-registry-release-identity.md",
+        "docs/archive/release/native-operator-baseline-0.6.md",
+        "docs/archive/release/adr/2026-07-30-clean-namespace-path-cutover.md",
+        "docs/archive/release/adr/2026-07-30-multi-registry-release-identity.md",
     }
 )
 _MIGRATION_SOURCE_PATHS = frozenset(

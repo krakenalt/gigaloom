@@ -29,7 +29,7 @@ WORKLOADS: Final[tuple[WorkloadSpec, ...]] = (
             "atomic_replaces",
             "fsync_calls",
         ),
-        future_gate="G-PERF",
+        future_gate="performance-regression-followup",
     ),
 )
 

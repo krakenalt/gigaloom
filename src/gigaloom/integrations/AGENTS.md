@@ -26,6 +26,6 @@ Keep discovery bounded and new modules below 600 lines.
 
 `uv run pytest tests/harness -k integration -n 0`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T16/T20; `@krakenalt`.
+Owner: `@krakenalt`.

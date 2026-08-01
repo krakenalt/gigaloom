@@ -26,6 +26,6 @@ Offload blocking work and ratchet the legacy package facade.
 
 `uv run pytest tests/harness -k 'execution or session_runner' -n 0`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T06/T20; `@krakenalt`.
+Owner: `@krakenalt`.

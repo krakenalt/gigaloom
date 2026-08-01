@@ -37,7 +37,7 @@ title_from_prompt = _session_store.title_from_prompt
 utc_now = _session_store.utc_now
 
 # Runtime and session implementations are injected. These names intentionally
-# remain annotation-only until T00 exposes the frozen protocols from api.py.
+# remain annotation-only until the public API exposes the frozen protocols.
 RuntimeCoordinationStore = Any
 DurableJobDispatcher = Any
 HarnessSessionStore = Any

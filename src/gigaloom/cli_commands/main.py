@@ -18,7 +18,15 @@ from gigaloom.projects.api import (
 _STATE_CUTOVER_HANDLERS = frozenset(
     {"_handle_state_migrate", "_handle_state_rollback", "_handle_state_upgrade"}
 )
-_STATE_FREE_HANDLERS = frozenset({"_handle_capsule_verify"})
+_STATE_FREE_HANDLERS = frozenset(
+    {
+        "_handle_capsule_verify",
+        "_handle_reliability_check",
+        "_handle_reliability_simulate",
+        "_handle_agent_upgrade_check",
+        "_handle_eval_visual",
+    }
+)
 
 
 def main(argv: list[str] | None = None) -> int:

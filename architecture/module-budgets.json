@@ -2,7 +2,7 @@
   "schema_version": 1,
   "package": "gigaloom",
   "baseline": {
-    "gate": "T20-C5",
+    "gate": "architecture-baseline",
     "git_sha": "fbda6e5719d3194245b1f2b4e99ccc84ac98edcf"
   },
   "root_namespace": {
@@ -33,7 +33,7 @@
     ],
     "compatibility_context_groups": [
       {
-        "owner": "T20/T00",
+        "owner": "architecture/security",
         "removal_gate": "post-1.0-import-window-and-installed-artifact-parity",
         "compatibility_contract": "Legacy performance workload module paths remain importable from installed artifacts.",
         "paths": [
@@ -43,7 +43,7 @@
     ],
     "compatibility_module_groups": [
       {
-        "owner": "T20/T00",
+        "owner": "architecture/security",
         "removal_gate": "post-1.0-import-window-and-installed-artifact-parity",
         "compatibility_contract": "Root diagnostics imports preserve public object identity during the documented compatibility window.",
         "paths": [
@@ -56,7 +56,7 @@
         ]
       },
       {
-        "owner": "T15/T20",
+        "owner": "core-contracts/architecture",
         "removal_gate": "post-1.0-import-window-and-installed-artifact-parity",
         "compatibility_contract": "Stable root contract imports re-export their bounded core and contracts implementations.",
         "paths": [
@@ -67,7 +67,7 @@
         ]
       },
       {
-        "owner": "T16/T20",
+        "owner": "integrations/architecture",
         "removal_gate": "post-1.0-import-window-and-installed-artifact-parity",
         "compatibility_contract": "Published integration, tool, and skill import paths preserve module and public object identity.",
         "paths": [
@@ -96,7 +96,7 @@
         ]
       },
       {
-        "owner": "T17/T20",
+        "owner": "providers-harnesses/architecture",
         "removal_gate": "post-1.0-import-window-and-installed-artifact-parity",
         "compatibility_contract": "Published provider and built-in harness imports preserve module and public object identity.",
         "paths": [
@@ -123,7 +123,7 @@
         ]
       },
       {
-        "owner": "T18/T20",
+        "owner": "automation-review/architecture",
         "removal_gate": "post-1.0-import-window-and-installed-artifact-parity",
         "compatibility_contract": "Published automation and review imports preserve module and public object identity.",
         "paths": [
@@ -146,7 +146,7 @@
         ]
       },
       {
-        "owner": "T19/T20",
+        "owner": "projects/architecture",
         "removal_gate": "post-1.0-import-window-and-installed-artifact-parity",
         "compatibility_contract": "Published project and environment imports preserve module and public object identity.",
         "paths": [
@@ -167,7 +167,7 @@
     ],
     "target_deviation_context_groups": [
       {
-        "owner": "T06/T20",
+        "owner": "execution/architecture",
         "removal_gate": "execution-application-facade-completion",
         "adr": "architecture/target-tree-deviations.md",
         "reason": "Application session commands still own behavior pending the execution facade migration.",
@@ -176,7 +176,7 @@
         ]
       },
       {
-        "owner": "T08/T20",
+        "owner": "cli/architecture",
         "removal_gate": "cli-package-migration",
         "adr": "architecture/target-tree-deviations.md",
         "reason": "CLI command implementations predate the target cli package and remain an explicit structural deviation.",
@@ -185,7 +185,7 @@
         ]
       },
       {
-        "owner": "T16/T20",
+        "owner": "integrations/architecture",
         "removal_gate": "post-1.0-resource-layout-window",
         "adr": "architecture/target-tree-deviations.md",
         "reason": "Published integration SDK preview resources retain their installed package-data path.",
@@ -194,7 +194,7 @@
         ]
       },
       {
-        "owner": "T17/T20",
+        "owner": "providers-harnesses/architecture",
         "removal_gate": "provider-protocol-package-migration",
         "adr": "architecture/target-tree-deviations.md",
         "reason": "Normalized provider protocol implementations have not completed their target package move.",
@@ -203,7 +203,7 @@
         ]
       },
       {
-        "owner": "T18/T20",
+        "owner": "automation-review/architecture",
         "removal_gate": "post-1.0-evidence-resource-layout-window",
         "adr": "architecture/target-tree-deviations.md",
         "reason": "Frozen evidence JSON resources retain their installed package-data path.",
@@ -214,7 +214,7 @@
     ],
     "target_deviation_module_groups": [
       {
-        "owner": "T02/T20",
+        "owner": "sessions/architecture",
         "removal_gate": "sessions-api-migration",
         "adr": "architecture/target-tree-deviations.md",
         "reason": "Session export and title implementations remain at the root until all surfaces use sessions APIs.",
@@ -224,7 +224,7 @@
         ]
       },
       {
-        "owner": "T06/T20",
+        "owner": "execution/architecture",
         "removal_gate": "execution-facade-completion",
         "adr": "architecture/target-tree-deviations.md",
         "reason": "Execution and workbench implementations remain at the root pending completion of the execution package fission.",
@@ -239,7 +239,7 @@
         ]
       },
       {
-        "owner": "T07/T20",
+        "owner": "ui/architecture",
         "removal_gate": "workbench-application-api-migration",
         "adr": "architecture/target-tree-deviations.md",
         "reason": "Workbench protocol and resource implementations still serve multiple public surfaces from root paths.",
@@ -249,7 +249,7 @@
         ]
       },
       {
-        "owner": "T08/T20",
+        "owner": "cli/architecture",
         "removal_gate": "cli-package-migration",
         "adr": "architecture/target-tree-deviations.md",
         "reason": "The root CLI implementation remains authoritative until the target cli package exists and entry points move.",
@@ -260,7 +260,7 @@
         ]
       },
       {
-        "owner": "T15/T20",
+        "owner": "core-contracts/architecture",
         "removal_gate": "settings-contract-fission",
         "adr": "architecture/target-tree-deviations.md",
         "reason": "Settings behavior remains at the root while stable contract re-exports are already separated.",
@@ -269,7 +269,7 @@
         ]
       },
       {
-        "owner": "T16/T20",
+        "owner": "integrations/architecture",
         "removal_gate": "integration-sdk-package-migration",
         "adr": "architecture/target-tree-deviations.md",
         "reason": "SDK authoring and tool-profile implementations have not completed their bounded-context move.",
@@ -281,7 +281,7 @@
         ]
       },
       {
-        "owner": "T17/T20",
+        "owner": "providers-harnesses/architecture",
         "removal_gate": "provider-target-package-migration",
         "adr": "architecture/target-tree-deviations.md",
         "reason": "Native target and provider adapter implementations remain target-tree deviations behind public facades.",
@@ -302,7 +302,7 @@
         ]
       },
       {
-        "owner": "T00/T20",
+        "owner": "security/architecture",
         "removal_gate": "security-context-fission",
         "adr": "architecture/target-tree-deviations.md",
         "reason": "Permission, registry, and secret policy implementations remain root-owned security boundaries.",
@@ -321,203 +321,203 @@
       {
         "path": "claude_mcp_target.py",
         "max_lines": 1004,
-        "owner": "T17/T20",
+        "owner": "providers-harnesses/architecture",
         "removal_gate": "claude-mcp-target-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "cli.py",
         "max_lines": 2414,
-        "owner": "T08/T20",
+        "owner": "cli/architecture",
         "removal_gate": "cli-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "codex_mcp_target.py",
         "max_lines": 1206,
-        "owner": "T17/T20",
+        "owner": "providers-harnesses/architecture",
         "removal_gate": "codex-mcp-target-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "codex_plugin_target.py",
         "max_lines": 1370,
-        "owner": "T17/T20",
+        "owner": "providers-harnesses/architecture",
         "removal_gate": "codex-plugin-target-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "execution/__init__.py",
         "max_lines": 811,
-        "owner": "T06/T20",
+        "owner": "execution/architecture",
         "removal_gate": "execution-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "gemini_mcp_target.py",
         "max_lines": 1139,
-        "owner": "T17/T20",
+        "owner": "providers-harnesses/architecture",
         "removal_gate": "gemini-mcp-target-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "native/claude.py",
         "max_lines": 905,
-        "owner": "T17/T20",
+        "owner": "providers-harnesses/architecture",
         "removal_gate": "native-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "native/codex.py",
         "max_lines": 638,
-        "owner": "T17/T20",
+        "owner": "providers-harnesses/architecture",
         "removal_gate": "native-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "native/gemini.py",
         "max_lines": 1133,
-        "owner": "T17/T20",
+        "owner": "providers-harnesses/architecture",
         "removal_gate": "native-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "native/process.py",
         "max_lines": 1319,
-        "owner": "T17/T20",
+        "owner": "providers-harnesses/architecture",
         "removal_gate": "native-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "native_cli_contracts.py",
         "max_lines": 1079,
-        "owner": "T17/T20",
+        "owner": "providers-harnesses/architecture",
         "removal_gate": "native-cli-contracts-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "permission_simulator.py",
         "max_lines": 736,
-        "owner": "T00/T20",
+        "owner": "security/architecture",
         "removal_gate": "permission-simulator-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "preflight.py",
         "max_lines": 696,
-        "owner": "T06/T20",
+        "owner": "execution/architecture",
         "removal_gate": "preflight-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "runtime/authority.py",
         "max_lines": 613,
-        "owner": "T03/T20",
+        "owner": "runtime-authority/architecture",
         "removal_gate": "runtime-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "runtime/network_access.py",
         "max_lines": 699,
-        "owner": "T03/T20",
+        "owner": "runtime-authority/architecture",
         "removal_gate": "runtime-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "runtime/worker.py",
         "max_lines": 782,
-        "owner": "T05/T20",
+        "owner": "runtime-worker/architecture",
         "removal_gate": "runtime-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "secrets.py",
         "max_lines": 737,
-        "owner": "T00/T20",
+        "owner": "security/architecture",
         "removal_gate": "secrets-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "session_runner.py",
-        "max_lines": 1857,
-        "owner": "T06/T20",
+        "max_lines": 1852,
+        "owner": "execution/architecture",
         "removal_gate": "session-runner-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "sessions/filesystem.py",
         "max_lines": 969,
-        "owner": "T02/T20",
+        "owner": "sessions/architecture",
         "removal_gate": "sessions-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "sessions/store.py",
         "max_lines": 797,
-        "owner": "T02/T20",
+        "owner": "sessions/architecture",
         "removal_gate": "sessions-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "structured_processes.py",
         "max_lines": 1266,
-        "owner": "T06/T20",
+        "owner": "execution/architecture",
         "removal_gate": "structured-processes-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "structured_sessions.py",
         "max_lines": 1209,
-        "owner": "T06/T20",
+        "owner": "execution/architecture",
         "removal_gate": "structured-sessions-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "ui/mutation_contracts.py",
         "max_lines": 1057,
-        "owner": "T07/T20",
+        "owner": "ui/architecture",
         "removal_gate": "ui-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "ui/remote_identity.py",
         "max_lines": 814,
-        "owner": "T07/T20",
+        "owner": "ui/architecture",
         "removal_gate": "ui-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "ui/routers/cockpit.py",
-        "max_lines": 984,
-        "owner": "T07/T20",
+        "max_lines": 949,
+        "owner": "ui/architecture",
         "removal_gate": "ui-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "ui/routers/runs.py",
-        "max_lines": 1221,
-        "owner": "T07/T20",
+        "max_lines": 1189,
+        "owner": "ui/architecture",
         "removal_gate": "ui-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "ui/routers/workflows.py",
         "max_lines": 774,
-        "owner": "T07/T20",
+        "owner": "ui/architecture",
         "removal_gate": "ui-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "workbench_protocol.py",
         "max_lines": 733,
-        "owner": "T07/T20",
+        "owner": "ui/architecture",
         "removal_gate": "workbench-protocol-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       },
       {
         "path": "workbench_resources.py",
         "max_lines": 675,
-        "owner": "T07/T20",
+        "owner": "ui/architecture",
         "removal_gate": "workbench-resources-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."
       }

@@ -309,7 +309,7 @@ class AnthropicCompatibleProbeBackend:
 
 @dataclass(frozen=True)
 class ClaudeEmbeddedProviderDecision:
-    """N3 compatibility decision that preserves the negative N2-04 gate."""
+    """Compatibility decision that preserves the unreviewed SDK gate."""
 
     platform: AnthropicPlatform
     auth_mode: ClaudeSdkAuthMode | None
@@ -512,7 +512,7 @@ def claude_agent_sdk_provider_decision(
     platform = _platform_for_profile(profile)
     ownership = profile.authentication.ownership
     auth_mode: ClaudeSdkAuthMode | None = None
-    blockers = ["n2_04_embedded_driver_blocked"]
+    blockers = ["claude_sdk_embedded_driver_unreviewed"]
     if platform is AnthropicPlatform.ANTHROPIC_API:
         if ownership is AuthenticationOwnership.SECRET_REFERENCE:
             auth_mode = ClaudeSdkAuthMode.API_KEY

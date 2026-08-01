@@ -35,7 +35,7 @@ WORKLOADS: Final[tuple[WorkloadSpec, ...]] = (
             "rows_parsed",
             "fsync_calls",
         ),
-        future_gate="G-PERF",
+        future_gate="performance-regression-followup",
     ),
 )
 

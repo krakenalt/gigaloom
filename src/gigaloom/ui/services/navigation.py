@@ -9,6 +9,7 @@ from typing import Any, Mapping
 
 from fastapi import HTTPException
 
+from gigaloom.provider_account_sessions import PROVIDER_ACCOUNT_BINDING_KEY
 from gigaloom.runtime.models import RunStatus
 from gigaloom.session_titles import manual_title_metadata, title_diagnostics
 from gigaloom.sessions import (
@@ -211,6 +212,7 @@ def fork_session_from_session(
         "fork_semantics": "harness_replay",
     }
     metadata.pop("structured_session_link", None)
+    metadata.pop(PROVIDER_ACCOUNT_BINDING_KEY, None)
     if reference:
         metadata["native_session_reference"] = {
             "authority": reference.get("authority"),

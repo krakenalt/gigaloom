@@ -26,6 +26,6 @@ Bound polling/streaming and ratchet every listed legacy module.
 
 `uv run pytest tests/harness -k 'ui or router or sse' -n 0`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T07/T11/T20; `@krakenalt`.
+Owner: `@krakenalt`.

@@ -80,7 +80,7 @@ _PROVIDER_AUTH_FLAGS = {
 
 @dataclass(frozen=True)
 class ClaudeSdkExitDecision:
-    """Fail-closed N2-04 decision without provider traffic or credential use."""
+    """Fail-closed Claude SDK review decision without provider traffic or credential use."""
 
     embedded_driver_ready: bool
     subscription_embedding_allowed: bool
@@ -289,7 +289,7 @@ def build_claude_agent_sdk_options(
             )
     env["CLAUDE_CODE_OAUTH_TOKEN"] = ""
     env["CLAUDE_CONFIG_DIR"] = str(Path(managed_config_dir))
-    env["CLAUDE_AGENT_SDK_CLIENT_APP"] = "gigaloom/n2-04-poc"
+    env["CLAUDE_AGENT_SDK_CLIENT_APP"] = "gigaloom/claude-agent-sdk"
 
     return options_type(
         cli_path=Path(system_cli_path),

@@ -349,7 +349,7 @@ class ExternalMCPDescriptor:
                 id="target-config-write",
                 type=IntegrationRequirementType.PERMISSION,
                 classification=IntegrationPolicyClass.EXPLICIT_APPROVAL,
-                reason="Write only the selected target configuration under N4-02 ownership.",
+                reason="Write only the selected target configuration under package-target ownership.",
             )
         )
         source_type = (

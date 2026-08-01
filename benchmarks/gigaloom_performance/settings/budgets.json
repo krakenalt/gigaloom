@@ -1,0 +1,20 @@
+{
+  "deterministic": {
+    "initial_native_or_provider_probe_calls": 0,
+    "initial_section_requests": 0,
+    "initial_non_near_section_chunks": 0,
+    "max_cache_entries": 64,
+    "max_mcp_errors": 20,
+    "max_mcp_history_bytes": 262144,
+    "max_mcp_history_rows": 1000,
+    "max_mcp_servers": 100,
+    "max_required_settings_requests": 2
+  },
+  "relative": {
+    "first_content_max_fraction_of_baseline": 0.7,
+    "initial_settings_javascript_max_fraction_of_baseline": 0.5,
+    "interaction_latency_max_fraction_of_baseline": 2.0,
+    "warm_summary_max_fraction_of_legacy_warm": 0.5
+  },
+  "schema_version": "gigaloom.settings-performance-budgets.v1"
+}

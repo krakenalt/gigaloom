@@ -47,7 +47,7 @@ class Issue:
 
 
 def tracked_markdown_files(root: Path) -> list[Path]:
-    """Return tracked public Markdown sources, excluding local coordination docs."""
+    """Return tracked public Markdown sources, excluding coordination and archive docs."""
     result = subprocess.run(
         ["git", "ls-files", "*.md", "*.mdx"],
         cwd=root,
@@ -55,7 +55,7 @@ def tracked_markdown_files(root: Path) -> list[Path]:
         capture_output=True,
         text=True,
     )
-    excluded = ("docs/internal/", "docs/codex/", "local/")
+    excluded = ("docs/internal/", "docs/codex/", "docs/archive/", "local/")
     return [
         root / relative
         for relative in result.stdout.splitlines()
@@ -102,7 +102,7 @@ def check_locale_coverage(root: Path) -> list[Issue]:
     issues: list[Issue] = []
     for source in sorted((root / PUBLIC_DOC_PREFIX).rglob("*.md")):
         relative = source.relative_to(root / PUBLIC_DOC_PREFIX)
-        if relative.parts[0] in {"internal", "codex"}:
+        if relative.parts[0] in {"internal", "codex", "archive"}:
             continue
         locale = root / RU_DOC_ROOT / relative
         if not locale.exists():

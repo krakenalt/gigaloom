@@ -368,7 +368,7 @@ class EnvironmentCommitService:
 
 @dataclass(frozen=True)
 class EnvironmentCommitOutcome:
-    """One governed request outcome shared by Web and TUI transports."""
+    """One governed request outcome shared by product surfaces."""
 
     preview: EnvironmentCommitPreview
     result: EnvironmentCommitResult | None = None

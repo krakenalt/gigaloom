@@ -10,6 +10,7 @@ from gigaloom.execution.context_projection import (
 from gigaloom.execution.finalization import (
     RunCompletionArtifactV1,
     RunCompletionHook,
+    RunLaneLifecycle,
 )
 from gigaloom.execution.route_advisor import (
     CapabilityEvidence,
@@ -97,6 +98,7 @@ __all__ = [
     "RouteRecommendationSource",
     "RunCompletionArtifactV1",
     "RunCompletionHook",
+    "RunLaneLifecycle",
     "SourceToSinkGuard",
     "StructuredRouteCandidateV1",
     "admit_sink_request",

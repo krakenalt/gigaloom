@@ -1,4 +1,4 @@
-"""Cross-cutting recovery and compatibility coverage for T20 finalization."""
+"""Cross-cutting recovery and compatibility finalization coverage."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from gigaloom.ui.execution_contracts import WorkloadClass
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
-T20_RECOVERY_SCENARIOS = {
+RECOVERY_SCENARIOS = {
     "interrupted_session_catalog_rebuild": (
         "tests/harness/test_session_catalog.py::"
         "test_reopen_recovers_manifest_written_before_catalog_update"
@@ -107,9 +107,9 @@ T20_RECOVERY_SCENARIOS = {
 
 def _event(session_id: str, index: int, *, event_type: str = "message_delta"):
     return HarnessStoredEvent(
-        id=f"evt_t20_{index:03d}",
+        id=f"evt_recovery_{index:03d}",
         session_id=session_id,
-        run_id="run_t20",
+        run_id="run_recovery",
         type=event_type,
         message=f"event {index}",
         payload={"index": index},
@@ -117,12 +117,12 @@ def _event(session_id: str, index: int, *, event_type: str = "message_delta"):
     )
 
 
-def test_t20_recovery_matrix_references_unique_shipped_tests() -> None:
-    assert len(T20_RECOVERY_SCENARIOS) == 20
-    assert len(set(T20_RECOVERY_SCENARIOS.values())) == 20
+def test_recovery_matrix_references_unique_shipped_tests() -> None:
+    assert len(RECOVERY_SCENARIOS) == 20
+    assert len(set(RECOVERY_SCENARIOS.values())) == 20
 
     missing: list[str] = []
-    for scenario, node_id in T20_RECOVERY_SCENARIOS.items():
+    for scenario, node_id in RECOVERY_SCENARIOS.items():
         relative_path, test_name = node_id.split("::", maxsplit=1)
         test_name = test_name.split("[", maxsplit=1)[0]
         path = REPOSITORY_ROOT / relative_path

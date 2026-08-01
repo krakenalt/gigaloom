@@ -48,7 +48,7 @@ from .installer_support import *  # noqa: F403
 
 
 class _InstallerStorageMixin:
-    """Implementation slice for the transactional installer."""
+    """Internal transactional-installer storage."""
 
     def _apply_staged(self, journal: dict[str, Any]) -> dict[str, Any]:
         journal = self._set_journal_status(journal, "applying")

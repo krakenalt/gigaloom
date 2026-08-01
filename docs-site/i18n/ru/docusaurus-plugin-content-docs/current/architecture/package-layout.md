@@ -1,7 +1,7 @@
 # ADR: Структура пакета по ограниченным контекстам
 
-Статус: принято как архитектурная передача T15 Phase A для gate `G-ARCH`
-2026-07-29 и финализировано как package contract T20 2026-07-30.
+Статус: принято как архитектурное решение по package layout
+2026-07-29 и финализировано как package contract 2026-07-30.
 
 ## Контекст
 
@@ -20,7 +20,7 @@ GigaLoom — модульный монолит с долговечным лок�
 
 Машиночитаемая политика хранится в
 `architecture/module-budgets.json`. Она привязана к
-замороженной ревизии `G0` и содержит текущие исключения корневых модулей,
+замороженной архитектурной ревизии и содержит текущие исключения корневых модулей,
 ограничения размера, правила импортов, владельцев и removal gates.
 
 ## Решение
@@ -294,7 +294,7 @@ hard limit равен 350 строкам, нормальный диапазон 
 | CSS file | 100–300 строк | 450 строк |
 
 Точное число физических строк каждого Python-модуля, превышавшего 600 строк на
-`G0`, записано как ceiling. Файл может уменьшиться или исчезнуть, но не вырасти.
+архитектурного baseline, записано как ceiling. Файл может уменьшиться или исчезнуть, но не вырасти.
 Каждый structural slice уменьшает принадлежащий ему legacy god-file минимум на
 15 процентов, пока файл остаётся выше hard limit. Manifest после slice
 обновляется вниз; повышение ceiling требует отдельного ADR и измеримой причины.
@@ -347,7 +347,7 @@ provider passthrough или approval semantics.
 | R3 | Мигрировать consumers на public facades и запретить новые legacy imports |
 | R4 | Удалить только shims с installed-artifact evidence; закрыть или документировать оставшиеся исключения |
 
-Извлечение `core` и `contracts` — отдельно согласуемая Phase B. Она начинается
+Извлечение `core` и `contracts` согласуется отдельно. Оно начинается
 только после подтверждения integration owner, что hot-path owners перестали
 изменять shared modules. До gate заморожены `types.py`, `config.py`,
 compatibility surface в `execution/__init__.py`, `safe_paths.py` и
@@ -357,23 +357,23 @@ compatibility surface в `execution/__init__.py`, `safe_paths.py` и
 
 | Область | Владелец |
 | --- | --- |
-| Session storage и queries | T02 |
-| Runtime DB и facade foundation | T03 |
-| Runtime jobs | T04 после runtime-foundation gate |
-| Runtime workers и wakeup | T05 после runtime-foundation gate |
-| Runner и новые `execution` modules | T06 |
-| FastAPI composition, services, streaming и routers | T07 |
-| CLI и entrypoint | T08 |
-| Frontend API и query contracts | T11 |
-| Frontend Workbench | T12 |
-| Frontend streaming и bounded rendering | T13 |
-| Architecture manifest, tests и этот ADR | T15 |
-| `core` и `contracts` Phase B | T15 или T00 после явного согласования |
-| Integrations, tools и skills | T16 |
-| Providers и built-in harnesses | T17 |
-| Automation и review | T18 |
-| Projects, workspace и environments | T19 |
-| Cross-cutting import migration, diagnostics, docs и final cleanup | T20 |
+| Session storage и queries | Sessions maintainers |
+| Runtime DB и facade foundation | Runtime maintainers |
+| Runtime jobs | Runtime queue maintainers после runtime-foundation gate |
+| Runtime workers и wakeup | Runtime worker maintainers после runtime-foundation gate |
+| Runner и новые `execution` modules | Execution maintainers |
+| FastAPI composition, services, streaming и routers | UI/backend maintainers |
+| CLI и entrypoint | CLI maintainers |
+| Frontend API и query contracts | Web API maintainers |
+| Frontend Workbench | Web Workbench maintainers |
+| Frontend streaming и bounded rendering | Web streaming maintainers |
+| Architecture manifest, tests и этот ADR | Architecture maintainers |
+| Извлечение `core` и `contracts` | Core/contracts maintainers после явного согласования |
+| Integrations, tools и skills | Integrations maintainers |
+| Providers и built-in harnesses | Provider/harness maintainers |
+| Automation и review | Automation/review maintainers |
+| Projects, workspace и environments | Project maintainers |
+| Cross-cutting import migration, diagnostics, docs и final cleanup | Architecture maintainers |
 
 Замороженные shared contracts, включая registry и runtime policy/model
 surfaces, изменяются только через integration owner. Тред, которому нужен файл

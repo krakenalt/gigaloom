@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "4a374a4b1c48c92a262859ba6d76e79c2e08c2024bceb7a1c1e8c4e327674049",
+  "content_sha256": "af41bc373f94cf8beb2f045ab6286cbe5b4c9a7f521ce7ecae607cfe93d6974f",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -1081,6 +1081,66 @@
   "interfaces": {
     "api_operations": [
       {
+        "method": "POST",
+        "name": "install",
+        "path": "/api/agent-runtimes/installations"
+      },
+      {
+        "method": "POST",
+        "name": "preview",
+        "path": "/api/agent-runtimes/installations/preview"
+      },
+      {
+        "method": "POST",
+        "name": "recover",
+        "path": "/api/agent-runtimes/installations/recover"
+      },
+      {
+        "method": "GET",
+        "name": "inspect_operation",
+        "path": "/api/agent-runtimes/installations/{operation_id}"
+      },
+      {
+        "method": "POST",
+        "name": "cancel_operation",
+        "path": "/api/agent-runtimes/installations/{operation_id}/cancel"
+      },
+      {
+        "method": "GET",
+        "name": "operation_events",
+        "path": "/api/agent-runtimes/installations/{operation_id}/events"
+      },
+      {
+        "method": "GET",
+        "name": "inventory",
+        "path": "/api/agent-runtimes/inventory"
+      },
+      {
+        "method": "POST",
+        "name": "probe",
+        "path": "/api/agent-runtimes/{local_agent_id}/probe"
+      },
+      {
+        "method": "POST",
+        "name": "remove",
+        "path": "/api/agent-runtimes/{local_agent_id}/remove"
+      },
+      {
+        "method": "POST",
+        "name": "rollback",
+        "path": "/api/agent-runtimes/{local_agent_id}/rollback"
+      },
+      {
+        "method": "POST",
+        "name": "update",
+        "path": "/api/agent-runtimes/{local_agent_id}/update"
+      },
+      {
+        "method": "GET",
+        "name": "use_in_new_run",
+        "path": "/api/agent-runtimes/{local_agent_id}/use"
+      },
+      {
         "method": "GET",
         "name": "agent_list",
         "path": "/api/agents"
@@ -1264,6 +1324,21 @@
         "method": "GET",
         "name": "compatibility_guardian",
         "path": "/api/compatibility/guardian"
+      },
+      {
+        "method": "GET",
+        "name": "snapshot",
+        "path": "/api/credentials"
+      },
+      {
+        "method": "POST",
+        "name": "request_lease",
+        "path": "/api/credentials/leases"
+      },
+      {
+        "method": "POST",
+        "name": "revoke_lease",
+        "path": "/api/credentials/leases/{lease_id}/revoke"
       },
       {
         "method": "GET",
@@ -1796,6 +1871,11 @@
         "path": "/api/providers/{provider_id}/test"
       },
       {
+        "method": "GET",
+        "name": "check_state",
+        "path": "/api/reliability"
+      },
+      {
         "method": "POST",
         "name": "recommend",
         "path": "/api/route-decisions/recommend"
@@ -2131,9 +2211,39 @@
         "path": "/api/settings"
       },
       {
+        "method": "GET",
+        "name": "settings_defaults",
+        "path": "/api/settings/defaults"
+      },
+      {
         "method": "PATCH",
         "name": "update_settings_defaults",
         "path": "/api/settings/defaults"
+      },
+      {
+        "method": "GET",
+        "name": "settings_diagnostics",
+        "path": "/api/settings/diagnostics"
+      },
+      {
+        "method": "GET",
+        "name": "settings_mcp",
+        "path": "/api/settings/mcp"
+      },
+      {
+        "method": "GET",
+        "name": "settings_runtime",
+        "path": "/api/settings/runtime"
+      },
+      {
+        "method": "GET",
+        "name": "settings_summary",
+        "path": "/api/settings/summary"
+      },
+      {
+        "method": "GET",
+        "name": "settings_workspace",
+        "path": "/api/settings/workspace"
       },
       {
         "method": "POST",
@@ -2174,6 +2284,11 @@
         "method": "POST",
         "name": "tools_sync",
         "path": "/api/tools/sync"
+      },
+      {
+        "method": "GET",
+        "name": "list_reports",
+        "path": "/api/upgrade-radar"
       },
       {
         "method": "PUT",
@@ -2307,13 +2422,24 @@
       }
     ],
     "cli_commands": [
+      "acp",
+      "acp add",
+      "acp search",
       "agent",
       "agent add",
       "agent discover",
       "agent inspect",
       "agent list",
+      "agent lock",
+      "agent outdated",
       "agent probe",
       "agent remove",
+      "agent rollback",
+      "agent search",
+      "agent sync",
+      "agent update",
+      "agent upgrade",
+      "agent upgrade check",
       "benchmark",
       "benchmark performance",
       "bootstrap",
@@ -2336,6 +2462,7 @@
       "eval",
       "eval list",
       "eval run",
+      "eval visual",
       "handoff",
       "handoff capsule",
       "harness",
@@ -2346,6 +2473,10 @@
       "harness run",
       "harness scaffold",
       "harness validate",
+      "headless",
+      "headless contract",
+      "headless doctor",
+      "headless env",
       "init",
       "integration",
       "integration apply",
@@ -2402,6 +2533,9 @@
       "provider migrate-legacy",
       "provider show",
       "provider test",
+      "reliability",
+      "reliability check",
+      "reliability simulate",
       "route",
       "route override",
       "route recommend",
@@ -2502,7 +2636,7 @@
       "evidence": [
         {
           "id": "anthropic-cloud-claude-code-fixture",
-          "revision": "0492fb4e8262f474826a75a71329d1c267afdc5f08b4dd097b367ccfb0c23dab",
+          "revision": "5d9ededbe9eebef0ac3317cd41e42710a80818d9d26ec98553d5b9618dcb3e7a",
           "source": "built-in-contract",
           "status": "supported"
         }
@@ -2511,7 +2645,7 @@
       "id": "anthropic-cloud-claude-code",
       "native_auth": true,
       "protocol": "anthropic_compatible",
-      "revision": "0492fb4e8262f474826a75a71329d1c267afdc5f08b4dd097b367ccfb0c23dab",
+      "revision": "5d9ededbe9eebef0ac3317cd41e42710a80818d9d26ec98553d5b9618dcb3e7a",
       "transports": [
         "native_terminal",
         "one_shot"
@@ -2530,7 +2664,7 @@
       "evidence": [
         {
           "id": "anthropic-compatible-claude-code-fixture",
-          "revision": "db5b9ec44c77aa337b2707c097541d97f47e59c095633a3811494136876c1c61",
+          "revision": "bff6506935d60a1e38481c45d4cda6258cee369ee1e2fa85222514be63d7c13a",
           "source": "built-in-contract",
           "status": "supported"
         }
@@ -2539,7 +2673,7 @@
       "id": "anthropic-compatible-claude-code",
       "native_auth": false,
       "protocol": "anthropic_compatible",
-      "revision": "db5b9ec44c77aa337b2707c097541d97f47e59c095633a3811494136876c1c61",
+      "revision": "bff6506935d60a1e38481c45d4cda6258cee369ee1e2fa85222514be63d7c13a",
       "transports": [
         "native_terminal",
         "one_shot"

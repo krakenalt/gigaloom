@@ -300,7 +300,7 @@ class IntegrationRuntimeStore:
         installer: TransactionalIntegrationInstaller,
         snapshot_reference: Mapping[str, Any],
     ) -> IntegrationRuntimeSnapshot:
-        """Restore the predecessor through N4-02 and move the active pointer."""
+        """Restore the predecessor and move the active pointer."""
         current = self.load(snapshot_reference)
         if current.previous_snapshot_id is None:
             raise IntegrationRuntimeConflictError(

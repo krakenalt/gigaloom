@@ -1,6 +1,6 @@
 # ADR: Per-run current-state storage
 
-Статус: принято для roadmap slice T02-5 2026-07-29.
+Статус: решение по хранению session/run принято 2026-07-29.
 
 ## Контекст
 

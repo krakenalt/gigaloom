@@ -66,6 +66,10 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
 
+      - name: Verify completed candidate release projections
+        if: github.event_name == 'workflow_run'
+        run: python3 scripts/release.py verify
+
       - name: Resolve manual recovery or completed candidate
         id: candidate
         uses: actions/github-script@v8
@@ -239,20 +243,22 @@ jobs:
         env:
           CANDIDATE_SHA: ${{ needs.resolve.outputs.candidate_sha }}
           RELEASE_TAG: ${{ needs.resolve.outputs.git_tag }}
-        run: >-
-          python3 scripts/release_guard.py
-          --policy .github/release-policy.json
-          --release-manifest release/release.json
-          --python-metadata pyproject.toml
-          --npm-metadata web/package.json
-          --event-name publish
-          --repository "${GITHUB_REPOSITORY}"
-          --ref "refs/tags/${RELEASE_TAG}"
-          --commit "${CANDIDATE_SHA}"
-          --release-tag "${RELEASE_TAG}"
-          --release-target main
-          --main-ref origin/main
-          --github-output "${GITHUB_OUTPUT}"
+        run: |
+          python3 scripts/release.py verify
+          python3 scripts/release_guard.py \
+            --policy .github/release-policy.json \
+            --release-version release/version.toml \
+            --release-manifest release/release.json \
+            --python-metadata pyproject.toml \
+            --npm-metadata web/package.json \
+            --event-name publish \
+            --repository "${GITHUB_REPOSITORY}" \
+            --ref "refs/tags/${RELEASE_TAG}" \
+            --commit "${CANDIDATE_SHA}" \
+            --release-tag "${RELEASE_TAG}" \
+            --release-target main \
+            --main-ref origin/main \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Download exact retained candidate bundle
         uses: actions/download-artifact@v8

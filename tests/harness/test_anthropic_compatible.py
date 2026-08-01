@@ -579,7 +579,7 @@ def test_sdk_provider_mapping_preserves_negative_embedded_exit(platform, auth_mo
     assert decision.protocol_compatible is True
     assert decision.structured_transport_ready is False
     assert decision.subscription_embedding_allowed is False
-    assert decision.blockers == ("n2_04_embedded_driver_blocked",)
+    assert decision.blockers == ("claude_sdk_embedded_driver_unreviewed",)
 
 
 def test_sdk_mapping_does_not_relabel_unauthenticated_custom_route():
@@ -596,7 +596,7 @@ def test_sdk_mapping_does_not_relabel_unauthenticated_custom_route():
     assert decision.auth_mode is None
     assert decision.protocol_compatible is False
     assert decision.blockers == (
-        "n2_04_embedded_driver_blocked",
+        "claude_sdk_embedded_driver_unreviewed",
         "sdk_authentication_incompatible",
     )
 

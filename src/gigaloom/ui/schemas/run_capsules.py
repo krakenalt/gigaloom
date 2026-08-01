@@ -36,6 +36,41 @@ class CapsuleDriftEvidence(BaseModel):
     findings: tuple[CapsuleDriftFinding, ...] = Field(max_length=64)
 
 
+class CapsuleRunReference(BaseModel):
+    """One source or destination Run Capsule digest bound by a lane delta."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    role: Literal["source", "destination"]
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    status: Literal["captured", "not_captured"]
+
+
+class CapsuleLaneDeltaReference(BaseModel):
+    """Verified content-free lane packet referenced beside a Run Capsule."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal[1] = 1
+    kind: Literal["gigaloom.lane_delta.reference.v1"]
+    packet_id: str
+    packet_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    size_bytes: int = Field(gt=0)
+    source_lane_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    destination_lane_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    changed_selectors: tuple[str, ...] = Field(max_length=5)
+    changed_anchor_reason_codes: tuple[str, ...] = Field(max_length=9)
+    run_capsule_references: tuple[CapsuleRunReference, ...] = Field(
+        min_length=2,
+        max_length=2,
+    )
+    disclosure_mode: Literal["packet"]
+    content_mode: Literal["content_free"]
+    content_free: Literal[True]
+    hidden_state_portability_claimed: Literal[False]
+    omissions: tuple[str, ...] = Field(max_length=128)
+
+
 class RunCapsuleWebEvidence(BaseModel):
     """Bounded evidence surface; integrity never implies correctness."""
 
@@ -55,12 +90,18 @@ class RunCapsuleWebEvidence(BaseModel):
     correctness_claimed: Literal[False] = False
     signature: CapsuleSignatureEvidence
     drift: CapsuleDriftEvidence
+    references: tuple[CapsuleLaneDeltaReference, ...] = Field(
+        default=(),
+        max_length=16,
+    )
     export_path: str
 
 
 __all__ = [
     "CapsuleDriftEvidence",
     "CapsuleDriftFinding",
+    "CapsuleLaneDeltaReference",
+    "CapsuleRunReference",
     "CapsuleSignatureEvidence",
     "RunCapsuleWebEvidence",
 ]

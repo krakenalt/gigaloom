@@ -1,8 +1,8 @@
 # ADR: архитектура сборки frontend assets
 
-Статус: принято для slice G8-03 roadmap GigaLoom 2026-07-28.
+Статус: архитектура сборки frontend assets принята 2026-07-28.
 
-Статус реализации: реализовано в G8-04 2026-07-28. Compiled bundles теперь
+Статус реализации: frontend asset producer реализован 2026-07-28. Compiled bundles теперь
 ignored; source и tests закрепляют deterministic producer, Python-only
 fail-closed consumer, commit-bound передачу между CI/release jobs, sealed sdist,
 SBOM/license evidence и rollback contract.
@@ -19,7 +19,7 @@ frontend source и npm toolchain, но сохраняет compiled assets. По�
 можно offline собрать wheel без Node.js, однако нельзя заново получить assets
 из authored frontend или доказать соответствие его revision.
 
-G8-04 должен удалить compiled JS, CSS, source maps и generated declarations из
+Frontend asset producer должен удалить compiled JS, CSS, source maps и generated declarations из
 Git без потери следующих свойств:
 
 - clean source создаёт wheel и sdist;
@@ -59,7 +59,7 @@ Hatch build hooks умеют добавлять ignored generated artifacts и f
 не устанавливает такой non-Python graph. Wheel из sdist также потребует Node и
 frontend source, а editable install получит скрытые side effects.
 
-Вариант отклонён. G8-04 может добавить Python-only Hatch hook для проверки и
+Вариант отклонён. Frontend asset producer может добавить Python-only Hatch hook для проверки и
 включения уже созданного дерева; это consumer guard, а не Node build hook.
 
 ### Отдельный versioned asset package
@@ -86,7 +86,7 @@ build input, а не отдельная опубликованная runtime dep
 
 ## Решение
 
-G8-04 реализует следующий контракт.
+Frontend asset producer реализует следующий контракт.
 
 1. Authored TypeScript, configuration, npm lockfile, canonical brand source и
    deterministic producer scripts остаются tracked. Compiled output создаётся
@@ -125,7 +125,7 @@ unsigned или mutable asset location и не создаёт wheel без Cockp
 
 ## Evidence spike
 
-Локальный spike G8-03 использовал Git archive принятого revision G8-02 и удалял
+Локальный архитектурный spike использовал Git archive принятого asset-contract revision и удалял
 compiled assets только внутри временной копии.
 
 - `npm ci --offline --ignore-scripts` восстановил 301 package из local cache, а
@@ -143,7 +143,7 @@ compiled assets только внутри временной копии.
 
 Локальный spike использовал Node.js 22.12, тогда как repository contract и CI
 требуют 22.13 или новее; npm сообщил о mismatch. Это окружение не принимается
-как release evidence. G8-04 должен выполнить reproducibility, platform,
+как release evidence. Asset producer должен выполнить reproducibility, platform,
 SBOM/license и release recovery gates на pinned toolchain.
 
 ## Последствия
@@ -153,7 +153,7 @@ Python package build остаётся deterministic, offline-capable и Node-fre
 stage с проверяемой evidence, а не implicit side effect или tracked source.
 
 Цена решения — новый staging/verification contract и CI artifact handoff.
-G8-04 должен реализовать и проверить их до удаления любого tracked compiled
+Asset producer должен реализовать и проверить их до удаления любого tracked compiled
 file. До этого текущий bundle остаётся rollback и packaging source.
 
 ## Ссылки

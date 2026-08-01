@@ -26,6 +26,6 @@ Avoid eager discovery and ratchet every listed legacy module.
 
 `uv run pytest tests/harness -k native -n 0`
 
-# Owner thread/CODEOWNERS
+# Owner/CODEOWNERS
 
-T17/T20; `@krakenalt`.
+Owner: `@krakenalt`.

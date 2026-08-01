@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for the T20 finalization gate. This decision records the remaining
+Accepted as the final target-tree audit. This decision records the remaining
 differences from the target tree; it does not make those paths preferred for new
 code.
 
@@ -18,8 +18,8 @@ root-level compatibility state:
    migration is not complete.
 
 Conflating those categories made the old root allowlist ambiguous and left
-completed T16-T20 gates attached to entries that were not actually removable.
-The T20 audit checked production, tests, documentation, entry points, package
+completed package-migration gates attached to entries that were not actually
+removable. The final audit checked production, tests, documentation, entry points, package
 data, and installed-artifact compatibility coverage.
 
 ## Decision
@@ -50,15 +50,15 @@ all of:
 
 | Owner | Paths | Removal gate |
 |---|---|---|
-| T02/T20 | root session export/title implementations | `sessions-api-migration` |
-| T03/T05/T20 | over-budget runtime repository and worker modules | context-specific hard-limit fission |
-| T06/T20 | `application/`, execution/workbench root implementations, and `execution/__init__.py` | `execution-application-facade-completion` and hard-limit fission |
-| T07/T20 | workbench protocol/resources and over-budget UI modules | `workbench-application-api-migration` and UI hard-limit fission |
-| T08/T20 | `cli_commands/` and root CLI implementation | `cli-package-migration` and CLI hard-limit fission |
-| T16/T20 | SDK authoring root modules and installed SDK preview resources | `integration-sdk-package-migration` and post-1.0 resource-layout window |
-| T17/T20 | `protocols/`, native/provider target root modules, and over-budget native modules | provider package migration and hard-limit fission |
-| T18/T20 | installed evidence resources | post-1.0 evidence resource-layout window |
-| T00/T20 | root permission, registry, settings, and secret policy implementations | security/settings context fission |
+| sessions/architecture | root session export/title implementations | `sessions-api-migration` |
+| runtime/architecture | over-budget runtime repository and worker modules | context-specific hard-limit fission |
+| execution/architecture | `application/`, execution/workbench root implementations, and `execution/__init__.py` | `execution-application-facade-completion` and hard-limit fission |
+| ui/architecture | workbench protocol/resources and over-budget UI modules | `workbench-application-api-migration` and UI hard-limit fission |
+| cli/architecture | `cli_commands/` and root CLI implementation | `cli-package-migration` and CLI hard-limit fission |
+| integrations/architecture | SDK authoring root modules and installed SDK preview resources | `integration-sdk-package-migration` and post-1.0 resource-layout window |
+| providers-harnesses/architecture | `protocols/`, native/provider target root modules, and over-budget native modules | provider package migration and hard-limit fission |
+| automation-review/architecture | installed evidence resources | post-1.0 evidence resource-layout window |
+| security/architecture | root permission, registry, settings, and secret policy implementations | security/settings context fission |
 
 The exact paths and current line ceilings live in
 `module-budgets.json`. Each over-budget executable module is pinned to its
