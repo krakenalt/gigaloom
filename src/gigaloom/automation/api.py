@@ -19,6 +19,7 @@ _VISUAL_GATE_EXPORTS = (
     "DomAssertionSpec",
     "FilesystemVisualArtifactStore",
     "FilesystemVisualGateStore",
+    "PlaywrightVisualBrowser",
     "ScreenshotRedactionSpec",
     "VisualArtifactStorePort",
     "VisualBrowserAdmission",
@@ -26,10 +27,13 @@ _VISUAL_GATE_EXPORTS = (
     "VisualGateStorePort",
     "VisualProcessNetworkGrant",
     "VisualRedactionPolicy",
+    "VisualEvalAssertion",
+    "VisualEvalResult",
     "admit_visual_target",
     "collect_browser_evidence",
     "project_visual_gate_evidence",
     "run_visual_gate",
+    "run_visual_eval",
     "validate_navigation_url",
 )
 

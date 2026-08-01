@@ -40,6 +40,14 @@ from gigaloom.automation.evaluations.visual.reports import (
     project_visual_gate_evidence,
     run_visual_gate,
 )
+from gigaloom.automation.evaluations.visual.operator import (
+    VisualEvalAssertion,
+    VisualEvalResult,
+    run_visual_eval,
+)
+from gigaloom.automation.evaluations.visual.playwright_adapter import (
+    PlaywrightVisualBrowser,
+)
 
 __all__ = [
     "BrowserCaptureRequest",
@@ -61,9 +69,13 @@ __all__ = [
     "VisualGateStorePort",
     "VisualProcessNetworkGrant",
     "VisualRedactionPolicy",
+    "VisualEvalAssertion",
+    "VisualEvalResult",
+    "PlaywrightVisualBrowser",
     "admit_visual_target",
     "collect_browser_evidence",
     "project_visual_gate_evidence",
     "run_visual_gate",
+    "run_visual_eval",
     "validate_navigation_url",
 ]

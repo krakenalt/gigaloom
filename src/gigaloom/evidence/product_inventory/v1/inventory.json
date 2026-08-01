@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "e5fdea3d49975e2d230a4f4f9e9e656bb5f8218dc916801762dcda1976fc45dd",
+  "content_sha256": "af41bc373f94cf8beb2f045ab6286cbe5b4c9a7f521ce7ecae607cfe93d6974f",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -2462,6 +2462,7 @@
       "eval",
       "eval list",
       "eval run",
+      "eval visual",
       "handoff",
       "handoff capsule",
       "harness",

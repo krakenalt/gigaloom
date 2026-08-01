@@ -24,6 +24,7 @@ _STATE_FREE_HANDLERS = frozenset(
         "_handle_reliability_check",
         "_handle_reliability_simulate",
         "_handle_agent_upgrade_check",
+        "_handle_eval_visual",
     }
 )
 

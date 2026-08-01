@@ -103,6 +103,7 @@ _RELIABILITY_HANDLERS = frozenset(
     {"_handle_reliability_check", "_handle_reliability_simulate"}
 )
 _UPGRADE_RADAR_HANDLERS = frozenset({"_handle_agent_upgrade_check"})
+_VISUAL_EVAL_HANDLERS = frozenset({"_handle_eval_visual"})
 
 
 def resolve_handler(name: str) -> CommandHandler:
@@ -136,6 +137,8 @@ def resolve_handler(name: str) -> CommandHandler:
         module_name = "gigaloom.cli_commands.handlers.reliability"
     elif name in _UPGRADE_RADAR_HANDLERS:
         module_name = "gigaloom.cli_commands.handlers.upgrade_radar"
+    elif name in _VISUAL_EVAL_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.visual_eval"
     elif name == "_handle_run_command":
         module_name = "gigaloom.cli_commands.handlers.runs"
     else:

@@ -245,6 +245,7 @@ from gigaloom.contracts.operational_evidence import (
     UpgradeRecommendation,
 )
 from gigaloom.contracts.operational_evidence_codec import (
+    operational_evidence_to_dict,
     recovery_receipt_from_dict,
     recovery_receipt_to_dict,
     upgrade_radar_report_from_dict,
@@ -529,6 +530,7 @@ __all__ = [
     "lane_delta_packet_to_dict",
     "managed_agent_artifact_from_dict",
     "managed_agent_artifact_to_dict",
+    "operational_evidence_to_dict",
     "parse_api_mode",
     "parse_builtin_tools",
     "parse_capability",

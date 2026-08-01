@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from collections.abc import Callable
 import json
 import os
+from pathlib import Path
 from typing import Protocol, runtime_checkable
 from uuid import uuid4
 
@@ -86,6 +87,7 @@ def run_visual_gate(
     tolerance_policy: VisualTolerancePolicyV1,
     assertions: tuple[DomAssertionSpec, ...] = (),
     redaction_policy: VisualRedactionPolicy | None = None,
+    revalidate_admission: Callable[[], None] | None = None,
 ) -> VisualGateReceiptV1:
     """Run every declared attempt and emit one reusable fail-closed receipt."""
     redaction = redaction_policy or VisualRedactionPolicy()
@@ -130,6 +132,8 @@ def run_visual_gate(
         default=len(attempts) - 1,
     )
     selected = attempts[selected_index]
+    if revalidate_admission is not None:
+        revalidate_admission()
     gate_digest = canonical_digest(
         {
             "admission": admission.origin_policy_digest,
