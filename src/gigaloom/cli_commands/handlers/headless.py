@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime
+import json
+import os
+import sys
 from typing import BinaryIO, TextIO
 
 from gigaloom.contracts import (
@@ -12,12 +15,19 @@ from gigaloom.contracts import (
     HeadlessEventFormat,
 )
 from gigaloom.execution.headless import (
+    HEADLESS_ENVIRONMENT_KEYS,
     HeadlessAdmissionError,
     HeadlessEventStreamError,
     HeadlessPathAuthority,
     HeadlessRunInput,
     HeadlessRunner,
+    UnknownEnvironmentPolicy,
+    doctor_headless_environment,
     emit_unadmitted_terminal,
+    headless_environment_contract,
+    headless_environment_contract_digest,
+    headless_environment_template,
+    render_headless_dotenv,
     write_headless_diagnostic,
 )
 
@@ -145,4 +155,77 @@ def _emit_admission_failure(
     return 2
 
 
-__all__ = ["headless_input_from_args", "run_headless_from_args"]
+def render_headless_contract(*, as_json: bool) -> str:
+    """Render the versioned environment contract without runtime state."""
+    contract = {
+        **headless_environment_contract(),
+        "contract_digest": headless_environment_contract_digest(),
+    }
+    if as_json:
+        return json.dumps(contract, ensure_ascii=False, sort_keys=True) + "\n"
+    return (
+        f"Headless profile: {contract['profile']}\n"
+        f"Schema version: {contract['schema_version']}\n"
+        f"Required keys: {len(HEADLESS_ENVIRONMENT_KEYS)}\n"
+        f"Contract digest: {contract['contract_digest']}\n"
+    )
+
+
+def render_headless_doctor(
+    environment: Mapping[str, object],
+    *,
+    unknown_policy: UnknownEnvironmentPolicy,
+    as_json: bool,
+) -> tuple[int, str]:
+    """Render content-free environment readiness evidence."""
+    report = doctor_headless_environment(
+        environment,
+        unknown_policy=unknown_policy,
+    )
+    payload = report.to_dict()
+    if as_json:
+        rendered = json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n"
+    else:
+        rendered = (
+            f"Headless profile: {payload['profile']}\n"
+            f"Ready: {'yes' if report.ready else 'no'}\n"
+            f"Issues: {', '.join(report.issue_codes) if report.issue_codes else 'none'}\n"
+            f"Contract digest: {report.contract_digest}\n"
+        )
+    return (0 if report.ready else 2), rendered
+
+
+def _handle_headless_contract(args: argparse.Namespace, _config: object) -> int:
+    """Print the public headless environment contract."""
+    sys.stdout.write(render_headless_contract(as_json=bool(args.json)))
+    return 0
+
+
+def _handle_headless_doctor(args: argparse.Namespace, _config: object) -> int:
+    """Validate the ambient evaluation environment without exposing values."""
+    exit_code, rendered = render_headless_doctor(
+        dict(os.environ),
+        unknown_policy=UnknownEnvironmentPolicy(args.unknown_variables),
+        as_json=bool(args.json),
+    )
+    sys.stdout.write(rendered)
+    return exit_code
+
+
+def _handle_headless_env(args: argparse.Namespace, _config: object) -> int:
+    """Print a deterministic secret-free environment template."""
+    if args.format != "dotenv":
+        raise ValueError("unsupported headless environment output format")
+    sys.stdout.write(render_headless_dotenv(headless_environment_template()))
+    return 0
+
+
+__all__ = [
+    "_handle_headless_contract",
+    "_handle_headless_doctor",
+    "_handle_headless_env",
+    "headless_input_from_args",
+    "render_headless_contract",
+    "render_headless_doctor",
+    "run_headless_from_args",
+]

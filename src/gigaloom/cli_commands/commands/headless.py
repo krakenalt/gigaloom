@@ -5,6 +5,10 @@ from __future__ import annotations
 import argparse
 
 from gigaloom.contracts import HeadlessCapsuleMode
+from gigaloom.execution.headless.environment import (
+    HEADLESS_ENVIRONMENT_PROFILE,
+    UnknownEnvironmentPolicy,
+)
 
 
 def add_headless_run_arguments(parser: argparse.ArgumentParser) -> None:
@@ -30,4 +34,37 @@ def add_headless_run_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--no-input", action="store_true", default=None)
 
 
-__all__ = ["add_headless_run_arguments"]
+def register(subparsers: argparse._SubParsersAction) -> None:
+    """Register the small headless introspection command family."""
+    headless = subparsers.add_parser("headless")
+    commands = headless.add_subparsers(dest="headless_command")
+
+    contract = commands.add_parser("contract")
+    contract.add_argument("--json", action="store_true")
+    contract.set_defaults(handler="_handle_headless_contract")
+
+    doctor = commands.add_parser("doctor")
+    doctor.add_argument(
+        "--profile",
+        choices=(HEADLESS_ENVIRONMENT_PROFILE,),
+        default=HEADLESS_ENVIRONMENT_PROFILE,
+    )
+    doctor.add_argument(
+        "--unknown-variables",
+        choices=tuple(item.value for item in UnknownEnvironmentPolicy),
+        default=UnknownEnvironmentPolicy.REJECT.value,
+    )
+    doctor.add_argument("--json", action="store_true")
+    doctor.set_defaults(handler="_handle_headless_doctor")
+
+    environment = commands.add_parser("env")
+    environment.add_argument(
+        "--profile",
+        choices=(HEADLESS_ENVIRONMENT_PROFILE,),
+        default=HEADLESS_ENVIRONMENT_PROFILE,
+    )
+    environment.add_argument("--format", choices=("dotenv",), default="dotenv")
+    environment.set_defaults(handler="_handle_headless_env")
+
+
+__all__ = ["add_headless_run_arguments", "register"]
