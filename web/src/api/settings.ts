@@ -1,5 +1,30 @@
 import type { HarnessOption } from "./providers";
 
+export interface SettingsSectionReference {
+  href: string;
+  revision: string;
+  cacheable: boolean;
+}
+
+export interface SettingsSummaryResponse {
+  schema_version: 1;
+  revision: string;
+  sections: Record<
+    "runtime" | "defaults" | "workspace" | "mcp" | "diagnostics",
+    SettingsSectionReference
+  >;
+  providers: SettingsSectionReference;
+  provider_accounts: SettingsSectionReference & {
+    load: "explicit_section_only";
+  };
+  limits: {
+    harnesses: number;
+    mcp_servers: number;
+    mcp_errors: number;
+    mcp_history_bytes: number;
+  };
+}
+
 export interface SettingsResponse {
   revision: string;
   runtime: {
@@ -144,9 +169,47 @@ export interface SettingsSaveResponse {
   revision: string;
   defaults: Omit<
     SettingsResponse["harness_defaults"],
-    "harnesses" | "sources" | "locked_fields" | "change_effect"
+    | "harnesses"
+    | "sources"
+    | "locked_fields"
+    | "change_effect"
+    | "compatibility"
   >;
   sources: Record<string, string>;
   locked_fields: string[];
   change_effect: "new_runs";
+}
+
+export interface SettingsRuntimeSectionResponse {
+  schema_version: 1;
+  revision: string;
+  runtime: SettingsResponse["runtime"];
+}
+
+export interface SettingsDefaultsSectionResponse {
+  schema_version: 1;
+  revision: string;
+  settings_revision: string;
+  routes: SettingsResponse["routes"];
+  harness_defaults: SettingsResponse["harness_defaults"];
+}
+
+export interface SettingsWorkspaceSectionResponse {
+  schema_version: 1;
+  revision: string;
+  workspace: SettingsResponse["workspace"];
+}
+
+export interface SettingsMcpSectionResponse {
+  schema_version: 1;
+  revision: string;
+  mcp: SettingsResponse["mcp"] & {
+    truncated: { servers: boolean; errors: boolean };
+  };
+}
+
+export interface SettingsDiagnosticsSectionResponse {
+  schema_version: 1;
+  revision: string;
+  diagnostics: SettingsResponse["diagnostics"];
 }

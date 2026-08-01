@@ -11,6 +11,14 @@
 .settings-category-rail a:hover, .settings-category-rail a:focus-visible { background: var(--accent-soft); color: var(--accent); }
 .settings-sections { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .settings-section { min-width: 0; scroll-margin-top: 78px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); padding: 18px; }
+.settings-section-deferred { min-height: 220px; content-visibility: auto; contain-intrinsic-size: auto 260px; }
+#settings-provider, #settings-routesModels { min-height: 520px; contain-intrinsic-size: auto 620px; }
+.settings-section-placeholder { min-height: 130px; border-radius: 7px; background: linear-gradient(100deg, var(--surface-muted) 20%, var(--surface) 45%, var(--surface-muted) 70%); background-size: 220% 100%; opacity: .55; }
+.settings-section-skeleton { min-height: 130px; display: grid; align-content: start; gap: 10px; color: var(--muted); font-size: 10px; }
+.settings-section-skeleton i { height: 34px; border-radius: 6px; background: var(--surface-muted); }
+.settings-section-error { min-height: 110px; display: grid; align-content: center; gap: 5px; border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border)); border-radius: 7px; color: var(--danger); padding: 14px; }
+.settings-section-error span, .settings-summary-warning { color: var(--muted); font-size: 10px; }
+.settings-summary-warning { display: block; margin-top: 7px; }
 .settings-section > header { margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 13px; }
 .settings-section h2 { margin: 0; font-size: 16px; }
 .settings-section > header p { max-width: 660px; margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
@@ -47,6 +55,8 @@
 .settings-subheading:first-child { margin-top: 0; }
 .provider-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 .provider-toolbar select { min-width: 0; flex: 1; height: 38px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); padding: 0 9px; }
+.settings-inline-select { max-width: 420px; display: grid; gap: 6px; margin-bottom: 12px; color: var(--muted); font-size: 10px; font-weight: 750; }
+.settings-inline-select select { height: 38px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); padding: 0 9px; }
 .provider-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-bottom: 14px; }
 .provider-list > button { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 7px; padding: 9px; text-align: left; }
 .provider-list > button.selected { border-color: var(--accent); background: var(--accent-soft); }
