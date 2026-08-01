@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "4d6587ca8d262448ffeeb4e0b4838a73ab2826589c8073cd3d51271e5efa7916",
+  "content_sha256": "e5fdea3d49975e2d230a4f4f9e9e656bb5f8218dc916801762dcda1976fc45dd",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -2286,6 +2286,11 @@
         "path": "/api/tools/sync"
       },
       {
+        "method": "GET",
+        "name": "list_reports",
+        "path": "/api/upgrade-radar"
+      },
+      {
         "method": "PUT",
         "name": "save_workbench_preferences",
         "path": "/api/workbench/preferences"
@@ -2433,6 +2438,8 @@
       "agent search",
       "agent sync",
       "agent update",
+      "agent upgrade",
+      "agent upgrade check",
       "benchmark",
       "benchmark performance",
       "bootstrap",

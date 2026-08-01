@@ -89,6 +89,15 @@ def _register_agent_subcommands(subparsers: argparse._SubParsersAction) -> None:
     discover.add_argument("--json", action="store_true")
     discover.set_defaults(handler="_handle_agent_profile_discover")
 
+    upgrade = subparsers.add_parser("upgrade")
+    upgrade_subparsers = upgrade.add_subparsers(dest="agent_upgrade_command")
+    check = upgrade_subparsers.add_parser("check")
+    check.add_argument("agent_id")
+    check.add_argument("--candidate-command", required=True)
+    check.add_argument("--corpus", required=True)
+    check.add_argument("--json", action="store_true")
+    check.set_defaults(handler="_handle_agent_upgrade_check")
+
 
 def _register_acp_aliases(subparsers: argparse._SubParsersAction) -> None:
     search = subparsers.add_parser("search")

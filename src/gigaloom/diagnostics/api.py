@@ -45,14 +45,20 @@ _UPGRADE_RADAR_EXPORTS = (
     "SealedCorpusCaseV1",
     "SealedCorpusV1",
     "UpgradeComparisonV1",
+    "UpgradeRadarCheckResult",
+    "UpgradeRadarReportStore",
+    "UpgradeRadarService",
     "build_upgrade_report",
     "compare_route_evaluations",
     "load_sealed_corpus",
+    "load_named_sealed_corpus",
     "load_upgrade_report",
     "recommend_upgrade",
     "save_upgrade_report",
     "upgrade_report_bytes",
     "upgrade_report_from_bytes",
+    "upgrade_radar_check_to_dict",
+    "upgrade_radar_report_list_to_dict",
 )
 
 __all__ = [

@@ -1,0 +1,33 @@
+{
+  "cases": [
+    {
+      "case_id": "structured-output",
+      "expectation_digest": "91e1d4e8855f65ed0c2d64eb6537832e38a8e0a78c0ff16b3ce7d4b699f4b860",
+      "request_digest": "e695a2aaf486f299c47354c8d963ebe0bfa6abab42847be489c6e489f75e59f4",
+      "required_capabilities": [
+        "structured_output"
+      ],
+      "required_gates": [
+        "response_valid",
+        "structured_output_valid"
+      ],
+      "schema_version": 1
+    },
+    {
+      "case_id": "tool-call",
+      "expectation_digest": "6d5788a0f3c8a82c599a11b8be46714888a3ab1c04a39cbed20b31c377d9a68e",
+      "request_digest": "a80c1aa550d2523df8228c736415a741585efd54371c7ab46b14089d2ea77401",
+      "required_capabilities": [
+        "tool_call"
+      ],
+      "required_gates": [
+        "response_valid",
+        "tool_behavior_valid"
+      ],
+      "schema_version": 1
+    }
+  ],
+  "corpus_id": "sealed-smoke",
+  "schema_version": 1,
+  "sealed_digest": "fbd4cb9eb79d6a3a332b2f9951dfa23c97ca4b51a81472db324f06b3cc935b50"
+}

@@ -166,7 +166,12 @@ def probe_codex_compatibility(
     run_probe = run or _run
     schema_probe = generate_schema or _generate_schema
     with tempfile.TemporaryDirectory(prefix="gigaloom-codex-probe-") as raw_home:
-        env = dict(os.environ)
+        env = {
+            key: value
+            for key in ("PATH", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL")
+            if (value := os.environ.get(key)) is not None
+        }
+        env["HOME"] = raw_home
         env["CODEX_HOME"] = str(Path(raw_home) / "home")
         version_result = run_probe((*command, "--version"), env)
         tui_result = run_probe((*command, "--help"), env)

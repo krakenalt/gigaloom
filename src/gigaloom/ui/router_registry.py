@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from gigaloom.diagnostics.api import UpgradeRadarReportStore
 from gigaloom.provider_authentication_broker import NativeLoginBroker
 from gigaloom.ui.container import AppServices
 from gigaloom.ui.routers.agents import router as agents_router
@@ -78,6 +79,9 @@ from gigaloom.ui.routers.route_advisor import (
 from gigaloom.ui.routers.reliability import (
     create_router as create_reliability_router,
 )
+from gigaloom.ui.routers.upgrade_radar import (
+    create_router as create_upgrade_radar_router,
+)
 from gigaloom.ui.routers.run_capsules import (
     create_router as create_run_capsules_router,
 )
@@ -131,6 +135,9 @@ def install_application_routers(
             services.operational_backends.recovery_receipts.checks,
             data_root=services.config.data_dir,
         )
+    )
+    app.include_router(
+        create_upgrade_radar_router(UpgradeRadarReportStore(services.config.data_dir))
     )
     app.include_router(create_editor_router(services))
     app.include_router(create_project_memory_router(services))

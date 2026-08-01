@@ -21,6 +21,7 @@ import {
 } from "../../api/agentRuntimes";
 import { InstalledAgentCard, LocalManifestCard, RegistryAgentCard } from "./AgentCards";
 import { AgentInstallDrawer } from "./InstallDrawer";
+import { UpgradeRadarSection } from "./UpgradeRadarSection";
 import {
   emptyAgentMarketplaceFilters,
   filterInstalledAgents,
@@ -242,6 +243,7 @@ export function CodingAgentsMarketplace() {
           <MarketplaceEmpty title="No agents match this view" detail={activeTab === "local" ? "Register an advanced manifest with giga agent add --manifest." : "Change the local search or filters."} />
         ) : null}
       </main>
+      <UpgradeRadarSection />
       {selectedAgent === null ? null : (
         <AgentInstallDrawer
           agent={selectedAgent}
