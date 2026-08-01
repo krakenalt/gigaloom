@@ -10,7 +10,7 @@ import sqlite3
 
 from gigaloom.attachments import FilesystemAttachmentStore
 from gigaloom.diagnostics.fault_lab.contracts import FaultFixtureId, FaultInvariant
-from gigaloom.diagnostics.recovery import RecoveryCheckService
+from gigaloom.diagnostics.recovery.service import RecoveryCheckService
 from gigaloom.runtime.db import DbProvider
 from gigaloom.runtime.jobs import JobsRepository
 from gigaloom.runtime.models import (

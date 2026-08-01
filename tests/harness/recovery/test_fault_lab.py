@@ -11,6 +11,7 @@ from gigaloom.diagnostics.fault_lab import (
     FaultLabRunner,
     FaultScenarioStatus,
 )
+from gigaloom.diagnostics.fault_lab.contracts import FaultInvariant, FaultScenarioResult
 
 
 def test_fault_catalog_matches_versioned_fixture_manifest():
@@ -118,3 +119,20 @@ def test_fault_invariants_cover_terminal_side_effect_and_cancel_safety(tmp_path)
             FaultFixtureId.RESTART_AFTER_LEASE_BEFORE_SIDE_EFFECT
         ].invariants
     }
+
+
+def test_fault_result_rejects_status_that_disagrees_with_invariants():
+    invariant = FaultInvariant(
+        invariant_id="failed-invariant",
+        passed=False,
+        reason_code="fixture_failed",
+        evidence_digest="a" * 64,
+    )
+
+    with pytest.raises(ValueError, match="does not match"):
+        FaultScenarioResult(
+            fixture_id=FaultFixtureId.JSONL_TAIL_TRUNCATED,
+            status=FaultScenarioStatus.PASSED,
+            invariants=(invariant,),
+            result_digest="b" * 64,
+        )

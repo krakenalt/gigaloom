@@ -11,6 +11,10 @@ from gigaloom.diagnostics.recovery.models import (
     RecoveryScanReport,
 )
 from gigaloom.diagnostics.recovery.service import CHECK_CATALOG, RecoveryCheckService
+from gigaloom.diagnostics.recovery.receipts import (
+    RecoveryReceiptService,
+    build_recovery_receipt,
+)
 
 __all__ = [
     "CHECK_CATALOG",
@@ -21,6 +25,8 @@ __all__ = [
     "RecoveryCheckService",
     "RecoveryCheckStatus",
     "RecoveryPreviewReport",
+    "RecoveryReceiptService",
     "RecoveryScanLimits",
     "RecoveryScanReport",
+    "build_recovery_receipt",
 ]

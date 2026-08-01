@@ -40,7 +40,7 @@ class FaultInvariant:
                 raise ValueError(f"{field_name} is invalid")
         if not isinstance(self.passed, bool):
             raise ValueError("passed must be boolean")
-        if len(self.evidence_digest) != 64:
+        if not _is_digest(self.evidence_digest):
             raise ValueError("evidence_digest must be sha256")
 
 
@@ -65,7 +65,24 @@ class FaultScenarioResult:
             raise ValueError("invariants must be deterministic")
         if len({item.invariant_id for item in self.invariants}) != len(self.invariants):
             raise ValueError("invariant ids must be unique")
-        if len(self.result_digest) != 64:
+        if not self.invariants:
+            raise ValueError("fault result requires invariants")
+        expected_status = (
+            FaultScenarioStatus.PASSED
+            if all(item.passed for item in self.invariants)
+            else FaultScenarioStatus.FAILED
+        )
+        if self.status is not expected_status:
+            raise ValueError("fault status does not match invariants")
+        if not _is_digest(self.result_digest):
             raise ValueError("result_digest must be sha256")
         if self.content_free is not True:
             raise ValueError("fault result must be content-free")
+
+
+def _is_digest(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(char in "0123456789abcdef" for char in value)
+    )
