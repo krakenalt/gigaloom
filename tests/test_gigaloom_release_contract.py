@@ -133,7 +133,9 @@ def test_protected_publish_consumes_one_retained_candidate_without_rebuilding():
         assert contract in text
     assert text.index("github.rest.repos.getReleaseByTag") < text.index("npm publish")
     assert text.index("npm publish") < text.index("uv publish")
-    registry_proof = text.index("Prove both registries contain the retained candidate bytes")
+    registry_proof = text.index(
+        "Prove both registries contain the retained candidate bytes"
+    )
     release_boundary = text.index("Inspect the exact-tag GitHub Release boundary")
     assert text.index("uv publish") < registry_proof < release_boundary
     assert release_boundary < text.index("gh release upload")
