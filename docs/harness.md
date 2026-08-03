@@ -206,7 +206,7 @@ uv tool install 'gigaloom[gpt2giga]==0.8.1'
 ```
 
 The current `gigaloom==0.8.1` distribution provides only the `giga` command;
-its explicit `gpt2giga` extra admits stable `gpt2giga>=0.2.6,<0.3.0` releases.
+its explicit `gpt2giga` extra admits stable `gpt2giga>=0.3.0,<0.4.0` releases.
 
 Requirements are Python 3.11–3.14 and `uv`. Direct GigaChat runs also need the
 gateway credentials described in the [gpt2giga quickstart](quickstart.md).
@@ -2861,7 +2861,7 @@ uv tool install 'gigaloom==0.8.1'
 ```
 
 The current `gigaloom==0.8.1` metadata keeps
-`gpt2giga>=0.2.6,<0.3.0` in the explicit `gpt2giga` optional extra.
+`gpt2giga>=0.3.0,<0.4.0` in the explicit `gpt2giga` optional extra.
 
 Package uninstall/reinstall does not move or rewrite Harness state. Preserve
 legacy `~/.gpt2giga/harness` data until `giga state migrate` has created and

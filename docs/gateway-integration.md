@@ -12,7 +12,7 @@ legacy local-gateway preset:
 uv tool install 'gigaloom[gpt2giga]==0.8.1'
 ```
 
-This extra admits stable `gpt2giga>=0.2.6,<0.3.0`; the committed lock resolves
+This extra admits stable `gpt2giga>=0.3.0,<0.4.0`; the committed lock resolves
 the exact reviewed public artifact. Release testing never creates an editable
 sibling dependency.
 

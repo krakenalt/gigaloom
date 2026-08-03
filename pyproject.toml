@@ -54,7 +54,7 @@ git = "gigaloom.environments:git_environment_provider_plugin"
 
 [project.optional-dependencies]
 gpt2giga = [
-    "gpt2giga>=0.2.6,<0.3.0",
+    "gpt2giga>=0.3.0,<0.4.0",
 ]
 claude-sdk = [
     "claude-agent-sdk>=0.2.122,<0.3",

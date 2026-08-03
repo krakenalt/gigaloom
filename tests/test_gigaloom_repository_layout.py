@@ -25,7 +25,7 @@ def test_standalone_metadata_has_stable_gateway_range_and_committed_lock():
 
     assert metadata["project"]["name"] == "gigaloom"
     assert metadata["project"]["optional-dependencies"]["gpt2giga"][0] == (
-        "gpt2giga>=0.2.6,<0.3.0"
+        "gpt2giga>=0.3.0,<0.4.0"
     )
     assert "sources" not in metadata.get("tool", {}).get("uv", {})
     assert (REPOSITORY_ROOT / "uv.lock").is_file()
@@ -44,6 +44,6 @@ def test_standalone_bootstrap_scripts_are_target_owned():
     assert "gigaloom" in public_gateway
     assert "https://pypi.org/simple" in public_gateway
     assert "uv.lock" in public_gateway
-    assert 'expected_requirement == "gpt2giga>=0.2.6,<0.3.0"' in public_gateway
+    assert 'expected_requirement == "gpt2giga>=0.3.0,<0.4.0"' in public_gateway
     assert 'packages["gpt2giga"]["version"]' in public_gateway
     assert 'packages["gigachat"]["version"] == "0.2.3"' in public_gateway

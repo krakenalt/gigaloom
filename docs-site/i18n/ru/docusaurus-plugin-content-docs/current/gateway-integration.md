@@ -12,7 +12,7 @@ preset локального gateway:
 uv tool install 'gigaloom[gpt2giga]==0.8.1'
 ```
 
-Extra допускает стабильные `gpt2giga>=0.2.6,<0.3.0`; committed lock разрешает
+Extra допускает стабильные `gpt2giga>=0.3.0,<0.4.0`; committed lock разрешает
 точный проверенный публичный artifact. Release testing не создаёт editable
 sibling dependency.
 

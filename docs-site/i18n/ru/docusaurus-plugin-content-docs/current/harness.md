@@ -206,7 +206,7 @@ uv tool install 'gigaloom[gpt2giga]==0.8.1'
 ```
 
 Текущий дистрибутив `gigaloom==0.8.1` добавляет только команду `giga`; его
-явный extra `gpt2giga` допускает стабильные `gpt2giga>=0.2.6,<0.3.0`.
+явный extra `gpt2giga` допускает стабильные `gpt2giga>=0.3.0,<0.4.0`.
 
 Для Direct Chat понадобятся credentials из [быстрого старта gpt2giga](quickstart.md).
 Codex, Claude Code и Gemini — опциональные интеграции: соответствующий CLI
@@ -1702,7 +1702,7 @@ giga doctor
 ```
 
 Текущая metadata `gigaloom==0.8.1` сохраняет
-`gpt2giga>=0.2.6,<0.3.0` в явном optional extra `gpt2giga`. Старый import
+`gpt2giga>=0.3.0,<0.4.0` в явном optional extra `gpt2giga`. Старый import
 `gpt2giga.harness` больше не является
 публичным; используйте `gigaloom`. Миграция package не переносит и не
 перезаписывает `~/.gigaloom`, `.giga/` или vendor-owned CLI homes.
