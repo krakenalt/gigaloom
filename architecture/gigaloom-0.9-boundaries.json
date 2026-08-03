@@ -1,0 +1,183 @@
+{
+  "schema_version": "gigaloom.architecture-boundaries.v1",
+  "accepted_on": "2026-08-04",
+  "owners": {
+    "session_state": "src/gigaloom/sessions",
+    "route_admission": "src/gigaloom/execution/route_advisor",
+    "route_receipts": "src/gigaloom/review/route_decisions",
+    "process_leases": "src/gigaloom/runtime/native",
+    "launch_plans": "src/gigaloom/native/launch",
+    "evidence_projections": "src/gigaloom/review",
+    "editor_schemas": "src/gigaloom/automation/schemas"
+  },
+  "forbidden_parallel_owner_roots": [
+    "src/gigaloom/thread_relay/sessions",
+    "src/gigaloom/thread_relay/routes",
+    "src/gigaloom/thread_relay/processes",
+    "src/gigaloom/thread_relay/evidence",
+    "src/gigaloom/providers/gateway/processes",
+    "src/gigaloom/providers/gateway/evidence",
+    "src/gigaloom/product_evidence/store"
+  ],
+  "gateway": {
+    "artifact_handoff": "tests/fixtures/gateway/gpt2giga_0_3_handoff.json",
+    "distribution": "gpt2giga",
+    "version": "0.3.0",
+    "requirement": "gpt2giga>=0.3.0,<0.4.0",
+    "allowed_boundaries": [
+      "console_script",
+      "http"
+    ],
+    "legacy_private_import_exceptions": [
+      {
+        "path": "src/gigaloom/gpt2giga_preset.py",
+        "module": "gpt2giga.cli"
+      },
+      {
+        "path": "src/gigaloom/openai_upstream.py",
+        "module": "gpt2giga.providers.openai_compatible"
+      },
+      {
+        "path": "src/gigaloom/providers/gateway/preset.py",
+        "module": "gpt2giga.cli"
+      },
+      {
+        "path": "src/gigaloom/providers/protocols/openai/upstream.py",
+        "module": "gpt2giga.providers.openai_compatible"
+      }
+    ],
+    "persisted_secret_fields": [
+      "auth_ref",
+      "tls_policy_ref",
+      "redacted_env_delta"
+    ],
+    "forbidden_plaintext_secret_fields": [
+      "api_key",
+      "access_token",
+      "client_secret",
+      "credential_value",
+      "password",
+      "secret"
+    ],
+    "native_homes": [
+      "~/.codex",
+      "~/.claude",
+      "~/.gemini"
+    ],
+    "managed_write_roots": [
+      "GIGALOOM_DATA_DIR",
+      "bounded_temp"
+    ],
+    "support_statuses": [
+      "stable",
+      "technical_preview",
+      "vendor_unsupported",
+      "blocked"
+    ]
+  },
+  "thread_relay": {
+    "contract_owner": "src/gigaloom/sessions/thread_relay",
+    "contracts": {
+      "ThreadLocatorV1": [
+        "source_kind",
+        "adapter_id",
+        "project_id",
+        "thread_id",
+        "actor_scope",
+        "workspace_identity",
+        "provider_session_ref",
+        "capability_revision"
+      ],
+      "ThreadReadProjectionV1": [
+        "locator",
+        "title",
+        "status",
+        "updated_at",
+        "visible_messages",
+        "active_turn",
+        "route",
+        "model",
+        "relationships",
+        "next_cursor",
+        "omitted_count",
+        "redaction_facts",
+        "unsupported_facts"
+      ],
+      "ThreadMessageEnvelopeV1": [
+        "source_locator",
+        "target_locator",
+        "actor_binding",
+        "project_binding",
+        "role",
+        "author_mode",
+        "message_ref",
+        "attachment_refs",
+        "intent",
+        "expected_target_revision",
+        "expected_active_turn_id",
+        "idempotency_key",
+        "expires_at",
+        "depth"
+      ],
+      "ThreadDeliveryReceiptV1": [
+        "delivery_id",
+        "source_identity",
+        "target_identity",
+        "action",
+        "status",
+        "created_at",
+        "accepted_at",
+        "completed_at",
+        "run_ref",
+        "job_ref",
+        "turn_ref",
+        "content_digest",
+        "capability_revision",
+        "terminal_reason"
+      ]
+    },
+    "role": "user",
+    "author_modes": [
+      "user_authored",
+      "agent_proposed_user_approved"
+    ],
+    "ttl_required": true,
+    "idempotency_required": true,
+    "actor_binding_required": true,
+    "project_binding_required": true,
+    "cross_project_default": "deny",
+    "max_depth": 1,
+    "max_outstanding_children": 4,
+    "mutations_require_target_revision": true,
+    "steer_requires_active_turn_id": true,
+    "receipt_content": "digest_only"
+  },
+  "capability_drift": {
+    "unknown": "deny",
+    "stale": "deny",
+    "fallback_route": "forbidden",
+    "revalidation": "explicit"
+  },
+  "editor_schema_assets": {
+    "owner": "src/gigaloom/automation/schemas",
+    "filenames": [
+      "agent.schema.json",
+      "workflow.schema.json",
+      "eval.schema.json",
+      "schedule-source.schema.json"
+    ]
+  },
+  "web": {
+    "request_graph_owners": [
+      "web/src/request-graph.ts",
+      "web/src/remaining-request-graph.ts"
+    ],
+    "maximum_lines": {
+      "web/src/AppShell.tsx": 300,
+      "web/src/request-graph.ts": 100,
+      "web/src/remaining-request-graph.ts": 600,
+      "web/src/surfaces/workbench.tsx": 2000
+    },
+    "feature_module_maximum_lines": 600
+  }
+}
