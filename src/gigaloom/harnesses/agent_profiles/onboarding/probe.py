@@ -17,6 +17,7 @@ from gigaloom.harnesses.acp import (
     create_acp_client,
     pin_acp_process,
 )
+from gigaloom.harnesses.acp.process import AcpTransportFactory
 from gigaloom.harnesses.acp.errors import (
     AcpError,
     AcpProtocolError,
@@ -26,6 +27,9 @@ from gigaloom.harnesses.agent_profiles.models import AgentProfileV1
 from gigaloom.harnesses.agent_profiles.onboarding.models import (
     ManagedAcpProbeReceipt,
     ManagedProbeState,
+)
+from gigaloom.harnesses.agent_profiles.onboarding.isolation import (
+    ManagedAcpNetworkIsolationPort,
 )
 from gigaloom.structured_processes import StructuredProcessError
 
@@ -50,7 +54,13 @@ class ManagedAcpProbePort(Protocol):
 class ManagedAcpProbeRunner:
     """Run the generic ACP gateway in disposable HOME/workspace roots."""
 
-    def __init__(self, *, limits: AcpLimits | None = None) -> None:
+    def __init__(
+        self,
+        isolation: ManagedAcpNetworkIsolationPort | None,
+        *,
+        limits: AcpLimits | None = None,
+    ) -> None:
+        self._isolation = isolation
         self._limits = limits or AcpLimits()
 
     def probe(
@@ -61,7 +71,7 @@ class ManagedAcpProbeRunner:
         network_isolated: bool,
     ) -> ManagedAcpProbeReceipt:
         """Initialize once, project capabilities, and always close the process."""
-        if not network_isolated:
+        if not network_isolated or self._isolation is None:
             raise ValueError("managed ACP probe requires enforced network isolation")
         route = _managed_route(profile)
         executable = (
@@ -92,6 +102,11 @@ class ManagedAcpProbeRunner:
                         {"HOME", *dict(artifact.environment)}
                     ),
                 )
+                isolated_command = self._isolation.wrap(
+                    spec.command,
+                    workspace=workspace,
+                    native_home=native_home,
+                )
                 process_fingerprint = spec.executable.fingerprint
                 executable_observed = True
                 client = create_acp_client(
@@ -103,6 +118,11 @@ class ManagedAcpProbeRunner:
                         profile.profile_digest,
                     ),
                     limits=self._limits,
+                    transport_factory=AcpTransportFactory(
+                        spec,
+                        self._limits,
+                        launch_command=isolated_command,
+                    ),
                 )
                 try:
                     client.start()
@@ -176,7 +196,7 @@ class ManagedAcpProbeRunner:
             "losses": list(losses),
             "warnings": list(warnings),
             "native_home_isolated": True,
-            "network_policy": "enforced_deny",
+            "network_policy": "enforced_loopback_only",
             "session_created": False,
             "prompt_sent": False,
             "content_free": True,
@@ -194,7 +214,7 @@ class ManagedAcpProbeRunner:
             losses=losses,
             warnings=warnings,
             native_home_isolated=True,
-            network_policy="enforced_deny",
+            network_policy="enforced_loopback_only",
             receipt_digest=canonical_digest(payload),
         )
 
@@ -298,7 +318,7 @@ def _failure_receipt(
         "losses": [],
         "warnings": [reason_code],
         "native_home_isolated": True,
-        "network_policy": "enforced_deny",
+        "network_policy": "enforced_loopback_only",
         "session_created": False,
         "prompt_sent": False,
         "content_free": True,
@@ -316,7 +336,7 @@ def _failure_receipt(
         losses=(),
         warnings=(reason_code,),
         native_home_isolated=True,
-        network_policy="enforced_deny",
+        network_policy="enforced_loopback_only",
         receipt_digest=canonical_digest(payload),
     )
 

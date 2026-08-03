@@ -15,15 +15,22 @@ export type SessionCreationIntent =
   | { config: ConfiguredSessionDefaults; kind: "configured" };
 
 export interface WorkbenchEntrySearch {
+  agent?: string;
   fromSessionAction?: true;
 }
 
 export function validateWorkbenchEntrySearch(
   search: Record<string, unknown>,
 ): WorkbenchEntrySearch {
-  return search.fromSessionAction === true || search.fromSessionAction === "true"
-    ? { fromSessionAction: true }
-    : {};
+  const result: WorkbenchEntrySearch = {};
+  const agent = typeof search.agent === "string" ? search.agent.trim() : "";
+  if (/^[a-z0-9][a-z0-9._-]{0,127}$/.test(agent)) {
+    result.agent = agent;
+  }
+  if (search.fromSessionAction === true || search.fromSessionAction === "true") {
+    result.fromSessionAction = true;
+  }
+  return result;
 }
 
 export function shouldAutomaticallyCreateSession(

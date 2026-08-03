@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 import hashlib
 from io import BytesIO
@@ -26,10 +27,12 @@ from gigaloom.contracts.agent_installation_codec import managed_agent_artifact_t
 from gigaloom.contracts.operational_validation import canonical_digest
 from gigaloom.harnesses.agent_profiles.installations import (
     AgentIdentityInventory,
+    AgentInstallError,
     AgentInstallPlanner,
     AgentInstallPlannerPolicy,
     BinaryDownloadResponse,
     LocalAgentInstallCoordinator,
+    ManagedAgentActivationStore,
     AgentRuntimeService,
     InstallPlanningResult,
     read_agent_lock_file,
@@ -85,6 +88,8 @@ class FakeCoordinator:
         self.root = root
         self.install_calls = 0
         self.preview_calls = 0
+        self.probe_calls = 0
+        self.probe_result: ManagedAcpProbeReceipt | None = None
         self.sync_calls = 0
 
     def preview(
@@ -134,7 +139,8 @@ class FakeCoordinator:
         )
 
     def probe(self, record):  # noqa: ANN001, ANN201
-        return record.probe
+        self.probe_calls += 1
+        return self.probe_result or record.probe
 
     def sync(
         self,
@@ -440,7 +446,10 @@ def test_production_coordinator_fails_closed_without_isolation_authority(tmp_pat
         service.add("coordinated-runtime", dry_run=True),
         InstallPlanningResult,
     )
-    with pytest.raises(RuntimeError, match="network isolation"):
+    with pytest.raises(
+        AgentInstallError,
+        match="managed_agent_network_isolation_required",
+    ):
         service.add("coordinated-runtime", confirmed=True)
     assert transport.requests == []
     assert service.list() == ()
@@ -499,6 +508,78 @@ def test_add_list_inspect_probe_lock_and_remove_share_one_state(tmp_path):
     assert not Path(result.artifact.managed_root).exists()
 
 
+def test_inactive_revision_reprobes_and_activates_atomically(tmp_path):
+    service, coordinator = _runtime(tmp_path)
+    installed = service.add("generic-runtime", confirmed=True)
+    assert not isinstance(installed, InstallPlanningResult)
+    assert ManagedAgentActivationStore(tmp_path).deactivate("generic-runtime") is True
+    assert service.list()[0].active is False
+    assert service.inspect("generic-runtime").active is False
+
+    with pytest.raises(ValueError, match="confirmation"):
+        service.activate("generic-runtime", confirmed=False)
+
+    activated = service.activate(
+        "generic-runtime",
+        install_id=installed.artifact.install_id,
+        confirmed=True,
+    )
+
+    assert coordinator.probe_calls == 1
+    assert activated.active is True
+    assert activated.activation.status.value == "ready"
+    assert activated.probe.state is ManagedProbeState.READY
+    assert service.inspect("generic-runtime") == activated
+    assert service.list()[0].active is True
+    assert next((tmp_path / "agents/state/reactivations").glob("*.json")).is_file()
+
+
+def test_activation_evidence_failure_never_publishes_active_pointer(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+):
+    service, _ = _runtime(tmp_path)
+    installed = service.add("generic-runtime", confirmed=True)
+    assert not isinstance(installed, InstallPlanningResult)
+    assert ManagedAgentActivationStore(tmp_path).deactivate("generic-runtime") is True
+
+    def reject_evidence(result) -> None:  # noqa: ANN001
+        del result
+        raise OSError("simulated evidence failure")
+
+    monkeypatch.setattr(service._reactivation._evidence, "save", reject_evidence)
+    with pytest.raises(OSError, match="evidence failure"):
+        service.activate("generic-runtime", confirmed=True)
+
+    assert ManagedAgentActivationStore(tmp_path).current("generic-runtime") is None
+
+
+def test_failed_activation_retains_inactive_revision_and_fresh_probe(tmp_path):
+    service, coordinator = _runtime(tmp_path)
+    installed = service.add("generic-runtime", confirmed=True)
+    assert not isinstance(installed, InstallPlanningResult)
+    assert ManagedAgentActivationStore(tmp_path).deactivate("generic-runtime") is True
+    coordinator.probe_result = replace(
+        installed.probe,
+        state=ManagedProbeState.UNAVAILABLE,
+        protocol_state="unavailable",
+        protocol_version=None,
+        capability_snapshot_digest=None,
+        capabilities=(),
+        warnings=("acp_initialize_unavailable",),
+        handshake_digest=_digest("unavailable-handshake"),
+        receipt_digest=_digest("unavailable-receipt"),
+    )
+
+    result = service.activate("generic-runtime", confirmed=True)
+
+    assert result.active is False
+    assert result.activation.status.value == "inactive"
+    assert result.probe.state is ManagedProbeState.UNAVAILABLE
+    summary = service.list()[0]
+    assert summary.active is False and summary.probe_state == "unavailable"
+    assert ManagedAgentActivationStore(tmp_path).current("generic-runtime") is None
+
+
 def test_lock_sync_is_exact_idempotent_and_never_upgrades(tmp_path):
     source_root = tmp_path / "source"
     source, _ = _runtime(source_root)
@@ -552,6 +633,17 @@ def test_command_metadata_preserves_manifest_and_acp_aliases():
     sync = parser.parse_args(
         ["agent", "sync", "--lock", ".giga/agents.lock", "--yes", "--json"]
     )
+    activate = parser.parse_args(
+        [
+            "agent",
+            "activate",
+            "generic-runtime",
+            "--install-id",
+            "install-generic",
+            "--yes",
+            "--json",
+        ]
+    )
 
     assert manifest.manifest == "agent.toml" and manifest.registry_query is None
     assert (
@@ -559,6 +651,8 @@ def test_command_metadata_preserves_manifest_and_acp_aliases():
     )
     assert sync.handler == "_handle_agent_runtime_sync"
     assert sync.yes is True and sync.json is True
+    assert activate.handler == "_handle_agent_runtime_activate"
+    assert activate.install_id == "install-generic"
 
 
 def test_json_cli_search_and_add_alias_use_injected_shared_service(
@@ -587,5 +681,21 @@ def test_json_cli_search_and_add_alias_use_injected_shared_service(
         add_payload = json.loads(capsys.readouterr().out)
         assert add_payload["plan"]["registry_id"] == "generic-runtime"
         assert coordinator.install_calls == 0
+
+        installed = service.add("generic-runtime", confirmed=True)
+        assert not isinstance(installed, InstallPlanningResult)
+        ManagedAgentActivationStore(tmp_path).deactivate("generic-runtime")
+        activate_args = argparse.Namespace(
+            local_agent_id="generic-runtime",
+            install_id=installed.artifact.install_id,
+            yes=True,
+            json=True,
+        )
+        assert (
+            runtime_handlers._handle_agent_runtime_activate(activate_args, config) == 0
+        )
+        activation_payload = json.loads(capsys.readouterr().out)
+        assert activation_payload["active"] is True
+        assert activation_payload["install_id"] == installed.artifact.install_id
     finally:
         runtime_handlers.configure_agent_runtime_service_factory(None)

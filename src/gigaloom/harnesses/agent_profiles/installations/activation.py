@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import cast
+from typing import Callable, cast
 
 from gigaloom.contracts import (
     AgentActivationStatus,
@@ -43,6 +43,7 @@ class ManagedAgentActivationStore:
         compatibility_observation_digest: str,
         status: AgentActivationStatus,
         activated_at: datetime,
+        publish_evidence: Callable[[AgentActivationV1], None] | None = None,
     ) -> AgentActivationV1:
         """Atomically replace current while retaining one rollback artifact."""
         if status not in {AgentActivationStatus.READY, AgentActivationStatus.DEGRADED}:
@@ -59,12 +60,18 @@ class ManagedAgentActivationStore:
         with registry_cache_lock(self._state_root / ".activation.lock"):
             previous = self._read_pointer(pointer) if pointer.exists() else None
             previous_artifact = previous[0] if previous is not None else None
+            if (
+                previous_artifact is not None
+                and previous_artifact.install_id == artifact.install_id
+            ):
+                raise AgentInstallError("managed_agent_already_active")
             activation = AgentActivationV1(
                 activation_id=_activation_id(
                     artifact.install_id,
                     previous_artifact.install_id if previous_artifact else None,
                     profile_digest,
                     compatibility_observation_digest,
+                    activated_at,
                 ),
                 install_id=artifact.install_id,
                 previous_install_id=(
@@ -76,6 +83,8 @@ class ManagedAgentActivationStore:
                 activated_at=activated_at,
                 status=status,
             )
+            if publish_evidence is not None:
+                publish_evidence(activation)
             atomic_write_json(
                 pointer,
                 {
@@ -112,6 +121,7 @@ class ManagedAgentActivationStore:
                     current_artifact.install_id,
                     profile_digest,
                     compatibility_observation_digest,
+                    activated_at,
                 ),
                 install_id=previous_artifact.install_id,
                 previous_install_id=current_artifact.install_id,
@@ -203,6 +213,7 @@ def _activation_id(
     previous_install_id: str | None,
     profile_digest: str,
     compatibility_digest: str,
+    activated_at: datetime,
 ) -> str:
     return (
         "activation-"
@@ -212,6 +223,7 @@ def _activation_id(
                 "previous_install_id": previous_install_id,
                 "profile_digest": profile_digest,
                 "compatibility_digest": compatibility_digest,
+                "activated_at": activated_at.isoformat(),
             }
         )[:24]
     )

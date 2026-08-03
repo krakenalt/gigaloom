@@ -38,7 +38,7 @@ terminals additionally use `tmux` on Linux and macOS; systems without it keep
 provider-native passthrough.
 
 ```sh
-uv tool install 'gigaloom==0.8.0'
+uv tool install 'gigaloom==0.8.1'
 giga doctor
 giga --version
 ```
@@ -85,7 +85,7 @@ not require a gateway source checkout. Direct Chat and the legacy local-gateway
 preset are optional:
 
 ```sh
-uv tool install 'gigaloom[gpt2giga]==0.8.0'
+uv tool install 'gigaloom[gpt2giga]==0.8.1'
 ```
 
 The optional extra consumes the released `gpt2giga` distribution. Its

@@ -12,6 +12,7 @@ from gigaloom.contracts import (
 )
 from gigaloom.harnesses.agent_profiles.registry.cache import ACPRegistryCache
 from gigaloom.harnesses.agent_profiles.registry.errors import (
+    RegistryCacheError,
     RegistryNetworkError,
     RegistryResponseError,
     RegistryUnavailableError,
@@ -52,7 +53,12 @@ class OfficialACPRegistryClient(ACPRegistryPort):
         now = self._now()
         if now.tzinfo is None:
             raise ValueError("ACP registry client clock must be timezone-aware")
-        cached = self._cache.load(now=now)
+        try:
+            cached = self._cache.load(now=now)
+        except RegistryCacheError:
+            if not refresh:
+                raise
+            cached = None
         if not refresh:
             if cached is None:
                 raise RegistryUnavailableError(

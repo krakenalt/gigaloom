@@ -19,6 +19,9 @@ runtime, identity или единой модели полномочий. Зде�
   GigaLoom не превращает их в children Workflow и не переносит их приватное
   состояние.
 
+Для установки managed ACP runtime или регистрации advanced local executable
+manifest используйте отдельное [руководство по Agent runtimes](agent-runtimes.md).
+
 ## Как выбрать поверхность
 
 | Поверхность | Для чего | Кто исполняет | Что сохраняет GigaLoom |

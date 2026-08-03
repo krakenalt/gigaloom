@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 import shutil
@@ -39,6 +39,9 @@ from gigaloom.harnesses.agent_profiles.models import AgentProfileV1
 from gigaloom.harnesses.agent_profiles.onboarding.models import (
     ManagedAcpProbeReceipt,
     ManagedAgentOnboardingResult,
+)
+from gigaloom.harnesses.agent_profiles.onboarding.reactivation import (
+    ManagedAgentReactivationService,
 )
 from gigaloom.harnesses.agent_profiles.onboarding.store import (
     ManagedOnboardingStore,
@@ -104,6 +107,9 @@ class AgentRuntimeInstallCoordinator(Protocol):
     def recover_abandoned(self) -> tuple[StagingRecoveryResult, ...]:
         """Recover only owned abandoned install staging directories."""
 
+    def require_install_authority(self) -> None:
+        """Reject mutation when the composition has no isolation owner."""
+
 
 @dataclass(frozen=True, slots=True)
 class AgentRegistrySearchPage:
@@ -140,17 +146,25 @@ class AgentRuntimeService:
         clock,
         reserved_inventory: AgentIdentityInventory = AgentIdentityInventory(),
     ) -> None:  # noqa: ANN001
-        self._data_root = Path(data_root).resolve(strict=False)
+        self._data_root = Path(data_root).expanduser().resolve(strict=False)
         self._registry = registry
         self._coordinator = coordinator
         self._clock = clock
         self._records = ManagedOnboardingStore(self._data_root)
         self._activations = ManagedAgentActivationStore(self._data_root)
+        self._reactivation = ManagedAgentReactivationService(
+            self._data_root,
+            clock=clock,
+        )
         self._reserved = reserved_inventory
 
     def refresh(self) -> ACPRegistryCatalog:
         """Explicitly refresh the validated official registry cache."""
         return self._registry.catalog(refresh=True)
+
+    def require_install_authority(self) -> None:
+        """Validate install authority before creating an async operation."""
+        self._coordinator.require_install_authority()
 
     def search(
         self,
@@ -206,9 +220,8 @@ class AgentRuntimeService:
 
     def list(self) -> tuple[AgentRuntimeSummary, ...]:
         """Return every immutable installed revision with current-pointer state."""
-        return tuple(
-            _summary(record, self._activations)
-            for record in sorted(
+        records = tuple(
+            sorted(
                 self._records.records(),
                 key=lambda item: (
                     item.artifact.local_agent_id,
@@ -217,18 +230,41 @@ class AgentRuntimeService:
                 ),
             )
         )
+        current_by_agent = {
+            local_agent_id: self._activations.current(local_agent_id)
+            for local_agent_id in {item.artifact.local_agent_id for item in records}
+        }
+        active_activation_ids = {
+            current[0].install_id: current[1].activation_id
+            for current in current_by_agent.values()
+            if current is not None
+        }
+        projected = self._reactivation.project_many(
+            records,
+            active_activation_ids=active_activation_ids,
+        )
+        return tuple(
+            _summary(
+                record,
+                current_by_agent[record.artifact.local_agent_id],
+            )
+            for record in projected
+        )
 
     def inspect(self, local_agent_id: str) -> ManagedAgentOnboardingResult:
         """Return the current record or latest inactive revision for one local id."""
         records = self._records_for(local_agent_id)
         current = self._activations.current(local_agent_id)
         if current is not None:
-            return next(
+            record = next(
                 item
                 for item in records
                 if item.artifact.install_id == current[0].install_id
             )
-        return max(records, key=lambda item: item.artifact.installed_at)
+            return self._project_record(record)
+        return self._project_record(
+            max(records, key=lambda item: item.artifact.installed_at)
+        )
 
     def active_profiles(self) -> tuple[AgentProfileV1, ...]:
         """Return generated profiles for active managed revisions only."""
@@ -238,6 +274,20 @@ class AgentRuntimeService:
     def probe(self, local_agent_id: str) -> ManagedAcpProbeReceipt:
         """Run an initialize-only probe through the same backend coordinator."""
         return self._coordinator.probe(self.inspect(local_agent_id))
+
+    def activate(
+        self,
+        local_agent_id: str,
+        install_id: str | None = None,
+        *,
+        confirmed: bool,
+    ) -> ManagedAgentOnboardingResult:
+        """Re-probe and atomically activate one exact retained ACP revision."""
+        if not confirmed:
+            raise ValueError("managed agent activation requires explicit confirmation")
+        record = self._activation_candidate(local_agent_id, install_id=install_id)
+        probe = self._coordinator.probe(record)
+        return self._reactivation.activate(record, probe)
 
     def outdated(self, *, refresh: bool = False) -> tuple[AgentRuntimeSummary, ...]:
         """Report installed revisions differing from the current exact entry only."""
@@ -401,6 +451,46 @@ class AgentRuntimeService:
             raise ValueError(f"unknown managed agent: {local_agent_id}")
         return records
 
+    def _activation_candidate(
+        self,
+        local_agent_id: str,
+        *,
+        install_id: str | None,
+    ) -> ManagedAgentOnboardingResult:
+        records = self._records_for(local_agent_id)
+        current = self._activations.current(local_agent_id)
+        current_id = current[0].install_id if current is not None else None
+        candidates = tuple(
+            item
+            for item in records
+            if item.artifact.install_id != current_id
+            and (install_id is None or item.artifact.install_id == install_id)
+        )
+        if not candidates:
+            if install_id == current_id or (
+                install_id is None and current_id is not None
+            ):
+                raise ValueError("managed agent revision is already active")
+            raise ValueError("managed inactive agent revision was not found")
+        return max(
+            candidates,
+            key=lambda item: (item.artifact.installed_at, item.artifact.install_id),
+        )
+
+    def _project_record(
+        self,
+        record: ManagedAgentOnboardingResult,
+    ) -> ManagedAgentOnboardingResult:
+        current = self._activations.current(record.artifact.local_agent_id)
+        activation_id = (
+            current[1].activation_id
+            if current is not None
+            and current[0].install_id == record.artifact.install_id
+            else None
+        )
+        projected = self._reactivation.project(record, activation_id=activation_id)
+        return replace(projected, active=activation_id is not None)
+
     def _inventory(
         self,
         *,
@@ -444,9 +534,8 @@ def _resolve_unique_entry(
 
 def _summary(
     record: ManagedAgentOnboardingResult,
-    activations: ManagedAgentActivationStore,
+    current,
 ) -> AgentRuntimeSummary:
-    current = activations.current(record.artifact.local_agent_id)
     active = current is not None and current[0].install_id == record.artifact.install_id
     status = current[1].status.value if active and current is not None else "inactive"
     return AgentRuntimeSummary(

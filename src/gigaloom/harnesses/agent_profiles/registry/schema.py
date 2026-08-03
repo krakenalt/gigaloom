@@ -39,8 +39,8 @@ MAX_REGISTRY_ARGUMENTS = 64
 MAX_REGISTRY_ENVIRONMENT = 64
 
 _ID_RE = re.compile(r"[a-z][a-z0-9-]{0,127}\Z")
-_SEMVER_RE = re.compile(
-    r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
+_REGISTRY_VERSION_RE = re.compile(
+    r"[0-9]+\.[0-9]+\.[0-9]+"
     r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
     r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\Z"
 )
@@ -57,6 +57,8 @@ _PACKAGE_SOURCES = {
     ACPDistributionKind.NPX: "https://registry.npmjs.org",
     ACPDistributionKind.UVX: "https://pypi.org",
 }
+_GITHUB_RELEASE_ASSET_ORIGIN = "https://release-assets.githubusercontent.com"
+_GITHUB_RELEASE_ARCHIVE_RE = re.compile(r"/[^/]+/[^/]+/releases/download/[^/]+/[^/]+\Z")
 
 
 def decode_registry_document(
@@ -102,8 +104,15 @@ def _decode_registry_document(
     root = _mapping(
         document,
         required={"version", "agents"},
+        optional={"extensions"},
         field_name="ACP registry document",
     )
+    if "extensions" in root:
+        _array(
+            root["extensions"],
+            field_name="registry extensions",
+            maximum=0,
+        )
     version = _text(root["version"], field_name="registry version", maximum=32)
     if version != SUPPORTED_REGISTRY_VERSION:
         raise RegistrySchemaError("unsupported registry schema version")
@@ -167,8 +176,10 @@ def _decode_entry(
     )
     registry_id = _registry_id(record["id"])
     version = _text(record["version"], field_name="agent version", maximum=128)
-    if _SEMVER_RE.fullmatch(version) is None:
-        raise RegistrySchemaError(f"agent {registry_id} version is not semantic")
+    if _REGISTRY_VERSION_RE.fullmatch(version) is None:
+        raise RegistrySchemaError(
+            f"agent {registry_id} version is not registry-compatible"
+        )
     distributions = _decode_distributions(record["distribution"], registry_id)
     values = {
         "registry_id": registry_id,
@@ -245,7 +256,7 @@ def _decode_binary_distributions(
             field_name=f"agent {registry_id} binary target {target}",
         )
         source = _url(record["archive"], field_name="binary archive")
-        command = _relative_command(record["cmd"])
+        command = _relative_command(record["cmd"], platform=platform)
         expected = record.get("sha256")
         expected_integrity = None
         if expected is not None:
@@ -265,7 +276,7 @@ def _decode_binary_distributions(
             "command": command,
             "arguments": arguments,
             "environment": environment,
-            "network_origins": (_origin(source),),
+            "network_origins": _binary_network_origins(source),
         }
         result.append(
             ACPDistributionV1(
@@ -427,6 +438,19 @@ def _origin(value: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
+def _binary_network_origins(source: str) -> tuple[str, ...]:
+    """Bind reviewed GitHub Release redirects into the binary distribution."""
+    parsed = urlsplit(source)
+    origins = {_origin(source)}
+    if (
+        parsed.hostname == "github.com"
+        and parsed.netloc.lower() in {"github.com", "github.com:443"}
+        and _GITHUB_RELEASE_ARCHIVE_RE.fullmatch(parsed.path)
+    ):
+        origins.add(_GITHUB_RELEASE_ASSET_ORIGIN)
+    return tuple(sorted(origins))
+
+
 def _authors(value: object) -> tuple[str, ...]:
     items = _array(value, field_name="agent authors", maximum=32)
     authors = tuple(
@@ -470,10 +494,13 @@ def _environment(value: object) -> tuple[tuple[str, str], ...]:
     )
 
 
-def _relative_command(value: object) -> str:
+def _relative_command(value: object, *, platform: str) -> str:
     text = _text(value, field_name="binary command", maximum=1_024)
-    if any(character.isspace() for character in text) or "\\" in text:
+    if any(character.isspace() for character in text) or ":" in text:
         raise RegistrySchemaError("binary command must be one relative token")
+    if "\\" in text and platform != "windows":
+        raise RegistrySchemaError("binary command uses a non-native path separator")
+    text = text.replace("\\", "/")
     normalized = text[2:] if text.startswith("./") else text
     path = PurePosixPath(normalized)
     if (

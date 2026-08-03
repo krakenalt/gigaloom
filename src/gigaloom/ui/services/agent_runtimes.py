@@ -38,6 +38,7 @@ def build_agent_runtime_web_bundle(
     config: HarnessConfig,
     *,
     profiles: tuple[AgentProfileV1, ...] | None,
+    reserved_agent_ids: tuple[str, ...] = (),
 ) -> AgentRuntimeWebBundle:
     """Build CLI-compatible managed state without implicit network authority."""
     commands = _registered_commands()
@@ -51,8 +52,11 @@ def build_agent_runtime_web_bundle(
     )
     runtime = create_agent_runtime_service(
         config.data_dir,
-        network_isolation_admitted=False,
-        reserved_inventory=_identity_inventory(commands, base_profiles),
+        reserved_inventory=_identity_inventory(
+            commands,
+            base_profiles,
+            reserved_agent_ids=reserved_agent_ids,
+        ),
     )
     combined = _combine_profiles(base_profiles, runtime.active_profiles())
     registry = AgentRegistryWebService(
@@ -78,6 +82,8 @@ def _registered_commands() -> tuple[str, ...]:
 def _identity_inventory(
     commands: tuple[str, ...],
     profiles: tuple[AgentProfileV1, ...],
+    *,
+    reserved_agent_ids: tuple[str, ...],
 ) -> AgentIdentityInventory:
     return AgentIdentityInventory(
         core_commands=commands,
@@ -91,9 +97,16 @@ def _identity_inventory(
             for alias in profile.aliases
         ),
         local_agent_ids=tuple(
-            profile.agent_id
-            for profile in profiles
-            if profile.source.kind is AgentProfileSourceKind.LOCAL_MANIFEST
+            sorted(
+                {
+                    *reserved_agent_ids,
+                    *(
+                        profile.agent_id
+                        for profile in profiles
+                        if profile.source.kind is AgentProfileSourceKind.LOCAL_MANIFEST
+                    ),
+                }
+            )
         ),
     )
 

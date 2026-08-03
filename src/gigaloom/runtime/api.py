@@ -34,6 +34,7 @@ PermissionAction: Any
 PolicyContext: Any
 PolicyDecision: Any
 PolicyResolution: Any
+permission_profile: Any
 RUNTIME_DB_NAME: Any
 RuntimeCoordinationStore: Any
 evaluate_budget_admission: Any
@@ -133,6 +134,7 @@ __all__ = [
     "PolicyContext",
     "PolicyDecision",
     "PolicyResolution",
+    "permission_profile",
     "RUNTIME_DB_NAME",
     "RunStatus",
     "RuntimeCoordinationStore",
@@ -277,6 +279,10 @@ _LAZY_EXPORTS = {
     "PolicyResolution": (
         "gigaloom.runtime.policy",
         "PolicyResolution",
+    ),
+    "permission_profile": (
+        "gigaloom.runtime.policy",
+        "permission_profile",
     ),
     "RuntimeCoordinationStore": (
         "gigaloom.runtime.store",

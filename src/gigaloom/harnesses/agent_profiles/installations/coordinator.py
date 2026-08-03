@@ -25,6 +25,7 @@ from gigaloom.harnesses.agent_profiles.installations.commands import (
     PackageCommandRunner,
     SubprocessPackageCommandRunner,
 )
+from gigaloom.harnesses.agent_profiles.installations.errors import AgentInstallError
 from gigaloom.harnesses.agent_profiles.installations.journal import (
     InstallCancellationToken,
 )
@@ -93,16 +94,14 @@ class LocalAgentInstallCoordinator:
     ) -> None:
         if not isinstance(network_isolation_admitted, bool):
             raise ValueError("network isolation admission must be boolean")
-        self._data_root = Path(data_root).resolve(strict=False)
+        self._data_root = Path(data_root).expanduser().resolve(strict=False)
         self._platform = platform
         self._architecture = architecture
         self._probe = probe
         self._network_isolation_admitted = network_isolation_admitted
         self._npm = Path(npm_executable) if npm_executable is not None else None
         self._uv = Path(uv_executable) if uv_executable is not None else None
-        self._python = (
-            Path(python_executable) if python_executable is not None else None
-        )
+        self._python = None if python_executable is None else Path(python_executable)
         self._binary_transport = binary_transport or UrllibBinaryDownloadTransport()
         self._runner = command_runner or SubprocessPackageCommandRunner()
         self._clock = clock or (lambda: datetime.now(UTC))
@@ -263,6 +262,10 @@ class LocalAgentInstallCoordinator:
             self._binary_transport,
             clock=self._clock,
         ).recover_abandoned()
+
+    def require_install_authority(self) -> None:
+        """Fail before mutation when the composition has no isolation owner."""
+        self._require_network_isolation()
 
     def _resolve_npx(
         self,
@@ -464,7 +467,7 @@ class LocalAgentInstallCoordinator:
 
     def _require_network_isolation(self) -> None:
         if not self._network_isolation_admitted:
-            raise RuntimeError("managed agent operation requires network isolation")
+            raise AgentInstallError("managed_agent_network_isolation_required")
 
     def _now(self) -> datetime:
         value = self._clock()

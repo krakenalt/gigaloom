@@ -91,6 +91,13 @@ MUTATION_ROUTE_CONTRACTS = (
         "agent_runtime.isolated_probe",
         actions=(PermissionAction.PROCESS_SPAWN,),
     ),
+    _contract(
+        "/api/agent-runtimes/{local_agent_id}/activate",
+        MutationClass.GOVERNED_EXTERNAL_EFFECT,
+        EnforcementControl.EXPLICIT_OPERATOR_ACTION,
+        "agent_runtime.confirmed_isolated_activation",
+        actions=(PermissionAction.PROCESS_SPAWN,),
+    ),
     *(
         _contract(
             path,

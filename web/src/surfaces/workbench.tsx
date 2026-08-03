@@ -33,6 +33,7 @@ import {
   useEnvironmentActions,
 } from "../features/workbench/environment-actions";
 import { useDeferredWorkbenchProjection } from "../features/workbench/lazy-projections";
+import { useWorkbenchSessionEntry } from "../features/workbench/session-entry";
 import {
   GeneratedFilePreview,
   GeneratedFileCard,
@@ -95,7 +96,6 @@ import { observeNativeProcess } from "../native-process-stream";
 import { observeSessionUpdates } from "../session-update-stream";
 import {
   sessionCreationPayload,
-  shouldAutomaticallyCreateSession,
   type SessionCreationIntent,
 } from "../session-creation";
 import {
@@ -247,7 +247,6 @@ export function WorkbenchSurface() {
   );
   const [startedRuns, setStartedRuns] = useState<Record<string, string>>({});
   const settingsDefaultsApplied = useRef(false);
-  const automaticSessionRequested = useRef(false);
   const [sessionConfirmation, setSessionConfirmation] = useState<{
     action: SessionAction;
     id: string;
@@ -479,16 +478,13 @@ export function WorkbenchSurface() {
       void queryClient.invalidateQueries({ queryKey: requestKeys.sessionIndex() });
     },
   });
-  const createSessionMutate = createSession.mutate;
-
-  useEffect(() => {
-    if (
-      !shouldAutomaticallyCreateSession(sessionId, routeSearch)
-      || automaticSessionRequested.current
-    ) return;
-    automaticSessionRequested.current = true;
-    createSessionMutate({ kind: "backend-defaults" });
-  }, [createSessionMutate, routeSearch, sessionId]);
+  const { entryAgentError, retrySessionCreation } = useWorkbenchSessionEntry({
+    createSession: createSession.mutate,
+    defaults: settings.data?.harness_defaults,
+    harnesses: harnesses.data?.harnesses,
+    search: routeSearch,
+    sessionId,
+  });
 
   useEffect(() => {
     if (sessionId === undefined || !overview.isSuccess) return;
@@ -1067,11 +1063,17 @@ export function WorkbenchSurface() {
             )}
             {routeSearch.fromSessionAction !== true && createSession.isError ? (
               <button
-                onClick={() => createSession.mutate({ kind: "backend-defaults" })}
+                onClick={retrySessionCreation}
                 type="button"
               >
                 {message(locale, "retry")}
               </button>
+            ) : null}
+            {entryAgentError !== null ? (
+              <>
+                <p>{entryAgentError}</p>
+                <Link to="/web/coding-agents">Return to Agent runtimes</Link>
+              </>
             ) : null}
           </div>
         ) : overview.isPending ? (

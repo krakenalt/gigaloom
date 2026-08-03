@@ -18,13 +18,13 @@ flow аутентификации провайдера.
 Через `uv`:
 
 ```sh
-uv tool install 'gigaloom==0.8.0'
+uv tool install 'gigaloom==0.8.1'
 ```
 
 Или в изолированном Python-окружении:
 
 ```sh
-python -m pip install 'gigaloom==0.8.0'
+python -m pip install 'gigaloom==0.8.1'
 ```
 
 Проверьте установленный артефакт:
@@ -44,13 +44,13 @@ prompts и не обращаясь к провайдерам.
 environment с новой точной версией:
 
 ```sh
-uv tool install --force 'gigaloom==0.8.0'
+uv tool install --force 'gigaloom==0.8.1'
 ```
 
 Если использовался optional gateway extra, сохраните его явно:
 
 ```sh
-uv tool install --force 'gigaloom[gpt2giga]==0.8.0'
+uv tool install --force 'gigaloom[gpt2giga]==0.8.1'
 ```
 
 Перед обновлением остановите все процессы GigaLoom и сохраните
@@ -65,7 +65,7 @@ uv tool install --force 'gigaloom[gpt2giga]==0.8.0'
 
 ```sh
 uv tool uninstall gpt2giga-harness
-uv tool install 'gigaloom==0.8.0'
+uv tool install 'gigaloom==0.8.1'
 ```
 
 Обновите extensions, imports, scripts и frontend consumers как единый clean
@@ -164,7 +164,7 @@ Downgrade пакета отделён от rollback релиза: опублик
 legacy preset локального gateway:
 
 ```sh
-uv tool install 'gigaloom[gpt2giga]==0.8.0'
+uv tool install 'gigaloom[gpt2giga]==0.8.1'
 ```
 
 Устанавливается поддерживаемый стабильный диапазон gateway; committed lock для
@@ -178,7 +178,7 @@ sibling checkout, editable dependency или submodule не нужны. См.
 установить соответствующий npm release:
 
 ```sh
-npm install --save-exact @gigaloom/web@0.8.0
+npm install --save-exact @gigaloom/web@0.8.1
 ```
 
 Смонтируйте `dist/` package по `/web/assets/` и обслуживайте

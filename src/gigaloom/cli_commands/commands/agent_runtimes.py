@@ -46,6 +46,13 @@ def _register_agent_subcommands(subparsers: argparse._SubParsersAction) -> None:
     probe.add_argument("--json", action="store_true")
     probe.set_defaults(handler="_handle_agent_runtime_probe")
 
+    activate = subparsers.add_parser("activate")
+    activate.add_argument("local_agent_id")
+    activate.add_argument("--install-id")
+    activate.add_argument("--yes", action="store_true")
+    activate.add_argument("--json", action="store_true")
+    activate.set_defaults(handler="_handle_agent_runtime_activate")
+
     outdated = subparsers.add_parser("outdated")
     outdated.add_argument("--refresh", action="store_true")
     outdated.add_argument("--json", action="store_true")

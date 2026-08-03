@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from importlib.metadata import entry_points
-from typing import Iterable
+from collections.abc import Callable, Iterable
 
 from gigaloom.executables import ExecutableResolver
 from gigaloom.harnesses import (
@@ -55,6 +55,16 @@ class HarnessRegistry:
         )
         self.validation_reports: dict[str, HarnessValidationReport] = {}
         self.discovery_errors: list[str] = []
+        self._dynamic_provider: Callable[[], Iterable[BaseHarness]] | None = None
+
+    def bind_dynamic_provider(
+        self,
+        provider: Callable[[], Iterable[BaseHarness]],
+    ) -> None:
+        """Bind one application-owned provider for lifecycle-backed harnesses."""
+        if self._dynamic_provider is not None:
+            raise ValueError("dynamic harness provider is already bound")
+        self._dynamic_provider = provider
 
     def register(self, harness: BaseHarness) -> None:
         """Register one harness instance."""
@@ -91,20 +101,66 @@ class HarnessRegistry:
         """Return a registered harness by id."""
         harness = self._kernel.get(harness_id)
         if harness is None:
+            harness = next(
+                (
+                    item
+                    for item in self._dynamic_values()
+                    if item.spec().id == harness_id
+                ),
+                None,
+            )
+        if harness is None:
             raise UnknownHarnessError(harness_id)
         return harness
 
     def list(self) -> tuple[BaseHarness, ...]:
         """Return registered harnesses in registration order."""
-        return self._kernel.values()
+        return (*self._kernel.values(), *self._dynamic_values())
 
     def ids(self) -> tuple[str, ...]:
         """Return registered harness ids."""
-        return self._kernel.ids()
+        return tuple(sorted(item.spec().id for item in self.list()))
 
     def validation_report(self, harness_id: str) -> HarnessValidationReport | None:
         """Return the last validation report for a registered harness."""
-        return self.validation_reports.get(harness_id)
+        report = self.validation_reports.get(harness_id)
+        if report is not None:
+            return report
+        try:
+            harness = self.get(harness_id)
+        except UnknownHarnessError:
+            return None
+        return validate_harness_spec(harness.spec())
+
+    def _dynamic_values(self) -> tuple[BaseHarness, ...]:
+        provider = self._dynamic_provider
+        if provider is None:
+            return ()
+        try:
+            candidates = tuple(provider())
+        except Exception:
+            self._record_discovery_error(
+                "Dynamic harness discovery failed (details omitted)."
+            )
+            return ()
+        reserved = set(self._kernel.ids())
+        selected: list[BaseHarness] = []
+        for harness in candidates:
+            try:
+                harness_id = validate_harness_spec(harness.spec()).harness_id
+            except Exception:
+                self._record_discovery_error(
+                    "Dynamic harness metadata failed validation (details omitted)."
+                )
+                continue
+            if harness_id is None or harness_id in reserved:
+                self._record_discovery_error(
+                    "Dynamic harness id collision: keeping the registered harness."
+                )
+                continue
+            reserved.add(harness_id)
+            selected.append(harness)
+        return tuple(selected)
 
     @classmethod
     def with_builtins(
@@ -180,7 +236,9 @@ class HarnessRegistry:
         if len(self.discovery_errors) >= MAX_DISCOVERY_ERRORS:
             return
         safe_message = str(redact_secrets(message))
-        self.discovery_errors.append(safe_message[:MAX_DISCOVERY_ERROR_CHARS])
+        safe_message = safe_message[:MAX_DISCOVERY_ERROR_CHARS]
+        if safe_message not in self.discovery_errors:
+            self.discovery_errors.append(safe_message)
 
 
 def create_default_registry(

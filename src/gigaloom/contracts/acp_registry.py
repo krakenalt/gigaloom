@@ -169,7 +169,7 @@ class ACPRegistryEntryV1:
                 validate_https_url(value, field_name=label)
         authors = _normalize_authors(self.authors)
         object.__setattr__(self, "authors", authors)
-        validate_identity(self.license, field_name="ACP license")
+        validate_text(self.license, field_name="ACP license", max_chars=128)
         distributions = _normalize_distributions(self.distributions)
         object.__setattr__(self, "distributions", distributions)
         validate_digest(self.entry_digest, field_name="ACP entry digest")

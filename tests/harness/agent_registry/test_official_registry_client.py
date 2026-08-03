@@ -95,6 +95,72 @@ def test_decoder_projects_all_distribution_families_without_execution() -> None:
     )
 
 
+def test_decoder_accepts_only_the_current_empty_extensions_projection() -> None:
+    payload = _fixture_object()
+    payload["extensions"] = []
+    payload["agents"][0]["version"] = "2026.07.23"
+    payload["agents"][0]["license"] = "Apache 2.0"
+    payload["agents"][0]["distribution"]["binary"]["windows-x86_64"] = {
+        "archive": "https://downloads.example.com/agent-windows.zip",
+        "cmd": ".\\bin\\agent.exe",
+    }
+
+    catalog = decode_registry_document(_encoded(payload), fetched_at=NOW)
+
+    assert catalog.snapshot.entry_count == 6
+    entry = next(item for item in catalog.entries if item.version == "2026.07.23")
+    assert entry.license == "Apache 2.0"
+    windows = next(item for item in entry.distributions if item.platform == "windows")
+    assert windows.command == "bin/agent.exe"
+
+
+def test_decoder_binds_only_the_exact_github_release_asset_origin() -> None:
+    payload = _fixture_object()
+    target = payload["agents"][0]["distribution"]["binary"]["darwin-aarch64"]
+    target["archive"] = (
+        "https://github.com/anomalyco/opencode/releases/download/"
+        "v1.18.11/opencode-darwin-arm64.zip"
+    )
+
+    catalog = decode_registry_document(_encoded(payload), fetched_at=NOW)
+
+    verified = next(
+        item for item in catalog.entries if item.registry_id == "binary-verified"
+    ).distributions[0]
+    assert verified.network_origins == (
+        "https://github.com",
+        "https://release-assets.githubusercontent.com",
+    )
+
+    target["archive"] = (
+        "https://github.com.evil.test/anomalyco/opencode/releases/download/"
+        "v1.18.11/opencode-darwin-arm64.zip"
+    )
+    lookalike = decode_registry_document(_encoded(payload), fetched_at=NOW)
+    verified_lookalike = next(
+        item for item in lookalike.entries if item.registry_id == "binary-verified"
+    ).distributions[0]
+    assert verified_lookalike.network_origins == ("https://github.com.evil.test",)
+
+
+@pytest.mark.parametrize("extensions", [[{"id": "unknown"}], {}])
+def test_decoder_rejects_unsupported_registry_extensions(extensions: object) -> None:
+    payload = _fixture_object()
+    payload["extensions"] = extensions
+
+    with pytest.raises(RegistrySchemaError, match="registry extensions"):
+        decode_registry_document(_encoded(payload), fetched_at=NOW)
+
+
+@pytest.mark.parametrize("version", ["latest", "1", "1.2", "1.2.3.4"])
+def test_decoder_rejects_non_registry_versions(version: str) -> None:
+    payload = _fixture_object()
+    payload["agents"][0]["version"] = version
+
+    with pytest.raises(RegistrySchemaError, match="version is not registry-compatible"):
+        decode_registry_document(_encoded(payload), fetched_at=NOW)
+
+
 @pytest.mark.parametrize(
     ("mutate", "message"),
     [
@@ -212,6 +278,32 @@ def test_cache_rejects_symlinked_state_root(tmp_path: Path) -> None:
 
     with pytest.raises(RegistryCacheError, match="non-symlink directory"):
         ACPRegistryCache(linked).load(now=NOW)
+
+
+def test_explicit_refresh_repairs_a_stale_projection_pointer(tmp_path: Path) -> None:
+    cache = ACPRegistryCache(tmp_path / "cache")
+    payload = _fixture_bytes()
+    cache.store(payload, decode_registry_document(payload, fetched_at=NOW))
+    pointer = json.loads(cache.current_path.read_text(encoding="utf-8"))
+    pointer["entries_digest"] = "0" * 64
+    cache.current_path.write_text(
+        json.dumps(pointer, separators=(",", ":"), sort_keys=True),
+        encoding="utf-8",
+    )
+    transport = _FakeTransport(
+        [_response(headers=(("Content-Type", "application/json"),))]
+    )
+    client = OfficialACPRegistryClient(
+        cache=cache,
+        transport=transport,
+        now=lambda: NOW + timedelta(minutes=5),
+    )
+
+    recovered = client.catalog(refresh=True)
+
+    assert recovered.snapshot.entries_digest != "0" * 64
+    assert "If-None-Match" not in transport.requests[0].headers
+    assert cache.load(now=NOW + timedelta(minutes=5)) is not None
 
 
 def test_immutable_index_keeps_search_local_bounded_and_deterministic() -> None:

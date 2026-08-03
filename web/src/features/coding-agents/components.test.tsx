@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type {
   AgentInstallPreviewResponse,
+  AgentInstallationOperationResponse,
   AgentRegistryEntryProjection,
   InstalledAgentProjection,
 } from "../../api/agentRuntimes";
@@ -30,6 +31,61 @@ const agent: AgentRegistryEntryProjection = {
   repository: "https://example.test/source",
   version: "1.0.0",
   website: null,
+};
+
+const readyPreview: AgentInstallPreviewResponse = {
+  browser_selected_distribution: false,
+  collision_namespaces: [],
+  decisions: [{
+    distribution_digest: "2".repeat(64),
+    rank: 0,
+    reason_code: "distribution_selected",
+    status: "selected",
+  }],
+  installation_started: false,
+  local_agent_id: "generic-agent",
+  plan: {
+    architecture: "aarch64",
+    confirmation_required: true,
+    distribution_kind: "binary",
+    entry_digest: "1".repeat(64),
+    expires_at: "2026-08-03T12:10:00Z",
+    integrity_policy: "require_verified",
+    lifecycle_script_policy: "disabled",
+    local_agent_id: "generic-agent",
+    package_or_archive: "generic.zip",
+    plan_id: "plan-generic",
+    platform: "darwin",
+    registry_id: "generic-agent",
+    side_effects: ["bounded_https_download", "private_archive_extraction"],
+    snapshot_digest: "3".repeat(64),
+    version: "1.0.0",
+  },
+  proposed_local_agent_id: null,
+  reason_code: "distribution_selected",
+  schema_version: 1,
+};
+
+const runningOperation: AgentInstallationOperationResponse = {
+  content_free: true,
+  events: [
+    { observed_at: "2026-08-03T12:00:00Z", reason_code: "install_queued", sequence: 0, state: "queued" },
+    { observed_at: "2026-08-03T12:00:01Z", reason_code: "registry_entry_selected", sequence: 1, state: "resolving" },
+    { observed_at: "2026-08-03T12:00:02Z", reason_code: "distribution_selected", sequence: 2, state: "planned" },
+    { observed_at: "2026-08-03T12:00:03Z", reason_code: "install_started", sequence: 3, state: "installing" },
+  ],
+  kind: "install",
+  operation_id: "agent-op-generic",
+  registry_or_local_id: "generic-agent",
+  requested_local_agent_id: null,
+  result_active: null,
+  result_install_id: null,
+  result_local_agent_id: null,
+  result_version: null,
+  schema_version: 1,
+  status: "installing",
+  terminal: false,
+  terminal_reason_code: null,
 };
 
 describe("coding-agent marketplace components", () => {
@@ -64,6 +120,7 @@ describe("coding-agent marketplace components", () => {
         agent={agent}
         alias=""
         allowUnverified={false}
+        installError={null}
         installPending={false}
         operation={null}
         preview={preview}
@@ -80,6 +137,100 @@ describe("coding-agent marketplace components", () => {
     expect(markup).toContain("native_agent");
     expect(markup).toContain("generic-agent-acp");
     expect(markup).not.toContain("Confirm one transaction");
+  });
+
+  it("renders an install authority rejection", () => {
+    const markup = renderToStaticMarkup(
+      <AgentInstallDrawer
+        agent={agent}
+        alias=""
+        allowUnverified={false}
+        installError="Install unavailable: managed-agent network isolation authority is missing."
+        installPending={false}
+        operation={null}
+        preview={null}
+        previewPending={false}
+        onAliasChange={vi.fn()}
+        onAllowUnverifiedChange={vi.fn()}
+        onCancel={vi.fn()}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onPreview={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("Install unavailable");
+    expect(markup).toContain("network isolation authority");
+  });
+
+  it("explains the managed installation flow in user-facing language", () => {
+    const markup = renderToStaticMarkup(
+      <AgentInstallDrawer
+        agent={agent}
+        alias=""
+        allowUnverified={false}
+        installError={null}
+        installPending={false}
+        operation={runningOperation}
+        preview={readyPreview}
+        previewPending={false}
+        onAliasChange={vi.fn()}
+        onAllowUnverifiedChange={vi.fn()}
+        onCancel={vi.fn()}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onPreview={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("Installing Generic coding agent");
+    expect(markup).toContain("Step 2 of 4");
+    expect(markup).toContain("Download, verify, and unpack");
+    expect(markup).toContain("What this installation changes");
+    expect(markup).toContain("Global npm/Python packages");
+    expect(markup).toContain("Run a safe compatibility check");
+    expect(markup).toContain("Technical details");
+    expect(markup).toContain("install_started");
+    expect(markup).toContain("Cancel installation");
+    expect(markup).toContain("next safe checkpoint");
+  });
+
+  it("turns a binary download failure into actionable copy", () => {
+    const failedOperation: AgentInstallationOperationResponse = {
+      ...runningOperation,
+      events: [
+        ...runningOperation.events,
+        { observed_at: "2026-08-03T12:00:04Z", reason_code: "binary_download_failed", sequence: 4, state: "failed" },
+      ],
+      status: "failed",
+      terminal: true,
+      terminal_reason_code: "binary_download_failed",
+    };
+    const markup = renderToStaticMarkup(
+      <AgentInstallDrawer
+        agent={agent}
+        alias=""
+        allowUnverified={false}
+        installError={null}
+        installPending={false}
+        operation={failedOperation}
+        preview={readyPreview}
+        previewPending={false}
+        onAliasChange={vi.fn()}
+        onAllowUnverifiedChange={vi.fn()}
+        onCancel={vi.fn()}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onPreview={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("Could not install Generic coding agent");
+    expect(markup).toContain("Download failed");
+    expect(markup).toContain("No agent was activated");
+    expect(markup).toContain("check network or proxy access");
+    expect(markup).toContain(">Close<");
+    expect(markup).not.toContain("Cancel installation");
   });
 
   it("exposes probe, auth, update, rollback, remove, and use actions", () => {
@@ -100,6 +251,7 @@ describe("coding-agent marketplace components", () => {
         agent={installed}
         busyAction={null}
         probe={null}
+        onActivate={vi.fn()}
         onProbe={vi.fn()}
         onRemove={vi.fn()}
         onRollback={vi.fn()}
@@ -113,5 +265,41 @@ describe("coding-agent marketplace components", () => {
     }
     expect(markup).toContain("Authentication");
     expect(markup).toContain("Required");
+  });
+
+  it("explains and exposes safe activation for every inactive managed ACP revision", () => {
+    const installed: InstalledAgentProjection = {
+      activation_status: "inactive",
+      active: false,
+      auth_required: false,
+      distribution_kind: "uvx",
+      install_id: "install-future-acp",
+      local_agent_id: "future-acp",
+      probe_state: "unavailable",
+      registry_id: "future-acp",
+      update_available: false,
+      version: "2.0.0",
+    };
+    const markup = renderToStaticMarkup(
+      <InstalledAgentCard
+        agent={installed}
+        busyAction={null}
+        probe={null}
+        onActivate={vi.fn()}
+        onProbe={vi.fn()}
+        onRemove={vi.fn()}
+        onRollback={vi.fn()}
+        onUpdate={vi.fn()}
+        onUse={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("Installed, but not active yet");
+    expect(markup).toContain("temporary private home");
+    expect(markup).toContain("permits loopback only");
+    expect(markup).toContain("perform an ACP initialize handshake");
+    expect(markup).toContain("current active revision unchanged");
+    expect(markup).toContain("Check &amp; activate");
+    expect(markup).toContain('disabled="" type="button">Use in new run');
   });
 });

@@ -45,6 +45,7 @@
 .agent-install-drawer button:disabled { cursor: not-allowed; opacity: 0.5; }
 .primary-button { background: var(--accent) !important; border-color: var(--accent) !important; color: white !important; }
 .danger-button { color: var(--danger) !important; }
+.agent-install-error { color: var(--danger); font-size: 0.8rem; margin: 10px 0 0; }
 
 .registry-health {
   background: var(--surface-muted);
@@ -162,6 +163,11 @@
 .agent-card-actions { align-items: center; display: flex; gap: 7px; justify-content: flex-end; margin-top: auto; }
 .agent-card-actions.wrap { flex-wrap: wrap; }
 .agent-update-notice { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border-radius: 9px; color: var(--accent); font-size: 0.72rem; padding: 8px 10px; }
+.agent-activation-guide { background: color-mix(in srgb, var(--accent) 7%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border)); border-radius: 12px; display: grid; gap: 7px; padding: 11px 12px; }
+.agent-activation-guide strong { font-size: 0.8rem; }
+.agent-activation-guide p,
+.agent-activation-guide ol { color: var(--muted); font-size: 0.71rem; line-height: 1.45; margin: 0; }
+.agent-activation-guide ol { display: grid; gap: 4px; padding-left: 18px; }
 .probe-result { background: var(--surface-muted); border-radius: 10px; display: grid; font-size: 0.72rem; gap: 4px; padding: 10px; }
 .probe-result span { color: var(--muted); }
 
@@ -224,19 +230,60 @@
 .unverified-admission { align-items: flex-start; background: color-mix(in srgb, var(--warning) 9%, var(--surface)); border-radius: 9px; color: var(--warning); display: flex; font-size: 0.76rem; gap: 8px; padding: 10px; }
 .confirm-install { width: 100%; }
 
-.agent-operation-progress { display: grid; gap: 18px; }
-.operation-status-line { align-items: center; display: flex; gap: 12px; }
-.operation-status-line > div { display: grid; }
-.operation-status-line span { color: var(--muted); font-size: 0.68rem; }
+.agent-operation-progress { display: grid; gap: 16px; }
+.operation-status-card { align-items: flex-start; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); border-radius: 14px; display: grid; gap: 14px; grid-template-columns: auto minmax(0, 1fr); padding: 15px; }
+.operation-status-card > div { display: grid; gap: 4px; }
+.operation-status-card strong { font-size: 0.98rem; }
+.operation-status-card p { color: var(--muted); font-size: 0.76rem; line-height: 1.5; margin: 0; }
+.operation-step-label { color: var(--accent); font-size: 0.65rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
 .operation-pulse { background: var(--accent); border-radius: 50%; box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 15%, transparent); display: inline-block; height: 9px; width: 9px; }
 .operation-pulse:not(.terminal) { animation: agent-pulse 1.4s ease-in-out infinite; }
 .operation-pulse.terminal { background: var(--success); }
-.agent-operation-progress ol { display: grid; gap: 7px; list-style: none; margin: 0; padding: 0; }
-.agent-operation-progress li { align-items: center; background: var(--surface-muted); border-radius: 9px; display: flex; gap: 10px; padding: 9px; }
-.agent-operation-progress li > span { align-items: center; background: var(--surface); border-radius: 50%; display: flex; font-size: 0.65rem; height: 25px; justify-content: center; width: 25px; }
-.agent-operation-progress li div { display: grid; }
-.agent-operation-progress li strong { font-size: 0.75rem; }
-.agent-operation-progress li small { color: var(--muted); }
+.agent-operation-progress[data-status="failed"] .operation-status-card { background: color-mix(in srgb, var(--danger) 7%, var(--surface)); border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }
+.agent-operation-progress[data-status="failed"] .operation-step-label { color: var(--danger); }
+.agent-operation-progress[data-status="failed"] .operation-pulse.terminal { background: var(--danger); box-shadow: 0 0 0 6px color-mix(in srgb, var(--danger) 15%, transparent); }
+.agent-operation-progress[data-status="canceled"] .operation-pulse.terminal,
+.agent-operation-progress[data-status="inactive"] .operation-pulse.terminal { background: var(--warning); box-shadow: 0 0 0 6px color-mix(in srgb, var(--warning) 15%, transparent); }
+.install-boundary-note { background: var(--surface-muted); border-radius: 11px; display: grid; gap: 4px; padding: 12px 14px; }
+.install-boundary-note strong { font-size: 0.76rem; }
+.install-boundary-note p { color: var(--muted); font-size: 0.7rem; line-height: 1.5; margin: 0; }
+.install-boundary-note code { color: var(--text); font-size: 0.68rem; }
+.install-phase-section { display: grid; gap: 10px; }
+.install-phase-heading { align-items: baseline; display: flex; justify-content: space-between; }
+.install-phase-heading h3 { font-size: 0.85rem; margin: 0; }
+.install-phase-heading > span { color: var(--muted); font-size: 0.65rem; }
+.install-phase-list { display: grid; gap: 7px; list-style: none; margin: 0; padding: 0; }
+.install-phase-list li { align-items: center; border: 1px solid transparent; border-radius: 11px; display: grid; gap: 10px; grid-template-columns: auto minmax(0, 1fr) auto; padding: 10px; }
+.install-phase-list li[data-state="complete"] { background: color-mix(in srgb, var(--success) 5%, var(--surface-muted)); }
+.install-phase-list li[data-state="current"] { background: color-mix(in srgb, var(--accent) 7%, var(--surface-muted)); border-color: color-mix(in srgb, var(--accent) 28%, var(--border)); }
+.install-phase-list li[data-state="failed"] { background: color-mix(in srgb, var(--danger) 7%, var(--surface-muted)); border-color: color-mix(in srgb, var(--danger) 28%, var(--border)); }
+.install-phase-list li[data-state="canceled"],
+.install-phase-list li[data-state="attention"] { background: color-mix(in srgb, var(--warning) 7%, var(--surface-muted)); border-color: color-mix(in srgb, var(--warning) 28%, var(--border)); }
+.install-phase-list li[data-state="upcoming"] { opacity: 0.62; }
+.install-phase-marker { align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 50%; color: var(--muted); display: flex; font-size: 0.65rem; font-weight: 800; height: 28px; justify-content: center; width: 28px; }
+.install-phase-list li[data-state="complete"] .install-phase-marker { background: var(--success); border-color: var(--success); color: #fff; }
+.install-phase-list li[data-state="current"] .install-phase-marker { background: var(--accent); border-color: var(--accent); color: #fff; }
+.install-phase-list li[data-state="failed"] .install-phase-marker { background: var(--danger); border-color: var(--danger); color: #fff; }
+.install-phase-list li > div { display: grid; gap: 3px; }
+.install-phase-list strong { font-size: 0.75rem; }
+.install-phase-list small { color: var(--muted); font-size: 0.67rem; line-height: 1.4; }
+.install-phase-state { color: var(--muted); font-size: 0.62rem; font-weight: 750; white-space: nowrap; }
+.install-phase-list li[data-state="current"] .install-phase-state { color: var(--accent); }
+.install-phase-list li[data-state="failed"] .install-phase-state { color: var(--danger); }
+.install-phase-list li[data-state="complete"] .install-phase-state { color: var(--success); }
+.operation-technical-details { border: 1px solid var(--border); border-radius: 11px; padding: 10px 12px; }
+.operation-technical-details summary { cursor: pointer; font-size: 0.72rem; font-weight: 750; }
+.operation-technical-details > dl { display: grid; gap: 7px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 12px 0; }
+.operation-technical-details > dl div { min-width: 0; }
+.operation-technical-details dt { color: var(--muted); font-size: 0.61rem; }
+.operation-technical-details dd { font-size: 0.68rem; margin: 3px 0 0; overflow-wrap: anywhere; }
+.operation-event-log { display: grid; gap: 5px; list-style: none; margin: 0; padding: 0; }
+.operation-event-log li { align-items: center; background: var(--surface-muted); border-radius: 7px; display: grid; font-size: 0.62rem; gap: 7px; grid-template-columns: 20px minmax(70px, auto) minmax(0, 1fr); padding: 7px; }
+.operation-event-log li > span { color: var(--muted); text-align: center; }
+.operation-event-log code { font-size: 0.6rem; overflow-wrap: anywhere; }
+.operation-actions { display: grid; gap: 7px; }
+.operation-actions > button { width: 100%; }
+.operation-actions > small { color: var(--muted); font-size: 0.65rem; line-height: 1.4; text-align: center; }
 
 @keyframes agent-pulse { 50% { box-shadow: 0 0 0 10px transparent; opacity: 0.72; } }
 
@@ -259,7 +306,10 @@
   .agent-card-heading { grid-template-columns: auto minmax(0, 1fr); }
   .agent-card-heading > :last-child { grid-column: 1 / -1; justify-self: start; }
   .agent-card-facts,
-  .install-plan-facts { grid-template-columns: 1fr; }
+  .install-plan-facts,
+  .operation-technical-details > dl { grid-template-columns: 1fr; }
+  .install-phase-list li { align-items: start; grid-template-columns: auto minmax(0, 1fr); }
+  .install-phase-state { grid-column: 2; }
   .agent-card-actions > * { flex: 1 1 42%; }
   .upgrade-radar-section > header { align-items: flex-start; flex-direction: column; }
   .upgrade-radar-revisions { grid-template-columns: 1fr; }

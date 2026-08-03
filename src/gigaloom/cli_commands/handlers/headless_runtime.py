@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict
-from datetime import UTC, datetime, timedelta
 import hashlib
 import os
 from pathlib import Path
 import sys
-import tempfile
 from typing import BinaryIO, TextIO
 
 from gigaloom.cli_commands.handlers.agent_runtimes import build_agent_runtime_service
@@ -34,17 +32,6 @@ from gigaloom.execution.headless import (
     parse_headless_environment,
     write_headless_diagnostic,
 )
-from gigaloom.harnesses.acp import (
-    AcpPermissionContextV1,
-    AcpRouteIdentity,
-    begin_prompt,
-    create_acp_client,
-    new_session,
-    next_permission,
-    pin_acp_process,
-    respond_permission,
-    set_session_config,
-)
 from gigaloom.harnesses.acp.errors import (
     AcpError,
     AcpPermissionError,
@@ -54,7 +41,12 @@ from gigaloom.harnesses.acp.errors import (
 from gigaloom.harnesses.acp.usage import usage_payload
 from gigaloom.harnesses.agent_profiles.installations import AgentRuntimeService
 from gigaloom.harnesses.agent_profiles.onboarding import ManagedAgentOnboardingResult
-from gigaloom.runtime.policy import PermissionAction, PolicyDecision, permission_profile
+from gigaloom.harnesses.managed_acp import (
+    ManagedAcpAuthenticationRequired,
+    ManagedAcpStateChanged,
+    ManagedAcpTurnRequest,
+    run_managed_acp_turn,
+)
 from gigaloom.structured_processes import StructuredProcessError
 
 
@@ -88,7 +80,7 @@ def run_managed_headless_command(
             reason_code=error.reason_code,
             stdout=stdout,
         )
-    service = build_agent_runtime_service(config, network_isolation_admitted=False)
+    service = build_agent_runtime_service(config)
     backend = ManagedAcpHeadlessBackend(service)
     return run_headless_from_args(
         args,
@@ -159,7 +151,39 @@ class ManagedAcpHeadlessBackend:
             {"turn_id": f"turn-{request.invocation.run_id}"},
         )
         try:
-            return self._execute_acp(request, record, cancel_event, event_sink)
+            result = run_managed_acp_turn(
+                record,
+                ManagedAcpTurnRequest(
+                    agent_id=request.invocation.agent_id,
+                    route_id=request.invocation.route_id,
+                    model_id=request.invocation.model_id,
+                    workspace=request.invocation.workspace,
+                    prompt=request.prompt,
+                    run_id=request.invocation.run_id,
+                    permission_profile_id=request.invocation.permission_profile,
+                    network_profile=request.invocation.network_profile,
+                    timeout_seconds=request.invocation.timeout_seconds,
+                ),
+                cancel_event=cancel_event,
+                permission_sink=lambda pending: event_sink.emit(
+                    HeadlessEventKind.APPROVAL_REQUIRED,
+                    {
+                        "action_class": pending.action_class,
+                        "admissible": pending.admissible,
+                        "binding_digest": pending.binding_digest,
+                    },
+                ),
+            )
+        except ManagedAcpAuthenticationRequired:
+            return _failed(
+                HeadlessBackendStatus.AUTHENTICATION_REQUIRED,
+                "provider_authentication_required",
+            )
+        except ManagedAcpStateChanged:
+            return _failed(
+                HeadlessBackendStatus.STATE_OR_INTEGRITY_FAILED,
+                "capability_snapshot_changed",
+            )
         except (AcpRequestCancelled, AcpRequestTimeout):
             return _failed(
                 HeadlessBackendStatus.CANCELED,
@@ -172,115 +196,6 @@ class ManagedAcpHeadlessBackend:
                 HeadlessBackendStatus.AGENT_OR_TRANSPORT_FAILED,
                 "acp_transport_failed",
             )
-
-    def _execute_acp(
-        self,
-        request: HeadlessExecutionRequest,
-        record: ManagedAgentOnboardingResult,
-        cancel_event: object | None,
-        event_sink: HeadlessProgressSinkPort,
-    ) -> HeadlessExecutionResult:
-        artifact = record.artifact
-        executable = (
-            Path(artifact.managed_root) / artifact.executable_relative_path
-        ).resolve(strict=True)
-        if not executable.is_relative_to(Path(artifact.managed_root).resolve()):
-            raise ValueError("managed executable escaped its root")
-        with tempfile.TemporaryDirectory(prefix="gigaloom-headless-acp-") as root:
-            native_home = Path(root) / "home"
-            native_home.mkdir(mode=0o700)
-            environment = {
-                "HOME": str(native_home),
-                "LANG": os.environ.get("LANG", "C.UTF-8"),
-                "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-                "TMPDIR": root,
-                **dict(artifact.environment),
-            }
-            spec = pin_acp_process(
-                (str(executable), *artifact.arguments),
-                cwd=request.invocation.workspace,
-                environment=environment,
-                allowed_environment=frozenset(
-                    {"HOME", "LANG", "PATH", "TMPDIR", *dict(artifact.environment)}
-                ),
-            )
-            client = create_acp_client(
-                spec,
-                compatibility_profile_digest=record.profile.profile_digest,
-                route_identity=AcpRouteIdentity(
-                    record.profile.agent_id,
-                    request.invocation.route_id,
-                    record.profile.profile_digest,
-                ),
-            )
-            try:
-                client.start()
-                snapshot = client.initialize()
-                if snapshot.snapshot_digest != record.probe.capability_snapshot_digest:
-                    return _failed(
-                        HeadlessBackendStatus.STATE_OR_INTEGRITY_FAILED,
-                        "capability_snapshot_changed",
-                    )
-                binding = new_session(
-                    client, workspace=Path(request.invocation.workspace)
-                )
-                if request.invocation.model_id != "provider-default":
-                    set_session_config(
-                        client,
-                        binding,
-                        config_id="model",
-                        value=request.invocation.model_id,
-                    )
-                prompt = begin_prompt(client, binding, text=request.prompt)
-                context = _permission_context(request, binding)
-                while not prompt.done:
-                    if _is_canceled(cancel_event):
-                        prompt.cancel()
-                        raise AcpRequestCancelled("headless run was canceled")
-                    pending = next_permission(
-                        client,
-                        binding,
-                        context,
-                        timeout=0.05,
-                    )
-                    if pending is None:
-                        continue
-                    event_sink.emit(
-                        HeadlessEventKind.APPROVAL_REQUIRED,
-                        {
-                            "action_class": pending.action_class,
-                            "admissible": pending.admissible,
-                            "binding_digest": pending.binding_digest,
-                        },
-                    )
-                    if not pending.admissible:
-                        respond_permission(
-                            client, binding, context, pending, allow=False
-                        )
-                        prompt.cancel()
-                        return _failed(
-                            HeadlessBackendStatus.POLICY_REFUSED,
-                            "permission_refused",
-                        )
-                    option = next(
-                        (
-                            item.option_id
-                            for item in pending.options
-                            if item.kind == "allow_once"
-                        ),
-                        None,
-                    )
-                    respond_permission(
-                        client,
-                        binding,
-                        context,
-                        pending,
-                        allow=True,
-                        option_id=option,
-                    )
-                result = prompt.result(timeout=1.0)
-            finally:
-                client.close()
         if result.usage is not None:
             event_sink.emit(HeadlessEventKind.USAGE, usage_payload(result.usage))
         result_ref = HeadlessResultStore(
@@ -290,7 +205,7 @@ class ManagedAcpHeadlessBackend:
             agent_id=request.invocation.agent_id,
             route_id=request.invocation.route_id,
             stop_reason=result.stop_reason,
-            capability_snapshot_digest=snapshot.snapshot_digest,
+            capability_snapshot_digest=result.capability_snapshot_digest,
             usage=asdict(result.usage) if result.usage is not None else None,
         )
         event_sink.emit(HeadlessEventKind.ARTIFACT, {"result_ref": result_ref})
@@ -300,43 +215,6 @@ class ManagedAcpHeadlessBackend:
             capsule_ref=None,
             omissions=("provider_raw_stream", "prompt_content"),
         )
-
-
-def _permission_context(request, binding) -> AcpPermissionContextV1:  # noqa: ANN001
-    selected = permission_profile(
-        request.invocation.permission_profile,
-        origin="headless",
-    )
-    action_map = {
-        "filesystem_read": PermissionAction.WORKSPACE_READ,
-        "filesystem_write": PermissionAction.WORKSPACE_WRITE,
-        "terminal": PermissionAction.PROCESS_SPAWN,
-        "network": PermissionAction.NETWORK_CONNECT,
-    }
-    allowed = {"reasoning"}
-    allowed.update(
-        action_class
-        for action_class, action in action_map.items()
-        if selected.decision_for(action) is PolicyDecision.ALLOW
-    )
-    revision = canonical_digest(
-        {
-            "permission_profile": selected.id,
-            "network_profile": request.invocation.network_profile,
-            "allowed_action_classes": sorted(allowed),
-        }
-    )
-    return AcpPermissionContextV1(
-        agent_id=request.invocation.agent_id,
-        route_id=request.invocation.route_id,
-        run_id=request.invocation.run_id,
-        session_id=binding.gigaloom_session_id,
-        workspace_digest=binding.workspace_digest,
-        policy_revision=revision,
-        expires_at=datetime.now(UTC)
-        + timedelta(seconds=request.invocation.timeout_seconds),
-        allowed_action_classes=frozenset(allowed),
-    )
 
 
 def _headless_environment(args: argparse.Namespace, config: HarnessConfig):  # noqa: ANN202
@@ -403,11 +281,6 @@ def _failed(status: HeadlessBackendStatus, code: str) -> HeadlessExecutionResult
         omissions=("backend_result_unavailable",),
         diagnostic_code=code,
     )
-
-
-def _is_canceled(value: object | None) -> bool:
-    checker = getattr(value, "is_set", None)
-    return bool(checker()) if callable(checker) else False
 
 
 def _cancel_reason(value: object | None) -> str:

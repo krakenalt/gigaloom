@@ -1,5 +1,3 @@
-"""Bounded content-free Web operations for managed ACP agent installations."""
-
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -24,16 +22,14 @@ from gigaloom.harnesses.agent_profiles.installations.filesystem import (
     atomic_write_json,
     read_json,
 )
-from gigaloom.harnesses.agent_profiles.onboarding import (
-    ManagedAcpProbeReceipt,
-    ManagedAgentOnboardingResult,
-)
+from gigaloom.harnesses.agent_profiles.onboarding import ManagedAcpProbeReceipt
+from gigaloom.harnesses.agent_profiles.onboarding import ManagedAgentOnboardingResult
 
 
 MAX_INSTALLATION_OPERATIONS, MAX_OPERATION_EVENTS = 256, 64
 _OPERATION_ID_RE = re.compile(r"agent-op-[0-9a-f]{32}\Z")
 TERMINAL_OPERATION_STATES = frozenset(
-    {"completed", "inactive", "canceled", "failed", "recovered"}
+    "completed inactive canceled failed recovered".split()
 )
 
 
@@ -101,7 +97,8 @@ class AgentInstallationWebService:
         submit: Callable[[Callable[[], None]], None] | None = None,
     ) -> None:
         self._root = (
-            Path(data_root).resolve(strict=False) / "agent_profiles/web_operations"
+            Path(data_root).expanduser().resolve(strict=False)
+            / "agent_profiles/web_operations"
         )
         self._runtime = runtime
         self._clock = clock or (lambda: datetime.now(UTC))
@@ -136,6 +133,7 @@ class AgentInstallationWebService:
     ) -> AgentInstallationWebOperation:
         if not confirmed:
             raise ValueError("managed agent Web install requires confirmation")
+        self._runtime.require_install_authority()
         operation = self._create(
             kind="install",
             registry_or_local_id=registry_query,
@@ -156,6 +154,7 @@ class AgentInstallationWebService:
     ) -> AgentInstallationWebOperation:
         if not confirmed:
             raise ValueError("managed agent Web update requires confirmation")
+        self._runtime.require_install_authority()
         operation = self._create(
             kind="update",
             registry_or_local_id=local_agent_id,
@@ -194,7 +193,6 @@ class AgentInstallationWebService:
         *,
         timeout_seconds: float = 1.0,
     ) -> tuple[tuple[AgentInstallationWebEvent, ...], bool]:
-        """Wait for bounded monotonic events used by the SSE projection."""
         if after_sequence < -1 or not 0 < timeout_seconds <= 5:
             raise ValueError("agent installation event cursor is invalid")
         with self._changed:
@@ -211,7 +209,6 @@ class AgentInstallationWebService:
             return events, _snapshot(operation).terminal
 
     def recover(self) -> AgentInstallationRecovery:
-        """Recover owned staging journals and mark interrupted Web operations."""
         staging = self._runtime.recover_abandoned()
         recovered = []
         with self._lock:
@@ -235,6 +232,11 @@ class AgentInstallationWebService:
     def probe(self, local_agent_id: str) -> ManagedAcpProbeReceipt:
         return self._runtime.probe(local_agent_id)
 
+    def activate(
+        self, local_agent_id: str, install_id: str | None, *, confirmed: bool
+    ) -> ManagedAgentOnboardingResult:
+        return self._runtime.activate(local_agent_id, install_id, confirmed=confirmed)
+
     def rollback(self, local_agent_id: str, *, confirmed: bool) -> AgentActivationV1:
         if not confirmed:
             raise ValueError("managed agent Web rollback requires confirmation")
@@ -244,8 +246,9 @@ class AgentInstallationWebService:
         return self._runtime.remove(local_agent_id, confirmed=confirmed)
 
     def use_in_new_run(self, local_agent_id: str) -> tuple[str, str]:
-        """Validate the selected managed id and return an authority-free deep link."""
         record = self._runtime.inspect(local_agent_id)
+        if not record.active:
+            raise ValueError("managed agent revision is inactive")
         selected = record.artifact.local_agent_id
         return selected, f"/web/work?{urlencode({'agent': selected})}"
 

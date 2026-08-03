@@ -36,7 +36,7 @@ from gigaloom.execution.api import (
     RouteAdvisorApplicationService,
     RouteRecommendationSource,
 )
-from gigaloom.harnesses.api import AgentProfileV1
+from gigaloom.harnesses.api import AgentProfileV1, acp_harnesses
 from gigaloom.github_environments import GitHubEnvironmentService
 from gigaloom.handoff_capsules import HandoffCapsuleService
 from gigaloom.integration_flows import IntegrationFlowService
@@ -359,7 +359,10 @@ def build_app_services(
             group_service=grouped_integration_service,
         )
     )
-    agent_runtimes = build_agent_runtime_web_bundle(config, profiles=agent_profiles)
+    agent_runtimes = build_agent_runtime_web_bundle(
+        config, profiles=agent_profiles, reserved_agent_ids=registry.ids()
+    )
+    registry.bind_dynamic_provider(lambda: acp_harnesses(agent_runtimes.runtime))
     profiles = agent_runtimes.profiles
     lane_delta_builder = LaneDeltaBuilder()
     lane_delta_store = FilesystemLaneDeltaPacketStore(config.data_dir)

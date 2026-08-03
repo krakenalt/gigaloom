@@ -109,41 +109,32 @@ class ManagedAgentOnboardingService:
             probe.receipt_digest,
             now,
         )
-        compatibility = _compatibility_observation(
+        compatibility = build_compatibility_observation(
             profile,
-            entry,
             artifact,
             probe,
+            reviewed_version=entry.version,
+            entry_digest=entry.entry_digest,
             observed_at=now,
             expires_at=now + self._compatibility_ttl,
         )
-        active = (
-            compatibility.status
-            in {
-                CompatibilityStatus.VERIFIED,
-                CompatibilityStatus.COMPATIBLE_UNVERIFIED,
-            }
-            and probe.protocol_state == ProtocolNegotiationState.CONFORMANT.value
-        )
+        active = managed_probe_is_activatable(compatibility, probe)
         if active:
-            activation_status = (
-                AgentActivationStatus.DEGRADED
-                if probe.auth_methods or probe.losses or probe.warnings
-                else AgentActivationStatus.READY
-            )
             activation = self._activation_store.activate(
                 artifact,
                 profile_digest=profile.profile_digest,
                 compatibility_observation_digest=compatibility.probe_digest,
-                status=activation_status,
+                status=managed_activation_status(probe),
                 activated_at=now,
             )
         else:
-            activation = self._inactive_activation(
+            current = self._activation_store.current(artifact.local_agent_id)
+            activation = build_inactive_activation(
                 artifact,
                 profile.profile_digest,
                 compatibility.probe_digest,
                 now,
+                previous_install_id=(current[0].install_id if current else None),
             )
         evidence = _append_transition(
             evidence,
@@ -152,7 +143,7 @@ class ManagedAgentOnboardingService:
             activation.activation_id,
             now,
         )
-        omissions = _omissions(probe, active=active)
+        omissions = managed_activation_omissions(probe, active=active)
         receipt = AgentInstallationReceiptV1(
             receipt_id="receipt-"
             + canonical_digest(
@@ -196,38 +187,6 @@ class ManagedAgentOnboardingService:
         self._record_store.save(result)
         return result
 
-    def _inactive_activation(
-        self,
-        artifact: ManagedAgentArtifactV1,
-        profile_digest: str,
-        compatibility_digest: str,
-        activated_at: datetime,
-    ) -> AgentActivationV1:
-        current = self._activation_store.current(artifact.local_agent_id)
-        previous_install_id = current[0].install_id if current is not None else None
-        activation_id = (
-            "activation-"
-            + canonical_digest(
-                {
-                    "install_id": artifact.install_id,
-                    "previous_install_id": previous_install_id,
-                    "profile_digest": profile_digest,
-                    "compatibility_digest": compatibility_digest,
-                    "status": AgentActivationStatus.INACTIVE.value,
-                }
-            )[:24]
-        )
-        return AgentActivationV1(
-            activation_id=activation_id,
-            install_id=artifact.install_id,
-            previous_install_id=previous_install_id,
-            local_agent_id=artifact.local_agent_id,
-            profile_digest=profile_digest,
-            compatibility_observation_digest=compatibility_digest,
-            activated_at=activated_at,
-            status=AgentActivationStatus.INACTIVE,
-        )
-
     @staticmethod
     def _validate_bindings(
         plan: AgentInstallPlanV1,
@@ -269,12 +228,13 @@ class ManagedAgentOnboardingService:
         return value
 
 
-def _compatibility_observation(
+def build_compatibility_observation(
     profile,
-    entry,
     artifact,
     probe: ManagedAcpProbeReceipt,
     *,
+    reviewed_version: str,
+    entry_digest: str,
     observed_at: datetime,
     expires_at: datetime,
 ):  # noqa: ANN001, ANN202
@@ -303,12 +263,12 @@ def _compatibility_observation(
         profile_digest=profile.profile_digest,
         executable=ExecutableObservationV1(
             executable_identity=probe.process_fingerprint,
-            reported_version=entry.version if probe.executable_observed else None,
+            reported_version=reviewed_version if probe.executable_observed else None,
             observed=probe.executable_observed,
         ),
         reviewed_version=ReviewedVersionEvidenceV1(
             state=ReviewedVersionState.NOT_APPLICABLE,
-            evidence_digest=entry.entry_digest,
+            evidence_digest=entry_digest,
             exact_evidence_matched=False,
         ),
         protocol=ProtocolNegotiationV1(
@@ -377,7 +337,64 @@ def _append_transition(
     )
 
 
-def _omissions(
+def managed_probe_is_activatable(
+    compatibility,
+    probe: ManagedAcpProbeReceipt,
+) -> bool:  # noqa: ANN001
+    return (
+        compatibility.status
+        in {
+            CompatibilityStatus.VERIFIED,
+            CompatibilityStatus.COMPATIBLE_UNVERIFIED,
+        }
+        and probe.protocol_state == ProtocolNegotiationState.CONFORMANT.value
+    )
+
+
+def managed_activation_status(
+    probe: ManagedAcpProbeReceipt,
+) -> AgentActivationStatus:
+    return (
+        AgentActivationStatus.DEGRADED
+        if probe.auth_methods or probe.losses or probe.warnings
+        else AgentActivationStatus.READY
+    )
+
+
+def build_inactive_activation(
+    artifact: ManagedAgentArtifactV1,
+    profile_digest: str,
+    compatibility_digest: str,
+    activated_at: datetime,
+    *,
+    previous_install_id: str | None,
+) -> AgentActivationV1:
+    activation_id = (
+        "activation-"
+        + canonical_digest(
+            {
+                "install_id": artifact.install_id,
+                "previous_install_id": previous_install_id,
+                "profile_digest": profile_digest,
+                "compatibility_digest": compatibility_digest,
+                "status": AgentActivationStatus.INACTIVE.value,
+                "activated_at": activated_at.isoformat(),
+            }
+        )[:24]
+    )
+    return AgentActivationV1(
+        activation_id=activation_id,
+        install_id=artifact.install_id,
+        previous_install_id=previous_install_id,
+        local_agent_id=artifact.local_agent_id,
+        profile_digest=profile_digest,
+        compatibility_observation_digest=compatibility_digest,
+        activated_at=activated_at,
+        status=AgentActivationStatus.INACTIVE,
+    )
+
+
+def managed_activation_omissions(
     probe: ManagedAcpProbeReceipt,
     *,
     active: bool,

@@ -128,9 +128,22 @@ class AcpStdioTransport(StdioJsonRpcTransport):
 class AcpTransportFactory:
     """Create generation-labelled transports after rechecking file identity."""
 
-    def __init__(self, spec: AcpProcessSpec, limits: AcpLimits) -> None:
+    def __init__(
+        self,
+        spec: AcpProcessSpec,
+        limits: AcpLimits,
+        *,
+        launch_command: Sequence[str] | None = None,
+    ) -> None:
         self.spec = spec
         self.limits = limits
+        self._launch_command = tuple(launch_command or spec.command)
+        if (
+            not self._launch_command
+            or not Path(self._launch_command[0]).is_absolute()
+            or any(not token or "\x00" in token for token in self._launch_command)
+        ):
+            raise ValueError("ACP launch command is invalid")
         self._generation = 0
         self._lock = threading.Lock()
 
@@ -144,7 +157,7 @@ class AcpTransportFactory:
             self._generation += 1
             generation = self._generation
         return AcpStdioTransport(
-            command=self.spec.command,
+            command=self._launch_command,
             runtime_id=(f"acp-{self.spec.executable.fingerprint[:16]}-{generation}"),
             env=self.spec.env,
             cwd=self.spec.cwd,
