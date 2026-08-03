@@ -1,5 +1,9 @@
+import random
+import unicodedata
+
 import pytest
 
+import gigaloom.attachments.encoding as attachment_encoding
 from gigaloom.attachments import (
     AttachmentCharsetEvidence,
     TextAttachmentDecodeError,
@@ -146,3 +150,80 @@ def test_charset_evidence_type_is_content_free():
     )
 
     assert "text" not in evidence.__dict__
+
+
+@pytest.mark.parametrize(
+    "payload",
+    (
+        b"\x7fELF" + b"\x02\x01" + b"\x00" * 64,
+        b"MZ" + b"\x90\x00" * 32,
+        b"\x1f\x8b" + b"\x08\x00" + b"archive",
+        b"7z\xbc\xaf\x27\x1c" + b"archive",
+        b"Rar!\x1a\x07\x01\x00" + b"archive",
+        b"\xca\xfe\xba\xbe" + b"executable",
+        b"\x00" * 4096,
+        bytes(range(1, 32)) * 128,
+    ),
+)
+def test_rejects_image_archive_executable_and_nul_heavy_binaries(payload):
+    with pytest.raises(TextAttachmentDecodeError):
+        decode_attachment_text(payload)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    (
+        b"A\x00B\x00\x01\x02C\x00",
+        b"\x00A\x00B\x02\x01\x00C",
+        b"A\x00\x00\x00B\x00\x01\x00",
+        b"\x00\x00\x00A\x00\x01\x00B",
+    ),
+)
+def test_rejects_adversarial_utf16_and_utf32_like_bytes(payload):
+    with pytest.raises(TextAttachmentDecodeError):
+        decode_attachment_text(payload)
+
+
+def test_heuristics_are_bounded_to_the_declared_sample(monkeypatch):
+    source = "Привет мир, это проверка текста.\n".encode("windows-1251")
+    payload = source * 10_000
+    observed_lengths: list[int] = []
+    original_plausibility = attachment_encoding._russian_plausibility
+
+    def observe_plausibility(text):
+        observed_lengths.append(len(text))
+        return original_plausibility(text)
+
+    monkeypatch.setattr(
+        attachment_encoding, "_russian_plausibility", observe_plausibility
+    )
+    result = decode_attachment_text(payload)
+
+    assert result.charset == "windows-1251"
+    assert observed_lengths
+    assert max(observed_lengths) <= attachment_encoding.HEURISTIC_SAMPLE_BYTES
+
+
+def test_valid_utf8_fast_path_skips_per_character_unicode_scan(monkeypatch):
+    def fail_category(_character):
+        raise AssertionError("valid UTF-8 fast path must not scan Unicode categories")
+
+    monkeypatch.setattr(unicodedata, "category", fail_category)
+    payload = ("# hello мир\nprint(42)\n" * 12_000).encode()
+
+    result = decode_attachment_text(payload)
+
+    assert result.charset == "utf-8"
+    assert result.text.encode() == payload
+
+
+def test_random_binary_corpus_is_never_returned_with_replacements():
+    generator = random.Random(20260804)
+    for size in (1, 7, 31, 257, 4096):
+        payload = generator.randbytes(size)
+        try:
+            decoded = decode_attachment_text(payload)
+        except TextAttachmentDecodeError:
+            continue
+        assert "�" not in decoded.text
+        assert decoded.text.encode(decoded.charset) == payload

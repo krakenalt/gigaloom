@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import re
 from typing import Any, Mapping
 import unicodedata
 
 HEURISTIC_SAMPLE_BYTES = 64 * 1024
+UTF8_CONTROL_SAMPLE_BYTES = 8 * 1024
 SUPPORTED_CHARSETS = frozenset(
     {
         "utf-8",
@@ -38,6 +40,10 @@ _BINARY_SIGNATURES = (
     b"\x1f\x8b",
     b"BZh",
     b"7z\xbc\xaf\x27\x1c",
+    b"Rar!\x1a\x07",
+    b"\xca\xfe\xba\xbe",
+    b"\xcf\xfa\xed\xfe",
+    b"\xfe\xed\xfa\xcf",
     b"\x89PNG\r\n\x1a\n",
     b"\xff\xd8\xff",
     b"GIF87a",
@@ -66,6 +72,7 @@ _COMMON_RUSSIAN_FRAGMENTS = (
     "ая",
 )
 _COMMON_RUSSIAN_LETTERS = frozenset("оеаинтсрвлкмдпуяыьгзбчйхжшюцщэфъё")
+_UTF8_CONTROL_RE = re.compile(rb"[\x01-\x08\x0b\x0e-\x1f\x7f]")
 
 
 class TextAttachmentDecodeError(ValueError):
@@ -210,7 +217,7 @@ def decode_attachment_text(data: bytes) -> DecodedAttachmentText:
         pass
     else:
         utf8_was_valid = True
-        if _is_plausible_text(utf8_text):
+        if _is_plausible_utf8(utf8_text, payload):
             return DecodedAttachmentText(
                 text=utf8_text,
                 charset="utf-8",
@@ -243,7 +250,7 @@ def decode_attachment_text_prefix(data: bytes) -> DecodedAttachmentText:
                 text = candidate.decode("utf-8")
             except UnicodeDecodeError:
                 continue
-            if _is_plausible_text(text):
+            if _is_plausible_utf8(text, candidate):
                 return DecodedAttachmentText(
                     text=text,
                     charset="utf-8",
@@ -276,7 +283,12 @@ def _decode_bom(payload: bytes) -> DecodedAttachmentText | None:
             text = payload[len(bom) :].decode(charset.removesuffix("-sig"))
         except UnicodeDecodeError as exc:
             raise TextAttachmentDecodeError("malformed_bom_encoding") from exc
-        if not _is_plausible_text(text):
+        plausible = (
+            _is_plausible_utf8(text, payload[len(bom) :])
+            if charset == "utf-8-sig"
+            else _is_plausible_text(text)
+        )
+        if not plausible:
             raise TextAttachmentDecodeError("binary_content")
         return DecodedAttachmentText(
             text=text,
@@ -351,7 +363,7 @@ def _decode_legacy_cyrillic(payload: bytes) -> DecodedAttachmentText | None:
             continue
         if text.encode(charset) != payload or not _is_plausible_text(text):
             continue
-        score = _russian_plausibility(text)
+        score = _russian_plausibility(text[:HEURISTIC_SAMPLE_BYTES])
         if score >= 0.58:
             candidates.append((score, charset, text))
     if not candidates:
@@ -396,11 +408,20 @@ def _is_plausible_text(text: str) -> bool:
         return False
     if not text:
         return True
+    sample = text[:HEURISTIC_SAMPLE_BYTES]
     controls = sum(
         unicodedata.category(char) == "Cc" and char not in _ALLOWED_CONTROLS
-        for char in text
+        for char in sample
     )
-    return controls <= min(8, max(2, len(text) // 100))
+    return controls <= min(8, max(2, len(sample) // 100))
+
+
+def _is_plausible_utf8(text: str, payload: bytes) -> bool:
+    if "\ufffd" in text or "\x00" in text:
+        return False
+    sample = payload[:UTF8_CONTROL_SAMPLE_BYTES]
+    controls = len(_UTF8_CONTROL_RE.findall(sample))
+    return controls <= min(8, max(2, len(sample) // 100))
 
 
 def _has_binary_signature(payload: bytes) -> bool:
