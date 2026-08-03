@@ -1,0 +1,110 @@
+.work-first-destination {
+  min-width: 0;
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--surface);
+}
+
+.work-first-destination-header {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.work-first-destination-header > div:first-child {
+  min-width: 0;
+}
+
+.work-first-destination-header h1 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.work-first-destination-header p {
+  max-width: 720px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.work-first-destination-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.work-first-destination-body {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  align-content: start;
+}
+
+.work-first-work-layout,
+.work-first-split-layout {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.34fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.work-first-context-slot,
+.work-first-list-slot,
+.work-first-detail-slot,
+.work-first-narrative-slot,
+.work-first-composer-slot,
+.work-first-more-layout {
+  min-width: 0;
+}
+
+.work-first-context-slot,
+.work-first-list-slot {
+  border-right: 1px solid var(--border);
+}
+
+.work-first-composer-slot {
+  position: sticky;
+  bottom: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.work-first-more-layout {
+  display: grid;
+  gap: 1px;
+  background: var(--border);
+}
+
+@media (max-width: 760px) {
+  .work-first-destination-header {
+    padding: 14px;
+  }
+
+  .work-first-destination-header h1 {
+    font-size: 19px;
+  }
+
+  .work-first-destination-actions {
+    align-items: flex-end;
+    flex-direction: column;
+  }
+
+  .work-first-work-layout,
+  .work-first-split-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .work-first-context-slot,
+  .work-first-list-slot {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+}
