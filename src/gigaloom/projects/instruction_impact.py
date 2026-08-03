@@ -33,12 +33,14 @@ from .instruction_discovery import (
 
 
 EFFECTIVE_INSTRUCTIONS_FORMAT = "gigaloom.effective-instructions.v1"
+MAX_EFFECTIVE_INSTRUCTION_CONFLICTS = 512
 
 
 class InstructionUncertaintyKind(str, Enum):
     """Why an Effective Instructions claim is incomplete."""
 
     ADAPTER_REVISION_UNKNOWN = "adapter_revision_unknown"
+    CONFLICTS_TRUNCATED = "conflicts_truncated"
     DISCOVERY_TRUNCATED = "discovery_truncated"
     OWNER_PRECEDENCE_UNKNOWN = "owner_precedence_unknown"
     SOURCE_OMITTED = "source_omitted"
@@ -209,7 +211,17 @@ def compile_effective_instructions(
         config_digest=config_digest,
         sources=tuple(_lens_source(item) for item in sources),
     )
-    conflicts = _conflicts(sources)
+    conflicts, conflicts_truncated = _conflicts(sources)
+    if conflicts_truncated:
+        uncertainties = _sort_uncertainties(
+            (
+                *uncertainties,
+                EffectiveInstructionUncertaintyV1(
+                    kind=InstructionUncertaintyKind.CONFLICTS_TRUNCATED,
+                    reason=f"conflicts_exceed_{MAX_EFFECTIVE_INSTRUCTION_CONFLICTS}",
+                ),
+            )
+        )
     return EffectiveInstructionsProjectionV1(
         source_revision=discovery.source_revision,
         discovery_digest=discovery.discovery_digest,
@@ -414,22 +426,12 @@ def _uncertainties(
                     materialization_owner=source.materialization_owner,
                 )
             )
-    return tuple(
-        sorted(
-            items,
-            key=lambda item: (
-                item.kind.value,
-                item.materialization_owner or "",
-                item.source_id or "",
-                item.reason,
-            ),
-        )
-    )
+    return _sort_uncertainties(items)
 
 
 def _conflicts(
     sources: tuple[EffectiveInstructionSourceV1, ...],
-) -> tuple[EffectiveInstructionConflictV1, ...]:
+) -> tuple[tuple[EffectiveInstructionConflictV1, ...], bool]:
     included = tuple(
         item for item in sources if item.disposition is ContextDisposition.INCLUDE
     )
@@ -442,6 +444,8 @@ def _conflicts(
                 sorted({left.materialization_owner, right.materialization_owner})
             )
             if len(owners) > 1:
+                if len(conflicts) >= MAX_EFFECTIVE_INSTRUCTION_CONFLICTS:
+                    return _sort_conflicts(conflicts), True
                 conflicts.append(
                     EffectiveInstructionConflictV1(
                         kind=InstructionConflictKind.CROSS_OWNER_SCOPE_OVERLAP,
@@ -451,6 +455,8 @@ def _conflicts(
                     )
                 )
             elif left.precedence is None or left.precedence == right.precedence:
+                if len(conflicts) >= MAX_EFFECTIVE_INSTRUCTION_CONFLICTS:
+                    return _sort_conflicts(conflicts), True
                 conflicts.append(
                     EffectiveInstructionConflictV1(
                         kind=InstructionConflictKind.OWNER_PRECEDENCE_AMBIGUOUS,
@@ -459,7 +465,29 @@ def _conflicts(
                         resolution="adapter_review_required",
                     )
                 )
+    return _sort_conflicts(conflicts), False
+
+
+def _sort_conflicts(
+    conflicts: Iterable[EffectiveInstructionConflictV1],
+) -> tuple[EffectiveInstructionConflictV1, ...]:
     return tuple(sorted(conflicts, key=lambda item: (item.kind.value, item.source_ids)))
+
+
+def _sort_uncertainties(
+    items: Iterable[EffectiveInstructionUncertaintyV1],
+) -> tuple[EffectiveInstructionUncertaintyV1, ...]:
+    return tuple(
+        sorted(
+            items,
+            key=lambda item: (
+                item.kind.value,
+                item.materialization_owner or "",
+                item.source_id or "",
+                item.reason,
+            ),
+        )
+    )
 
 
 def _scopes_overlap(left: str, right: str) -> bool:
@@ -531,6 +559,7 @@ def _config_digest(
 
 __all__ = [
     "EFFECTIVE_INSTRUCTIONS_FORMAT",
+    "MAX_EFFECTIVE_INSTRUCTION_CONFLICTS",
     "EffectiveInstructionConflictV1",
     "EffectiveInstructionSourceV1",
     "EffectiveInstructionUncertaintyV1",

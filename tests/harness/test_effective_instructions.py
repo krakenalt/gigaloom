@@ -7,7 +7,7 @@ import subprocess
 
 import pytest
 
-from gigaloom.projects import api
+from gigaloom.projects.api import instructions_api as api
 
 
 def test_nested_agent_instructions_have_owner_precedence_and_token_estimates(
@@ -156,6 +156,44 @@ def test_target_path_and_revision_bindings_are_bounded(tmp_path: Path) -> None:
             discovery,
             materialization_revisions={"agent_adapter": "bad\nrevision"},
         )
+
+
+def test_conflict_projection_is_bounded_with_explicit_uncertainty() -> None:
+    discovery = api.ProjectInstructionDiscoveryV1(
+        source_revision="1" * 40,
+        discovery_digest="a" * 64,
+        sources=tuple(
+            api.DiscoveredProjectInstructionV1(
+                source_id=f"pins_{index:024x}",
+                selector_id="provider.test",
+                kind=api.ProjectInstructionKind.PROVIDER_RULE,
+                relative_path=f"rules/rule-{index}.md",
+                scope=api.ProjectInstructionScope.PROJECT,
+                scope_path="",
+                source_digest=f"{index:064x}",
+                size_bytes=10,
+                materialization_owner="test_adapter",
+            )
+            for index in range(34)
+        ),
+        omissions=(),
+        scanned_path_count=34,
+        scanned_paths_truncated=False,
+        max_git_paths=100,
+        max_sources=100,
+        max_file_bytes=1_000,
+    )
+
+    projection = api.compile_effective_instructions(
+        discovery,
+        selected_materialization_owners=("test_adapter",),
+        materialization_revisions={"test_adapter": "test-v1"},
+    )
+
+    assert len(projection.conflicts) == api.MAX_EFFECTIVE_INSTRUCTION_CONFLICTS
+    assert any(
+        item.kind.value == "conflicts_truncated" for item in projection.uncertainties
+    )
 
 
 def _repository(tmp_path: Path) -> Path:

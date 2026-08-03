@@ -7,7 +7,7 @@ import subprocess
 
 import pytest
 
-from gigaloom.projects import api
+from gigaloom.projects.api import instructions_api as api
 
 
 def test_discovers_git_visible_nested_rules_and_selected_prompts(

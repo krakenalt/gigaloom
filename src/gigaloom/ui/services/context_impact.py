@@ -30,8 +30,12 @@ class ImpactProjectionOutcome:
     cache_hit: bool
 
 
+class StaleEffectiveInstructionsProjectionError(LookupError):
+    """Raised when detail no longer matches a caller-observed discovery."""
+
+
 class ImpactProjectionService:
-    """Compile cold indexes and project explicit immutable warm snapshots."""
+    """Compile bounded read-only project impact and instruction projections."""
 
     def __init__(
         self,
@@ -70,9 +74,40 @@ class ImpactProjectionService:
             cache_hit=cache_hit,
         )
 
+    def effective_instructions(
+        self,
+        *,
+        workspace: str,
+        target_path: str = "",
+        selected_materialization_owners: Iterable[str] | None = None,
+        selected_source_ids: Iterable[str] = (),
+        materialization_revisions: dict[str, str] | None = None,
+        expected_materialization_revisions: dict[str, str] | None = None,
+        expected_discovery_digest: str | None = None,
+    ) -> projects_api.instructions_api.EffectiveInstructionsProjectionV1:
+        """Return a fresh content-free projection bound to optional prior digest."""
+        root = Path(workspace).expanduser().resolve()
+        discovery = projects_api.instructions_api.discover_project_instructions(root)
+        if (
+            expected_discovery_digest is not None
+            and discovery.discovery_digest != expected_discovery_digest
+        ):
+            raise StaleEffectiveInstructionsProjectionError(
+                "Effective Instructions discovery changed; resnapshot required"
+            )
+        return projects_api.instructions_api.compile_effective_instructions(
+            discovery,
+            target_path=target_path,
+            selected_materialization_owners=selected_materialization_owners,
+            selected_source_ids=selected_source_ids,
+            materialization_revisions=materialization_revisions,
+            expected_materialization_revisions=(expected_materialization_revisions),
+        )
+
 
 __all__ = [
     "ContextProjectionQuery",
     "ImpactProjectionOutcome",
     "ImpactProjectionService",
+    "StaleEffectiveInstructionsProjectionError",
 ]

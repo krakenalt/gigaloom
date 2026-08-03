@@ -206,6 +206,130 @@ def test_impact_api_rejects_unbounded_or_escaping_requests(tmp_path: Path) -> No
     assert partial_binding.status_code == 422
 
 
+def test_effective_instructions_api_pages_content_free_summary(
+    tmp_path: Path,
+) -> None:
+    repo = _repository(tmp_path)
+    _write(repo / "AGENTS.md", "root-private-instruction\n")
+    _write(repo / "src/AGENTS.md", "nested-private-instruction\n")
+    _commit(repo)
+    client = _client(tmp_path)
+    params = [
+        ("workspace", str(repo)),
+        ("target_path", "src/example/service.py"),
+        ("materialization_owner", "agent_adapter"),
+        ("materialization_revision", "agent_adapter=agents-v1"),
+        ("limit", "1"),
+    ]
+
+    response = client.get("/api/project/effective-instructions", params=params)
+
+    assert response.status_code == 200
+    body = response.json()
+    summary = body["effective_instructions"]
+    assert summary["format"] == "gigaloom.effective-instructions.v1"
+    assert summary["source_count"] == 2
+    assert summary["included_count"] == 2
+    assert summary["read_only"] is True
+    assert summary["auto_materialized"] is False
+    assert len(body["sources"]) == 1
+    assert body["next_cursor"] == 1
+    assert "private-instruction" not in response.text
+
+    next_page = client.get(
+        "/api/project/effective-instructions",
+        params=[*params, ("cursor", "1")],
+    )
+    assert next_page.status_code == 200
+    assert len(next_page.json()["sources"]) == 1
+    assert next_page.json()["next_cursor"] is None
+
+
+def test_effective_instruction_detail_is_bound_to_discovery_digest(
+    tmp_path: Path,
+) -> None:
+    repo = _repository(tmp_path)
+    _write(repo / "AGENTS.md", "root-private-instruction\n")
+    _commit(repo)
+    client = _client(tmp_path)
+    summary_response = client.get(
+        "/api/project/effective-instructions",
+        params={
+            "workspace": str(repo),
+            "materialization_owner": "agent_adapter",
+            "materialization_revision": "agent_adapter=agents-v1",
+        },
+    )
+    body = summary_response.json()
+    source_id = body["sources"][0]["source_id"]
+    digest = body["effective_instructions"]["discovery_digest"]
+    detail_params = {
+        "workspace": str(repo),
+        "discovery_digest": digest,
+        "materialization_owner": "agent_adapter",
+        "materialization_revision": "agent_adapter=agents-v1",
+    }
+
+    detail = client.get(
+        f"/api/project/effective-instructions/{source_id}",
+        params=detail_params,
+    )
+
+    assert detail.status_code == 200
+    assert detail.json()["source"]["source_id"] == source_id
+    assert "private-instruction" not in detail.text
+
+    missing = client.get(
+        "/api/project/effective-instructions/pins_missing",
+        params=detail_params,
+    )
+    assert missing.status_code == 404
+    assert missing.json()["detail"]["code"] == "instruction_source_not_found"
+
+    _write(repo / "AGENTS.md", "changed-private-instruction\n")
+    stale = client.get(
+        f"/api/project/effective-instructions/{source_id}",
+        params=detail_params,
+    )
+    assert stale.status_code == 409
+    assert stale.json()["detail"]["code"] == "resnapshot_required"
+
+
+def test_effective_instructions_api_rejects_unbounded_bindings_and_cursor(
+    tmp_path: Path,
+) -> None:
+    repo = _repository(tmp_path)
+    _write(repo / "AGENTS.md", "agent\n")
+    _commit(repo)
+    client = _client(tmp_path)
+
+    malformed = client.get(
+        "/api/project/effective-instructions",
+        params={
+            "workspace": str(repo),
+            "materialization_revision": "missing-separator",
+        },
+    )
+    duplicate = client.get(
+        "/api/project/effective-instructions",
+        params=[
+            ("workspace", str(repo)),
+            ("materialization_revision", "agent_adapter=v1"),
+            ("materialization_revision", "agent_adapter=v2"),
+        ],
+    )
+    cursor = client.get(
+        "/api/project/effective-instructions",
+        params={"workspace": str(repo), "cursor": 2},
+    )
+
+    assert malformed.status_code == 422
+    assert malformed.json()["detail"]["code"] == "invalid_instruction_request"
+    assert duplicate.status_code == 422
+    assert cursor.status_code == 422
+    assert cursor.json()["detail"]["code"] == "invalid_instruction_cursor"
+
+
 def _repository(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     repo.mkdir()
