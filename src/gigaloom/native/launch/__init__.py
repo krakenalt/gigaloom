@@ -1,5 +1,24 @@
 """Public native-agent launch contracts."""
 
+from __future__ import annotations
+
+from importlib import import_module
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from gigaloom.native.launch.gateway_sidecar import (
+        DEFAULT_GATEWAY_STARTUP_POLL_SECONDS,
+        DEFAULT_GATEWAY_STARTUP_TIMEOUT_SECONDS,
+        GatewayArtifactEvidenceV1,
+        GatewayProcessLeaseOwner,
+        GatewaySidecarReason,
+        GatewaySidecarStatus,
+        GatewayStartupReadinessProbe,
+        ManagedGatewayLeaseV1,
+        ManagedGatewaySidecarService,
+        UrlLibGatewayStartupReadinessProbe,
+    )
+
 from gigaloom.native.launch.contracts import (
     AgentResolutionKind,
     AgentResolutionReason,
@@ -58,18 +77,6 @@ from gigaloom.native.launch.gateway_injection import (
     GatewayInjectionStatus,
     build_gateway_agent_injection,
 )
-from gigaloom.native.launch.gateway_sidecar import (
-    DEFAULT_GATEWAY_STARTUP_POLL_SECONDS,
-    DEFAULT_GATEWAY_STARTUP_TIMEOUT_SECONDS,
-    GatewayArtifactEvidenceV1,
-    GatewayProcessLeaseOwner,
-    GatewaySidecarReason,
-    GatewaySidecarStatus,
-    GatewayStartupReadinessProbe,
-    ManagedGatewayLeaseV1,
-    ManagedGatewaySidecarService,
-    UrlLibGatewayStartupReadinessProbe,
-)
 from gigaloom.native.launch.launcher import (
     PreparedRegisteredNativeLaunch,
     RegisteredNativeLaunchExecution,
@@ -80,6 +87,22 @@ from gigaloom.native.launch.launcher import (
     prepare_registered_native_launch,
 )
 from gigaloom.native.launch.planner import NativeLaunchPlan, plan_native_launch
+
+
+_GATEWAY_SIDECAR_EXPORTS = frozenset(
+    {
+        "DEFAULT_GATEWAY_STARTUP_POLL_SECONDS",
+        "DEFAULT_GATEWAY_STARTUP_TIMEOUT_SECONDS",
+        "GatewayArtifactEvidenceV1",
+        "GatewayProcessLeaseOwner",
+        "GatewaySidecarReason",
+        "GatewaySidecarStatus",
+        "GatewayStartupReadinessProbe",
+        "ManagedGatewayLeaseV1",
+        "ManagedGatewaySidecarService",
+        "UrlLibGatewayStartupReadinessProbe",
+    }
+)
 
 __all__ = [
     "AgentResolutionKind",
@@ -148,3 +171,12 @@ __all__ = [
     "resolve_profile_executable",
     "revalidate_executable_identity",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve process-owning gateway services only when explicitly requested."""
+    if name not in _GATEWAY_SIDECAR_EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module("gigaloom.native.launch.gateway_sidecar"), name)
+    globals()[name] = value
+    return value
