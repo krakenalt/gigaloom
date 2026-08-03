@@ -34,6 +34,7 @@ _AGENT_PROFILE_HANDLERS = frozenset(
 _AGENT_RUNTIME_HANDLERS = frozenset(
     {
         "_handle_agent_runtime_add",
+        "_handle_agent_runtime_activate",
         "_handle_agent_runtime_inspect",
         "_handle_agent_runtime_list",
         "_handle_agent_runtime_lock",

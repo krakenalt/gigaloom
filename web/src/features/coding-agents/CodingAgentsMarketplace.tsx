@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import {
+  activateAgentRuntime,
   agentRuntimeKeys,
   cancelAgentInstallation,
   fetchAgentInstallationOperation,
@@ -16,6 +17,7 @@ import {
   startAgentInstall,
   startAgentUpdate,
   type AgentInstallationOperationResponse,
+  type AgentActivationResponse,
   type AgentProbeResponse,
   type AgentRegistryEntryProjection,
 } from "../../api/agentRuntimes";
@@ -36,7 +38,8 @@ import "./coding-agents.css";
 const terminalOperationStates = new Set(["completed", "inactive", "canceled", "failed", "recovered"]);
 
 type RuntimeAction =
-  | { kind: "probe"; localAgentId: string }
+  | { kind: "activate"; installId: string; localAgentId: string }
+  | { kind: "probe"; installId: string; localAgentId: string }
   | { kind: "remove"; localAgentId: string }
   | { kind: "rollback"; localAgentId: string }
   | { kind: "use"; localAgentId: string };
@@ -104,9 +107,27 @@ export function CodingAgentsMarketplace() {
   });
   const actionMutation = useMutation({
     mutationFn: runRuntimeAction,
+    onError: (error, action) => {
+      setNotice(
+        action.kind === "activate"
+          ? `Could not confirm activation of ${action.localAgentId}. Refresh the inventory before retrying. ${error.message}`
+          : `${action.kind} failed for ${action.localAgentId}. ${error.message}`,
+      );
+    },
     onSuccess: (result, action) => {
       if (action.kind === "probe") {
-        setProbes((current) => ({ ...current, [action.localAgentId]: result as AgentProbeResponse }));
+        setProbes((current) => ({ ...current, [action.installId]: result as AgentProbeResponse }));
+        return;
+      }
+      if (action.kind === "activate") {
+        const activation = result as AgentActivationResponse;
+        setProbes((current) => ({ ...current, [action.installId]: activation.probe }));
+        setNotice(
+          activation.active
+            ? `${activation.local_agent_id} ${activation.version} passed the isolated ACP check and is now active.`
+            : `${activation.local_agent_id} remains inactive after a fresh ACP check (${activation.probe.state}); the current active revision was not changed.`,
+        );
+        void queryClient.invalidateQueries({ queryKey: agentRuntimeKeys.inventory() });
         return;
       }
       if (action.kind === "use") {
@@ -155,7 +176,7 @@ export function CodingAgentsMarketplace() {
     registry: inventory?.registry_entries ?? [],
   });
   const busyAction = actionMutation.isPending
-    ? `${actionMutation.variables?.kind}:${actionMutation.variables?.localAgentId}`
+    ? runtimeActionKey(actionMutation.variables)
     : updateMutation.isPending
       ? `update:${updateMutation.variables}`
       : null;
@@ -231,8 +252,9 @@ export function CodingAgentsMarketplace() {
               agent={agent}
               busyAction={busyAction}
               key={agent.install_id}
-              probe={probes[agent.local_agent_id] ?? null}
-              onProbe={(localAgentId) => actionMutation.mutate({ kind: "probe", localAgentId })}
+              probe={probes[agent.install_id] ?? null}
+              onActivate={(localAgentId, installId) => actionMutation.mutate({ kind: "activate", installId, localAgentId })}
+              onProbe={(localAgentId, installId) => actionMutation.mutate({ kind: "probe", installId, localAgentId })}
               onRemove={(localAgentId) => { if (globalThis.confirm("Remove only GigaLoom-managed agent artifacts?")) actionMutation.mutate({ kind: "remove", localAgentId }); }}
               onRollback={(localAgentId) => actionMutation.mutate({ kind: "rollback", localAgentId })}
               onUpdate={(localAgentId) => updateMutation.mutate(localAgentId)}
@@ -267,10 +289,18 @@ export function CodingAgentsMarketplace() {
 }
 
 async function runRuntimeAction(action: RuntimeAction): Promise<unknown> {
+  if (action.kind === "activate") return activateAgentRuntime(action.localAgentId, action.installId);
   if (action.kind === "probe") return probeAgentRuntime(action.localAgentId);
   if (action.kind === "remove") return removeAgentRuntime(action.localAgentId);
   if (action.kind === "rollback") return rollbackAgentRuntime(action.localAgentId);
   return prepareAgentRun(action.localAgentId);
+}
+
+function runtimeActionKey(action: RuntimeAction): string {
+  const target = action.kind === "activate" || action.kind === "probe"
+    ? action.installId
+    : action.localAgentId;
+  return `${action.kind}:${target}`;
 }
 
 function installErrorMessage(error: Error | null): string | null {

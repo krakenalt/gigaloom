@@ -10,9 +10,11 @@ from fastapi import APIRouter, HTTPException, Path, Query
 from fastapi.responses import StreamingResponse
 
 from gigaloom.harnesses.agent_profiles.installations import AgentInstallError
-from gigaloom.harnesses.agent_profiles.onboarding.probe import managed_probe_to_dict
+from gigaloom.harnesses.agent_profiles.onboarding import ManagedAcpProbeReceipt
 from gigaloom.ui.async_execution import ContractAPIRouter, run_stream_offload
 from gigaloom.ui.schemas.agent_registry import (
+    AgentActivateRequest,
+    AgentActivationResponse,
     AgentConfirmedActionRequest,
     AgentInstallPreviewRequest,
     AgentInstallPreviewResponse,
@@ -190,21 +192,44 @@ def create_router(service: AgentInstallationWebService) -> APIRouter:
         local_agent_id: str = Path(min_length=1, max_length=256),
     ) -> AgentProbeResponse:
         try:
-            value = managed_probe_to_dict(service.probe(local_agent_id))
+            value = service.probe(local_agent_id)
         except (KeyError, OSError, RuntimeError, ValueError) as error:
             raise HTTPException(
                 status_code=409, detail="managed agent probe was rejected"
             ) from error
-        return AgentProbeResponse(
-            state=str(value["state"]),
-            protocol_state=str(value["protocol_state"]),
-            protocol_version=value["protocol_version"],
-            auth_methods=value["auth_methods"],
-            capabilities=value["capabilities"],
-            losses=value["losses"],
-            warnings=value["warnings"],
-            native_home_isolated=bool(value["native_home_isolated"]),
-            network_policy=str(value["network_policy"]),
+        return _probe_response(value)
+
+    @router.fs_atomic.post(
+        "/api/agent-runtimes/{local_agent_id}/activate",
+        response_model=AgentActivationResponse,
+    )
+    def activate(
+        payload: AgentActivateRequest,
+        local_agent_id: str = Path(min_length=1, max_length=256),
+    ) -> AgentActivationResponse:
+        try:
+            result = service.activate(
+                local_agent_id,
+                install_id=payload.install_id,
+                confirmed=payload.confirmed,
+            )
+        except AgentInstallError as error:
+            raise HTTPException(status_code=409, detail=error.reason_code) from error
+        except (KeyError, OSError, RuntimeError, ValueError) as error:
+            raise HTTPException(
+                status_code=409, detail="managed agent activation was rejected"
+            ) from error
+        return AgentActivationResponse(
+            local_agent_id=result.artifact.local_agent_id,
+            registry_id=result.artifact.registry_id,
+            version=result.artifact.version,
+            install_id=result.artifact.install_id,
+            active=result.active,
+            activation_status=result.activation.status.value,
+            compatibility_status=result.compatibility.status.value,
+            probe=_probe_response(result.probe),
+            omissions=list(result.receipt.omissions),
+            atomic=result.activation.atomic,
             content_free=True,
         )
 
@@ -316,6 +341,21 @@ def _operation_response(
     return AgentInstallationOperationResponse(
         **asdict(value),
         terminal=value.terminal,
+    )
+
+
+def _probe_response(value: ManagedAcpProbeReceipt) -> AgentProbeResponse:
+    return AgentProbeResponse(
+        state=value.state.value,
+        protocol_state=value.protocol_state,
+        protocol_version=value.protocol_version,
+        auth_methods=list(value.auth_methods),
+        capabilities=list(value.capabilities),
+        losses=list(value.losses),
+        warnings=list(value.warnings),
+        native_home_isolated=value.native_home_isolated,
+        network_policy=value.network_policy,
+        content_free=True,
     )
 
 

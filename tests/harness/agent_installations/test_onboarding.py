@@ -347,7 +347,7 @@ def test_production_probe_uses_disposable_home_and_initialize_only(tmp_path):
     assert receipt.protocol_version == "1"
     assert receipt.executable_observed is True
     assert receipt.native_home_isolated is True
-    assert receipt.network_policy == "enforced_deny"
+    assert receipt.network_policy == "enforced_loopback_only"
     assert receipt.session_created is False
     assert receipt.prompt_sent is False
 
@@ -387,7 +387,7 @@ def test_discovered_platform_isolation_launches_production_probe(tmp_path):
     )
 
     assert receipt.protocol_state == "conformant"
-    assert receipt.network_policy == "enforced_deny"
+    assert receipt.network_policy == "enforced_loopback_only"
 
 
 class _ActiveRuntimeProjection:

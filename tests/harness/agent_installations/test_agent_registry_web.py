@@ -18,6 +18,7 @@ from gigaloom.harnesses.agent_profiles.installations import (
     AgentRuntimeService,
     BinaryDownloadResponse,
     LocalAgentInstallCoordinator,
+    ManagedAgentActivationStore,
 )
 from gigaloom.harnesses.agent_profiles.onboarding import (
     ManagedAcpProbeReceipt,
@@ -287,6 +288,8 @@ def test_web_mutations_require_explicit_confirmation(tmp_path):
             allow_unverified=False,
         )
     with pytest.raises(ValueError, match="confirmation"):
+        operations.activate("marketplace-agent", None, confirmed=False)
+    with pytest.raises(ValueError, match="confirmation"):
         operations.rollback("marketplace-agent", confirmed=False)
     with pytest.raises(ValueError, match="confirmation"):
         operations.remove("marketplace-agent", confirmed=False)
@@ -439,7 +442,7 @@ def test_persisted_operation_state_rejects_content_and_exhausted_recovery(tmp_pa
 def test_bounded_http_routers_expose_preview_operation_and_sse(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
-    _, _, _, inventory, operations = _services(
+    runtime, _, _, inventory, operations = _services(
         tmp_path,
         submit=lambda callback: callback(),
     )
@@ -474,6 +477,21 @@ def test_bounded_http_routers_expose_preview_operation_and_sse(
     assert install_response.status_code == 200
     operation = install_response.json()
     assert operation["status"] == "completed" and operation["content_free"] is True
+    install_id = operation["result_install_id"]
+    assert ManagedAgentActivationStore(tmp_path).deactivate("marketplace-agent")
+    inactive_use = client.get("/api/agent-runtimes/marketplace-agent/use")
+    assert inactive_use.status_code == 404
+    activation_response = client.post(
+        "/api/agent-runtimes/marketplace-agent/activate",
+        json={"install_id": install_id, "confirmed": True},
+        headers={"X-GigaLoom-CSRF": "1"},
+    )
+    assert activation_response.status_code == 200
+    activation = activation_response.json()
+    assert activation["install_id"] == install_id
+    assert activation["active"] is True and activation["atomic"] is True
+    assert activation["probe"]["content_free"] is True
+    assert runtime.inspect("marketplace-agent").active is True
     with client.stream(
         "GET",
         f"/api/agent-runtimes/installations/{operation['operation_id']}/events",
@@ -525,7 +543,5 @@ def test_http_install_returns_content_free_isolation_rejection(tmp_path):
     )
 
     assert response.status_code == 409
-    assert response.json() == {
-        "detail": "managed_agent_network_isolation_required"
-    }
+    assert response.json() == {"detail": "managed_agent_network_isolation_required"}
     assert transport.requests == []

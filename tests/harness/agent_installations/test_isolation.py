@@ -32,7 +32,7 @@ def _executable(tmp_path: Path, name: str) -> Path:
     return path
 
 
-def test_macos_launcher_wraps_exact_command_with_network_deny(tmp_path):
+def test_macos_launcher_allows_loopback_but_denies_other_networks(tmp_path):
     launcher = ManagedAcpNetworkIsolation(
         mechanism="macos_sandbox_exec",
         executable=str(_executable(tmp_path, "sandbox-exec")),
@@ -49,11 +49,13 @@ def test_macos_launcher_wraps_exact_command_with_network_deny(tmp_path):
         native_home=native_home,
     )
 
-    assert command[:3] == (
-        launcher.executable,
-        "-p",
-        "(version 1) (allow default) (deny network*)",
-    )
+    assert command[:2] == (launcher.executable, "-p")
+    profile = command[2]
+    assert "(deny network*)" in profile
+    assert '(allow network-bind (local ip "localhost:*"))' in profile
+    assert '(allow network-inbound (local ip "localhost:*"))' in profile
+    assert '(allow network-outbound (remote ip "localhost:*"))' in profile
+    assert "(allow network*)" not in profile
     assert command[3:] == (str(agent), "acp")
 
 

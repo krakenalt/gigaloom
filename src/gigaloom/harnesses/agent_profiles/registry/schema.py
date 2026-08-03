@@ -57,6 +57,8 @@ _PACKAGE_SOURCES = {
     ACPDistributionKind.NPX: "https://registry.npmjs.org",
     ACPDistributionKind.UVX: "https://pypi.org",
 }
+_GITHUB_RELEASE_ASSET_ORIGIN = "https://release-assets.githubusercontent.com"
+_GITHUB_RELEASE_ARCHIVE_RE = re.compile(r"/[^/]+/[^/]+/releases/download/[^/]+/[^/]+\Z")
 
 
 def decode_registry_document(
@@ -274,7 +276,7 @@ def _decode_binary_distributions(
             "command": command,
             "arguments": arguments,
             "environment": environment,
-            "network_origins": (_origin(source),),
+            "network_origins": _binary_network_origins(source),
         }
         result.append(
             ACPDistributionV1(
@@ -434,6 +436,19 @@ def _url(value: object, *, field_name: str) -> str:
 def _origin(value: str) -> str:
     parsed = urlsplit(value)
     return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _binary_network_origins(source: str) -> tuple[str, ...]:
+    """Bind reviewed GitHub Release redirects into the binary distribution."""
+    parsed = urlsplit(source)
+    origins = {_origin(source)}
+    if (
+        parsed.hostname == "github.com"
+        and parsed.netloc.lower() in {"github.com", "github.com:443"}
+        and _GITHUB_RELEASE_ARCHIVE_RE.fullmatch(parsed.path)
+    ):
+        origins.add(_GITHUB_RELEASE_ASSET_ORIGIN)
+    return tuple(sorted(origins))
 
 
 def _authors(value: object) -> tuple[str, ...]:

@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "165aac6ec4bac6ee94b6b92263384fbce4e5dc2f24b396947f19ca302b719041",
+  "content_sha256": "e9ce78aea8cd5e07a469ca5d5078d99b124695c0d967af1f91bbb32b501db2f5",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -1114,6 +1114,11 @@
         "method": "GET",
         "name": "inventory",
         "path": "/api/agent-runtimes/inventory"
+      },
+      {
+        "method": "POST",
+        "name": "activate",
+        "path": "/api/agent-runtimes/{local_agent_id}/activate"
       },
       {
         "method": "POST",
@@ -2426,6 +2431,7 @@
       "acp add",
       "acp search",
       "agent",
+      "agent activate",
       "agent add",
       "agent discover",
       "agent inspect",

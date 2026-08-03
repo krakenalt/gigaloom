@@ -43,6 +43,7 @@ from gigaloom.harnesses.agent_profiles.installations.transport import (
     DEFAULT_BINARY_TIMEOUT_SECONDS,
     BinaryDownloadRequest,
     BinaryDownloadTransport,
+    is_binary_download_url_allowed,
 )
 from gigaloom.harnesses.agent_profiles.registry.locking import registry_cache_lock
 
@@ -192,9 +193,13 @@ class BinaryAgentInstaller:
                 url=plan.source,
                 timeout_seconds=self._timeout_seconds,
                 max_bytes=self._max_download_bytes,
+                allowed_origins=plan.network_origins,
             )
         )
-        if response.status_code != 200 or response.final_url != plan.source:
+        if response.status_code != 200 or not is_binary_download_url_allowed(
+            response.final_url,
+            plan.network_origins,
+        ):
             raise AgentInstallError("binary_download_response_invalid")
         if response.content_length is not None and (
             response.content_length < 0

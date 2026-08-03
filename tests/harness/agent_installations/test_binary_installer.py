@@ -76,9 +76,11 @@ def _catalog(
     version: str = "1.0.0",
     include_digest: bool = True,
     command: str = "bin/generic-agent",
+    archive_url: str | None = None,
 ):
     target = {
-        "archive": f"https://downloads.example.test/{registry_id}-{version}.zip",
+        "archive": archive_url
+        or f"https://downloads.example.test/{registry_id}-{version}.zip",
         "cmd": command,
         "args": ["--acp"],
     }
@@ -145,6 +147,58 @@ def test_verified_zip_installs_inactive_under_immutable_digest_root(tmp_path):
     assert result.unverified_source is False
     assert result.transitions[-1].state == "installed_inactive"
     assert len(transport.requests) == 1
+    assert transport.requests[0].allowed_origins == plan.network_origins
+
+
+def test_github_release_redirect_installs_with_plan_bound_asset_origin(tmp_path):
+    archive = _zip_bytes({"bin/generic-agent": b"#!/bin/sh\nexit 0\n"})
+    catalog = _catalog(
+        archive,
+        archive_url=(
+            "https://github.com/example/generic-agent/releases/download/"
+            "v1.0.0/generic-agent-darwin-aarch64.zip"
+        ),
+    )
+    plan = _plan(tmp_path, catalog)
+    final_url = (
+        "https://release-assets.githubusercontent.com/"
+        "github-production-release-asset/example?signature=fixture"
+    )
+    transport = MemoryTransport(archive, final_url=final_url)
+
+    result = BinaryAgentInstaller(
+        tmp_path,
+        transport,
+        clock=lambda: NOW,
+    ).install(plan, confirmed=True)
+
+    assert result.bytes_received == len(archive)
+    assert plan.network_origins == (
+        "https://github.com",
+        "https://release-assets.githubusercontent.com",
+    )
+    assert transport.requests[0].allowed_origins == plan.network_origins
+
+
+@pytest.mark.parametrize(
+    "final_url",
+    [
+        "http://release-assets.githubusercontent.com/asset.zip",
+        "https://release-assets.githubusercontent.com.evil.test/asset.zip",
+        "https://unreviewed.example.test/asset.zip",
+    ],
+)
+def test_binary_response_outside_plan_origins_is_rejected(tmp_path, final_url):
+    archive = _zip_bytes({"bin/generic-agent": b"binary"})
+    catalog = _catalog(archive)
+    plan = _plan(tmp_path, catalog)
+
+    with pytest.raises(AgentInstallError, match="binary_download_response_invalid"):
+        BinaryAgentInstaller(
+            tmp_path,
+            MemoryTransport(archive, final_url=final_url),
+            clock=lambda: NOW,
+        ).install(plan, confirmed=True)
 
 
 def test_unverified_binary_requires_a_distinct_explicit_admission(tmp_path):

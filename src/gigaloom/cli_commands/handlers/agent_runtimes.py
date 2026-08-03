@@ -142,6 +142,18 @@ def _handle_agent_runtime_probe(args: argparse.Namespace, config: HarnessConfig)
     return 0
 
 
+def _handle_agent_runtime_activate(
+    args: argparse.Namespace, config: HarnessConfig
+) -> int:
+    result = _service(config).activate(
+        args.local_agent_id,
+        install_id=args.install_id,
+        confirmed=_confirmed(args, "Re-probe and activate managed agent revision?"),
+    )
+    _emit(_result_payload(result), as_json=args.json)
+    return 0 if result.active else 2
+
+
 def _handle_agent_runtime_outdated(
     args: argparse.Namespace, config: HarnessConfig
 ) -> int:

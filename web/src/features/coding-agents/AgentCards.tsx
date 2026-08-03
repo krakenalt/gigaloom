@@ -51,6 +51,7 @@ export function InstalledAgentCard({
   agent,
   busyAction,
   probe,
+  onActivate,
   onProbe,
   onRemove,
   onRollback,
@@ -60,7 +61,8 @@ export function InstalledAgentCard({
   agent: InstalledAgentProjection;
   busyAction: string | null;
   probe: AgentProbeResponse | null;
-  onProbe: (id: string) => void;
+  onActivate: (id: string, installId: string) => void;
+  onProbe: (id: string, installId: string) => void;
   onRemove: (id: string) => void;
   onRollback: (id: string) => void;
   onUpdate: (id: string) => void;
@@ -83,6 +85,17 @@ export function InstalledAgentCard({
         <div><dt>ACP probe</dt><dd>{agent.probe_state}</dd></div>
         <div><dt>Authentication</dt><dd>{agent.auth_required ? "Required" : "Not requested"}</dd></div>
       </dl>
+      {agent.active ? null : (
+        <div className="agent-activation-guide">
+          <strong>Installed, but not active yet</strong>
+          <p>Activation runs the exact managed command in a temporary private home, permits loopback only, and blocks external network access during the ACP check.</p>
+          <ol>
+            <li>Start the retained revision and perform an ACP initialize handshake.</li>
+            <li>Check the protocol and required capabilities.</li>
+            <li>Select it atomically only if compatible; otherwise keep the current active revision unchanged.</li>
+          </ol>
+        </div>
+      )}
       {agent.update_available ? <div className="agent-update-notice">A newer registry version is available. Existing files stay unchanged.</div> : null}
       {probe === null ? null : (
         <div className="probe-result" role="status">
@@ -93,9 +106,14 @@ export function InstalledAgentCard({
         </div>
       )}
       <div className="agent-card-actions wrap">
-        <button disabled={disabled} onClick={() => onProbe(agent.local_agent_id)} type="button">Probe</button>
+        {agent.active ? <button disabled={disabled} onClick={() => onProbe(agent.local_agent_id, agent.install_id)} type="button">Probe only</button> : null}
+        {agent.active ? null : (
+          <button className="primary-button" disabled={disabled} onClick={() => onActivate(agent.local_agent_id, agent.install_id)} type="button">
+            {busyAction === `activate:${agent.install_id}` ? "Checking & activating…" : "Check & activate"}
+          </button>
+        )}
         {agent.update_available ? <button disabled={disabled} onClick={() => onUpdate(agent.local_agent_id)} type="button">Update</button> : null}
-        <button disabled={disabled} onClick={() => onRollback(agent.local_agent_id)} type="button">Rollback</button>
+        {agent.active ? <button disabled={disabled} onClick={() => onRollback(agent.local_agent_id)} type="button">Rollback</button> : null}
         <button className="danger-button" disabled={disabled} onClick={() => onRemove(agent.local_agent_id)} type="button">Remove</button>
         <button className="primary-button" disabled={disabled || !agent.active} onClick={() => onUse(agent.local_agent_id)} type="button">Use in new run</button>
       </div>

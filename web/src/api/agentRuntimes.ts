@@ -138,6 +138,21 @@ export interface AgentProbeResponse {
   content_free: true;
 }
 
+export interface AgentActivationResponse {
+  schema_version: 1;
+  local_agent_id: string;
+  registry_id: string;
+  version: string;
+  install_id: string;
+  active: boolean;
+  activation_status: string;
+  compatibility_status: string;
+  probe: AgentProbeResponse;
+  omissions: string[];
+  atomic: true;
+  content_free: true;
+}
+
 export interface AgentRecoveryResponse {
   schema_version: 1;
   recovered_operation_ids: string[];
@@ -254,6 +269,18 @@ export function probeAgentRuntime(
   return mutateCockpit<AgentProbeResponse>(
     `/api/agent-runtimes/${encodeURIComponent(localAgentId)}/probe`,
     undefined,
+    signal,
+  );
+}
+
+export function activateAgentRuntime(
+  localAgentId: string,
+  installId: string,
+  signal?: AbortSignal,
+): Promise<AgentActivationResponse> {
+  return mutateCockpit<AgentActivationResponse>(
+    `/api/agent-runtimes/${encodeURIComponent(localAgentId)}/activate`,
+    { confirmed: true, install_id: installId },
     signal,
   );
 }

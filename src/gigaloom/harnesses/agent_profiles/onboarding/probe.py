@@ -196,7 +196,7 @@ class ManagedAcpProbeRunner:
             "losses": list(losses),
             "warnings": list(warnings),
             "native_home_isolated": True,
-            "network_policy": "enforced_deny",
+            "network_policy": "enforced_loopback_only",
             "session_created": False,
             "prompt_sent": False,
             "content_free": True,
@@ -214,7 +214,7 @@ class ManagedAcpProbeRunner:
             losses=losses,
             warnings=warnings,
             native_home_isolated=True,
-            network_policy="enforced_deny",
+            network_policy="enforced_loopback_only",
             receipt_digest=canonical_digest(payload),
         )
 
@@ -318,7 +318,7 @@ def _failure_receipt(
         "losses": [],
         "warnings": [reason_code],
         "native_home_isolated": True,
-        "network_policy": "enforced_deny",
+        "network_policy": "enforced_loopback_only",
         "session_created": False,
         "prompt_sent": False,
         "content_free": True,
@@ -336,7 +336,7 @@ def _failure_receipt(
         losses=(),
         warnings=(reason_code,),
         native_home_isolated=True,
-        network_policy="enforced_deny",
+        network_policy="enforced_loopback_only",
         receipt_digest=canonical_digest(payload),
     )
 

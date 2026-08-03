@@ -130,6 +130,11 @@ class AgentConfirmedActionRequest(BaseModel):
     confirmed: Literal[True]
 
 
+class AgentActivateRequest(BaseModel):
+    install_id: Identity | None = Field(default=None, max_length=256)
+    confirmed: Literal[True]
+
+
 class AgentInstallationEventResponse(BaseModel):
     sequence: int = Field(ge=0, le=63)
     state: str
@@ -168,6 +173,21 @@ class AgentProbeResponse(BaseModel):
     content_free: Literal[True]
 
 
+class AgentActivationResponse(BaseModel):
+    schema_version: Literal[1] = 1
+    local_agent_id: Identity
+    registry_id: Identity
+    version: str
+    install_id: Identity
+    active: bool
+    activation_status: str
+    compatibility_status: str
+    probe: AgentProbeResponse
+    omissions: list[str] = Field(max_length=32)
+    atomic: Literal[True]
+    content_free: Literal[True]
+
+
 class AgentRollbackResponse(BaseModel):
     schema_version: Literal[1] = 1
     local_agent_id: Identity
@@ -199,6 +219,8 @@ class AgentRecoveryResponse(BaseModel):
 
 
 __all__ = [
+    "AgentActivateRequest",
+    "AgentActivationResponse",
     "AgentConfirmedActionRequest",
     "AgentInstallPreviewRequest",
     "AgentInstallPreviewResponse",

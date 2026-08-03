@@ -9,7 +9,16 @@ import sys
 from typing import Protocol, runtime_checkable
 
 
-_MACOS_NETWORK_DENY_PROFILE = "(version 1) (allow default) (deny network*)"
+_MACOS_NETWORK_DENY_PROFILE = " ".join(
+    (
+        "(version 1)",
+        "(allow default)",
+        "(deny network*)",
+        '(allow network-bind (local ip "localhost:*"))',
+        '(allow network-inbound (local ip "localhost:*"))',
+        '(allow network-outbound (remote ip "localhost:*"))',
+    )
+)
 
 
 @runtime_checkable

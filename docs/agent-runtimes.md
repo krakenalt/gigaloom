@@ -63,7 +63,8 @@ execute an agent.
 Current builds automatically admit a system-owned network-deny launcher for the
 initialize-only compatibility probe:
 
-- macOS: `/usr/bin/sandbox-exec` with an explicit `deny network*` profile;
+- macOS: `/usr/bin/sandbox-exec` with external network denied and only local
+  loopback traffic admitted for ACP commands that use an internal local server;
 - Linux: `/usr/bin/bwrap` or `/bin/bwrap` with a private network namespace.
 
 The confirmed server-owned transaction downloads the exact reviewed artifact,
@@ -93,6 +94,28 @@ If an older build already created a literal `./~/.gigaloom`, stop GigaLoom and
 back that directory up before reconciling it with `$HOME/.gigaloom`; do not run
 two servers against the two locations.
 
+### Fix `binary_download_failed` for a GitHub Release
+
+GitHub Release archive URLs normally answer with a redirect to
+`release-assets.githubusercontent.com`. Current builds bind that exact asset
+origin into the reviewed install plan for canonical GitHub Release URLs, follow
+at most two HTTPS redirects, and still verify the downloaded archive against a
+Registry SHA-256 when one is declared. HTTP redirects, lookalike hosts, and
+origins absent from the plan fail closed.
+
+After upgrading from a build that rejected every redirect:
+
+1. Stop and restart `giga ui` with the intended `GIGALOOM_DATA_DIR`.
+2. Select **Refresh registry** so cached distributions receive the new
+   plan-bound network origins.
+3. Create and confirm a new install preview. A failed or expired operation is
+   immutable and should not be reused.
+
+If the new operation still reports `binary_download_failed`, verify that the
+machine or proxy can reach both `github.com` and
+`release-assets.githubusercontent.com`. Do not disable checksum validation or
+add a wildcard redirect allowlist.
+
 ## Install an agent from the ACP Registry in the UI
 
 1. Refresh the registry and open the **ACP Registry** tab.
@@ -103,8 +126,10 @@ two servers against the two locations.
 5. If the proposed id collides with a built-in command or another agent, enter
    a safe local alias.
 6. Confirm the reviewed plan before it expires.
-7. Open **Installed**, run **Probe**, complete provider-owned authentication if
-   the probe requests it, then select **Use in new run**.
+7. Open **Installed**. A compatible install is activated automatically. For a
+   retained inactive revision, review the explanation and select **Check &
+   activate**. Complete provider-owned authentication if requested, then select
+   **Use in new run**.
 
 Enable an unverified distribution only after reviewing its source and accepting
 that no registry digest protects that artifact. The browser never chooses a
@@ -151,6 +176,43 @@ giga agent list --json
 giga agent inspect <local-agent-id> --json
 giga agent probe <local-agent-id> --json
 ```
+
+## Activate a retained inactive ACP revision
+
+An install can succeed while activation is withheld. This means the reviewed
+artifact remains in its private managed root, but GigaLoom will not select it
+for a run until a fresh ACP compatibility check succeeds. It does not mean that
+the global provider CLI was installed or modified.
+
+In the UI, open **Installed** and select **Check & activate** on the inactive
+revision. The card shows the exact sequence:
+
+1. Start that retained managed command with a temporary private native home.
+2. Block external network access while permitting local loopback required by
+   some ACP implementations.
+3. Perform ACP `initialize` and check the protocol and required capabilities.
+4. Atomically select the revision only when it is compatible. A failed check
+   leaves any currently active revision unchanged and stores content-free
+   diagnostic evidence on the inactive revision.
+
+The terminal equivalent is:
+
+```bash
+giga agent list --json
+giga agent activate <local-agent-id> \
+  --install-id <install-id> \
+  --yes --json
+```
+
+`--install-id` is recommended because it binds the action to the exact card or
+revision the operator reviewed. If omitted, GigaLoom selects the newest inactive
+revision for that local agent id. A successful response has `"active": true`;
+an incompatible fresh check returns `"active": false` and a non-zero CLI exit
+without replacing the active pointer.
+
+This activation path is agent-neutral. It uses the stored command and arguments
+from any managed ACP Registry distribution (`binary`, `npx`, or `uvx`), so the
+same UI and CLI flow applies to future ACP connectors as well as current ones.
 
 Updates are side-by-side and explicit. A previous retained revision can be
 restored with `rollback`:
