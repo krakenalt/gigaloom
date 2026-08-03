@@ -1,0 +1,212 @@
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any, Mapping
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from gigaloom.cli_commands.commands import thread_relay as thread_commands
+from gigaloom.cli_commands.handlers.thread_relay import ThreadRelayCommandHandlers
+from gigaloom.config import HarnessConfig
+from gigaloom.ui.routers.thread_relay import create_router
+
+
+PREVIEW_DIGEST = "a" * 64
+
+
+class _Actions:
+    def __init__(self, *, unsafe_preview: bool = False) -> None:
+        self.calls: list[tuple[str, Any]] = []
+        self.unsafe_preview = unsafe_preview
+
+    def list_threads(self, *, source: str, cursor: str | None, limit: int):
+        self.calls.append(("list", (source, cursor, limit)))
+        return {"threads": [{"thread_id": "thread-1"}], "next_cursor": None}
+
+    def read_thread(
+        self,
+        *,
+        source: str,
+        thread_id: str,
+        cursor: str | None,
+        limit: int,
+    ):
+        self.calls.append(("read", (source, thread_id, cursor, limit)))
+        return {"thread": {"thread_id": thread_id, "messages": []}}
+
+    def preview_send(self, payload: Mapping[str, Any]):
+        self.calls.append(("preview", dict(payload)))
+        result = {
+            "preview_digest": PREVIEW_DIGEST,
+            "content_digest": "b" * 64,
+            "target_revision": payload["expected_target_revision"],
+            "intent": payload["intent"],
+        }
+        if self.unsafe_preview:
+            result["text"] = payload["text"]
+        return result
+
+    def send(self, payload: Mapping[str, Any], *, preview_digest: str):
+        self.calls.append(("send", (dict(payload), preview_digest)))
+        return {
+            "delivery_id": "delivery-1",
+            "status": "completed",
+            "content_digest": "b" * 64,
+        }
+
+    def status(self, delivery_id: str):
+        self.calls.append(("status", delivery_id))
+        return {"delivery_id": delivery_id, "status": "completed"}
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="giga")
+    root = parser.add_subparsers(dest="command")
+    session = root.add_parser("session")
+    session_subparsers = session.add_subparsers(dest="session_command")
+    thread_commands.register(
+        session_subparsers,
+        argparse.ArgumentParser(add_help=False),
+    )
+    return parser
+
+
+def _send_args(*extra: str) -> argparse.Namespace:
+    return _parser().parse_args(
+        [
+            "session",
+            "send",
+            "thread-1",
+            "--source",
+            "codex",
+            "--text",
+            "secret delivery text",
+            "--expected-revision",
+            "2026-08-04T12:00:00+00:00",
+            "--active-turn",
+            "turn-1",
+            "--intent",
+            "steer",
+            "--idempotency-key",
+            "delivery-key-1",
+            "--expires-at",
+            "2026-08-04T12:05:00+00:00",
+            *extra,
+        ]
+    )
+
+
+def test_cli_dry_run_json_previews_without_mutation_or_content_echo(
+    tmp_path: Path, capsys
+) -> None:
+    actions = _Actions()
+    handlers = ThreadRelayCommandHandlers(actions)
+
+    assert (
+        handlers.send(
+            _send_args("--dry-run", "--json"), HarnessConfig(data_dir=tmp_path)
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["dry_run"] is True
+    assert payload["preview"]["preview_digest"] == PREVIEW_DIGEST
+    assert "secret delivery text" not in json.dumps(payload)
+    assert [name for name, _ in actions.calls] == ["preview"]
+
+
+def test_cli_send_previews_before_delivery_and_exposes_other_actions(
+    tmp_path: Path, capsys
+) -> None:
+    actions = _Actions()
+    handlers = ThreadRelayCommandHandlers(actions)
+    config = HarnessConfig(data_dir=tmp_path)
+
+    assert handlers.send(_send_args("--json"), config) == 0
+    delivery = json.loads(capsys.readouterr().out)
+    assert delivery["delivery"]["status"] == "completed"
+    assert [name for name, _ in actions.calls] == ["preview", "send"]
+    assert actions.calls[1][1][1] == PREVIEW_DIGEST
+
+    parser = _parser()
+    assert (
+        handlers.list(parser.parse_args(["session", "threads", "--json"]), config) == 0
+    )
+    assert (
+        handlers.read(
+            parser.parse_args(
+                ["session", "read", "thread-1", "--source", "acp", "--json"]
+            ),
+            config,
+        )
+        == 0
+    )
+    assert (
+        handlers.status(
+            parser.parse_args(["session", "status", "delivery-1", "--json"]),
+            config,
+        )
+        == 0
+    )
+    assert [name for name, _ in actions.calls][-3:] == ["list", "read", "status"]
+
+
+def _send_payload() -> dict[str, Any]:
+    return {
+        "source": "gigaloom",
+        "thread_id": "thread-1",
+        "text": "review the failing tests",
+        "intent": "follow_up",
+        "author_mode": "user_authored",
+        "expected_target_revision": "revision-1",
+        "expected_active_turn_id": None,
+        "idempotency_key": "delivery-key-1",
+        "expires_at": "2026-08-04T12:05:00Z",
+        "attachment_refs": [],
+    }
+
+
+def test_route_local_api_lists_reads_previews_sends_and_reports_status() -> None:
+    actions = _Actions()
+    app = FastAPI()
+    app.include_router(create_router(actions))
+    client = TestClient(app)
+
+    listed = client.get(
+        "/api/thread-relay/threads",
+        params={"source": "codex", "limit": 10},
+    )
+    read = client.get("/api/thread-relay/threads/acp/thread-1")
+    preview = client.post("/api/thread-relay/deliveries/preview", json=_send_payload())
+    delivered = client.post("/api/thread-relay/deliveries", json=_send_payload())
+    status = client.get("/api/thread-relay/deliveries/delivery-1")
+
+    assert listed.status_code == read.status_code == 200
+    assert preview.json()["dry_run"] is True
+    assert delivered.json()["delivery"]["status"] == "completed"
+    assert status.json() == {"delivery_id": "delivery-1", "status": "completed"}
+    assert [name for name, _ in actions.calls] == [
+        "list",
+        "read",
+        "preview",
+        "preview",
+        "send",
+        "status",
+    ]
+
+
+def test_preview_content_echo_is_rejected_before_mutation() -> None:
+    actions = _Actions(unsafe_preview=True)
+    app = FastAPI()
+    app.include_router(create_router(actions))
+
+    response = TestClient(app).post(
+        "/api/thread-relay/deliveries", json=_send_payload()
+    )
+
+    assert response.status_code == 400
+    assert [name for name, _ in actions.calls] == ["preview"]

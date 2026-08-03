@@ -96,3 +96,36 @@
   so those absences remain explicit capability/projection facts; route-local
   CLI/API modules and composition patch requests remain in TR-05
 - Shared-file patch request: none
+
+## TR-05 — Add route-local CLI/API modules
+
+- Status: complete
+- Baseline: `1b60c71978015a339ef1064c6028951cd4acdea4`
+- Scope: shared route action port and digest-only preview validator,
+  `src/gigaloom/cli_commands/{commands,handlers}/thread_relay.py`,
+  `src/gigaloom/ui/{routers,schemas}/thread_relay.py`, and
+  `tests/harness/thread_relay/test_routes.py`; no shared root registration
+- Contract/evidence: bounded list/read/send/status surfaces cover GigaLoom,
+  Codex, and ACP source selectors; both CLI and HTTP send paths obtain and
+  validate a content-free preview digest immediately before mutation;
+  `session send --dry-run --json` returns the preview without invoking send;
+  preview output is rejected if it echoes text/content/prompt/message fields;
+  HTTP inputs enforce source, identity, text, attachment, and page bounds
+- Tests: `pytest tests/harness/thread_relay
+  tests/harness/architecture/test_0_9_boundaries.py
+  tests/harness/architecture/test_package_boundaries.py
+  tests/harness/architecture/test_module_budgets.py -q -n 0` — 43 passed;
+  root-namespace and existing CLI registry regression suite — 17 passed;
+  focused Ruff check/format and `ty check` — passed; `git diff --check` — passed
+- Known limitations: shared composition remains intentionally absent until I1;
+  the restricted agent tool surface and product UI are owned by Wave B
+- Shared-file patch request: integrator should (1) call
+  `cli_commands.commands.thread_relay.register(session_subparsers, common)`
+  from the existing `session` parser composition, preserving the existing
+  `session list` and using `session threads` for relay listing; (2) bind
+  `_handle_thread_list`, `_handle_thread_read`, `_handle_thread_send`, and
+  `_handle_thread_status` in `cli_commands/registry.py` to one scoped
+  `ThreadRelayCommandHandlers`; (3) add one actor/project-bound
+  `ThreadRelayRouteActions` implementation to `AppServices`; and (4) include
+  `ui.routers.thread_relay.create_router(services.thread_relay_actions)` in
+  `ui/router_registry.py` before the shell catch-all
