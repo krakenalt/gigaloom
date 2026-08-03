@@ -214,6 +214,290 @@
   overflow-wrap: anywhere;
 }
 
+.route-model-badge {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px 10px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--success);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 8px 10px;
+}
+
+.route-model-identity {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.route-model-identity strong,
+.route-model-identity span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.route-model-identity strong {
+  font-size: 11px;
+}
+
+.route-model-identity span,
+.route-model-badge small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.route-model-badge small {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}
+
+.route-support-label {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 11%, var(--surface));
+  padding: 4px 7px;
+  color: var(--success);
+  font-size: 9px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.route-model-badge[data-support-status="technical_preview"] {
+  border-left-color: var(--warning);
+}
+
+.route-model-badge[data-support-status="technical_preview"] .route-support-label {
+  background: color-mix(in srgb, var(--warning) 11%, var(--surface));
+  color: var(--warning);
+}
+
+.route-model-badge[data-support-status="blocked"],
+.route-model-badge[data-support-status="vendor_unsupported"] {
+  border-left-color: var(--danger);
+}
+
+.route-model-badge[data-support-status="blocked"] .route-support-label,
+.route-model-badge[data-support-status="vendor_unsupported"] .route-support-label {
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface));
+  color: var(--danger);
+}
+
+.thread-navigation {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 17px;
+  padding: 14px;
+}
+
+.thread-navigation section,
+.thread-navigation ul {
+  min-width: 0;
+}
+
+.thread-navigation h2 {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.thread-navigation ul {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.thread-navigation a {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border-radius: 7px;
+  padding: 8px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.thread-navigation a:hover,
+.thread-navigation a:focus-visible {
+  background: var(--surface-muted);
+}
+
+.thread-navigation svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.thread-navigation a > span:nth-child(2),
+.thread-relationship-status {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.thread-navigation a > span:nth-child(2) strong,
+.thread-navigation a > span:nth-child(2) small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thread-navigation strong {
+  font-size: 11px;
+}
+
+.thread-navigation small,
+.thread-relationship-status {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.thread-relationship-status {
+  justify-items: end;
+  white-space: nowrap;
+}
+
+.relay-preview {
+  width: min(620px, 100%);
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 18px;
+  box-shadow: 0 18px 54px #0a0e1428;
+}
+
+.relay-preview > header,
+.relay-preview > footer,
+.relay-path {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.relay-preview > header > div {
+  min-width: 0;
+}
+
+.relay-preview > header span:first-child {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.relay-preview h2 {
+  margin-top: 3px;
+  font-size: 18px;
+}
+
+.relay-preview-state {
+  flex: none;
+  color: var(--success);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.relay-preview-state.blocked {
+  color: var(--danger);
+}
+
+.relay-path {
+  justify-content: flex-start;
+  border-block: 1px solid var(--border);
+  padding: 11px 0;
+  font-size: 12px;
+}
+
+.relay-path span,
+.relay-path strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.relay-path svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.relay-preview blockquote {
+  margin: 0;
+  border-left: 2px solid var(--accent);
+  background: var(--surface-muted);
+  padding: 11px 13px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.relay-preview dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 18px;
+  margin: 0;
+}
+
+.relay-preview dl > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.relay-preview dt {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.relay-preview dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+}
+
+.relay-blockers {
+  border-left: 3px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+  padding: 10px 12px;
+  color: var(--danger);
+  font-size: 11px;
+}
+
+.relay-blockers ul {
+  margin: 5px 0 0;
+  padding-left: 17px;
+}
+
+.relay-preview > footer {
+  justify-content: flex-end;
+}
+
 @media (max-width: 760px) {
   .work-first-destination-header {
     padding: 14px;
@@ -241,5 +525,31 @@
 
   .run-narrative-header {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .relay-preview {
+    border-inline: 0;
+    border-radius: 0;
+    padding: 14px;
+    box-shadow: none;
+  }
+
+  .relay-preview > header,
+  .relay-path {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .relay-preview dl {
+    grid-template-columns: 1fr;
+  }
+
+  .thread-navigation a {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .thread-relationship-status {
+    grid-column: 2;
+    justify-items: start;
   }
 }
