@@ -3,10 +3,32 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+from typing import Any, Mapping
 import unicodedata
 
 HEURISTIC_SAMPLE_BYTES = 64 * 1024
+SUPPORTED_CHARSETS = frozenset(
+    {
+        "utf-8",
+        "utf-8-sig",
+        "utf-16-le",
+        "utf-16-be",
+        "utf-32-le",
+        "utf-32-be",
+        "windows-1251",
+        "koi8-r",
+    }
+)
+CONFIDENCE_CLASSES = frozenset({"exact", "strong", "conservative"})
 _ALLOWED_CONTROLS = frozenset("\t\n\r\f")
+_UNICODE_BOMS = (
+    b"\xff\xfe\x00\x00",
+    b"\x00\x00\xfe\xff",
+    b"\xef\xbb\xbf",
+    b"\xff\xfe",
+    b"\xfe\xff",
+)
 _BINARY_SIGNATURES = (
     b"\x7fELF",
     b"MZ",
@@ -64,6 +86,113 @@ class DecodedAttachmentText:
     bom_present: bool
 
 
+@dataclass(frozen=True)
+class AttachmentCharsetEvidence:
+    """Persistable, content-free evidence for one text decode decision."""
+
+    charset: str | None
+    confidence_class: str | None
+    bom_present: bool
+    truncated: bool
+    replacement_count: int
+    failure_reason: str | None
+    source_digest: str
+
+
+def charset_evidence_for(
+    data: bytes,
+    decoded: DecodedAttachmentText,
+    *,
+    truncated: bool = False,
+    source_digest: str | None = None,
+) -> AttachmentCharsetEvidence:
+    """Build successful charset evidence for decoded source bytes."""
+    return AttachmentCharsetEvidence(
+        charset=decoded.charset,
+        confidence_class=decoded.confidence_class,
+        bom_present=decoded.bom_present,
+        truncated=truncated,
+        replacement_count=0,
+        failure_reason=None,
+        source_digest=source_digest or hashlib.sha256(data).hexdigest(),
+    )
+
+
+def failed_charset_evidence(
+    data: bytes,
+    failure_reason: str,
+    *,
+    truncated: bool = False,
+    source_digest: str | None = None,
+) -> AttachmentCharsetEvidence:
+    """Build content-free evidence for a rejected text decode."""
+    return AttachmentCharsetEvidence(
+        charset=None,
+        confidence_class=None,
+        bom_present=False,
+        truncated=truncated,
+        replacement_count=0,
+        failure_reason=failure_reason,
+        source_digest=source_digest or hashlib.sha256(data).hexdigest(),
+    )
+
+
+def charset_evidence_to_dict(
+    evidence: AttachmentCharsetEvidence,
+) -> dict[str, Any]:
+    """Serialize charset evidence for storage and API projections."""
+    return {
+        "charset": evidence.charset,
+        "confidence_class": evidence.confidence_class,
+        "bom_present": evidence.bom_present,
+        "truncated": evidence.truncated,
+        "replacement_count": evidence.replacement_count,
+        "failure_reason": evidence.failure_reason,
+        "source_digest": evidence.source_digest,
+    }
+
+
+def charset_evidence_from_dict(
+    value: Any,
+) -> AttachmentCharsetEvidence | None:
+    """Parse optional evidence while accepting attachment records from 0.8."""
+    if not isinstance(value, Mapping):
+        return None
+    charset = _optional_text(value.get("charset"))
+    if charset not in SUPPORTED_CHARSETS:
+        charset = None
+    confidence = _optional_text(value.get("confidence_class"))
+    if confidence not in CONFIDENCE_CLASSES:
+        confidence = None
+    failure_reason = _optional_text(value.get("failure_reason"))
+    source_digest = _optional_text(value.get("source_digest")) or ""
+    return AttachmentCharsetEvidence(
+        charset=charset,
+        confidence_class=confidence,
+        bom_present=bool(value.get("bom_present", False)),
+        truncated=bool(value.get("truncated", False)),
+        replacement_count=0,
+        failure_reason=failure_reason,
+        source_digest=source_digest,
+    )
+
+
+def truncate_utf8_text(text: str, max_bytes: int) -> tuple[str, bool]:
+    """Truncate text on a UTF-8 boundary without inserting replacements."""
+    if max_bytes < 0:
+        raise ValueError("max_bytes must be non-negative")
+    encoded = text.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return text, False
+    boundary = max_bytes
+    while boundary > 0:
+        try:
+            return encoded[:boundary].decode("utf-8"), True
+        except UnicodeDecodeError:
+            boundary -= 1
+    return "", True
+
+
 def decode_attachment_text(data: bytes) -> DecodedAttachmentText:
     """Decode one supported text attachment or reject it deterministically."""
     payload = bytes(data)
@@ -102,13 +231,43 @@ def decode_attachment_text(data: bytes) -> DecodedAttachmentText:
     raise TextAttachmentDecodeError("undecodable_or_binary")
 
 
+def decode_attachment_text_prefix(data: bytes) -> DecodedAttachmentText:
+    """Decode a bounded source prefix while tolerating one cut code point."""
+    payload = bytes(data)
+    if not payload.startswith(_UNICODE_BOMS):
+        for trim in range(4):
+            candidate = payload[: len(payload) - trim] if trim else payload
+            if not candidate and payload:
+                continue
+            try:
+                text = candidate.decode("utf-8")
+            except UnicodeDecodeError:
+                continue
+            if _is_plausible_text(text):
+                return DecodedAttachmentText(
+                    text=text,
+                    charset="utf-8",
+                    confidence_class="exact",
+                    bom_present=False,
+                )
+    for trim in range(4):
+        candidate = payload[: len(payload) - trim] if trim else payload
+        if not candidate and payload:
+            continue
+        try:
+            return decode_attachment_text(candidate)
+        except TextAttachmentDecodeError:
+            continue
+    raise TextAttachmentDecodeError("undecodable_or_binary")
+
+
 def _decode_bom(payload: bytes) -> DecodedAttachmentText | None:
-    bom_variants = (
-        (b"\xff\xfe\x00\x00", "utf-32-le"),
-        (b"\x00\x00\xfe\xff", "utf-32-be"),
-        (b"\xef\xbb\xbf", "utf-8-sig"),
-        (b"\xff\xfe", "utf-16-le"),
-        (b"\xfe\xff", "utf-16-be"),
+    bom_variants = tuple(
+        zip(
+            _UNICODE_BOMS,
+            ("utf-32-le", "utf-32-be", "utf-8-sig", "utf-16-le", "utf-16-be"),
+            strict=True,
+        )
     )
     for bom, charset in bom_variants:
         if not payload.startswith(bom):
@@ -241,7 +400,7 @@ def _is_plausible_text(text: str) -> bool:
         unicodedata.category(char) == "Cc" and char not in _ALLOWED_CONTROLS
         for char in text
     )
-    return controls <= min(8, max(1, len(text) // 100))
+    return controls <= min(8, max(2, len(text) // 100))
 
 
 def _has_binary_signature(payload: bytes) -> bool:
@@ -254,3 +413,10 @@ def _restricted_lane_ratio(values: bytes, admitted: frozenset[int]) -> float:
 
 def _zero_ratio(values: bytes) -> float:
     return values.count(0) / max(len(values), 1)
+
+
+def _optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None

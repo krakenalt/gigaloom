@@ -10,6 +10,12 @@ from pathlib import Path
 import re
 from typing import Any, Callable, Mapping
 
+from gigaloom.attachments.encoding import (
+    AttachmentCharsetEvidence,
+    TextAttachmentDecodeError,
+    charset_evidence_for,
+    decode_attachment_text,
+)
 from gigaloom.attachments.limits import (
     AttachmentLimits,
     AttachmentValidationError,
@@ -84,6 +90,7 @@ class FilesystemAttachmentStore:
         kind = detect_attachment_kind(name, detected_mime, payload)
         self._validate_kind(kind, limits)
         sha256 = hashlib.sha256(payload).hexdigest()
+        charset_evidence = _text_charset_evidence(payload, kind)
         blob_path = self._blob_path(project_id, sha256)
         if not blob_path.exists():
             _write_bytes_atomic(blob_path, payload)
@@ -100,6 +107,7 @@ class FilesystemAttachmentStore:
             storage_path=str(blob_path),
             created_at=utc_now(),
             metadata=self._redacted_mapping(metadata),
+            charset_evidence=charset_evidence,
         )
         self._write_blob_metadata(attachment)
         return self._append_attachment(attachment)
@@ -125,6 +133,11 @@ class FilesystemAttachmentStore:
         detected_kind = detect_attachment_kind(relative, detected_mime, sample)
         self._validate_kind(detected_kind, limits)
         sha256 = _sha256_file(resolved)
+        charset_evidence = None
+        if detected_kind is AttachmentKind.TEXT:
+            charset_evidence = _text_charset_evidence(
+                resolved.read_bytes(), detected_kind
+            )
         combined_metadata: dict[str, Any] = {
             "detected_kind": detected_kind.value,
             "workspace_root": str(Path(workspace_root).expanduser().resolve()),
@@ -144,6 +157,7 @@ class FilesystemAttachmentStore:
             workspace_path=relative,
             created_at=utc_now(),
             metadata=self._redacted_mapping(combined_metadata),
+            charset_evidence=charset_evidence,
         )
         return self._append_attachment(attachment)
 
@@ -262,6 +276,10 @@ class FilesystemAttachmentStore:
             "created_at": attachment.created_at,
             "metadata": dict(attachment.metadata),
         }
+        if attachment.charset_evidence is not None:
+            metadata["charset_evidence"] = attachment_to_dict(attachment)[
+                "charset_evidence"
+            ]
         _write_json_atomic(blob_path.parent / BLOB_METADATA_FILE, metadata)
 
     def _session_attachments_path(self, session_id: str) -> Path:
@@ -440,3 +458,18 @@ def _safe_project_key(project_id: str | None) -> str:
     if value in {".", ".."} or not PROJECT_KEY_PATTERN.fullmatch(value):
         raise AttachmentValidationError("Project id is invalid")
     return value
+
+
+def _text_charset_evidence(
+    payload: bytes,
+    kind: AttachmentKind,
+) -> AttachmentCharsetEvidence | None:
+    if kind is not AttachmentKind.TEXT:
+        return None
+    try:
+        decoded = decode_attachment_text(payload)
+    except TextAttachmentDecodeError as exc:
+        raise AttachmentValidationError(
+            f"Text attachment decode failed: {exc.failure_reason}"
+        ) from exc
+    return charset_evidence_for(payload, decoded)

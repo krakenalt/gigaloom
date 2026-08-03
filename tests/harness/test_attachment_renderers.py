@@ -60,6 +60,24 @@ def test_direct_chat_renderer_truncates_inline_text(tmp_path):
     assert plan.warnings == ("long.txt was truncated at 5 bytes.",)
 
 
+def test_direct_chat_renderer_decodes_windows_1251_without_replacement(tmp_path):
+    session, store = _session_and_store(tmp_path)
+    text = store.create_upload(
+        session_id=session.id,
+        project_id=None,
+        filename="note.txt",
+        data="Привет мир, это проверка текста.\n".encode("windows-1251"),
+        mime_type="text/plain",
+    )
+
+    plan = render_for_direct_chat((text,), store)
+
+    assert "Привет мир" in plan.prompt_prefix
+    assert "�" not in plan.prompt_prefix
+    assert text.charset_evidence is not None
+    assert text.charset_evidence.charset == "windows-1251"
+
+
 def test_agent_renderers_use_workspace_and_uploaded_path_references(tmp_path):
     session_store = FilesystemHarnessSessionStore(tmp_path / "data")
     session = session_store.create_session(title="renderers")

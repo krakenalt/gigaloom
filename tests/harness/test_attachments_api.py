@@ -221,13 +221,112 @@ def test_session_attachment_preview_is_bounded_and_terminal_safe(tmp_path):
     )
 
     assert response.status_code == 200
-    assert response.json()["preview"] == {
-        "status": "ready",
-        "text": "# Safe\n�]52;c;hidden�\n",
-        "truncated": False,
-    }
+    preview = response.json()["preview"]
+    assert preview["status"] == "ready"
+    assert preview["text"] == "# Safe\n�]52;c;hidden�\n"
+    assert preview["truncated"] is False
+    assert preview["charset_evidence"]["charset"] == "utf-8"
+    assert preview["charset_evidence"]["replacement_count"] == 0
+    assert preview["charset_evidence"]["failure_reason"] is None
     assert str(workspace) not in response.text
     assert denied.status_code == 400
+
+
+def test_attachments_api_projects_charset_evidence_without_source_text(tmp_path):
+    client = _client(tmp_path / "data")
+    session_id = _create_session(client)
+    source = "Привет мир, это проверка текста.\n".encode("koi8-r")
+
+    response = client.post(
+        f"/api/sessions/{session_id}/attachments",
+        json={
+            "filename": "note.txt",
+            "mime_type": "text/plain",
+            "data_base64": base64.b64encode(source).decode("ascii"),
+        },
+    )
+
+    assert response.status_code == 200
+    evidence = response.json()["attachment"]["charset_evidence"]
+    assert evidence == {
+        "charset": "koi8-r",
+        "confidence_class": "strong",
+        "bom_present": False,
+        "truncated": False,
+        "replacement_count": 0,
+        "failure_reason": None,
+        "source_digest": hashlib.sha256(source).hexdigest(),
+    }
+    assert "Привет" not in response.text
+
+
+def test_workspace_preview_decodes_legacy_text_and_reports_truncation(tmp_path):
+    data_dir = tmp_path / "data"
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    text = "Привет мир, это проверка текста.\n" * 400
+    source = workspace / "legacy.txt"
+    source.write_bytes(text.encode("windows-1251"))
+    client = _client(data_dir)
+    session_id = _create_session(client, workspace=str(workspace))
+
+    response = client.get(
+        f"/api/sessions/{session_id}/attachments/workspace/preview",
+        params={"path": "legacy.txt"},
+    )
+
+    assert response.status_code == 200
+    preview = response.json()["preview"]
+    assert preview["status"] == "truncated"
+    assert preview["truncated"] is True
+    assert preview["text"].startswith("Привет мир")
+    assert "�" not in preview["text"]
+    assert preview["charset_evidence"]["charset"] == "windows-1251"
+    assert (
+        preview["charset_evidence"]["source_digest"]
+        == hashlib.sha256(source.read_bytes()).hexdigest()
+    )
+
+
+def test_workspace_preview_returns_decode_failure_facts(tmp_path):
+    data_dir = tmp_path / "data"
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "masquerade.txt").write_bytes(bytes(range(256)))
+    client = _client(data_dir)
+    session_id = _create_session(client, workspace=str(workspace))
+
+    response = client.get(
+        f"/api/sessions/{session_id}/attachments/workspace/preview",
+        params={"path": "masquerade.txt"},
+    )
+
+    assert response.status_code == 200
+    preview = response.json()["preview"]
+    assert preview["status"] == "rejected"
+    assert preview["text"] == ""
+    assert preview["charset_evidence"]["charset"] is None
+    assert preview["charset_evidence"]["replacement_count"] == 0
+    assert preview["charset_evidence"]["failure_reason"] == ("undecodable_or_binary")
+
+
+def test_attachments_api_rejects_binary_masquerading_as_text(tmp_path):
+    client = _client(tmp_path / "data")
+    session_id = _create_session(client)
+
+    response = client.post(
+        f"/api/sessions/{session_id}/attachments",
+        json={
+            "filename": "image.txt",
+            "mime_type": "text/plain",
+            "data_base64": base64.b64encode(PNG_BYTES).decode("ascii"),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Text attachment decode failed: binary_signature"
+    )
 
 
 def test_attachments_api_rejects_unsafe_upload_without_leaking_payload(tmp_path):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Any
 
@@ -12,6 +13,13 @@ from gigaloom.attachments import (
     AttachmentNotFoundError,
     AttachmentSessionNotFoundError,
     AttachmentValidationError,
+    TextAttachmentDecodeError,
+    charset_evidence_for,
+    charset_evidence_to_dict,
+    decode_attachment_text,
+    decode_attachment_text_prefix,
+    failed_charset_evidence,
+    truncate_utf8_text,
 )
 from gigaloom.attachments.limits import normalize_workspace_file
 from gigaloom.project import resolve_project
@@ -153,16 +161,49 @@ def create_router(services: AppServices) -> APIRouter:
                 resolved, _relative = normalize_workspace_file(
                     workspace_root, path, limits
                 )
-                raw = resolved.read_bytes()[: TUI_FILE_PREVIEW_BYTES + 1]
-                text = raw[:TUI_FILE_PREVIEW_BYTES].decode("utf-8", errors="replace")
-                truncated = len(raw) > TUI_FILE_PREVIEW_BYTES
-                preview = {
-                    "status": "truncated" if truncated else "ready",
-                    "text": TUI_FILE_PREVIEW_CONTROL_RE.sub("�", text).replace(
-                        "\r", ""
-                    ),
-                    "truncated": truncated,
-                }
+                with resolved.open("rb") as handle:
+                    raw = handle.read(TUI_FILE_PREVIEW_BYTES + 8)
+                source_truncated = metadata["size_bytes"] > len(raw)
+                with resolved.open("rb") as handle:
+                    source_digest = hashlib.file_digest(handle, "sha256").hexdigest()
+                try:
+                    decoded = (
+                        decode_attachment_text_prefix(raw)
+                        if source_truncated
+                        else decode_attachment_text(raw)
+                    )
+                except TextAttachmentDecodeError as exc:
+                    evidence = failed_charset_evidence(
+                        raw,
+                        exc.failure_reason,
+                        truncated=source_truncated,
+                        source_digest=source_digest,
+                    )
+                    preview = {
+                        "status": "rejected",
+                        "text": "",
+                        "truncated": source_truncated,
+                        "charset_evidence": charset_evidence_to_dict(evidence),
+                    }
+                else:
+                    text, output_truncated = truncate_utf8_text(
+                        decoded.text, TUI_FILE_PREVIEW_BYTES
+                    )
+                    truncated = source_truncated or output_truncated
+                    evidence = charset_evidence_for(
+                        raw,
+                        decoded,
+                        truncated=truncated,
+                        source_digest=source_digest,
+                    )
+                    preview = {
+                        "status": "truncated" if truncated else "ready",
+                        "text": TUI_FILE_PREVIEW_CONTROL_RE.sub("�", text).replace(
+                            "\r", ""
+                        ),
+                        "truncated": truncated,
+                        "charset_evidence": charset_evidence_to_dict(evidence),
+                    }
         except SessionNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Session not found") from exc
         except (AttachmentValidationError, OSError, ValueError) as exc:

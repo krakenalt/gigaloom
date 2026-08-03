@@ -1,8 +1,14 @@
 import pytest
 
 from gigaloom.attachments import (
+    AttachmentCharsetEvidence,
     TextAttachmentDecodeError,
+    attachment_from_dict,
+    attachment_to_dict,
+    charset_evidence_for,
     decode_attachment_text,
+    decode_attachment_text_prefix,
+    truncate_utf8_text,
 )
 
 
@@ -76,3 +82,67 @@ def test_utf8_fast_path_is_exact_and_preserves_text():
 def test_rejects_binary_or_malformed_payload_without_replacement(payload):
     with pytest.raises(TextAttachmentDecodeError):
         decode_attachment_text(payload)
+
+
+def test_charset_evidence_round_trips_and_old_attachment_remains_readable():
+    payload = "Привет".encode("windows-1251")
+    decoded = decode_attachment_text(payload)
+    evidence = charset_evidence_for(payload, decoded)
+    attachment = attachment_from_dict(
+        {
+            "id": "att_old",
+            "session_id": "sess_old",
+            "kind": "text",
+            "charset_evidence": {
+                "charset": evidence.charset,
+                "confidence_class": evidence.confidence_class,
+                "bom_present": evidence.bom_present,
+                "truncated": evidence.truncated,
+                "replacement_count": evidence.replacement_count,
+                "failure_reason": evidence.failure_reason,
+                "source_digest": evidence.source_digest,
+            },
+        }
+    )
+
+    assert attachment.charset_evidence == evidence
+    assert attachment_to_dict(attachment)["charset_evidence"]["charset"] == (
+        "windows-1251"
+    )
+
+    legacy = attachment_from_dict(
+        {"id": "att_old", "session_id": "sess_old", "kind": "text"}
+    )
+    assert legacy.charset_evidence is None
+    assert "charset_evidence" not in attachment_to_dict(legacy)
+
+
+def test_utf8_truncation_ends_on_character_boundary_without_replacement():
+    text, truncated = truncate_utf8_text("абв", 5)
+
+    assert text == "аб"
+    assert truncated is True
+    assert "�" not in text
+
+
+def test_bounded_utf8_prefix_does_not_fall_back_to_legacy_encoding():
+    source = ("a" * 8191 + "я").encode("utf-8")[:8192]
+
+    decoded = decode_attachment_text_prefix(source)
+
+    assert decoded.charset == "utf-8"
+    assert decoded.text == "a" * 8191
+
+
+def test_charset_evidence_type_is_content_free():
+    evidence = AttachmentCharsetEvidence(
+        charset=None,
+        confidence_class=None,
+        bom_present=False,
+        truncated=False,
+        replacement_count=0,
+        failure_reason="binary_content",
+        source_digest="a" * 64,
+    )
+
+    assert "text" not in evidence.__dict__

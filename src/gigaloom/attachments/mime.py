@@ -5,6 +5,10 @@ from __future__ import annotations
 import mimetypes
 from pathlib import PurePosixPath
 
+from gigaloom.attachments.encoding import (
+    TextAttachmentDecodeError,
+    decode_attachment_text,
+)
 from gigaloom.attachments.models import AttachmentKind
 
 TEXT_MIME_TYPES = {
@@ -106,7 +110,7 @@ def detect_attachment_kind(
         return AttachmentKind.TEXT
     if normalized_mime in DOCUMENT_MIME_TYPES or extension in DOCUMENT_EXTENSIONS:
         return AttachmentKind.DOCUMENT
-    if data is not None and _looks_like_utf8_text(data):
+    if data is not None and _looks_like_supported_text(data):
         return AttachmentKind.TEXT
     return AttachmentKind.BINARY
 
@@ -134,14 +138,9 @@ def _mime_from_signature(data: bytes) -> str | None:
     return None
 
 
-def _looks_like_utf8_text(data: bytes) -> bool:
-    if not data:
-        return True
-    sample = data[:8192]
-    if b"\x00" in sample:
-        return False
+def _looks_like_supported_text(data: bytes) -> bool:
     try:
-        sample.decode("utf-8")
-    except UnicodeDecodeError:
+        decode_attachment_text(data[:8192])
+    except TextAttachmentDecodeError:
         return False
     return True

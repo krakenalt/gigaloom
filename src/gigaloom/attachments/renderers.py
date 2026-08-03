@@ -6,6 +6,11 @@ import base64
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
+from gigaloom.attachments.encoding import (
+    TextAttachmentDecodeError,
+    decode_attachment_text,
+    truncate_utf8_text,
+)
 from gigaloom.attachments.models import (
     AttachmentKind,
     AttachmentRenderPlan,
@@ -387,11 +392,17 @@ def _inline_text_block(
     *,
     inline_text_limit: int,
 ) -> tuple[str, str | None]:
-    payload = _read_attachment_text(attachment, store)
+    try:
+        payload = _read_attachment_text(attachment, store)
+    except TextAttachmentDecodeError as exc:
+        return (
+            "",
+            f"{attachment.filename} could not be decoded safely "
+            f"({exc.failure_reason}).",
+        )
     warning = None
-    if len(payload.encode("utf-8")) > inline_text_limit:
-        encoded = payload.encode("utf-8")[:inline_text_limit]
-        payload = encoded.decode("utf-8", errors="replace")
+    payload, truncated = truncate_utf8_text(payload, inline_text_limit)
+    if truncated:
         warning = f"{attachment.filename} was truncated at {inline_text_limit} bytes."
     redacted = str(redact_secrets(payload))
     fence = _fence_language(attachment.filename)
@@ -411,7 +422,7 @@ def _read_attachment_text(
     else:
         path = _workspace_path(attachment)
         data = path.read_bytes()
-    return data.decode("utf-8", errors="replace")
+    return decode_attachment_text(data).text
 
 
 def _workspace_reference(attachment: HarnessAttachment) -> str:
