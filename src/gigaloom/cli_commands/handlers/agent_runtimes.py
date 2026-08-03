@@ -247,16 +247,13 @@ def _handle_agent_runtime_sync(args: argparse.Namespace, config: HarnessConfig) 
 def _service(config: HarnessConfig) -> AgentRuntimeService:
     if _SERVICE_FACTORY is not None:
         return _SERVICE_FACTORY(config)
-    return build_agent_runtime_service(
-        config,
-        network_isolation_admitted=False,
-    )
+    return build_agent_runtime_service(config)
 
 
 def build_agent_runtime_service(
     config: HarnessConfig,
     *,
-    network_isolation_admitted: bool,
+    network_isolation_admitted: bool | None = None,
     platform_id: str | None = None,
     architecture: str | None = None,
     reserved_inventory: AgentIdentityInventory | None = None,

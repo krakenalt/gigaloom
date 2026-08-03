@@ -60,24 +60,26 @@ Successful `200` responses for inventory, refresh, preview, and operation reads
 prove that the catalog path works; they do not grant permission to download and
 execute an agent.
 
-The current local Web/CLI composition intentionally has no admitted managed-agent
-network-isolation owner. A confirmed install therefore fails closed with:
+Current builds automatically admit a system-owned network-deny launcher for the
+initialize-only compatibility probe:
+
+- macOS: `/usr/bin/sandbox-exec` with an explicit `deny network*` profile;
+- Linux: `/usr/bin/bwrap` or `/bin/bwrap` with a private network namespace.
+
+The confirmed server-owned transaction downloads the exact reviewed artifact,
+checks its declared digest, extracts it into a private managed root, and runs
+the probe through that launcher before activation. If no supported launcher is
+available, the install fails closed before creating an operation with:
 
 ```text
 managed_agent_network_isolation_required
 ```
 
-Older builds created a background operation first and reduced this condition to
-`runtimeerror_during_agent_operation`. Current builds reject the request with
-HTTP `409` before creating an operation and show the bounded reason in the UI.
-Do not change the internal admission flag to `True`: the flag is proof supplied
-by a sandbox owner, not a user preference.
-
-Until the managed installer is connected to an enforcing sandbox/network
-authority, install the provider CLI outside GigaLoom and register a reviewed
-local manifest as described below. Registry browsing and dry-run previews remain
-available when the selected candidate does not require online package
-resolution.
+Windows and Linux hosts without Bubblewrap remain unsupported for managed
+installation; install the provider CLI outside GigaLoom and use a reviewed local
+manifest there. If macOS reports `sandbox_apply: Operation not permitted`, start
+`giga ui` from a normal terminal rather than from inside another restrictive
+sandbox. Do not bypass the check by changing the internal admission flag.
 
 Always pass an absolute data directory when starting an older build:
 
@@ -92,9 +94,6 @@ back that directory up before reconciling it with `$HOME/.gigaloom`; do not run
 two servers against the two locations.
 
 ## Install an agent from the ACP Registry in the UI
-
-The following flow applies once the server composition supplies the required
-managed-agent isolation authority.
 
 1. Refresh the registry and open the **ACP Registry** tab.
 2. Filter by platform, distribution, integrity, or license.
@@ -114,7 +113,7 @@ binds confirmation to the reviewed plan.
 
 ## Install an agent from the ACP Registry in the CLI
 
-The confirmed CLI mutations have the same isolation requirement as the UI.
+The CLI discovers the same platform isolation launcher as the UI.
 
 First refresh and inspect the available ids:
 

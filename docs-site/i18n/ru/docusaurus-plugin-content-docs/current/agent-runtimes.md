@@ -61,24 +61,26 @@ Registry refresh и install preview отделены от установки art
 для inventory, refresh, preview и чтения operation подтверждают исправность
 каталога, но не дают полномочий на скачивание и запуск agent.
 
-В текущей локальной Web/CLI-композиции нет владельца, который предоставил бы
-обязательную network isolation для managed agent. Поэтому подтверждённая
-установка fail-closed завершается кодом:
+Текущая сборка автоматически подключает системный network-deny launcher для
+initialize-only compatibility probe:
+
+- macOS: `/usr/bin/sandbox-exec` с явным профилем `deny network*`;
+- Linux: `/usr/bin/bwrap` или `/bin/bwrap` с отдельным network namespace.
+
+Подтверждённая server-owned транзакция скачивает точный проверенный artifact,
+сверяет заявленный digest, распаковывает его в приватный managed root и перед
+активацией запускает probe через этот launcher. Если поддерживаемого launcher
+нет, установка fail-closed завершается до создания operation с кодом:
 
 ```text
 managed_agent_network_isolation_required
 ```
 
-Старые сборки сначала создавали background operation и сворачивали эту причину
-до `runtimeerror_during_agent_operation`. Текущая сборка возвращает HTTP `409`
-до создания operation и показывает ограниченный reason code в UI. Не меняйте
-внутренний admission flag на `True`: это доказательство от владельца sandbox, а
-не пользовательская настройка.
-
-Пока managed installer не подключён к реально enforcing sandbox/network
-authority, установите provider CLI вне GigaLoom и зарегистрируйте проверенный
-local manifest по инструкции ниже. Просмотр Registry и dry-run preview остаются
-доступными, если выбранному candidate не требуется online package resolution.
+Windows и Linux без Bubblewrap пока не поддерживают managed installation; на
+таких host установите provider CLI отдельно и используйте проверенный local
+manifest. Если macOS сообщает `sandbox_apply: Operation not permitted`, запускайте
+`giga ui` из обычного terminal, а не из другой restrictive sandbox. Не обходите
+проверку изменением внутреннего admission flag.
 
 При запуске старой сборки всегда задавайте абсолютный data directory:
 
@@ -93,9 +95,6 @@ giga ui
 запускайте два server с двумя разными каталогами.
 
 ## Установка agent из ACP Registry через UI
-
-Следующий flow применим, когда server composition предоставляет обязательную
-managed-agent isolation authority.
 
 1. Обновите Registry и откройте вкладку **ACP Registry**.
 2. Отфильтруйте записи по platform, distribution, integrity или license.
@@ -115,8 +114,7 @@ distribution самостоятельно: backend выбирает вариан
 
 ## Установка agent из ACP Registry через CLI
 
-Для подтверждённых CLI mutations действует то же требование isolation, что и
-для UI.
+CLI обнаруживает тот же platform isolation launcher, что и UI.
 
 Сначала обновите Registry и получите доступные id:
 

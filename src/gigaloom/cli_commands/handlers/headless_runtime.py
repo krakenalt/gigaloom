@@ -88,7 +88,7 @@ def run_managed_headless_command(
             reason_code=error.reason_code,
             stdout=stdout,
         )
-    service = build_agent_runtime_service(config, network_isolation_admitted=False)
+    service = build_agent_runtime_service(config)
     backend = ManagedAcpHeadlessBackend(service)
     return run_headless_from_args(
         args,

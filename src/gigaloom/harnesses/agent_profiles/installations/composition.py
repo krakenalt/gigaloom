@@ -16,7 +16,10 @@ from gigaloom.harnesses.agent_profiles.installations.planner import (
 from gigaloom.harnesses.agent_profiles.installations.runtime import (
     AgentRuntimeService,
 )
-from gigaloom.harnesses.agent_profiles.onboarding import ManagedAcpProbeRunner
+from gigaloom.harnesses.agent_profiles.onboarding import (
+    ManagedAcpProbeRunner,
+    discover_managed_acp_network_isolation,
+)
 from gigaloom.harnesses.agent_profiles.registry import (
     ACPRegistryCache,
     OfficialACPRegistryClient,
@@ -26,7 +29,7 @@ from gigaloom.harnesses.agent_profiles.registry import (
 def create_agent_runtime_service(
     data_root: str | Path,
     *,
-    network_isolation_admitted: bool,
+    network_isolation_admitted: bool | None = None,
     platform_id: str | None = None,
     architecture: str | None = None,
     reserved_inventory: AgentIdentityInventory = AgentIdentityInventory(),
@@ -41,6 +44,12 @@ def create_agent_runtime_service(
         "windows" if sys.platform == "win32" else sys.platform
     )
     host_architecture = architecture or _host_architecture()
+    isolation = discover_managed_acp_network_isolation(platform_id=host_platform)
+    if network_isolation_admitted is True and isolation is None:
+        raise RuntimeError("managed_agent_network_isolation_unavailable")
+    isolation_admitted = (
+        isolation is not None and network_isolation_admitted is not False
+    )
     cache = ACPRegistryCache(root / "agent_profiles/acp_registry")
     return AgentRuntimeService(
         root,
@@ -49,8 +58,8 @@ def create_agent_runtime_service(
             root,
             platform=host_platform,
             architecture=host_architecture,
-            probe=ManagedAcpProbeRunner(),
-            network_isolation_admitted=network_isolation_admitted,
+            probe=ManagedAcpProbeRunner(isolation),
+            network_isolation_admitted=isolation_admitted,
             clock=clock,
         ),
         clock=clock,

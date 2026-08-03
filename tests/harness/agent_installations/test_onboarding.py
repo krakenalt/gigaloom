@@ -8,8 +8,11 @@ import io
 import json
 from pathlib import Path
 import shutil
+import subprocess
 from types import SimpleNamespace
 from typing import cast
+
+import pytest
 
 from gigaloom.cli_commands.handlers.headless_runtime import ManagedAcpHeadlessBackend
 from gigaloom.contracts import (
@@ -41,6 +44,7 @@ from gigaloom.harnesses.agent_profiles.onboarding import (
     ManagedAcpProbeRunner,
     ManagedAgentOnboardingService,
     ManagedProbeState,
+    discover_managed_acp_network_isolation,
     generate_managed_agent_profile,
 )
 from gigaloom.harnesses.agent_profiles.models import VersionPolicyKind
@@ -57,6 +61,16 @@ class StaticProbe:
     def probe(self, profile, artifact, *, network_isolated):  # noqa: ANN001, ANN201
         self.calls.append((profile, artifact, network_isolated))
         return self.receipt
+
+
+class HermeticIsolation:
+    """Test owner that keeps the fixture process inside the outer test sandbox."""
+
+    mechanism = "hermetic_test"
+
+    def wrap(self, command, *, workspace, native_home):  # noqa: ANN001, ANN201
+        assert workspace.is_dir() and native_home.is_dir()
+        return command
 
 
 def _digest(value: str) -> str:
@@ -323,7 +337,7 @@ def test_production_probe_uses_disposable_home_and_initialize_only(tmp_path):
     executable.chmod(0o700)
     profile = generate_managed_agent_profile(entry, artifact)
 
-    receipt = ManagedAcpProbeRunner().probe(
+    receipt = ManagedAcpProbeRunner(HermeticIsolation()).probe(
         profile,
         artifact,
         network_isolated=True,
@@ -336,6 +350,44 @@ def test_production_probe_uses_disposable_home_and_initialize_only(tmp_path):
     assert receipt.network_policy == "enforced_deny"
     assert receipt.session_created is False
     assert receipt.prompt_sent is False
+
+
+def test_discovered_platform_isolation_launches_production_probe(tmp_path):
+    isolation = discover_managed_acp_network_isolation()
+    if isolation is None:
+        pytest.skip("platform network isolation is unavailable")
+    smoke_workspace = tmp_path / "smoke-workspace"
+    smoke_home = tmp_path / "smoke-home"
+    smoke_workspace.mkdir()
+    smoke_home.mkdir()
+    true_executable = Path(shutil.which("true") or "/usr/bin/true").resolve()
+    smoke = subprocess.run(
+        isolation.wrap(
+            (str(true_executable),),
+            workspace=smoke_workspace,
+            native_home=smoke_home,
+        ),
+        check=False,
+        capture_output=True,
+        timeout=5,
+    )
+    if smoke.returncode != 0:
+        pytest.skip("outer sandbox does not admit the platform isolation launcher")
+
+    _, entry, artifact = _candidate(tmp_path, executable_name="fake-agent")
+    fixture = Path(__file__).parents[2] / "fixtures/acp/fake_agent.py"
+    executable = Path(artifact.managed_root) / artifact.executable_relative_path
+    shutil.copyfile(fixture, executable)
+    executable.chmod(0o700)
+
+    receipt = ManagedAcpProbeRunner(isolation).probe(
+        generate_managed_agent_profile(entry, artifact),
+        artifact,
+        network_isolated=True,
+    )
+
+    assert receipt.protocol_state == "conformant"
+    assert receipt.network_policy == "enforced_deny"
 
 
 class _ActiveRuntimeProjection:
@@ -364,7 +416,7 @@ def test_generated_route_executes_through_the_headless_runtime(tmp_path):
     executable.chmod(0o700)
     record = ManagedAgentOnboardingService(
         str(tmp_path),
-        ManagedAcpProbeRunner(),
+        ManagedAcpProbeRunner(HermeticIsolation()),
         clock=lambda: NOW,
     ).onboard(plan, entry, artifact, network_isolated=True)
     runtime = cast(AgentRuntimeService, _ActiveRuntimeProjection(record))

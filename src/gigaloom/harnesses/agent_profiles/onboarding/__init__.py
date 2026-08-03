@@ -5,6 +5,11 @@ from gigaloom.harnesses.agent_profiles.onboarding.models import (
     ManagedAgentOnboardingResult,
     ManagedProbeState,
 )
+from gigaloom.harnesses.agent_profiles.onboarding.isolation import (
+    ManagedAcpNetworkIsolation,
+    ManagedAcpNetworkIsolationPort,
+    discover_managed_acp_network_isolation,
+)
 from gigaloom.harnesses.agent_profiles.onboarding.probe import (
     ManagedAcpProbePort,
     ManagedAcpProbeRunner,
@@ -24,10 +29,13 @@ __all__ = [
     "ManagedAcpProbePort",
     "ManagedAcpProbeReceipt",
     "ManagedAcpProbeRunner",
+    "ManagedAcpNetworkIsolation",
+    "ManagedAcpNetworkIsolationPort",
     "ManagedAgentOnboardingResult",
     "ManagedAgentOnboardingService",
     "ManagedOnboardingStore",
     "ManagedProbeState",
     "DEFAULT_COMPATIBILITY_TTL",
     "generate_managed_agent_profile",
+    "discover_managed_acp_network_isolation",
 ]

@@ -51,7 +51,6 @@ def build_agent_runtime_web_bundle(
     )
     runtime = create_agent_runtime_service(
         config.data_dir,
-        network_isolation_admitted=False,
         reserved_inventory=_identity_inventory(commands, base_profiles),
     )
     combined = _combine_profiles(base_profiles, runtime.active_profiles())
