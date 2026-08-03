@@ -26,6 +26,7 @@ from gigaloom.contracts.agent_installation_codec import managed_agent_artifact_t
 from gigaloom.contracts.operational_validation import canonical_digest
 from gigaloom.harnesses.agent_profiles.installations import (
     AgentIdentityInventory,
+    AgentInstallError,
     AgentInstallPlanner,
     AgentInstallPlannerPolicy,
     BinaryDownloadResponse,
@@ -440,7 +441,10 @@ def test_production_coordinator_fails_closed_without_isolation_authority(tmp_pat
         service.add("coordinated-runtime", dry_run=True),
         InstallPlanningResult,
     )
-    with pytest.raises(RuntimeError, match="network isolation"):
+    with pytest.raises(
+        AgentInstallError,
+        match="managed_agent_network_isolation_required",
+    ):
         service.add("coordinated-runtime", confirmed=True)
     assert transport.requests == []
     assert service.list() == ()

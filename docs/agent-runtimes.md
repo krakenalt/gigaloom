@@ -53,7 +53,48 @@ UI, and explicitly refresh again. Do not hand-edit `current.json` or snapshot
 files. A stale but valid cached snapshot remains usable when a later network
 refresh fails.
 
+## Why a confirmed install can be rejected
+
+Registry refresh and install preview are separate from artifact installation.
+Successful `200` responses for inventory, refresh, preview, and operation reads
+prove that the catalog path works; they do not grant permission to download and
+execute an agent.
+
+The current local Web/CLI composition intentionally has no admitted managed-agent
+network-isolation owner. A confirmed install therefore fails closed with:
+
+```text
+managed_agent_network_isolation_required
+```
+
+Older builds created a background operation first and reduced this condition to
+`runtimeerror_during_agent_operation`. Current builds reject the request with
+HTTP `409` before creating an operation and show the bounded reason in the UI.
+Do not change the internal admission flag to `True`: the flag is proof supplied
+by a sandbox owner, not a user preference.
+
+Until the managed installer is connected to an enforcing sandbox/network
+authority, install the provider CLI outside GigaLoom and register a reviewed
+local manifest as described below. Registry browsing and dry-run previews remain
+available when the selected candidate does not require online package
+resolution.
+
+Always pass an absolute data directory when starting an older build:
+
+```bash
+export GIGALOOM_DATA_DIR="$HOME/.gigaloom"
+giga ui
+```
+
+Current builds expand `~` before creating agent registry and operation state.
+If an older build already created a literal `./~/.gigaloom`, stop GigaLoom and
+back that directory up before reconciling it with `$HOME/.gigaloom`; do not run
+two servers against the two locations.
+
 ## Install an agent from the ACP Registry in the UI
+
+The following flow applies once the server composition supplies the required
+managed-agent isolation authority.
 
 1. Refresh the registry and open the **ACP Registry** tab.
 2. Filter by platform, distribution, integrity, or license.
@@ -72,6 +113,8 @@ distribution on its own; the backend selects one for the current platform and
 binds confirmation to the reviewed plan.
 
 ## Install an agent from the ACP Registry in the CLI
+
+The confirmed CLI mutations have the same isolation requirement as the UI.
 
 First refresh and inspect the available ids:
 

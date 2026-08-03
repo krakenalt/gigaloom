@@ -45,6 +45,7 @@
 .agent-install-drawer button:disabled { cursor: not-allowed; opacity: 0.5; }
 .primary-button { background: var(--accent) !important; border-color: var(--accent) !important; color: white !important; }
 .danger-button { color: var(--danger) !important; }
+.agent-install-error { color: var(--danger); font-size: 0.8rem; margin: 10px 0 0; }
 
 .registry-health {
   background: var(--surface-muted);

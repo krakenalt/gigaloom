@@ -101,7 +101,8 @@ class AgentInstallationWebService:
         submit: Callable[[Callable[[], None]], None] | None = None,
     ) -> None:
         self._root = (
-            Path(data_root).resolve(strict=False) / "agent_profiles/web_operations"
+            Path(data_root).expanduser().resolve(strict=False)
+            / "agent_profiles/web_operations"
         )
         self._runtime = runtime
         self._clock = clock or (lambda: datetime.now(UTC))
@@ -136,6 +137,7 @@ class AgentInstallationWebService:
     ) -> AgentInstallationWebOperation:
         if not confirmed:
             raise ValueError("managed agent Web install requires confirmation")
+        self._runtime.require_install_authority()
         operation = self._create(
             kind="install",
             registry_or_local_id=registry_query,
@@ -156,6 +158,7 @@ class AgentInstallationWebService:
     ) -> AgentInstallationWebOperation:
         if not confirmed:
             raise ValueError("managed agent Web update requires confirmation")
+        self._runtime.require_install_authority()
         operation = self._create(
             kind="update",
             registry_or_local_id=local_agent_id,

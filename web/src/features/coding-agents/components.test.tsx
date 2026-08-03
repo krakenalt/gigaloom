@@ -64,6 +64,7 @@ describe("coding-agent marketplace components", () => {
         agent={agent}
         alias=""
         allowUnverified={false}
+        installError={null}
         installPending={false}
         operation={null}
         preview={preview}
@@ -80,6 +81,30 @@ describe("coding-agent marketplace components", () => {
     expect(markup).toContain("native_agent");
     expect(markup).toContain("generic-agent-acp");
     expect(markup).not.toContain("Confirm one transaction");
+  });
+
+  it("renders an install authority rejection", () => {
+    const markup = renderToStaticMarkup(
+      <AgentInstallDrawer
+        agent={agent}
+        alias=""
+        allowUnverified={false}
+        installError="Install unavailable: managed-agent network isolation authority is missing."
+        installPending={false}
+        operation={null}
+        preview={null}
+        previewPending={false}
+        onAliasChange={vi.fn()}
+        onAllowUnverifiedChange={vi.fn()}
+        onCancel={vi.fn()}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onPreview={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("Install unavailable");
+    expect(markup).toContain("network isolation authority");
   });
 
   it("exposes probe, auth, update, rollback, remove, and use actions", () => {

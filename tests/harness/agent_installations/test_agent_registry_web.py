@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from gigaloom.harnesses.agent_profiles.installations import (
+    AgentInstallError,
     AgentRuntimeService,
     BinaryDownloadResponse,
     LocalAgentInstallCoordinator,
@@ -127,7 +128,12 @@ def _catalog(version: str = "1.0.0"):
     return decode_registry_document(document, fetched_at=NOW), url, archive
 
 
-def _services(root: Path, *, submit=None):  # noqa: ANN001
+def _services(
+    root: Path,
+    *,
+    submit=None,  # noqa: ANN001
+    network_isolation_admitted: bool = True,
+):
     catalog, url, archive = _catalog()
     registry = MutableRegistry(catalog)
     transport = MappingTransport({url: archive})
@@ -139,7 +145,7 @@ def _services(root: Path, *, submit=None):  # noqa: ANN001
             platform="darwin",
             architecture="aarch64",
             probe=ReadyProbe(),
-            network_isolation_admitted=True,
+            network_isolation_admitted=network_isolation_admitted,
             binary_transport=transport,
             clock=lambda: NOW,
         ),
@@ -286,6 +292,57 @@ def test_web_mutations_require_explicit_confirmation(tmp_path):
         operations.remove("marketplace-agent", confirmed=False)
 
     assert transport.requests == []
+
+
+def test_web_install_rejects_missing_isolation_before_creating_operation(tmp_path):
+    _, _, transport, _, operations = _services(
+        tmp_path,
+        network_isolation_admitted=False,
+    )
+    preview = operations.preview("marketplace-agent")
+    assert preview.plan is not None
+
+    with pytest.raises(
+        AgentInstallError,
+        match="managed_agent_network_isolation_required",
+    ):
+        operations.start_install(
+            "marketplace-agent",
+            local_agent_id=None,
+            expected_plan_id=preview.plan.plan_id,
+            confirmed=True,
+            allow_unverified=False,
+        )
+
+    assert transport.requests == []
+    assert not (tmp_path / "agent_profiles/web_operations").exists()
+
+
+def test_agent_runtime_services_expand_tilde_data_root(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    _, _, _, _, operations = _services(
+        Path("~/.gigaloom"),
+        submit=lambda callback: callback(),
+    )
+    preview = operations.preview("marketplace-agent")
+    assert preview.plan is not None
+    operation = operations.start_install(
+        "marketplace-agent",
+        local_agent_id=None,
+        expected_plan_id=preview.plan.plan_id,
+        confirmed=True,
+        allow_unverified=False,
+    )
+
+    assert operation.status == "completed"
+    assert (
+        tmp_path
+        / ".gigaloom/agent_profiles/web_operations"
+        / f"{operation.operation_id}.json"
+    ).is_file()
 
 
 def test_cancel_before_execution_and_restart_recovery_are_explicit(tmp_path):
@@ -439,3 +496,36 @@ def test_bounded_http_routers_expose_preview_operation_and_sse(
     )
     assert failed.status_code == 409
     assert secret_marker not in failed.text
+
+
+def test_http_install_returns_content_free_isolation_rejection(tmp_path):
+    _, _, transport, _, operations = _services(
+        tmp_path,
+        network_isolation_admitted=False,
+    )
+    app = FastAPI()
+    app.include_router(installation_router(operations))
+    client = TestClient(app)
+    preview = client.post(
+        "/api/agent-runtimes/installations/preview",
+        json={"registry_query": "marketplace-agent"},
+        headers={"X-GigaLoom-CSRF": "1"},
+    ).json()
+
+    response = client.post(
+        "/api/agent-runtimes/installations",
+        json={
+            "registry_query": "marketplace-agent",
+            "local_agent_id": None,
+            "expected_plan_id": preview["plan"]["plan_id"],
+            "allow_unverified": False,
+            "confirmed": True,
+        },
+        headers={"X-GigaLoom-CSRF": "1"},
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "managed_agent_network_isolation_required"
+    }
+    assert transport.requests == []

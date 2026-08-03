@@ -55,7 +55,47 @@ giga agent search "" --refresh --json
 snapshot-файлы вручную. Устаревший, но валидный cached snapshot остаётся
 доступным, если последующий сетевой refresh завершился ошибкой.
 
+## Почему подтверждённая установка может быть отклонена
+
+Registry refresh и install preview отделены от установки artifact. Ответы `200`
+для inventory, refresh, preview и чтения operation подтверждают исправность
+каталога, но не дают полномочий на скачивание и запуск agent.
+
+В текущей локальной Web/CLI-композиции нет владельца, который предоставил бы
+обязательную network isolation для managed agent. Поэтому подтверждённая
+установка fail-closed завершается кодом:
+
+```text
+managed_agent_network_isolation_required
+```
+
+Старые сборки сначала создавали background operation и сворачивали эту причину
+до `runtimeerror_during_agent_operation`. Текущая сборка возвращает HTTP `409`
+до создания operation и показывает ограниченный reason code в UI. Не меняйте
+внутренний admission flag на `True`: это доказательство от владельца sandbox, а
+не пользовательская настройка.
+
+Пока managed installer не подключён к реально enforcing sandbox/network
+authority, установите provider CLI вне GigaLoom и зарегистрируйте проверенный
+local manifest по инструкции ниже. Просмотр Registry и dry-run preview остаются
+доступными, если выбранному candidate не требуется online package resolution.
+
+При запуске старой сборки всегда задавайте абсолютный data directory:
+
+```bash
+export GIGALOOM_DATA_DIR="$HOME/.gigaloom"
+giga ui
+```
+
+Текущая сборка раскрывает `~` до создания registry и operation state. Если
+старая сборка уже создала буквальный `./~/.gigaloom`, остановите GigaLoom и
+сделайте backup этого каталога перед согласованием с `$HOME/.gigaloom`; не
+запускайте два server с двумя разными каталогами.
+
 ## Установка agent из ACP Registry через UI
+
+Следующий flow применим, когда server composition предоставляет обязательную
+managed-agent isolation authority.
 
 1. Обновите Registry и откройте вкладку **ACP Registry**.
 2. Отфильтруйте записи по platform, distribution, integrity или license.
@@ -74,6 +114,9 @@ distribution самостоятельно: backend выбирает вариан
 привязывает подтверждение к проверенному плану.
 
 ## Установка agent из ACP Registry через CLI
+
+Для подтверждённых CLI mutations действует то же требование isolation, что и
+для UI.
 
 Сначала обновите Registry и получите доступные id:
 

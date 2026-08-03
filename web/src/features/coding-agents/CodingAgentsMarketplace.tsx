@@ -250,6 +250,7 @@ export function CodingAgentsMarketplace() {
           alias={alias}
           allowUnverified={allowUnverified}
           installPending={installMutation.isPending}
+          installError={installErrorMessage(installMutation.error)}
           operation={operation?.registry_or_local_id === selectedAgent.registry_id ? operation : null}
           preview={previewMutation.data ?? null}
           previewPending={previewMutation.isPending}
@@ -270,6 +271,14 @@ async function runRuntimeAction(action: RuntimeAction): Promise<unknown> {
   if (action.kind === "remove") return removeAgentRuntime(action.localAgentId);
   if (action.kind === "rollback") return rollbackAgentRuntime(action.localAgentId);
   return prepareAgentRun(action.localAgentId);
+}
+
+function installErrorMessage(error: Error | null): string | null {
+  if (error === null) return null;
+  if (error.message === "managed_agent_network_isolation_required") {
+    return "Install unavailable: this server has no admitted managed-agent network isolation authority.";
+  }
+  return error.message;
 }
 
 function RegistryHealth({ inventory }: { inventory: { fetched_at: string; offline: boolean; snapshot_digest: string; stale: boolean } }) {

@@ -9,6 +9,7 @@ import json
 from fastapi import APIRouter, HTTPException, Path, Query
 from fastapi.responses import StreamingResponse
 
+from gigaloom.harnesses.agent_profiles.installations import AgentInstallError
 from gigaloom.harnesses.agent_profiles.onboarding.probe import managed_probe_to_dict
 from gigaloom.ui.async_execution import ContractAPIRouter, run_stream_offload
 from gigaloom.ui.schemas.agent_registry import (
@@ -44,6 +45,8 @@ def create_router(service: AgentInstallationWebService) -> APIRouter:
                 payload.registry_query,
                 local_agent_id=payload.local_agent_id,
             )
+        except AgentInstallError as error:
+            raise HTTPException(status_code=409, detail=error.reason_code) from error
         except (OSError, RuntimeError, ValueError) as error:
             raise HTTPException(
                 status_code=409, detail="managed agent preview was rejected"
@@ -65,6 +68,8 @@ def create_router(service: AgentInstallationWebService) -> APIRouter:
                 confirmed=payload.confirmed,
                 allow_unverified=payload.allow_unverified,
             )
+        except AgentInstallError as error:
+            raise HTTPException(status_code=409, detail=error.reason_code) from error
         except (OSError, RuntimeError, ValueError) as error:
             raise HTTPException(
                 status_code=409, detail="managed agent install was rejected"
@@ -169,6 +174,8 @@ def create_router(service: AgentInstallationWebService) -> APIRouter:
                 confirmed=payload.confirmed,
                 allow_unverified=payload.allow_unverified,
             )
+        except AgentInstallError as error:
+            raise HTTPException(status_code=409, detail=error.reason_code) from error
         except (OSError, RuntimeError, ValueError) as error:
             raise HTTPException(
                 status_code=409, detail="managed agent update was rejected"

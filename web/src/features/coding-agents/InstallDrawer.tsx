@@ -9,6 +9,7 @@ export function AgentInstallDrawer({
   alias,
   allowUnverified,
   installPending,
+  installError,
   operation,
   preview,
   previewPending,
@@ -23,6 +24,7 @@ export function AgentInstallDrawer({
   alias: string;
   allowUnverified: boolean;
   installPending: boolean;
+  installError: string | null;
   operation: AgentInstallationOperationResponse | null;
   preview: AgentInstallPreviewResponse | null;
   previewPending: boolean;
@@ -100,6 +102,9 @@ export function AgentInstallDrawer({
                   </>
                 )}
               </div>
+            )}
+            {installError === null ? null : (
+              <p className="agent-install-error" role="alert">{installError}</p>
             )}
           </>
         ) : (

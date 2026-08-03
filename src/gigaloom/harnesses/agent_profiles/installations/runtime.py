@@ -104,6 +104,9 @@ class AgentRuntimeInstallCoordinator(Protocol):
     def recover_abandoned(self) -> tuple[StagingRecoveryResult, ...]:
         """Recover only owned abandoned install staging directories."""
 
+    def require_install_authority(self) -> None:
+        """Reject mutation when the composition has no isolation owner."""
+
 
 @dataclass(frozen=True, slots=True)
 class AgentRegistrySearchPage:
@@ -140,7 +143,7 @@ class AgentRuntimeService:
         clock,
         reserved_inventory: AgentIdentityInventory = AgentIdentityInventory(),
     ) -> None:  # noqa: ANN001
-        self._data_root = Path(data_root).resolve(strict=False)
+        self._data_root = Path(data_root).expanduser().resolve(strict=False)
         self._registry = registry
         self._coordinator = coordinator
         self._clock = clock
@@ -151,6 +154,10 @@ class AgentRuntimeService:
     def refresh(self) -> ACPRegistryCatalog:
         """Explicitly refresh the validated official registry cache."""
         return self._registry.catalog(refresh=True)
+
+    def require_install_authority(self) -> None:
+        """Validate install authority before creating an async operation."""
+        self._coordinator.require_install_authority()
 
     def search(
         self,

@@ -36,7 +36,7 @@ def create_agent_runtime_service(
     def clock() -> datetime:
         return datetime.now(UTC)
 
-    root = Path(data_root)
+    root = Path(data_root).expanduser().resolve(strict=False)
     host_platform = platform_id or (
         "windows" if sys.platform == "win32" else sys.platform
     )

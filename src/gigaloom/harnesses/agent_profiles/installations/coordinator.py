@@ -25,6 +25,7 @@ from gigaloom.harnesses.agent_profiles.installations.commands import (
     PackageCommandRunner,
     SubprocessPackageCommandRunner,
 )
+from gigaloom.harnesses.agent_profiles.installations.errors import AgentInstallError
 from gigaloom.harnesses.agent_profiles.installations.journal import (
     InstallCancellationToken,
 )
@@ -93,7 +94,7 @@ class LocalAgentInstallCoordinator:
     ) -> None:
         if not isinstance(network_isolation_admitted, bool):
             raise ValueError("network isolation admission must be boolean")
-        self._data_root = Path(data_root).resolve(strict=False)
+        self._data_root = Path(data_root).expanduser().resolve(strict=False)
         self._platform = platform
         self._architecture = architecture
         self._probe = probe
@@ -263,6 +264,10 @@ class LocalAgentInstallCoordinator:
             self._binary_transport,
             clock=self._clock,
         ).recover_abandoned()
+
+    def require_install_authority(self) -> None:
+        """Fail before mutation when the composition has no isolation owner."""
+        self._require_network_isolation()
 
     def _resolve_npx(
         self,
@@ -464,7 +469,7 @@ class LocalAgentInstallCoordinator:
 
     def _require_network_isolation(self) -> None:
         if not self._network_isolation_admitted:
-            raise RuntimeError("managed agent operation requires network isolation")
+            raise AgentInstallError("managed_agent_network_isolation_required")
 
     def _now(self) -> datetime:
         value = self._clock()
