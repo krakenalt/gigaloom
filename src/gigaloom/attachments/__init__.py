@@ -1,5 +1,10 @@
 """Attachment models and storage for the Unified Harness cockpit."""
 
+from gigaloom.attachments.encoding import (
+    DecodedAttachmentText,
+    TextAttachmentDecodeError,
+    decode_attachment_text,
+)
 from gigaloom.attachments.limits import (
     AttachmentLimits,
     AttachmentValidationError,
@@ -35,10 +40,13 @@ __all__ = [
     "AttachmentRenderPlan",
     "AttachmentSessionNotFoundError",
     "AttachmentValidationError",
+    "DecodedAttachmentText",
     "FilesystemAttachmentStore",
     "HarnessAttachment",
+    "TextAttachmentDecodeError",
     "attachment_from_dict",
     "attachment_to_dict",
+    "decode_attachment_text",
     "limits_from_project_settings",
     "render_attachments_for_harness",
     "render_for_claude_code",
