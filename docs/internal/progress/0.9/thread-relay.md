@@ -44,3 +44,29 @@
   in TR-03; provider capabilities/adapters and route-local CLI/API handlers
   remain in TR-04 and TR-05
 - Shared-file patch request: none
+
+## TR-03 — Implement GigaLoom structured-session delivery
+
+- Status: complete
+- Baseline: `d07036370f4178933346edfa67a2834b96b11afb`
+- Scope: `src/gigaloom/execution/thread_relay/`, scoped expiry support in
+  `src/gigaloom/sessions/thread_relay/repository.py`, the public session model
+  facade, and `tests/harness/thread_relay/test_structured_sessions.py`
+- Contract/evidence: bounded actor/project-owned list/read uses the derived
+  session index and recent-message/run pages; visible messages are redacted and
+  exclude hidden/system state; follow-up/message delivery resolves one approved
+  message reference, rechecks the target revision, and submits through the
+  existing application turn/job owner with content-free provenance; steering
+  requires the exact proven active turn id; pending cancellation and scoped TTL
+  expiry append immutable receipts; failed/ambiguous mutations fail closed
+- Tests: `pytest tests/harness/thread_relay
+  tests/harness/architecture/test_0_9_boundaries.py
+  tests/harness/architecture/test_package_boundaries.py
+  tests/harness/architecture/test_module_budgets.py
+  tests/harness/test_session_application.py -q -n 0` — 36 passed; focused Ruff
+  check/format and `ty check` — passed; `git diff --check` — passed
+- Known limitations: only GigaLoom-owned structured sessions are implemented;
+  Codex and ACP capability adapters remain in TR-04, and route-local CLI/API
+  modules remain in TR-05; application/root composition is intentionally left
+  to the integrator
+- Shared-file patch request: none

@@ -33,6 +33,7 @@ from gigaloom.sessions.thread_relay.contracts import (
     thread_locator_digest,
     thread_message_envelope_digest,
 )
+from gigaloom.sessions.thread_relay.repository_schema import THREAD_DELIVERY_SCHEMA
 
 
 MAX_THREAD_DELIVERY_PAGE_SIZE = 100
@@ -314,16 +315,28 @@ class ThreadDeliveryRepository:
         *,
         now: datetime,
         limit: int = MAX_THREAD_DELIVERY_PAGE_SIZE,
+        actor_binding: str | None = None,
+        project_binding: str | None = None,
     ) -> tuple[ThreadDeliveryRecord, ...]:
         """Expire pending deliveries whose required TTL elapsed."""
         validate_timestamp(now, field_name="thread delivery expiry time")
         _validate_page_limit(limit)
+        clauses = ["r.status = ?"]
+        params: list[object] = [ThreadDeliveryStatus.PENDING.value]
+        if actor_binding is not None:
+            clauses.append("d.actor_binding = ?")
+            params.append(actor_binding)
+        if project_binding is not None:
+            clauses.append("d.project_binding = ?")
+            params.append(project_binding)
+        params.append(limit)
         expired: list[ThreadDeliveryRecord] = []
         with self._connect() as connection:
             rows = connection.execute(
                 _LATEST_DELIVERIES_SQL
-                + " WHERE r.status = ? ORDER BY d.created_at, d.delivery_id LIMIT ?",
-                (ThreadDeliveryStatus.PENDING.value, limit),
+                + f" WHERE {' AND '.join(clauses)}"
+                + " ORDER BY d.created_at, d.delivery_id LIMIT ?",
+                tuple(params),
             ).fetchall()
         for row in rows:
             record = self._record_from_joined_row(row)
@@ -493,50 +506,7 @@ class ThreadDeliveryRepository:
 
     def _initialize(self) -> None:
         with self._connect() as connection:
-            connection.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS thread_deliveries (
-                    delivery_id TEXT PRIMARY KEY,
-                    actor_binding TEXT NOT NULL,
-                    project_binding TEXT NOT NULL,
-                    source_digest TEXT,
-                    target_digest TEXT NOT NULL,
-                    idempotency_hash TEXT NOT NULL,
-                    envelope_digest TEXT NOT NULL,
-                    envelope_json TEXT NOT NULL,
-                    content_digest TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    UNIQUE(actor_binding, project_binding, idempotency_hash)
-                );
-                CREATE TABLE IF NOT EXISTS thread_delivery_receipts (
-                    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
-                    delivery_id TEXT NOT NULL
-                        REFERENCES thread_deliveries(delivery_id) ON DELETE RESTRICT,
-                    status TEXT NOT NULL,
-                    receipt_digest TEXT NOT NULL UNIQUE,
-                    receipt_json TEXT NOT NULL,
-                    recorded_at TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS thread_deliveries_source
-                    ON thread_deliveries(source_digest, created_at, delivery_id);
-                CREATE INDEX IF NOT EXISTS thread_deliveries_target
-                    ON thread_deliveries(target_digest, created_at, delivery_id);
-                CREATE INDEX IF NOT EXISTS thread_receipts_delivery
-                    ON thread_delivery_receipts(delivery_id, sequence);
-                CREATE TRIGGER IF NOT EXISTS thread_deliveries_immutable_update
-                    BEFORE UPDATE ON thread_deliveries
-                    BEGIN SELECT RAISE(ABORT, 'thread delivery is immutable'); END;
-                CREATE TRIGGER IF NOT EXISTS thread_deliveries_immutable_delete
-                    BEFORE DELETE ON thread_deliveries
-                    BEGIN SELECT RAISE(ABORT, 'thread delivery is immutable'); END;
-                CREATE TRIGGER IF NOT EXISTS thread_receipts_immutable_update
-                    BEFORE UPDATE ON thread_delivery_receipts
-                    BEGIN SELECT RAISE(ABORT, 'thread receipt is immutable'); END;
-                CREATE TRIGGER IF NOT EXISTS thread_receipts_immutable_delete
-                    BEFORE DELETE ON thread_delivery_receipts
-                    BEGIN SELECT RAISE(ABORT, 'thread receipt is immutable'); END;
-                """
-            )
+            connection.executescript(THREAD_DELIVERY_SCHEMA)
             version = int(connection.execute("PRAGMA user_version").fetchone()[0])
             if version not in {0, THREAD_DELIVERY_STORE_SCHEMA_VERSION}:
                 raise ThreadDeliveryIntegrityError(

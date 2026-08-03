@@ -10,11 +10,12 @@ from gigaloom.sessions.conversation import (
 )
 from gigaloom.sessions.event_stream import EventTailPage
 from gigaloom.sessions.models import (
-    HarnessMessage,
-    HarnessRawRecord,
-    HarnessRun,
-    HarnessSessionBundle,
-    HarnessStoredEvent,
+    HarnessMessage as HarnessMessage,
+    HarnessRawRecord as HarnessRawRecord,
+    HarnessRun as HarnessRun,
+    HarnessSession as HarnessSession,
+    HarnessSessionBundle as HarnessSessionBundle,
+    HarnessStoredEvent as HarnessStoredEvent,
 )
 from gigaloom.sessions.thread_relay import (
     MAX_THREAD_ATTACHMENT_REFS as MAX_THREAD_ATTACHMENT_REFS,
