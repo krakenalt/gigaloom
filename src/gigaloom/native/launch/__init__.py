@@ -52,6 +52,12 @@ from gigaloom.native.launch.gateway_discovery import (
     GatewayRouteDiscovery,
     UrlLibGatewayMachineTransport,
 )
+from gigaloom.native.launch.gateway_injection import (
+    GatewayAgentInjectionV1,
+    GatewayInjectionReason,
+    GatewayInjectionStatus,
+    build_gateway_agent_injection,
+)
 from gigaloom.native.launch.gateway_sidecar import (
     DEFAULT_GATEWAY_STARTUP_POLL_SECONDS,
     DEFAULT_GATEWAY_STARTUP_TIMEOUT_SECONDS,
@@ -86,11 +92,14 @@ __all__ = [
     "GATEWAY_LAUNCH_SCHEMA_VERSION",
     "GatewayMode",
     "GatewayArtifactEvidenceV1",
+    "GatewayAgentInjectionV1",
     "GatewayDiscoveryError",
     "GatewayDiscoveryReason",
     "GatewayDiscoveryResult",
     "GatewayDiscoveryStatus",
     "GatewayMachineTransport",
+    "GatewayInjectionReason",
+    "GatewayInjectionStatus",
     "GatewayPreflightReceiptV1",
     "GatewayPreflightStatus",
     "GatewayProcessLeaseOwner",
@@ -124,6 +133,7 @@ __all__ = [
     "UrlLibGatewayStartupReadinessProbe",
     "bridge_route_from_dict",
     "bridge_route_to_dict",
+    "build_gateway_agent_injection",
     "execute_prepared_native_launch",
     "gateway_contract_digest",
     "gateway_preflight_receipt_from_dict",
