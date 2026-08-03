@@ -55,6 +55,10 @@ const sidebars: SidebarsConfig = {
         'architecture/remote-ui-identity-adr',
         'architecture/frontend-asset-build-architecture-adr',
         'architecture/2026-08-01-operational-trust-headless-release-identity-adr',
+        'architecture/2026-08-04-work-first-and-thread-relay-adr',
+        'architecture/2026-08-04-gateway-route-and-managed-overlay-adr',
+        'architecture/2026-08-04-effective-instructions-projection-adr',
+        'architecture/2026-08-04-local-product-evidence-adr',
       ],
     },
     {
