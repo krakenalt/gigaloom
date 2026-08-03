@@ -95,6 +95,43 @@ def test_decoder_projects_all_distribution_families_without_execution() -> None:
     )
 
 
+def test_decoder_accepts_only_the_current_empty_extensions_projection() -> None:
+    payload = _fixture_object()
+    payload["extensions"] = []
+    payload["agents"][0]["version"] = "2026.07.23"
+    payload["agents"][0]["license"] = "Apache 2.0"
+    payload["agents"][0]["distribution"]["binary"]["windows-x86_64"] = {
+        "archive": "https://downloads.example.com/agent-windows.zip",
+        "cmd": ".\\bin\\agent.exe",
+    }
+
+    catalog = decode_registry_document(_encoded(payload), fetched_at=NOW)
+
+    assert catalog.snapshot.entry_count == 6
+    entry = next(item for item in catalog.entries if item.version == "2026.07.23")
+    assert entry.license == "Apache 2.0"
+    windows = next(item for item in entry.distributions if item.platform == "windows")
+    assert windows.command == "bin/agent.exe"
+
+
+@pytest.mark.parametrize("extensions", [[{"id": "unknown"}], {}])
+def test_decoder_rejects_unsupported_registry_extensions(extensions: object) -> None:
+    payload = _fixture_object()
+    payload["extensions"] = extensions
+
+    with pytest.raises(RegistrySchemaError, match="registry extensions"):
+        decode_registry_document(_encoded(payload), fetched_at=NOW)
+
+
+@pytest.mark.parametrize("version", ["latest", "1", "1.2", "1.2.3.4"])
+def test_decoder_rejects_non_registry_versions(version: str) -> None:
+    payload = _fixture_object()
+    payload["agents"][0]["version"] = version
+
+    with pytest.raises(RegistrySchemaError, match="version is not registry-compatible"):
+        decode_registry_document(_encoded(payload), fetched_at=NOW)
+
+
 @pytest.mark.parametrize(
     ("mutate", "message"),
     [

@@ -20,6 +20,9 @@ The short rule is:
   does not turn them into Harness workflow children or transfer their private
   state.
 
+To install a managed ACP runtime or register an advanced local executable
+manifest, use the separate [Agent runtimes guide](agent-runtimes.md).
+
 ## Choose the right surface
 
 | Surface | Use it for | Execution owner | What GigaLoom retains |

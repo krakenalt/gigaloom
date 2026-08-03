@@ -22,6 +22,12 @@ const sidebars: SidebarsConfig = {
           label: 'Agents and multi-agent behavior',
           key: 'agents-and-multi-agent',
         },
+        {
+          type: 'doc',
+          id: 'agent-runtimes',
+          label: 'Install agent runtimes',
+          key: 'agent-runtimes',
+        },
         'agent-capability-matrix',
       ],
     },
