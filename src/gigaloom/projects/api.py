@@ -180,6 +180,16 @@ if TYPE_CHECKING:
         ProjectInstructionSelectorV1,
         discover_project_instructions,
     )
+    from .instruction_impact import (
+        EFFECTIVE_INSTRUCTIONS_FORMAT,
+        EffectiveInstructionConflictV1,
+        EffectiveInstructionSourceV1,
+        EffectiveInstructionUncertaintyV1,
+        EffectiveInstructionsProjectionV1,
+        InstructionConflictKind,
+        InstructionUncertaintyKind,
+        compile_effective_instructions,
+    )
     from .state_migration import (
         CANONICAL_STATE_RELATIVE_PATH,
         LEGACY_STATE_RELATIVE_PATH,
@@ -282,6 +292,19 @@ _LAZY_EXPORT_MODULES = {
             "discover_project_instructions",
         },
         "instruction_discovery",
+    ),
+    **dict.fromkeys(
+        {
+            "EFFECTIVE_INSTRUCTIONS_FORMAT",
+            "EffectiveInstructionConflictV1",
+            "EffectiveInstructionSourceV1",
+            "EffectiveInstructionUncertaintyV1",
+            "EffectiveInstructionsProjectionV1",
+            "InstructionConflictKind",
+            "InstructionUncertaintyKind",
+            "compile_effective_instructions",
+        },
+        "instruction_impact",
     ),
     **dict.fromkeys(
         {
@@ -501,6 +524,11 @@ __all__ = [
     "DEFAULT_PROMPT_TEMPLATE_DIR",
     "DEFAULT_PROMPT_TEMPLATES",
     "DiscoveredProjectInstructionV1",
+    "EFFECTIVE_INSTRUCTIONS_FORMAT",
+    "EffectiveInstructionConflictV1",
+    "EffectiveInstructionSourceV1",
+    "EffectiveInstructionUncertaintyV1",
+    "EffectiveInstructionsProjectionV1",
     "FilesystemProjectMemoryStore",
     "EditorOpenError",
     "EditorOpenPlan",
@@ -530,6 +558,8 @@ __all__ = [
     "ImpactedPythonFile",
     "INSTRUCTION_DISCOVERY_FORMAT",
     "InstructionDiscoveryOmissionReason",
+    "InstructionConflictKind",
+    "InstructionUncertaintyKind",
     "InjectedStateMigrationCrash",
     "GitHubEnvironmentService",
     "GitHubEnvironmentSnapshot",
@@ -593,6 +623,7 @@ __all__ = [
     "discover_project_instructions",
     "create_state_backup",
     "compile_python_impact_index",
+    "compile_effective_instructions",
     "init_project_config",
     "load_project_config",
     "load_project_state",
