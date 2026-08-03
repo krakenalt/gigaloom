@@ -48,6 +48,12 @@ from gigaloom.harnesses.agent_profiles.onboarding import (
     generate_managed_agent_profile,
 )
 from gigaloom.harnesses.agent_profiles.models import VersionPolicyKind
+from gigaloom.harnesses.managed_acp import ManagedAcpHarness
+from gigaloom.types import (
+    HarnessCapability,
+    HarnessContext,
+    HarnessRequest,
+)
 
 
 NOW = datetime(2026, 8, 1, 13, 0, tzinfo=UTC)
@@ -275,6 +281,21 @@ def test_auth_required_candidate_activates_degraded_without_authentication(tmp_p
     assert result.activation.status is AgentActivationStatus.DEGRADED
     assert "authentication_not_completed" in result.receipt.omissions
     assert result.probe.auth_methods == ("provider-login",)
+    runtime = cast(AgentRuntimeService, _ActiveRuntimeProjection(result))
+    harness = ManagedAcpHarness(runtime, result)
+
+    attempted = harness.run(
+        HarnessRequest(
+            prompt="inspect the fixture",
+            capability=HarnessCapability.AGENT_CLI,
+            workspace=tmp_path.as_posix(),
+        ),
+        HarnessContext(proxy_url="http://127.0.0.1:1", timeout_seconds=5),
+    )
+
+    assert harness.availability().status.value == "available"
+    assert attempted.ok is False
+    assert "Provider authentication is required" in str(attempted.error)
 
 
 def test_incompatible_update_remains_inactive_and_preserves_older_pointer(tmp_path):
@@ -468,3 +489,40 @@ def test_generated_route_executes_through_the_headless_runtime(tmp_path):
     assert backend_result["usage"]["total_tokens"] == 3
     assert b"inspect the fixture" not in retained
     assert stderr.getvalue() == ""
+
+
+def test_generated_route_is_a_generic_workbench_harness(tmp_path):
+    plan, entry, artifact = _candidate(tmp_path, executable_name="fake-agent")
+    fixture = Path(__file__).parents[2] / "fixtures/acp/fake_agent.py"
+    executable = Path(artifact.managed_root) / artifact.executable_relative_path
+    shutil.copyfile(fixture, executable)
+    executable.chmod(0o700)
+    record = ManagedAgentOnboardingService(
+        str(tmp_path),
+        ManagedAcpProbeRunner(HermeticIsolation()),
+        clock=lambda: NOW,
+    ).onboard(plan, entry, artifact, network_isolated=True)
+    runtime = cast(AgentRuntimeService, _ActiveRuntimeProjection(record))
+    harness = ManagedAcpHarness(runtime, record)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    result = harness.run(
+        HarnessRequest(
+            prompt="inspect the fixture",
+            capability=HarnessCapability.AGENT_CLI,
+            workspace=workspace.as_posix(),
+            run_id="managed-workbench-run",
+        ),
+        HarnessContext(proxy_url="http://127.0.0.1:1", timeout_seconds=5),
+    )
+
+    assert harness.spec().id == "generic-agent"
+    assert harness.spec().title == "Generic managed agent"
+    assert harness.spec().capabilities == (HarnessCapability.AGENT_CLI,)
+    assert harness.availability().status.value == "available"
+    assert result.ok is True
+    assert result.raw["route_id"] == "generic-agent.acp"
+    assert result.raw["stop_reason"] == "end_turn"
+    assert any(event.type == "tool_call_finished" for event in result.events)
+    assert any(event.type == "usage" for event in result.events)

@@ -29,7 +29,7 @@ from gigaloom.ui.web import (
 )
 
 _COCKPIT_V2_PATH = re.compile(
-    r"(?:work(?:/[^/]+)?|runs(?:/[^/]+)?|"
+    r"(?:work(?:/[^/]+)?|runs(?:/[^/]+)?|coding-agents|"
     r"automation(?:/(?:agents|workflows|schedules))?|"
     r"evaluation(?:/(?:arena|evals|baselines))?|"
     r"plugins(?:/(?:all|mcp|plugins|skills))?|"

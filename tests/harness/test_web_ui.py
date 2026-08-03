@@ -69,6 +69,7 @@ def test_web_is_only_packaged_shell_and_legacy_routes_are_removed(tmp_path):
     legacy_root = client.get("/legacy", follow_redirects=False)
     legacy_nested = client.get("/legacy/runs/run_123", follow_redirects=False)
     cockpit = client.get("/web/work/session_123")
+    coding_agents = client.get("/web/coding-agents")
     unknown = client.get("/web/unknown")
 
     assert default_redirect.status_code == 307
@@ -86,6 +87,8 @@ def test_web_is_only_packaged_shell_and_legacy_routes_are_removed(tmp_path):
     assert "frame-src 'self'" in cockpit.headers["content-security-policy"]
     assert "manifest-src 'self'" in cockpit.headers["content-security-policy"]
     assert cockpit.headers["x-content-type-options"] == "nosniff"
+    assert coding_agents.status_code == 200
+    assert "<title>GigaLoom</title>" in coding_agents.text
     assert unknown.status_code == 404
 
 

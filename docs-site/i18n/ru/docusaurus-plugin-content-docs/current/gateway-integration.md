@@ -9,7 +9,7 @@ gateway и не требует checkout его репозитория.
 preset локального gateway:
 
 ```sh
-uv tool install 'gigaloom[gpt2giga]==0.8.0'
+uv tool install 'gigaloom[gpt2giga]==0.8.1'
 ```
 
 Extra допускает стабильные `gpt2giga>=0.2.6,<0.3.0`; committed lock разрешает

@@ -160,6 +160,37 @@ def test_registry_rejects_runtime_duplicate_id_without_overwrite():
     assert registry.get("plugin-harness") is original
 
 
+def test_registry_projects_dynamic_harness_lifecycle_without_stale_entries():
+    registry = HarnessRegistry()
+    active = [_DynamicHarness()]
+    registry.bind_dynamic_provider(lambda: tuple(active))
+
+    assert registry.ids() == ("dynamic-harness",)
+    assert registry.get("dynamic-harness") is active[0]
+    assert registry.validation_report("dynamic-harness").ok is True
+
+    active.clear()
+
+    assert registry.list() == ()
+    with pytest.raises(UnknownHarnessError):
+        registry.get("dynamic-harness")
+    with pytest.raises(ValueError, match="already bound"):
+        registry.bind_dynamic_provider(lambda: ())
+
+
+def test_registry_keeps_static_harness_on_dynamic_id_collision():
+    registry = HarnessRegistry()
+    original = _PluginHarness()
+    registry.register(original)
+    registry.bind_dynamic_provider(lambda: (_CollidingPluginHarness(),))
+
+    assert registry.list() == (original,)
+    assert registry.get("plugin-harness") is original
+    assert registry.discovery_errors == [
+        "Dynamic harness id collision: keeping the registered harness."
+    ]
+
+
 def test_registry_bounds_and_redacts_load_failures(monkeypatch):
     class BrokenEntryPoint:
         value = "broken_plugin:factory"
@@ -330,3 +361,15 @@ class _UnknownCapabilityHarness(_PluginHarness):
 
 class _CollidingPluginHarness(_PluginHarness):
     pass
+
+
+class _DynamicHarness(_PluginHarness):
+    @classmethod
+    def spec(cls) -> HarnessSpec:
+        return HarnessSpec(
+            id="dynamic-harness",
+            title="Dynamic Harness",
+            kind="custom",
+            description="Dynamic harness for tests",
+            capabilities=(HarnessCapability.AGENT_CLI,),
+        )

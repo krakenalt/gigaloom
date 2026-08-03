@@ -5,6 +5,16 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 и проект придерживается [Семантического версионирования](https://semver.org/lang/ru/).
 
+## [0.8.1] - Unreleased
+
+### Исправлено
+
+- Активные управляемые ACP-коннекторы теперь динамически отображаются среди
+  Workbench harnesses, а `Use in new run` создаёт новую сессию с выбранным
+  коннектором вместо сброса на harness по умолчанию.
+- Прямое открытие и перезагрузка `/web/coding-agents` больше не отклоняются
+  серверным allowlist SPA.
+
 ## [0.8.0] - Unreleased
 
 ### Изменено
@@ -338,6 +348,8 @@
 - **Tools, MCP и policy**: добавлены общие tool/secret contracts, discovery и dry-run синхронизация MCP profiles, managed MCP configuration, preflight diagnostics и approval-gated действия.
 - **Диагностика и документация**: добавлены `giga doctor`, inspect/config/session/native команды, alpha quickstart, migration guide и описание ограничений первого релиза.
 ---
+
+[0.8.1]: https://github.com/krakenalt/gigaloom/compare/v0.8.0...v0.8.1
 
 [0.8.0]: https://github.com/krakenalt/gigaloom/compare/v0.7.0...v0.8.0
 

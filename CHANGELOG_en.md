@@ -5,6 +5,16 @@ All notable changes to GigaLoom are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - Unreleased
+
+### Fixed
+
+- Active managed ACP connectors now appear dynamically as Workbench harnesses,
+  and `Use in new run` creates a session with the selected connector instead of
+  falling back to the default harness.
+- Direct navigation and reloads of `/web/coding-agents` are now admitted by the
+  server-side SPA allowlist.
+
 ## [0.8.0] - Unreleased
 
 ### Changed
@@ -335,6 +345,8 @@ considered stable.
 - **Diagnostics and documentation**: added `giga doctor`, inspect/config/session/native commands, an alpha quickstart, a migration guide, and documented first-release limitations.
 
 ---
+
+[0.8.1]: https://github.com/krakenalt/gigaloom/compare/v0.8.0...v0.8.1
 
 [0.8.0]: https://github.com/krakenalt/gigaloom/compare/v0.7.0...v0.8.0
 

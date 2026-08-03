@@ -101,9 +101,7 @@ class LocalAgentInstallCoordinator:
         self._network_isolation_admitted = network_isolation_admitted
         self._npm = Path(npm_executable) if npm_executable is not None else None
         self._uv = Path(uv_executable) if uv_executable is not None else None
-        self._python = (
-            Path(python_executable) if python_executable is not None else None
-        )
+        self._python = None if python_executable is None else Path(python_executable)
         self._binary_transport = binary_transport or UrllibBinaryDownloadTransport()
         self._runner = command_runner or SubprocessPackageCommandRunner()
         self._clock = clock or (lambda: datetime.now(UTC))

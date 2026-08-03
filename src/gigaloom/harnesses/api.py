@@ -25,9 +25,11 @@ build_capability_catalog: Any
 load_agent_profile_registry: Any
 load_builtin_agent_profiles: Any
 project_acp_capability_snapshot: Any
+acp_harnesses: Any
 
 __all__ = [
     "attachment_raw_metadata",
+    "acp_harnesses",
     "AcpCapabilitySnapshotV1",
     "AgentProfileV1",
     "build_safe_env",
@@ -50,6 +52,10 @@ __all__ = [
 ]
 
 _LAZY_EXPORTS = {
+    "acp_harnesses": (
+        "gigaloom.harnesses.managed_acp",
+        "acp_harnesses",
+    ),
     "attachment_raw_metadata": (
         "gigaloom.harnesses.attachment_plan",
         "attachment_raw_metadata",

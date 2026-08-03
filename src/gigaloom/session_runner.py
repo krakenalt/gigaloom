@@ -715,10 +715,10 @@ class HarnessSessionRunner:
             prompt=effective_prompt,
         )
         request_extra = _request_extra(
-            options["extra"],
-            attachment_payloads,
-            attachment_render_plan_payload,
+            options["extra"], attachment_payloads, attachment_render_plan_payload
         )
+        request_extra["permission_profile"] = options["permission_profile"]
+        request_extra["permission_origin"] = options["permission_origin"]
         request_extra["workspace_execution"] = workspace_execution.to_metadata()
         if runtime_metadata:
             request_extra["runtime"] = dict(runtime_metadata)
