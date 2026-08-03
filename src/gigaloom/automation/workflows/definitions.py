@@ -6,6 +6,7 @@ import hashlib
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 import yaml
+from gigaloom.automation.schemas.bindings import add_yaml_language_server_header
 from gigaloom.automation.ports import PermissionAction
 from gigaloom.automation.ports import redact_for_storage
 from gigaloom.safe_paths import resolve_operator_path, resolve_path_within
@@ -184,7 +185,10 @@ def render_review_team_workflow() -> str:
             },
         ],
     }
-    return yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
+    return add_yaml_language_server_header(
+        yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
+        "workflow",
+    )
 
 
 def _parse_step(value: Any, *, allow_unknown: bool = False) -> WorkflowStep:

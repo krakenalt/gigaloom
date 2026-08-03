@@ -1,0 +1,209 @@
+{
+  "$id": "https://schemas.gigaloom.dev/automation/v1/schedule-source.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "destination": {
+            "const": "resume"
+          }
+        },
+        "required": [
+          "destination"
+        ]
+      },
+      "then": {
+        "required": [
+          "session_id"
+        ]
+      }
+    }
+  ],
+  "description": "Editor contract for shareable .giga/schedule-sources YAML consumed by build_schedule_definition(). Generated .giga/schedules snapshots are not source files.",
+  "properties": {
+    "cadence": {
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "interval"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "interval_seconds"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "rrule"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "rrule"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "interval_seconds": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        "kind": {
+          "enum": [
+            "once",
+            "interval",
+            "rrule"
+          ],
+          "type": "string"
+        },
+        "rrule": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "start_at": {
+          "description": "ISO-8601 local datetime; defaults to the current local time.",
+          "type": "string"
+        },
+        "timezone": {
+          "description": "Explicit IANA timezone validated by zoneinfo at runtime.",
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "timezone"
+      ],
+      "type": "object"
+    },
+    "destination": {
+      "default": "new_task",
+      "enum": [
+        "new_task",
+        "resume"
+      ],
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "type": "string"
+    },
+    "inputs": {
+      "additionalProperties": true,
+      "type": "object"
+    },
+    "max_attempts": {
+      "default": 1,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "max_concurrency": {
+      "default": 1,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "misfire_grace_seconds": {
+      "default": 60.0,
+      "exclusiveMinimum": 0,
+      "type": "number"
+    },
+    "misfire_policy": {
+      "default": "skip",
+      "enum": [
+        "skip",
+        "run_once"
+      ],
+      "type": "string"
+    },
+    "notifications": {
+      "additionalProperties": true,
+      "default": {
+        "desktop": false
+      },
+      "properties": {
+        "desktop": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "overlap_policy": {
+      "default": "skip",
+      "enum": [
+        "skip",
+        "allow"
+      ],
+      "type": "string"
+    },
+    "prompt": {
+      "type": "string"
+    },
+    "session_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "target": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "agent",
+            "preset",
+            "workflow",
+            "eval"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "type": "object"
+    },
+    "timeout_seconds": {
+      "default": 3600.0,
+      "exclusiveMinimum": 0,
+      "type": "number"
+    },
+    "title": {
+      "type": "string"
+    },
+    "workspace_policy": {
+      "const": "worktree",
+      "default": "worktree",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "target",
+    "cadence"
+  ],
+  "title": "GigaLoom Schedule Source v1",
+  "type": "object",
+  "x-gigaloom-schema-version": 1
+}

@@ -1,0 +1,130 @@
+{
+  "$id": "https://schemas.gigaloom.dev/automation/v1/eval.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "Editor contract for .giga/evals YAML parsed by eval_spec_from_mapping(). Unknown extension fields remain compatible with the runtime.",
+  "properties": {
+    "api_mode": {
+      "default": "v2",
+      "enum": [
+        "v1",
+        "v2"
+      ],
+      "type": "string"
+    },
+    "cases": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "checks": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "case_sensitive": {
+                  "default": true,
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "contains",
+                    "contains_regex",
+                    "equals",
+                    "not_contains",
+                    "not_contains_regex"
+                  ],
+                  "type": "string"
+                },
+                "value": {}
+              },
+              "required": [
+                "type",
+                "value"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "harnesses": {
+            "default": [],
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 0,
+            "type": "array"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "prompt": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "required_capability": {
+            "enum": [
+              "chat_completions",
+              "responses",
+              "anthropic_messages",
+              "gemini_generate_content",
+              "agent_cli",
+              "file_edit",
+              "shell"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "description": {
+      "type": "string"
+    },
+    "harnesses": {
+      "default": [],
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 0,
+      "type": "array"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "default": {},
+      "description": "Redaction-safe metadata only; secret values are redacted before serialization.",
+      "type": "object"
+    },
+    "mode": {
+      "default": "plan",
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "name": {
+      "description": "Defaults to the YAML filename stem when omitted.",
+      "pattern": "^[A-Za-z0-9_.-]+$",
+      "type": "string"
+    },
+    "workspace_policy": {
+      "default": "current",
+      "type": "string"
+    }
+  },
+  "required": [
+    "cases"
+  ],
+  "title": "GigaLoom Evaluation Spec v1",
+  "type": "object",
+  "x-gigaloom-schema-version": 1
+}

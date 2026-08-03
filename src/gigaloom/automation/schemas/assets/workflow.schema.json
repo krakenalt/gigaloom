@@ -1,0 +1,321 @@
+{
+  "$id": "https://schemas.gigaloom.dev/automation/v1/workflow.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "Editor contract for .giga/workflows YAML. Project loading admits compatibility extension fields, so additionalProperties remains true.",
+  "properties": {
+    "budgets": {
+      "additionalProperties": true,
+      "properties": {
+        "max_concurrency": {
+          "default": 1,
+          "maximum": 16,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_steps": {
+          "default": 64,
+          "maximum": 64,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "timeout_seconds": {
+          "default": null,
+          "maximum": 86400,
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "description": {
+      "default": "",
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+      "type": "string"
+    },
+    "inputs": {
+      "additionalProperties": true,
+      "default": {},
+      "type": "object"
+    },
+    "provenance": {
+      "additionalProperties": true,
+      "default": {},
+      "description": "Redaction-safe workflow provenance; secret values are redacted before storage.",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
+    "steps": {
+      "items": {
+        "additionalProperties": true,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "agent"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "agent_id"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "arena"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "harness_ids"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "eval"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "eval_id"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "approval"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "action": {
+                  "default": "external.write",
+                  "enum": [
+                    "workspace.read",
+                    "workspace.write",
+                    "process.spawn",
+                    "network.connect",
+                    "mcp.server.start",
+                    "mcp.tool.call",
+                    "git.commit",
+                    "git.push",
+                    "github.pull_request.create",
+                    "git.apply",
+                    "git.branch.create",
+                    "external.write",
+                    "schedule.create",
+                    "schedule.enable",
+                    "schedule.run_now",
+                    "schedule.unattended_edit"
+                  ],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "transform"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "transform": {
+                  "enum": [
+                    "identity",
+                    "select",
+                    "template"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "transform"
+              ]
+            }
+          }
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "agent_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "artifact_types": {
+            "default": [],
+            "items": {
+              "enum": [
+                "diff",
+                "patch",
+                "plan",
+                "pr_draft",
+                "review_findings",
+                "selected_files",
+                "test_report"
+              ],
+              "type": "string"
+            },
+            "minItems": 0,
+            "type": "array"
+          },
+          "condition": {
+            "default": "on_success",
+            "enum": [
+              "on_success",
+              "on_failure",
+              "always"
+            ],
+            "type": "string"
+          },
+          "depends_on": {
+            "default": [],
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 0,
+            "type": "array"
+          },
+          "eval_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "harness_ids": {
+            "default": [],
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "id": {
+            "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+            "type": "string"
+          },
+          "inputs": {
+            "additionalProperties": true,
+            "default": {},
+            "description": "Arbitrary redaction-safe step inputs; secret values are redacted before storage.",
+            "type": "object"
+          },
+          "kind": {
+            "enum": [
+              "agent",
+              "arena",
+              "eval",
+              "approval",
+              "transform",
+              "join"
+            ],
+            "type": "string"
+          },
+          "max_fan_out": {
+            "default": 1,
+            "maximum": 16,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "output": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "retries": {
+            "default": 0,
+            "maximum": 10,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "select": {
+            "default": [],
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 0,
+            "type": "array"
+          },
+          "timeout_seconds": {
+            "default": null,
+            "maximum": 86400,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "transform": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind"
+        ],
+        "type": "object"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "type": "array"
+    },
+    "title": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "version": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "version",
+    "steps"
+  ],
+  "title": "GigaLoom Workflow v1",
+  "type": "object",
+  "x-gigaloom-schema-version": 1
+}

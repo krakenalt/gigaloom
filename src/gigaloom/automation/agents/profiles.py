@@ -7,6 +7,7 @@ import hashlib
 from pathlib import Path, PurePosixPath
 from typing import Any, Mapping
 import yaml
+from gigaloom.automation.schemas.bindings import add_yaml_language_server_header
 from gigaloom.automation.agents.authoring import (
     ProjectAuthoringService,
     ProjectFileDraft,
@@ -233,7 +234,10 @@ def render_starter_agent(agent_id: str, *, harness_id: str = "codex-cli") -> str
         "disallowed_tools": [],
         "budgets": {"max_attempts": 1, "max_concurrency": 1},
     }
-    return yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
+    return add_yaml_language_server_header(
+        yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
+        "agent",
+    )
 
 
 def _reject_secret_literals(value: Any, path: str = "profile") -> None:
