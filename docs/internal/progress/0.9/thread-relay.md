@@ -70,3 +70,29 @@
   modules remain in TR-05; application/root composition is intentionally left
   to the integrator
 - Shared-file patch request: none
+
+## TR-04 — Add Codex and ACP capability adapters
+
+- Status: complete
+- Baseline: `c722ae638fe42b4b1917151d9064171d38dcb735`
+- Scope: provider-neutral capability results plus Codex app-server v2 and ACP
+  adapters under `src/gigaloom/execution/thread_relay/`, lazy ACP exports in the
+  existing harness facade, required session-bound constants, and
+  `tests/harness/thread_relay/test_provider_adapters.py`
+- Contract/evidence: Codex list/read/start/steer uses only the pinned public
+  app-server methods and revalidates target revision and exact active turn;
+  visible Codex user/assistant content is bounded and redacted while reasoning
+  and tool payloads are excluded; ACP list/load/prompt is enabled only from the
+  immutable initialize capability snapshot; unadvertised ACP operations return
+  content-free capability facts and ACP steer remains unsupported rather than
+  being emulated; neither adapter reads private JSONL or native home state
+- Tests: `pytest tests/harness/thread_relay
+  tests/harness/architecture/test_0_9_boundaries.py
+  tests/harness/architecture/test_package_boundaries.py
+  tests/harness/architecture/test_module_budgets.py -q -n 0` — 39 passed;
+  existing Codex exact-steer and ACP session lifecycle nodes — 2 passed;
+  focused Ruff check/format and `ty check` — passed
+- Known limitations: ACP does not expose transcript reads or active-turn steer,
+  so those absences remain explicit capability/projection facts; route-local
+  CLI/API modules and composition patch requests remain in TR-05
+- Shared-file patch request: none

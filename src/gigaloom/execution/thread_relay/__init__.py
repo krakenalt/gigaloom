@@ -1,5 +1,14 @@
 """Public structured-session Thread Relay application boundary."""
 
+from gigaloom.execution.thread_relay.acp_adapter import (
+    ACP_THREAD_ADAPTER_ID,
+    AcpThreadRelayAdapter,
+)
+from gigaloom.execution.thread_relay.codex_adapter import (
+    CODEX_THREAD_ADAPTER_ID,
+    CODEX_THREAD_CAPABILITY_REVISION,
+    CodexThreadRelayAdapter,
+)
 from gigaloom.execution.thread_relay.projections import (
     GIGALOOM_THREAD_ADAPTER_ID,
     GIGALOOM_THREAD_CAPABILITY_REVISION,
@@ -20,17 +29,40 @@ from gigaloom.execution.thread_relay.service import (
     ThreadSteerPort,
     ThreadTurnSubmissionPort,
 )
+from gigaloom.execution.thread_relay.provider_contracts import (
+    MAX_PROVIDER_THREAD_LIST,
+    ThreadProviderCapabilitiesV1,
+    ThreadProviderCapabilityFactV1,
+    ThreadProviderCapabilityState,
+    ThreadProviderListPageV1,
+    ThreadProviderMutationResultV1,
+    ThreadProviderOperation,
+    ThreadProviderReadResultV1,
+)
 
 __all__ = [
+    "ACP_THREAD_ADAPTER_ID",
+    "CODEX_THREAD_ADAPTER_ID",
+    "CODEX_THREAD_CAPABILITY_REVISION",
     "GIGALOOM_THREAD_ADAPTER_ID",
     "GIGALOOM_THREAD_CAPABILITY_REVISION",
     "MAX_GIGALOOM_THREAD_LIST",
     "MAX_GIGALOOM_THREAD_LIST_SCAN",
     "GigaLoomStructuredThreadRelay",
     "GigaLoomThreadListPage",
+    "AcpThreadRelayAdapter",
+    "CodexThreadRelayAdapter",
+    "MAX_PROVIDER_THREAD_LIST",
     "ThreadDeliveryOutcome",
     "ThreadDeliveryPreview",
     "ThreadMessageResolverPort",
+    "ThreadProviderCapabilitiesV1",
+    "ThreadProviderCapabilityFactV1",
+    "ThreadProviderCapabilityState",
+    "ThreadProviderListPageV1",
+    "ThreadProviderMutationResultV1",
+    "ThreadProviderOperation",
+    "ThreadProviderReadResultV1",
     "ThreadRelayAuthorizationError",
     "ThreadRelayError",
     "ThreadRelayTargetStateError",
