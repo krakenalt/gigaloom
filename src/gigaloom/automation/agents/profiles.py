@@ -17,6 +17,7 @@ from gigaloom.types import parse_api_mode, redact_secrets
 from .constants import (
     AGENT_DIRECTORY as AGENT_DIRECTORY,
     AGENT_ID_PATTERN as AGENT_ID_PATTERN,
+    AGENT_SCHEMA_VERSION as AGENT_SCHEMA_VERSION,
     ALLOWED_MODES as ALLOWED_MODES,
     ALLOWED_WORKSPACE_POLICIES as ALLOWED_WORKSPACE_POLICIES,
     NON_SECRET_PROFILE_KEYS as NON_SECRET_PROFILE_KEYS,
@@ -105,7 +106,7 @@ def parse_agent_profile(
         id=agent_id,
         title=_required_text(data.get("title"), "title"),
         description=str(data.get("description") or "").strip(),
-        schema_version=_positive_int(data.get("schema_version", 1), "schema_version"),
+        schema_version=_supported_schema_version(data.get("schema_version", 1)),
         harness_id=_required_text(data.get("harness_id"), "harness_id"),
         instructions=_required_text(data.get("instructions"), "instructions"),
         model=_optional_text(data.get("model")),
@@ -219,7 +220,7 @@ def render_starter_agent(agent_id: str, *, harness_id: str = "codex-cli") -> str
         "id": agent_id,
         "title": item["title"],
         "description": f"Starter {item['title']} profile.",
-        "schema_version": 1,
+        "schema_version": AGENT_SCHEMA_VERSION,
         "harness_id": harness_id,
         "instructions": item["instructions"],
         "api_mode": "v2",
@@ -323,6 +324,13 @@ def _positive_int(value: Any, field_name: str) -> int:
     if number < 1:
         raise ValueError(f"{field_name} must be a positive integer")
     return number
+
+
+def _supported_schema_version(value: Any) -> int:
+    version = _positive_int(value, "schema_version")
+    if version != AGENT_SCHEMA_VERSION:
+        raise ValueError(f"Unsupported agent schema_version: {version}")
+    return version
 
 
 def _optional_positive_int(value: Any, field_name: str) -> int | None:

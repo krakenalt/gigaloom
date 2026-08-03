@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 from gigaloom.automation.agents.api import (
     AGENT_ID_PATTERN,
+    AGENT_SCHEMA_VERSION,
     ALLOWED_MODES,
     ALLOWED_WORKSPACE_POLICIES,
 )
@@ -100,7 +101,7 @@ def _root_schema(
 
 
 def _agent_schema(filename: str) -> dict[str, Any]:
-    non_empty_array = _string_array(min_items=1)
+    string_array = _string_array()
     path_array = {
         **_string_array(),
         "description": "Project-relative paths only; absolute, home, and parent traversal paths are rejected.",
@@ -117,7 +118,11 @@ def _agent_schema(filename: str) -> dict[str, Any]:
         },
         "title": _non_empty_string(),
         "description": {"type": "string", "default": ""},
-        "schema_version": {"type": "integer", "minimum": 1, "default": 1},
+        "schema_version": {
+            "type": "integer",
+            "const": AGENT_SCHEMA_VERSION,
+            "default": AGENT_SCHEMA_VERSION,
+        },
         "harness_id": _non_empty_string(),
         "instructions": {
             **_non_empty_string(),
@@ -155,10 +160,10 @@ def _agent_schema(filename: str) -> dict[str, Any]:
             "default": "interactive",
         },
         "prompt_files": path_array,
-        "skills": non_empty_array,
-        "memory_selectors": non_empty_array,
+        "skills": string_array,
+        "memory_selectors": string_array,
         "context_selectors": path_array,
-        "tool_ids": non_empty_array,
+        "tool_ids": string_array,
         "allowed_tools": tool_array,
         "disallowed_tools": tool_array,
         "budgets": {
@@ -485,7 +490,10 @@ def _schedule_source_schema(filename: str) -> dict[str, Any]:
     )
     schema["allOf"] = [
         {
-            "if": {"properties": {"destination": {"const": "resume"}}},
+            "if": {
+                "properties": {"destination": {"const": "resume"}},
+                "required": ["destination"],
+            },
             "then": {"required": ["session_id"]},
         }
     ]

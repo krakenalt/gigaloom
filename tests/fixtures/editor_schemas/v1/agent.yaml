@@ -1,0 +1,28 @@
+id: schema-fixture
+title: Schema Fixture
+description: Exercises every public agent field.
+schema_version: 1
+harness_id: codex-cli
+instructions: Review the bounded fixture without changing files.
+model: GigaChat-2-Max
+reasoning_effort: medium
+api_mode: v2
+invocation_mode: headless
+mode: read
+workspace_policy: current
+permission_profile: unattended
+prompt_files: [AGENTS.md]
+skills: [review]
+memory_selectors: [project]
+context_selectors: [src]
+tool_ids: [thread.read]
+allowed_tools: [Read]
+disallowed_tools: [Write]
+budgets:
+  timeout_seconds: 300
+  max_tokens: 1000
+  max_attempts: 2
+  max_concurrency: 1
+expected_artifact: review_findings
+provenance:
+  fixture: editor-schema-v1

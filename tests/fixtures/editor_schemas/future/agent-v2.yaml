@@ -1,0 +1,5 @@
+id: future-agent
+title: Future Agent
+schema_version: 2
+harness_id: codex-cli
+instructions: This future artifact must fail closed until migrated.
