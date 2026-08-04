@@ -8,12 +8,14 @@ from contextlib import ExitStack
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 import hashlib
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import math
 from pathlib import Path
 import platform
 import subprocess
 import tempfile
+import threading
 from time import perf_counter
 from types import SimpleNamespace
 from typing import Any
@@ -42,6 +44,7 @@ from gigaloom.native.api import (
     GatewaySidecarStatus,
     GatewaySupportStatus,
     ManagedGatewaySidecarService,
+    UrlLibGatewayMachineTransport,
 )
 from gigaloom.native.base import NativeCommandPlan
 from gigaloom.native.process import NativeProcessRef, NativeProcessStatus
@@ -60,7 +63,7 @@ from gigaloom.ui.app import create_app
 from gigaloom.ui.services.gateway_routes import GatewayRouteWebService
 
 
-SCHEMA_VERSION = "gigaloom.workflow-0.9-performance.v1"
+SCHEMA_VERSION = "gigaloom.workflow-0.9-performance.v2"
 NOW = datetime(2026, 8, 4, 12, 0, tzinfo=timezone.utc)
 WORK_INITIAL_PATHS = (
     "/api/cockpit/sessions?limit=50",
@@ -78,6 +81,7 @@ class _Case:
     fixture: Mapping[str, Any]
     operation: Callable[[], object]
     details: Callable[[object], Mapping[str, float]]
+    measurement_kind: str = "integration"
     before_each: Callable[[], None] = lambda: None
 
 
@@ -247,36 +251,36 @@ def capture(repository_root: Path, *, samples: int) -> dict[str, Any]:
         )
         cases = _cases(stack, temporary_root)
         results = [_measure(case, samples=samples) for case in cases]
-    return {
-        "schema_version": SCHEMA_VERSION,
-        "source_revision": _git(repository_root, "rev-parse", "HEAD"),
-        "source_dirty": bool(_git(repository_root, "status", "--short")),
-        "lock_sha256": hashlib.sha256(
-            (repository_root / "uv.lock").read_bytes()
-        ).hexdigest(),
-        "environment": {
-            "implementation": platform.python_implementation(),
-            "machine": platform.machine(),
-            "platform": platform.platform(),
-            "python": platform.python_version(),
-        },
-        "samples_per_workload": samples,
-        "privacy": {
-            "content_free": True,
-            "external_network_accessed": False,
-            "native_homes_accessed": False,
-            "provider_traffic": False,
-            "temporary_state_only": True,
-        },
-        "results": results,
-    }
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "source_revision": _git(repository_root, "rev-parse", "HEAD"),
+            "source_dirty": bool(_git(repository_root, "status", "--short")),
+            "lock_sha256": hashlib.sha256(
+                (repository_root / "uv.lock").read_bytes()
+            ).hexdigest(),
+            "environment": {
+                "implementation": platform.python_implementation(),
+                "machine": platform.machine(),
+                "platform": platform.platform(),
+                "python": platform.python_version(),
+            },
+            "samples_per_workload": samples,
+            "privacy": {
+                "content_free": True,
+                "external_network_accessed": False,
+                "native_homes_accessed": False,
+                "provider_traffic": False,
+                "temporary_state_only": True,
+            },
+            "results": results,
+        }
 
 
 def _cases(stack: ExitStack, root: Path) -> tuple[_Case, ...]:
     work_cases = _work_cases(stack, root / "work")
     relay_cases = _relay_cases(root / "relay")
     instruction_cases = _instruction_cases(root / "instructions")
-    gateway_cases = _gateway_cases(root / "gateway")
+    gateway_cases = _gateway_cases(stack, root / "gateway")
     return (
         *work_cases,
         *relay_cases,
@@ -395,9 +399,10 @@ def _relay_cases(root: Path) -> tuple[_Case, ...]:
                 created_at=(NOW + timedelta(seconds=index)).isoformat(),
             )
         )
+    measured_store = _MeasuredSessionStore(store)
     actions = GigaLoomThreadRelayActions(
         scope=ThreadRelayScopeV1("actor-1", "project-1"),
-        session_store=store,
+        session_store=measured_store,
         delivery_repository=repository,
         turn_submitter=_NoopSubmitter(),
         clock=lambda: NOW,
@@ -418,19 +423,35 @@ def _relay_cases(root: Path) -> tuple[_Case, ...]:
         _Case(
             id="thread.list_page",
             fixture={"retained_threads": 120, "page_limit": 50},
+            before_each=measured_store.reset_counters,
             operation=list_threads,
             details=lambda result: {
                 "items": float(len(result["threads"])),
                 "has_more": float(bool(result["has_more"])),
+                "latest_run_batch_reads": float(
+                    measured_store.counters["latest_run_batch_reads"]
+                ),
+                "latest_run_sessions": float(
+                    measured_store.counters["latest_run_sessions"]
+                ),
+                "run_page_reads": float(measured_store.counters["run_page_reads"]),
+                "session_page_reads": float(
+                    measured_store.counters["session_page_reads"]
+                ),
             },
         ),
         _Case(
             id="thread.read_page",
             fixture={"retained_messages": 160, "page_limit": 50},
+            before_each=measured_store.reset_counters,
             operation=read_thread,
             details=lambda result: {
                 "messages": float(len(result["thread"]["visible_messages"])),
                 "has_more": float(result["thread"]["next_cursor"] is not None),
+                "message_page_reads": float(
+                    measured_store.counters["message_page_reads"]
+                ),
+                "run_page_reads": float(measured_store.counters["run_page_reads"]),
             },
         ),
     )
@@ -477,8 +498,10 @@ def _instruction_cases(root: Path) -> tuple[_Case, ...]:
     )
 
 
-def _gateway_cases(root: Path) -> tuple[_Case, ...]:
+def _gateway_cases(stack: ExitStack, root: Path) -> tuple[_Case, ...]:
     profile = _gateway_profile()
+    loopback = stack.enter_context(_LoopbackGatewayServer())
+    loopback_profile = replace(profile, base_url=loopback.base_url)
     managed_profile = replace(profile, mode=GatewayMode.MANAGED)
     route = _gateway_route()
     catalog = GatewayRouteCatalogV1(
@@ -502,6 +525,7 @@ def _gateway_cases(root: Path) -> tuple[_Case, ...]:
         clock=lambda: NOW,
     )
     transport_holder: dict[str, object] = {}
+    http_holder: dict[str, object] = {}
     cold_holder: dict[str, object] = {}
     warm_holder: dict[str, object] = {}
     executable = root / "bin" / "gpt2giga"
@@ -526,6 +550,16 @@ def _gateway_cases(root: Path) -> tuple[_Case, ...]:
 
     def route_discovery() -> object:
         return transport_holder["discovery"].discover(profile)
+
+    def reset_http_discovery() -> None:
+        loopback.reset()
+        http_holder["discovery"] = GatewayRouteDiscovery(
+            UrlLibGatewayMachineTransport(),
+            clock=lambda: NOW,
+        )
+
+    def route_http_discovery() -> object:
+        return http_holder["discovery"].discover(loopback_profile)
 
     def reset_sidecar(holder: dict[str, object], *, warm: bool) -> None:
         owner = _ProcessOwner()
@@ -559,6 +593,7 @@ def _gateway_cases(root: Path) -> tuple[_Case, ...]:
         _Case(
             id="gateway.preflight",
             fixture={"routes": 1, "force_refresh": True},
+            measurement_kind="micro",
             before_each=lambda: setattr(static, "calls", 0),
             operation=lambda: preflight.preflight(
                 route.route_id, acknowledgement_id=None
@@ -571,6 +606,7 @@ def _gateway_cases(root: Path) -> tuple[_Case, ...]:
         _Case(
             id="gateway.route_model_discovery",
             fixture={"models": 1, "capability_cells": 1},
+            measurement_kind="micro",
             before_each=reset_discovery,
             operation=route_discovery,
             details=lambda result: {
@@ -579,8 +615,24 @@ def _gateway_cases(root: Path) -> tuple[_Case, ...]:
             },
         ),
         _Case(
+            id="gateway.route_model_discovery_http",
+            fixture={
+                "models": 1,
+                "capability_cells": 1,
+                "loopback_http": True,
+            },
+            measurement_kind="integration",
+            before_each=reset_http_discovery,
+            operation=route_http_discovery,
+            details=lambda result: {
+                "http_requests": float(len(loopback.paths)),
+                "routes": float(len(result.catalog.routes)),
+            },
+        ),
+        _Case(
             id="gateway.sidecar_cold_start",
             fixture={"verified_artifact": True, "readiness_checks": 1},
+            measurement_kind="micro",
             before_each=lambda: reset_sidecar(cold_holder, warm=False),
             operation=lambda: sidecar(cold_holder, "run-cold"),
             details=lambda result: {
@@ -591,6 +643,7 @@ def _gateway_cases(root: Path) -> tuple[_Case, ...]:
         _Case(
             id="gateway.sidecar_warm_attach",
             fixture={"verified_artifact": True, "existing_lease": True},
+            measurement_kind="micro",
             before_each=lambda: reset_sidecar(warm_holder, warm=True),
             operation=lambda: sidecar(warm_holder, "run-warm"),
             details=lambda result: {
@@ -647,6 +700,7 @@ def _measure(case: _Case, *, samples: int) -> dict[str, Any]:
             detail_samples.setdefault(key, []).append(value)
     return {
         "id": case.id,
+        "measurement_kind": case.measurement_kind,
         "fixture": dict(case.fixture),
         "latency_ms": _summary(elapsed),
         "counters": {
@@ -791,18 +845,186 @@ def _add_comparison(after: dict[str, Any], before: dict[str, Any]) -> None:
         }
 
 
+def _enforce_relative_budgets(
+    report: Mapping[str, Any],
+    budgets: Mapping[str, Any],
+) -> None:
+    """Reject a measured thread regression against the reviewed release targets."""
+    results = {item["id"]: item for item in report["results"]}
+    relative = budgets["relative"]
+    thread_list = results["thread.list_page"]
+    thread_read = results["thread.read_page"]
+    violations: list[str] = []
+    list_p95 = float(thread_list["latency_ms"]["p95"])
+    list_improvement = float(thread_list["change_pct"]["p95"])
+    read_regression = -float(thread_read["change_pct"]["p95"])
+    if list_p95 > float(relative["thread_list_p95_max_ms"]):
+        violations.append(
+            "thread.list_page p95 "
+            f"{list_p95:.3f} ms exceeds {relative['thread_list_p95_max_ms']} ms"
+        )
+    if list_improvement < float(relative["thread_list_p95_min_improvement_pct"]):
+        violations.append(
+            "thread.list_page improvement "
+            f"{list_improvement:.3f}% is below "
+            f"{relative['thread_list_p95_min_improvement_pct']}%"
+        )
+    if read_regression > float(relative["thread_read_p95_max_regression_pct"]):
+        violations.append(
+            "thread.read_page regression "
+            f"{read_regression:.3f}% exceeds "
+            f"{relative['thread_read_p95_max_regression_pct']}%"
+        )
+    if violations:
+        raise ValueError("; ".join(violations))
+
+
+class _MeasuredSessionStore:
+    """Count only the bounded session reads used by relay projections."""
+
+    def __init__(self, store: FilesystemHarnessSessionStore) -> None:
+        self.store = store
+        self.counters: dict[str, int] = {}
+        self.reset_counters()
+
+    def reset_counters(self) -> None:
+        self.counters = {
+            "latest_run_batch_reads": 0,
+            "latest_run_sessions": 0,
+            "message_page_reads": 0,
+            "run_page_reads": 0,
+            "session_page_reads": 0,
+        }
+
+    def get_session(self, session_id: str) -> object:
+        return self.store.get_session(session_id)
+
+    def list_sessions_page(self, **kwargs: object) -> object:
+        self.counters["session_page_reads"] += 1
+        return self.store.list_sessions_page(**kwargs)
+
+    def latest_runs(self, session_ids: tuple[str, ...]) -> object:
+        self.counters["latest_run_batch_reads"] += 1
+        self.counters["latest_run_sessions"] += len(session_ids)
+        return self.store.latest_runs(session_ids)
+
+    def list_runs_page(self, session_id: str, **kwargs: object) -> object:
+        self.counters["run_page_reads"] += 1
+        return self.store.list_runs_page(session_id, **kwargs)
+
+    def list_recent_messages(self, session_id: str, **kwargs: object) -> object:
+        self.counters["message_page_reads"] += 1
+        return self.store.list_recent_messages(session_id, **kwargs)
+
+
+class _LoopbackGatewayServer:
+    """Serve real bounded HTTP machine contracts without provider traffic."""
+
+    def __init__(self) -> None:
+        self.paths: list[str] = []
+        self.server: ThreadingHTTPServer | None = None
+        self.thread: threading.Thread | None = None
+
+    def __enter__(self) -> _LoopbackGatewayServer:
+        owner = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:  # noqa: N802
+                owner.paths.append(self.path)
+                payloads: dict[str, object] = {
+                    "/health": None,
+                    "/models": {
+                        "object": "list",
+                        "data": [
+                            {
+                                "id": "GigaChat-2-Max",
+                                "object": "model",
+                                "owned_by": "sber",
+                            }
+                        ],
+                    },
+                    "/bridge/capabilities": {
+                        "schema_version": "gpt2giga.route-support-matrix.v1",
+                        "matrix_revision": "sha256:" + "c" * 64,
+                        "cells": [
+                            {
+                                "public_protocol": "openai_responses",
+                                "upstream_provider": "gigachat",
+                                "status": "technical_preview",
+                                "reason_ids": [
+                                    "normalized_responses_parity_incomplete"
+                                ],
+                                "evidence_ids": ["COR-01-CODEX-RESPONSES-2026-08-03"],
+                            }
+                        ],
+                    },
+                }
+                if self.path not in payloads:
+                    self.send_error(404)
+                    return
+                body = json.dumps(payloads[self.path]).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, _format: str, *_args: object) -> None:
+                return
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.thread = threading.Thread(
+            target=self.server.serve_forever,
+            name="gigaloom-performance-gateway",
+        )
+        self.thread.start()
+        return self
+
+    @property
+    def base_url(self) -> str:
+        if self.server is None:
+            raise RuntimeError("loopback gateway is not running")
+        host, port = self.server.server_address
+        return f"http://{host}:{port}"
+
+    def reset(self) -> None:
+        self.paths.clear()
+
+    def __exit__(self, *_args: object) -> None:
+        if self.server is not None:
+            self.server.shutdown()
+            self.server.server_close()
+        if self.thread is not None:
+            self.thread.join(timeout=5)
+            if self.thread.is_alive():
+                raise RuntimeError("loopback gateway did not stop")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--label", required=True)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--samples", default=20, type=int)
     parser.add_argument("--baseline", type=Path)
+    parser.add_argument("--budgets", type=Path)
+    parser.add_argument("--require-clean", action="store_true")
     args = parser.parse_args()
     repository_root = Path.cwd().resolve()
     result = {"label": args.label, **capture(repository_root, samples=args.samples)}
+    if args.require_clean and result["source_dirty"]:
+        raise ValueError("refusing to publish performance evidence from a dirty tree")
     if args.baseline is not None:
         before = json.loads(args.baseline.read_text(encoding="utf-8"))
         _add_comparison(result, before)
+    if args.budgets is not None:
+        if args.baseline is None:
+            raise ValueError("--budgets requires --baseline")
+        budgets = json.loads(args.budgets.read_text(encoding="utf-8"))
+        _enforce_relative_budgets(result, budgets)
+        result["relative_gate"] = {
+            "budgets_schema_version": budgets["schema_version"],
+            "passed": True,
+        }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(result, ensure_ascii=False, indent=2) + "\n",

@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+from contextlib import ExitStack
 import json
 from pathlib import Path
 
 import pytest
+
+from benchmarks.gigaloom_performance.workflow_0_9.capture import (
+    _enforce_relative_budgets,
+    _gateway_cases,
+    _relay_cases,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -166,3 +173,89 @@ def test_instruction_gateway_and_evidence_mechanisms_remain_bounded() -> None:
     assert (
         _p95(evidence, "network_calls") <= budgets["local_evidence_max_network_calls"]
     )
+
+
+def test_0_9_1_baseline_is_clean_and_matches_the_current_lock() -> None:
+    baseline = _load("baseline_0_9_1.json")
+
+    assert baseline["source_revision"] == "bfd1a936510a0f965a9e23758d1d27b97be42f83"
+    assert baseline["source_dirty"] is False
+    assert (
+        baseline["lock_sha256"]
+        == _load("cli_startup_baseline_0_9_1.json")["lock_sha256"]
+    )
+
+
+def test_relay_collector_counts_the_batch_list_and_single_read_paths(tmp_path) -> None:
+    list_case, read_case = _relay_cases(tmp_path)
+
+    list_case.before_each()
+    listed = list_case.operation()
+    list_counters = list_case.details(listed)
+    read_case.before_each()
+    read = read_case.operation()
+    read_counters = read_case.details(read)
+
+    assert list_counters == {
+        "has_more": 1.0,
+        "items": 50.0,
+        "latest_run_batch_reads": 1.0,
+        "latest_run_sessions": 50.0,
+        "run_page_reads": 0.0,
+        "session_page_reads": 1.0,
+    }
+    assert read_counters == {
+        "has_more": 1.0,
+        "message_page_reads": 1.0,
+        "messages": 50.0,
+        "run_page_reads": 1.0,
+    }
+
+
+def test_gateway_collector_separates_micro_and_loopback_http_cases(tmp_path) -> None:
+    with ExitStack() as stack:
+        cases = _gateway_cases(stack, tmp_path)
+        micro = next(
+            case for case in cases if case.id == "gateway.route_model_discovery"
+        )
+        integration = next(
+            case for case in cases if case.id == "gateway.route_model_discovery_http"
+        )
+
+        integration.before_each()
+        result = integration.operation()
+        counters = integration.details(result)
+
+    assert micro.measurement_kind == "micro"
+    assert integration.measurement_kind == "integration"
+    assert counters == {"http_requests": 3.0, "routes": 1.0}
+
+
+def test_relative_budget_checker_enforces_thread_targets() -> None:
+    report = {
+        "results": [
+            {
+                "id": "thread.list_page",
+                "latency_ms": {"p95": 80.0},
+                "change_pct": {"p95": 70.0},
+            },
+            {
+                "id": "thread.read_page",
+                "latency_ms": {"p95": 12.0},
+                "change_pct": {"p95": -9.0},
+            },
+        ]
+    }
+    budgets = {
+        "relative": {
+            "thread_list_p95_max_ms": 90.0,
+            "thread_list_p95_min_improvement_pct": 60.0,
+            "thread_read_p95_max_regression_pct": 10.0,
+        }
+    }
+
+    _enforce_relative_budgets(report, budgets)
+    report["results"][0]["change_pct"]["p95"] = 59.0
+
+    with pytest.raises(ValueError, match="thread.list_page improvement"):
+        _enforce_relative_budgets(report, budgets)

@@ -36,13 +36,23 @@ The `baseline_0_9_1.json` and `cli_startup_baseline_0_9_1.json` captures freeze
 the clean `bfd1a936510a0f965a9e23758d1d27b97be42f83` release base. No provider,
 external network, native home or persistent product state is touched.
 
+Collector schema v2 separates in-process gateway microbenchmarks from a real
+loopback-HTTP discovery case. It also records the thread list session-page,
+latest-run batch and per-session run-page reads. The relative gate requires the
+thread list to stay below 90 ms p95 and at least 60% faster than its matched
+baseline while the thread read p95 may regress by at most 10%. Use one v2
+collector revision for both sides of a comparison; v1 artifacts remain
+historical evidence and are intentionally rejected as a v2 baseline.
+
 Reproduce from a clean repository root with a prepared locked environment:
 
 ```bash
 ./.venv/bin/python benchmarks/gigaloom_performance/workflow_0_9/capture.py \
   --label local-check \
   --samples 20 \
-  --baseline benchmarks/gigaloom_performance/workflow_0_9/baseline.json \
+  --baseline /tmp/gigaloom-workflow-0.9.1-v2-baseline.json \
+  --budgets benchmarks/gigaloom_performance/workflow_0_9/budgets.json \
+  --require-clean \
   --output /tmp/gigaloom-workflow-0.9-local.json
 
 ./.venv/bin/python benchmarks/gigaloom_performance/workflow_0_9/capture_cli.py \
