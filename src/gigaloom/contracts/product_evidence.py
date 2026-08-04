@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TypeAlias
+from typing import TypeAlias, cast
 
 from gigaloom.contracts.operational_validation import (
     OPERATIONAL_SCHEMA_VERSION,
@@ -168,7 +168,8 @@ def _normalize_metrics(values: object) -> tuple[ProductMetricV1, ...]:
         or any(not isinstance(item, ProductMetricV1) for item in values)
     ):
         raise ValueError("product report metrics must be a bounded tuple")
-    normalized = tuple(sorted(values, key=lambda item: item.metric_id))
+    typed = cast(tuple[ProductMetricV1, ...], values)
+    normalized = tuple(sorted(typed, key=lambda item: item.metric_id))
     if len({item.metric_id for item in normalized}) != len(normalized):
         raise ValueError("product report metric ids must be unique")
     return normalized
@@ -181,7 +182,8 @@ def _normalize_sources(values: object) -> tuple[ProductEvidenceSourceV1, ...]:
         or any(not isinstance(item, ProductEvidenceSourceV1) for item in values)
     ):
         raise ValueError("product report sources must be a bounded tuple")
-    normalized = tuple(sorted(values, key=lambda item: item.source_id))
+    typed = cast(tuple[ProductEvidenceSourceV1, ...], values)
+    normalized = tuple(sorted(typed, key=lambda item: item.source_id))
     if len({item.source_id for item in normalized}) != len(normalized):
         raise ValueError("product report source ids must be unique")
     return normalized

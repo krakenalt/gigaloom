@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from gigaloom.contracts.operational_validation import parse_timestamp, require_mapping
 from gigaloom.contracts.product_evidence import (
@@ -153,20 +153,20 @@ def _source_from_dict(payload: Mapping[str, Any]) -> ProductEvidenceSourceV1:
 def _objects(value: object) -> tuple[Mapping[str, Any], ...]:
     if not isinstance(value, list):
         raise ValueError("product evidence collection must be an array")
-    return tuple(
-        require_mapping(
-            item,
-            required=set(item) if isinstance(item, Mapping) else set(),
-            field_name="product evidence item",
-        )
-        for item in value
-    )
+    result: list[Mapping[str, Any]] = []
+    for item in value:
+        if not isinstance(item, Mapping) or any(
+            not isinstance(key, str) for key in item
+        ):
+            raise ValueError("product evidence item must be an object")
+        result.append(cast(Mapping[str, Any], item))
+    return tuple(result)
 
 
 def _strings(value: object, field_name: str) -> tuple[str, ...]:
     if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
         raise ValueError(f"{field_name} must be a string array")
-    return tuple(value)
+    return cast(tuple[str, ...], tuple(value))
 
 
 def _metric_value(value: object) -> bool | int | str | None:
