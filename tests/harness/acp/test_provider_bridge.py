@@ -72,6 +72,7 @@ def test_reviewed_adapter_windows_resolve_exact_registry_ids(
     ("registry_id", "version", "reason"),
     [
         ("opencode", "1.19.0", "agent_version_outside_reviewed_adapter"),
+        ("opencode", "1.18.12-rc1", "agent_version_outside_reviewed_adapter"),
         ("codex-acp", "1.0.9", "agent_version_outside_reviewed_adapter"),
         ("amp-acp", "0.1.0", "agent_has_no_configurable_provider_contract"),
         ("qwen-code", "0.9.0", "qwen_code_adapter_conformance_unverified"),

@@ -7,10 +7,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 import json
 from pathlib import Path
+import re
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
-
-from packaging.version import InvalidVersion, Version
 
 from gigaloom.harnesses.agent_profiles import VersionPolicy, VersionPolicyKind
 from gigaloom.harnesses.acp.process import AcpProcessSpec, pin_acp_process
@@ -131,6 +130,7 @@ _CODEX_ACP_ADAPTER = AcpProviderAdapterSpec(
     adapter_revision="1",
 )
 _ADAPTERS = (_CODEX_ACP_ADAPTER, _OPENCODE_ADAPTER)
+_RELEASE_VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)\Z")
 
 
 def resolve_provider_bridge(
@@ -421,13 +421,20 @@ def resolve_available_provider_bridge(
 def _matches(version: str, policy: VersionPolicy) -> bool:
     if policy.kind is not VersionPolicyKind.REVIEWED_RANGE:
         return False
-    try:
-        current = Version(version)
-        minimum = Version(policy.minimum or "")
-        maximum = Version(policy.maximum_exclusive or "")
-    except InvalidVersion:
-        return False
-    return minimum <= current < maximum
+    current = _release_version(version)
+    minimum = _release_version(policy.minimum or "")
+    maximum = _release_version(policy.maximum_exclusive or "")
+    return (
+        current is not None
+        and minimum is not None
+        and maximum is not None
+        and minimum <= current < maximum
+    )
+
+
+def _release_version(value: str) -> tuple[int, int, int] | None:
+    match = _RELEASE_VERSION.fullmatch(value)
+    return tuple(map(int, match.groups())) if match is not None else None
 
 
 def _protocols(values: tuple[str, ...]) -> tuple[str, ...]:
