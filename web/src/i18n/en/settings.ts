@@ -10,6 +10,15 @@ export const enSettings = {
   titleModel: "Default title model",
   useChatModel: "Use chat model",
   appearanceHint: "Local language and theme preferences apply immediately in this browser.",
+  personalization: "Personalization",
+  personalizationHint: "Versioned instructions added to new Codex sessions from an isolated managed config.",
+  additionalInstructions: "Additional instructions",
+  additionalInstructionsPlaceholder: "How should Codex work with you across new sessions?",
+  asyncAgentCompatibility: "Async agent compatibility",
+  asyncAgentCompatibilityHint:
+        "Built-in guarded rules apply only when collaboration tools are visible to the model. They are versioned separately from your text.",
+  savePersonalization: "Save instructions",
+  personalizationSaved: "Additional instructions saved and read back from the backend.",
   localAccessHint:
         "An OS-local one-time bootstrap creates an expiring server-side browser session without a URL or stored browser token.",
   accessMode: "Access mode",

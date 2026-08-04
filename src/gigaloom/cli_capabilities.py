@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 import os
 import re
@@ -18,6 +21,9 @@ PROBE_OUTPUT_CHARS = 8000
 _VERSION_PATTERN = re.compile(r"(?<!\d)(\d+\.\d+(?:\.\d+)?(?:[-+._A-Za-z0-9]*)?)")
 _PROBE_CACHE: dict[tuple[str, tuple[str, ...], str], "CliCapabilitySnapshot"] = {}
 _PROBE_CACHE_LOCK = threading.Lock()
+_SCOPED_PROBE_CACHE: ContextVar[
+    dict[tuple[str, tuple[str, ...]], "CliCapabilitySnapshot"] | None
+] = ContextVar("gigaloom_scoped_cli_probe_cache", default=None)
 
 
 @dataclass(frozen=True)
@@ -123,6 +129,19 @@ CLI_PROBE_CONTRACTS = {
 }
 
 
+@contextmanager
+def cli_capability_probe_scope() -> Iterator[None]:
+    """Reuse identical CLI evidence within one bounded projection."""
+    if _SCOPED_PROBE_CACHE.get() is not None:
+        yield
+        return
+    token = _SCOPED_PROBE_CACHE.set({})
+    try:
+        yield
+    finally:
+        _SCOPED_PROBE_CACHE.reset(token)
+
+
 def probe_cli_capabilities(
     resolution: ExecutableResolution,
     harness_id: str,
@@ -144,20 +163,29 @@ def probe_cli_capabilities(
             command=(),
             warning=f"{contract.display_name} executable was not found.",
         )
+    scoped_cache = _SCOPED_PROBE_CACHE.get()
+    scoped_key = (harness_id, command)
+    if scoped_cache is not None and (scoped := scoped_cache.get(scoped_key)):
+        return scoped
 
     version_run = _run_probe(command + ("--version",), harness_id)
     if version_run[0] != "ok":
-        return _snapshot(
+        snapshot = _snapshot(
             contract,
             status="error",
             command=command,
             warning=f"{contract.display_name} version probe failed: {version_run[1]}",
         )
+        if scoped_cache is not None:
+            scoped_cache[scoped_key] = snapshot
+        return snapshot
     version = _first_line(version_run[1]) or "unknown"
     cache_key = (harness_id, command, version)
     with _PROBE_CACHE_LOCK:
         cached = _PROBE_CACHE.get(cache_key)
     if cached is not None:
+        if scoped_cache is not None:
+            scoped_cache[scoped_key] = cached
         return cached
 
     help_run = _run_probe(command + contract.help_argv, harness_id)
@@ -239,6 +267,8 @@ def probe_cli_capabilities(
         )
     with _PROBE_CACHE_LOCK:
         _PROBE_CACHE[cache_key] = snapshot
+    if scoped_cache is not None:
+        scoped_cache[scoped_key] = snapshot
     return snapshot
 
 
@@ -246,6 +276,9 @@ def invalidate_cli_probe_cache() -> None:
     """Explicitly invalidate all cached external CLI capability evidence."""
     with _PROBE_CACHE_LOCK:
         _PROBE_CACHE.clear()
+    scoped_cache = _SCOPED_PROBE_CACHE.get()
+    if scoped_cache is not None:
+        scoped_cache.clear()
 
 
 def cli_capability_snapshot_to_dict(

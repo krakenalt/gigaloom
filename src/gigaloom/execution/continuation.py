@@ -122,7 +122,8 @@ def build_continuation_plan(
             + hashlib.sha256(
                 (
                     f"{request.api_mode.value}\0"
-                    f"{managed_mcp.get('snapshot_hash') or 'no-tools'}"
+                    f"{managed_mcp.get('snapshot_hash') or 'no-tools'}\0"
+                    f"{request.extra.get('personalization_revision') or 'built-in'}"
                 ).encode("utf-8")
             ).hexdigest()[:24]
         )

@@ -62,6 +62,7 @@ def test_session_application_service_completes_approval_and_event_vertical(tmp_p
     assert legacy_payload["invocation_mode"] == "provider-owned"
     assert legacy_payload["execution_transport"] == "one_shot"
     assert legacy_payload["stream"] is False
+    service.personalization_store.save("Prefer concise progress updates.")
 
     product_payload = service.prepare_turn_payload(
         {
@@ -73,6 +74,10 @@ def test_session_application_service_completes_approval_and_event_vertical(tmp_p
         }
     )
     assert product_payload["stream"] is True
+    assert product_payload["extra"]["developer_instructions"] == (
+        "Prefer concise progress updates."
+    )
+    assert len(product_payload["extra"]["personalization_revision"]) == 64
 
     session = service.create_session(
         {

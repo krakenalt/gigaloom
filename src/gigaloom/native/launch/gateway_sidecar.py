@@ -191,6 +191,11 @@ class ManagedGatewaySidecarService:
                     readiness_confirmed=True,
                 )
             self._leases.pop(key, None)
+            if existing is not None and existing.status is NativeProcessStatus.RUNNING:
+                try:
+                    self._process_owner.stop(existing.id)
+                except (KeyError, RuntimeError):
+                    return _blocked(profile, GatewaySidecarReason.PROCESS_LOST)
         profile_root = self._profile_root(profile)
         try:
             profile_root.mkdir(parents=True, exist_ok=True)
@@ -228,7 +233,7 @@ class ManagedGatewaySidecarService:
                 session_id=session_id,
                 run_id=run_id,
             )
-        except (NativeProcessStartError, OSError, RuntimeError):
+        except (KeyError, NativeProcessStartError, OSError, RuntimeError):
             return _blocked(profile, GatewaySidecarReason.PROCESS_START_FAILED)
         self._leases[key] = process.id
         if not self._wait_until_ready(profile.base_url, process.id):

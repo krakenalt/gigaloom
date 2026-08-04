@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 import json
-import os
 from pathlib import Path
 from typing import Mapping, Protocol
 from urllib.parse import urlsplit
@@ -22,6 +22,56 @@ class ManagedAcpGatewayTurn(Protocol):
     model_id: str
 
 
+class ManagedAcpGatewaySupport(str, Enum):
+    """Reviewed support state for one managed ACP provider overlay."""
+
+    SUPPORTED = "supported"
+    UNSUPPORTED = "unsupported"
+    UNKNOWN = "unknown"
+
+
+class ManagedAcpGatewayInjection(str, Enum):
+    """Exact provider-configuration mechanism used by one ACP agent."""
+
+    OPENCODE_CONFIG_CONTENT_V1 = "opencode_config_content_v1"
+
+
+@dataclass(frozen=True, slots=True)
+class ManagedAcpGatewayCapabilityV1:
+    """Separate ACP transport support from the agent's model-provider protocol."""
+
+    registry_id: str
+    support: ManagedAcpGatewaySupport
+    provider_protocol: str | None
+    injection: ManagedAcpGatewayInjection | None
+    reason_id: str
+    session_model_config_id: str | None = None
+    schema_version: int = 1
+
+    def projection(self) -> dict[str, object]:
+        """Return a content-free UI projection for this exact adapter."""
+        return {
+            "schema_version": self.schema_version,
+            "support": self.support.value,
+            "provider_protocol": self.provider_protocol,
+            "injection": self.injection.value if self.injection is not None else None,
+            "session_model_config_id": self.session_model_config_id,
+            "reason_id": self.reason_id,
+        }
+
+
+class ManagedAcpGatewayUnsupported(ValueError):
+    """Raised when no reviewed provider overlay exists for an ACP agent."""
+
+    def __init__(self, reason_id: str) -> None:
+        super().__init__(reason_id)
+        self.reason_id = reason_id
+
+
+class ManagedAcpGatewayRouteRequired(ValueError):
+    """Raised when a selected gateway model lacks an exact reviewed binding."""
+
+
 @dataclass(frozen=True, slots=True)
 class GatewayRouteSelection:
     """Reviewed route values safe to retain for one transient ACP turn."""
@@ -31,7 +81,40 @@ class GatewayRouteSelection:
     public_model_alias: str
     model_id: str
     base_url: str
+    session_model_config_id: str | None
     api_key: str | None = field(default=None, repr=False)
+
+
+_OPENCODE_CAPABILITY = ManagedAcpGatewayCapabilityV1(
+    registry_id="opencode",
+    support=ManagedAcpGatewaySupport.SUPPORTED,
+    provider_protocol="openai_chat_completions",
+    injection=ManagedAcpGatewayInjection.OPENCODE_CONFIG_CONTENT_V1,
+    reason_id="opencode_config_content_overlay_reviewed",
+)
+
+
+def managed_acp_gateway_capability(
+    registry_id: str,
+) -> ManagedAcpGatewayCapabilityV1:
+    """Return reviewed provider-routing support without inferring it from ACP."""
+    if registry_id == "opencode":
+        return _OPENCODE_CAPABILITY
+    if registry_id == "amp-acp":
+        return ManagedAcpGatewayCapabilityV1(
+            registry_id=registry_id,
+            support=ManagedAcpGatewaySupport.UNSUPPORTED,
+            provider_protocol=None,
+            injection=None,
+            reason_id="amp_acp_provider_configuration_unsupported",
+        )
+    return ManagedAcpGatewayCapabilityV1(
+        registry_id=registry_id,
+        support=ManagedAcpGatewaySupport.UNKNOWN,
+        provider_protocol=None,
+        injection=None,
+        reason_id="acp_provider_configuration_not_advertised",
+    )
 
 
 def gateway_route_selection(
@@ -43,6 +126,9 @@ def gateway_route_selection(
     """Decode one validated ACP binding without falling back on malformed data."""
     if value is None:
         return None
+    capability = managed_acp_gateway_capability(registry_id)
+    if capability.support is not ManagedAcpGatewaySupport.SUPPORTED:
+        raise ManagedAcpGatewayUnsupported(capability.reason_id)
     if not isinstance(value, Mapping):
         raise ValueError("managed ACP gateway route binding is invalid")
     if value.get("schema_version") != 1 or value.get("agent_id") != "acp":
@@ -67,18 +153,33 @@ def gateway_route_selection(
         value.get("public_model_alias"),
         "gateway model alias",
     )
-    model_id = (
-        f"{gateway_profile_id}/{public_model_alias}"
-        if registry_id == "opencode"
-        else public_model_alias
-    )
+    model_id = f"{gateway_profile_id}/{public_model_alias}"
     return GatewayRouteSelection(
         route_id=route_id,
         gateway_profile_id=gateway_profile_id,
         public_model_alias=public_model_alias,
         model_id=model_id,
         base_url=context.api_base_url(GigaChatApiMode.V1),
+        session_model_config_id=capability.session_model_config_id,
         api_key=context.api_key,
+    )
+
+
+def require_managed_acp_gateway_route(
+    *,
+    registry_id: str,
+    requested_model: str | None,
+    selection: GatewayRouteSelection | None,
+) -> None:
+    """Reject a selected gateway model before an ACP provider-default launch."""
+    model = (requested_model or "").strip()
+    if not model or model == "provider-default" or selection is not None:
+        return
+    capability = managed_acp_gateway_capability(registry_id)
+    if capability.support is not ManagedAcpGatewaySupport.SUPPORTED:
+        raise ManagedAcpGatewayUnsupported(capability.reason_id)
+    raise ManagedAcpGatewayRouteRequired(
+        "managed ACP gateway model requires a reviewed route binding"
     )
 
 
@@ -89,6 +190,7 @@ def gateway_process_environment(
     root: Path,
 ) -> dict[str, str]:
     """Build an ephemeral OpenAI-compatible environment and OpenCode config."""
+    del root
     if request.gateway_base_url is None:
         return {}
     if (
@@ -98,6 +200,9 @@ def gateway_process_environment(
     ):
         raise ValueError("managed ACP gateway launch inputs are incomplete")
     base_url = _gateway_url(request.gateway_base_url)
+    capability = managed_acp_gateway_capability(registry_id)
+    if capability.support is not ManagedAcpGatewaySupport.SUPPORTED:
+        raise ManagedAcpGatewayUnsupported(capability.reason_id)
     api_key = request.gateway_api_key or "0"
     environment = {
         "GPT2GIGA_API_KEY": api_key,
@@ -105,38 +210,34 @@ def gateway_process_environment(
         "OPENAI_API_KEY": api_key,
         "OPENAI_BASE_URL": base_url,
     }
-    if registry_id != "opencode":
-        return environment
+    if (
+        capability.injection
+        is not ManagedAcpGatewayInjection.OPENCODE_CONFIG_CONTENT_V1
+    ):
+        raise ManagedAcpGatewayUnsupported("acp_gateway_injection_not_implemented")
     model_alias = request.model_id.removeprefix("gpt2giga/")
     if not model_alias or model_alias == request.model_id:
         raise ValueError("OpenCode gateway model selector is invalid")
-    config = root / "opencode-gpt2giga.json"
-    config.write_text(
-        json.dumps(
-            {
-                "$schema": "https://opencode.ai/config.json",
-                "model": request.model_id,
-                "provider": {
-                    "gpt2giga": {
-                        "name": "gpt2giga",
-                        "npm": "@ai-sdk/openai-compatible",
-                        "models": {model_alias: {"name": model_alias}},
-                        "options": {
-                            "apiKey": "{env:GPT2GIGA_API_KEY}",
-                            "baseURL": base_url,
-                        },
-                    }
-                },
+    environment["OPENCODE_CONFIG_CONTENT"] = json.dumps(
+        {
+            "$schema": "https://opencode.ai/config.json",
+            "model": request.model_id,
+            "provider": {
+                "gpt2giga": {
+                    "name": "gpt2giga",
+                    "npm": "@ai-sdk/openai-compatible",
+                    "models": {model_alias: {"name": model_alias}},
+                    "options": {
+                        "apiKey": "{env:GPT2GIGA_API_KEY}",
+                        "baseURL": base_url,
+                    },
+                }
             },
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        + "\n",
-        encoding="utf-8",
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
     )
-    config.chmod(0o600)
-    environment["OPENCODE_CONFIG"] = os.fspath(config)
     return environment
 
 
@@ -169,6 +270,13 @@ def _gateway_url(value: str) -> str:
 
 __all__ = [
     "GatewayRouteSelection",
+    "ManagedAcpGatewayCapabilityV1",
+    "ManagedAcpGatewayInjection",
+    "ManagedAcpGatewayRouteRequired",
+    "ManagedAcpGatewaySupport",
+    "ManagedAcpGatewayUnsupported",
     "gateway_process_environment",
     "gateway_route_selection",
+    "managed_acp_gateway_capability",
+    "require_managed_acp_gateway_route",
 ]

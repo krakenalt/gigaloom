@@ -13,6 +13,7 @@ from typing import Any, Mapping
 from gigaloom.managed_mcp import (
     write_startup_config,
 )
+from gigaloom.contracts.codex_instructions import codex_developer_instructions
 from gigaloom.types import (
     HarnessContext,
     HarnessEvent,
@@ -73,6 +74,7 @@ def _scope_id(command: tuple[str, ...], snapshot: Mapping[str, Any]) -> str:
         "api_mode": snapshot.get("api_mode"),
         "managed_home_id": snapshot.get("managed_home_id"),
         "tool_snapshot_hash": snapshot.get("tool_snapshot_hash"),
+        "personalization_revision": snapshot.get("personalization_revision"),
     }
     return _json_hash(value)[:24]
 
@@ -88,10 +90,15 @@ def _write_provider_config(
     if effort not in {"none", "low", "medium", "high"}:
         effort = "none"
     base_url = context.api_base_url(request.api_mode)
+    custom_instructions = request.extra.get("developer_instructions")
+    developer_instructions = codex_developer_instructions(
+        custom_instructions if isinstance(custom_instructions, str) else ""
+    )
     config = (
         f'model = "{_toml_escape(model)}"\n'
         'model_provider = "gigaloom"\n'
         f'model_reasoning_effort = "{effort}"\n\n'
+        f"developer_instructions = {json.dumps(developer_instructions, ensure_ascii=False)}\n\n"
         "[model_providers.gigaloom]\n"
         'name = "gigaloom"\n'
         f'base_url = "{_toml_escape(base_url)}"\n'

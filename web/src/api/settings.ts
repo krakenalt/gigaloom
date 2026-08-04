@@ -11,7 +11,12 @@ export interface SettingsSummaryResponse {
   revision: string;
   workspace_id: string;
   sections: Record<
-    "runtime" | "defaults" | "workspace" | "mcp" | "diagnostics",
+    | "runtime"
+    | "defaults"
+    | "personalization"
+    | "workspace"
+    | "mcp"
+    | "diagnostics",
     SettingsSectionReference
   >;
   providers: SettingsSectionReference;
@@ -193,6 +198,23 @@ export interface SettingsDefaultsSectionResponse {
   settings_revision: string;
   routes: SettingsResponse["routes"];
   harness_defaults: SettingsResponse["harness_defaults"];
+}
+
+export interface SettingsPersonalizationSectionResponse {
+  schema_version: 1;
+  revision: string;
+  developer_instructions: string;
+  limits: { max_characters: number };
+  compatibility: {
+    async_agent_rules_version: number;
+    capability_guarded: true;
+  };
+  change_effect: "fork_or_new_codex_session_required";
+}
+
+export interface SettingsPersonalizationSaveResponse
+  extends SettingsPersonalizationSectionResponse {
+  saved: true;
 }
 
 export interface SettingsWorkspaceSectionResponse {

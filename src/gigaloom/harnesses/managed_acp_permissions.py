@@ -14,6 +14,10 @@ from gigaloom.harnesses.acp.errors import AcpPermissionError
 from gigaloom.runtime.api import PermissionAction, PolicyDecision, permission_profile
 
 
+class ManagedAcpAuthenticationRequired(RuntimeError):
+    """Raised when a managed connector requires provider-owned authentication."""
+
+
 class ManagedAcpPermissionTurn(Protocol):
     """Minimal turn authority used to construct an ACP permission context."""
 
@@ -23,6 +27,12 @@ class ManagedAcpPermissionTurn(Protocol):
     route_id: str
     run_id: str
     timeout_seconds: float
+
+
+def is_canceled(value: object | None) -> bool:
+    """Return whether an optional cancellation token is set."""
+    checker = getattr(value, "is_set", None)
+    return bool(checker()) if callable(checker) else False
 
 
 def permission_context(
@@ -81,4 +91,9 @@ def answer_permission(client, binding, context, pending) -> None:  # noqa: ANN00
     )
 
 
-__all__ = ["answer_permission", "permission_context"]
+__all__ = [
+    "ManagedAcpAuthenticationRequired",
+    "answer_permission",
+    "is_canceled",
+    "permission_context",
+]

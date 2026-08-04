@@ -7,7 +7,10 @@ from typing import Any
 from fastapi import APIRouter, Body, HTTPException, Query
 
 from gigaloom.ui.async_execution import ContractAPIRouter
-from gigaloom.ui.services.gateway_routes import GatewayRouteWebService
+from gigaloom.ui.services.gateway_routes import (
+    GatewayRouteStartError,
+    GatewayRouteWebService,
+)
 
 
 def create_router(service: GatewayRouteWebService) -> APIRouter:
@@ -17,6 +20,21 @@ def create_router(service: GatewayRouteWebService) -> APIRouter:
     @router.net_read.get("/api/gateway/routes")
     def gateway_routes(refresh: bool = Query(default=False)) -> dict[str, Any]:
         return service.catalog(refresh=refresh)
+
+    @router.net_atomic.post("/api/gateway/routes/start")
+    def gateway_routes_start(
+        payload: dict[str, Any] = Body(default_factory=dict),
+    ) -> dict[str, Any]:
+        session_id = payload.get("session_id")
+        if not isinstance(session_id, str):
+            raise HTTPException(
+                status_code=400,
+                detail="gateway session binding is invalid",
+            )
+        try:
+            return service.start(session_id=session_id)
+        except GatewayRouteStartError as error:
+            raise HTTPException(status_code=409, detail=error.reason_id) from error
 
     @router.net_atomic.post("/api/gateway/routes/{route_id}/preflight")
     def gateway_route_preflight(

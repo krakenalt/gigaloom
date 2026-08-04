@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "e5fadd3a455b7281267df0cea9c2d2b8fe9e986ee698e2c5b3a68c390b0c304a",
+  "content_sha256": "73083b88244dd39659aa8f08a1d3fb59aaa25f695b1e4098dbebac9efd56d2d0",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -1464,6 +1464,11 @@
         "method": "GET",
         "name": "gateway_routes",
         "path": "/api/gateway/routes"
+      },
+      {
+        "method": "POST",
+        "name": "gateway_routes_start",
+        "path": "/api/gateway/routes/start"
       },
       {
         "method": "POST",
@@ -2259,6 +2264,16 @@
         "method": "GET",
         "name": "settings_mcp",
         "path": "/api/settings/mcp"
+      },
+      {
+        "method": "GET",
+        "name": "settings_personalization",
+        "path": "/api/settings/personalization"
+      },
+      {
+        "method": "PATCH",
+        "name": "update_settings_personalization",
+        "path": "/api/settings/personalization"
       },
       {
         "method": "GET",

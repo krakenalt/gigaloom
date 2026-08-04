@@ -26,6 +26,9 @@
 .settings-field-grid label { min-width: 0; display: grid; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 750; }
 .settings-field-grid input, .settings-field-grid select { width: 100%; min-width: 0; height: 38px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); padding: 0 9px; font-size: 12px; }
 .settings-field-grid input:disabled, .settings-field-grid select:disabled { background: var(--surface-muted); }
+.settings-instructions-field { display: grid; gap: 7px; color: var(--muted); font-size: 10px; font-weight: 750; }
+.settings-instructions-field textarea { width: 100%; min-height: 170px; resize: vertical; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); padding: 10px 11px; font: 12px/1.5 var(--font-mono); }
+.settings-instructions-field small { justify-self: end; color: var(--muted); font-size: 9px; font-weight: 500; }
 .settings-field-grid .settings-checkbox { min-height: 38px; display: flex; align-items: center; flex-direction: row; gap: 8px; border: 1px solid var(--border); border-radius: 6px; padding: 0 10px; color: var(--text); }
 .settings-field-grid .settings-checkbox input { width: 15px; height: 15px; }
 .runtime-owned-setting { min-width: 0; display: grid; gap: 3px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-muted); padding: 8px 10px; }.runtime-owned-setting strong { color: var(--text); font-size: 10px; }.runtime-owned-setting span { color: var(--muted); font-size: 9px; line-height: 1.4; }

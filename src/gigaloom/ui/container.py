@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -82,7 +82,7 @@ from gigaloom.sessions import (
     HarnessSessionStore,
 )
 from gigaloom.sessions.event_stream import RunEventBroker
-from gigaloom.settings import HarnessSettingsStore
+from gigaloom.settings import HarnessSettingsStore, PersonalizationSettingsStore
 from gigaloom.skill_library import SkillLibraryService
 from gigaloom.trace_replay import TraceReplayService
 from gigaloom.ui.async_execution import AsyncExecutionDiagnostics
@@ -172,6 +172,7 @@ class AppServices:
     workbench_backbone: WorkbenchBackbone
     workbench_resources: WorkbenchResourceService
     settings_store: HarnessSettingsStore
+    personalization_store: PersonalizationSettingsStore
     provider_settings_service: ProviderSettingsService
     native_login_broker: NativeLoginBroker
     integration_flow_service: IntegrationFlowService
@@ -235,6 +236,7 @@ class AppServices:
             "harness_workbench_backbone": self.workbench_backbone,
             "harness_workbench_resources": self.workbench_resources,
             "harness_settings_store": self.settings_store,
+            "harness_personalization_store": self.personalization_store,
             "harness_provider_settings_service": self.provider_settings_service,
             "harness_native_login_broker": self.native_login_broker,
             "harness_integration_flow_service": self.integration_flow_service,
@@ -315,11 +317,18 @@ def build_app_services(
         session_store=session_store,
         runtime_store=runtime_store,
     )
+    gateway_route_service = GatewayRouteWebService.from_config(
+        config,
+        process_owner=native_process_manager,
+    )
+    if config.api_key is None and gateway_route_service.gateway_api_key is not None:
+        config = replace(config, api_key=gateway_route_service.gateway_api_key)
     attachment_store = FilesystemAttachmentStore(config.data_dir)
     arena_store = FilesystemHarnessArenaStore(config.data_dir)
     eval_store = FilesystemHarnessEvalStore(config.data_dir)
     memory_store = FilesystemProjectMemoryStore()
     settings_store = HarnessSettingsStore(config.data_dir, config)
+    personalization_store = PersonalizationSettingsStore(config.data_dir)
     provider_settings_service = provider_settings_service or ProviderSettingsService(
         config.data_dir
     )
@@ -410,6 +419,7 @@ def build_app_services(
     session_service = SessionApplicationService(
         runner=runner,
         settings_store=settings_store,
+        personalization_store=personalization_store,
         runtime_store=runtime_store,
         dispatcher=dispatcher,
     )
@@ -508,6 +518,7 @@ def build_app_services(
         workbench_backbone=workbench_backbone,
         workbench_resources=workbench_resources,
         settings_store=settings_store,
+        personalization_store=personalization_store,
         provider_settings_service=provider_settings_service,
         native_login_broker=native_login_broker,
         integration_flow_service=integration_flow_service,
@@ -567,7 +578,7 @@ def build_app_services(
         agent_runtimes=agent_runtimes,
         project_catalog_service=project_catalog_service,
         route_advisor_service=route_advisor_service,
-        gateway_route_service=GatewayRouteWebService.from_config(config),
+        gateway_route_service=gateway_route_service,
         thread_relay=thread_relay,
         mcp_app_host_service=MCPAppHostService(),
         run_capsule_evidence_query=capsule_evidence_query,

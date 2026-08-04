@@ -52,6 +52,13 @@ class FakeTransport:
             "matrix_revision": "sha256:" + "c" * 64,
             "cells": [
                 {
+                    "public_protocol": "openai_chat_completions",
+                    "upstream_provider": "gigachat",
+                    "status": "stable",
+                    "reason_ids": ["baseline_gigachat_chat_conformance"],
+                    "evidence_ids": ["gigachat-chat-baseline-2026-08-03"],
+                },
+                {
                     "public_protocol": "openai_responses",
                     "upstream_provider": "gigachat",
                     "status": "technical_preview",
@@ -108,14 +115,18 @@ def test_discovery_uses_only_public_get_contracts_and_builds_exact_route() -> No
     assert len(result.catalog.catalog_digest) == 64
     assert result.catalog.models_revision.startswith("sha256:")
     assert result.catalog.loss_matrix_revision == "sha256:" + "c" * 64
-    assert len(result.catalog.routes) == 1
-    route = result.catalog.routes[0]
+    assert len(result.catalog.routes) == 2
+    route = next(item for item in result.catalog.routes if item.agent_id == "codex")
     assert route.route_id == "codex-gpt2giga-gigachat-2-max"
     assert route.agent_id == "codex"
     assert route.client_protocol == "openai_responses"
     assert route.public_model_alias == "GigaChat-2-Max"
     assert route.upstream_provider == "gigachat"
     assert route.support_status is GatewaySupportStatus.TECHNICAL_PREVIEW
+    acp_route = next(item for item in result.catalog.routes if item.agent_id == "acp")
+    assert acp_route.route_id == "acp-gpt2giga-gigachat-2-max"
+    assert acp_route.client_protocol == "openai_chat_completions"
+    assert acp_route.support_status is GatewaySupportStatus.STABLE
 
 
 def test_fresh_cache_avoids_network_and_profile_digest_partitions_entries() -> None:

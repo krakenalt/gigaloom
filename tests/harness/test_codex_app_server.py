@@ -661,7 +661,15 @@ def test_two_prompts_share_one_app_server_thread_and_process(tmp_path):
         api_key="test-key",
         data_dir=str(tmp_path),
     )
-    request = _request(tmp_path, session_id="sess-1")
+    base_request = _request(tmp_path, session_id="sess-1")
+    request = replace(
+        base_request,
+        extra={
+            **base_request.extra,
+            "developer_instructions": "Prefer concise Russian updates.",
+            "personalization_revision": "a" * 64,
+        },
+    )
     snapshot = build_execution_snapshot(request, managed_home_id="apphome-test")
 
     first = supervisor.run_turn(
@@ -690,6 +698,10 @@ def test_two_prompts_share_one_app_server_thread_and_process(tmp_path):
         "external_turn_completed",
     ]
     assert len(factory.clients) == 1
+    config_path = next((tmp_path / "app_server" / "homes").glob("*/config.toml"))
+    config = config_path.read_text(encoding="utf-8")
+    assert 'developer_instructions = "Prefer concise Russian updates.\\n\\n' in config
+    assert '<async_agent_rules version=\\"1\\">' in config
     assert [method for method, _params in recorder] == [
         "thread/start",
         "turn/start",

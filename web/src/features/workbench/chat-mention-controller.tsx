@@ -156,18 +156,29 @@ export function useChatMentionController({
       }
     },
   });
+  const materializeMention = useMutation({
+    mutationFn: ({ chat }: { chat: ChatMention; sessionId: string | undefined }) => (
+      materializeChatMention(chat)
+    ),
+    onSuccess: (chat, variables) => {
+      if (variables.sessionId !== sessionId) return;
+      setSelectedChats((current) => (
+        current.some((item) => item.id === chat.id) ? current : [...current, chat]
+      ));
+      setInspectedChat(null);
+      setNotice(null);
+      requestAnimationFrame(() => composerRef.current?.focus());
+    },
+  });
 
   const chooseChat = (chat: ChatMention) => {
     if (atQuery === null) return;
     const nextPrompt = consumeAtQuery(prompt, atQuery);
-    setSelectedChats((current) => (
-      current.some((item) => item.id === chat.id) ? current : [...current, chat]
-    ));
     setPrompt(nextPrompt);
     setComposerCaret(nextPrompt.length);
     setAtSelection(0);
     setInspectedChat(null);
-    requestAnimationFrame(() => composerRef.current?.focus());
+    materializeMention.mutate({ chat, sessionId });
   };
   const prepareRelay = (chat: ChatMention) => {
     if (!relayDraftText) return;
@@ -191,6 +202,12 @@ export function useChatMentionController({
     confirmPending: confirmRelay.isPending,
     confirmRelay: () => confirmRelay.mutate(),
     inspectedChat: inspectedChatDetail,
+    mentionError: materializeMention.isError
+      ? chatMentionMaterializationError(materializeMention.error, locale)
+      : null,
+    mentionPendingChatId: materializeMention.isPending
+      ? materializeMention.variables?.chat.id ?? null
+      : null,
     notice,
     prepareRelay,
     preview,
@@ -216,6 +233,18 @@ export function ChatRelayFeedback({
     <>
       {controller.notice === null ? null : (
         <p className="relay-send-notice" role="status">{controller.notice}</p>
+      )}
+      {controller.mentionPendingChatId === null ? null : (
+        <p className="relay-send-notice" role="status">
+          {locale === "ru"
+            ? "Загружаем ограниченный контекст чата…"
+            : "Loading bounded chat context…"}
+        </p>
+      )}
+      {controller.mentionError === null ? null : (
+        <p className="relay-send-notice error-state" role="alert">
+          {controller.mentionError}
+        </p>
       )}
       {controller.previewError === null ? null : (
         <p className="relay-send-notice error-state" role="alert">
@@ -249,4 +278,30 @@ export function ChatRelayFeedback({
       )}
     </>
   );
+}
+
+export async function materializeChatMention(
+  chat: ChatMention,
+): Promise<ChatMention> {
+  const current = await fetchThreadRead(
+    chat.projectId,
+    chat.source,
+    chat.threadId,
+    null,
+  );
+  const materialized = chatMentionOptions([current.thread], "")[0];
+  if (materialized === undefined) {
+    throw new Error("The mentioned chat is no longer readable");
+  }
+  return materialized;
+}
+
+export function chatMentionMaterializationError(
+  error: unknown,
+  locale: LocalePreference,
+): string {
+  const detail = error instanceof Error ? error.message : String(error);
+  return locale === "ru"
+    ? `Не удалось добавить контекст чата: ${detail}`
+    : `Could not add chat context: ${detail}`;
 }

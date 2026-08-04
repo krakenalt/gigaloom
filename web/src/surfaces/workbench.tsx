@@ -272,6 +272,7 @@ export function WorkbenchSurface() {
   );
   const reviewedRoute = useReviewedRouteBinding(
     gatewayRouteAgentForHarness(selectedHarness),
+    sessionId,
   );
   const models = useQuery(modelsOptions(runConfig.apiMode));
   const settings = useQuery(settingsOptions());

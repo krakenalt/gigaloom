@@ -324,19 +324,11 @@ def test_advertised_auth_method_does_not_preempt_a_managed_acp_turn(
     assert calls[0][1].model_id == "provider-default"
 
 
-@pytest.mark.parametrize(
-    ("registry_id", "expected_model"),
-    (
-        ("generic-agent", "GigaChat-2-Max"),
-        ("opencode", "gpt2giga/GigaChat-2-Max"),
-    ),
-)
-def test_reviewed_gateway_binding_reaches_every_managed_acp_without_secret_persistence(
+def test_reviewed_gateway_binding_reaches_opencode_without_secret_persistence(
     tmp_path,
     monkeypatch,
-    registry_id,
-    expected_model,
 ):
+    registry_id = "opencode"
     plan, entry, artifact = _candidate(tmp_path, registry_id=registry_id)
     result = ManagedAgentOnboardingService(
         str(tmp_path),
@@ -388,8 +380,9 @@ def test_reviewed_gateway_binding_reaches_every_managed_acp_without_secret_persi
     assert attempted.raw["gateway_route_id"] == binding["route_id"]
     assert len(calls) == 1
     turn = calls[0][1]
-    assert turn.model_id == expected_model
+    assert turn.model_id == "gpt2giga/GigaChat-2-Max"
     assert turn.gateway_base_url == "http://127.0.0.1:8090/v1"
+    assert turn.session_model_config_id is None
     assert "fixture-secret" not in repr(turn)
 
     overlay_root = tmp_path / "turn-overlay"
@@ -402,28 +395,115 @@ def test_reviewed_gateway_binding_reaches_every_managed_acp_without_secret_persi
     assert environment["OPENAI_BASE_URL"] == "http://127.0.0.1:8090/v1"
     assert environment["OPENAI_API_KEY"] == "fixture-secret"
     assert environment["GPT2GIGA_API_KEY"] == "fixture-secret"
-    if registry_id != "opencode":
-        assert "OPENCODE_CONFIG" not in environment
-        assert list(overlay_root.iterdir()) == []
-        return
-
-    config_path = Path(environment["OPENCODE_CONFIG"])
-    config = json.loads(config_path.read_text(encoding="utf-8"))
-    assert config_path.stat().st_mode & 0o777 == 0o600
+    assert "OPENCODE_CONFIG" not in environment
+    config_content = environment["OPENCODE_CONFIG_CONTENT"]
+    config = json.loads(config_content)
     assert config["model"] == "gpt2giga/GigaChat-2-Max"
     assert config["provider"]["gpt2giga"]["npm"] == ("@ai-sdk/openai-compatible")
     assert config["provider"]["gpt2giga"]["options"] == {
         "apiKey": "{env:GPT2GIGA_API_KEY}",
         "baseURL": "http://127.0.0.1:8090/v1",
     }
-    assert "fixture-secret" not in config_path.read_text(encoding="utf-8")
+    assert "fixture-secret" not in config_content
+
+
+@pytest.mark.parametrize(
+    ("registry_id", "reason_id"),
+    (
+        ("amp-acp", "amp_acp_provider_configuration_unsupported"),
+        ("generic-agent", "acp_provider_configuration_not_advertised"),
+    ),
+)
+def test_selected_gateway_model_never_falls_back_for_unsupported_acp(
+    tmp_path,
+    monkeypatch,
+    registry_id,
+    reason_id,
+):
+    plan, entry, artifact = _candidate(tmp_path, registry_id=registry_id)
+    result = ManagedAgentOnboardingService(
+        str(tmp_path),
+        StaticProbe(_probe()),
+        clock=lambda: NOW,
+    ).onboard(plan, entry, artifact, network_isolated=True)
+    harness = ManagedAcpHarness(
+        cast(AgentRuntimeService, _ActiveRuntimeProjection(result)),
+        result,
+    )
+    gateway_metadata = harness.spec().metadata["managed_acp_gateway"]
+    assert isinstance(gateway_metadata, dict)
+    assert gateway_metadata["reason_id"] == reason_id
+    called = False
+
+    def run_turn(*_args, **_kwargs):  # noqa: ANN202
+        nonlocal called
+        called = True
+        raise AssertionError("unsupported ACP must fail before launch")
+
+    monkeypatch.setattr(
+        "gigaloom.harnesses.managed_acp.run_managed_acp_turn",
+        run_turn,
+    )
+
+    attempted = harness.run(
+        HarnessRequest(
+            prompt="inspect the fixture",
+            model="GigaChat-2-Max",
+            capability=HarnessCapability.AGENT_CLI,
+            workspace=tmp_path.as_posix(),
+        ),
+        HarnessContext(proxy_url="http://127.0.0.1:8090", timeout_seconds=5),
+    )
+
+    assert attempted.ok is False
+    assert attempted.raw["reason_id"] == reason_id
+    assert "unsupported for this ACP connector" in str(attempted.error)
+    assert "provider default was not used" in str(attempted.error)
+    assert called is False
+
+
+def test_selected_opencode_gateway_model_requires_reviewed_binding(
+    tmp_path,
+    monkeypatch,
+):
+    plan, entry, artifact = _candidate(tmp_path, registry_id="opencode")
+    result = ManagedAgentOnboardingService(
+        str(tmp_path),
+        StaticProbe(_probe()),
+        clock=lambda: NOW,
+    ).onboard(plan, entry, artifact, network_isolated=True)
+    harness = ManagedAcpHarness(
+        cast(AgentRuntimeService, _ActiveRuntimeProjection(result)),
+        result,
+    )
+    monkeypatch.setattr(
+        "gigaloom.harnesses.managed_acp.run_managed_acp_turn",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("missing route must fail before OpenCode launch")
+        ),
+    )
+
+    attempted = harness.run(
+        HarnessRequest(
+            prompt="inspect the fixture",
+            model="GigaChat-2-Max",
+            capability=HarnessCapability.AGENT_CLI,
+            workspace=tmp_path.as_posix(),
+        ),
+        HarnessContext(proxy_url="http://127.0.0.1:8090", timeout_seconds=5),
+    )
+
+    assert attempted.ok is False
+    assert attempted.raw["reason_id"] == "managed_acp_gateway_route_required"
+    assert "route is not ready" in str(attempted.error)
+    assert "provider default was not used" in str(attempted.error)
 
 
 def test_invalid_gateway_binding_never_falls_back_to_provider_default(
     tmp_path,
     monkeypatch,
 ):
-    plan, entry, artifact = _candidate(tmp_path)
+    plan, entry, artifact = _candidate(tmp_path, registry_id="opencode")
     result = ManagedAgentOnboardingService(
         str(tmp_path),
         StaticProbe(_probe()),

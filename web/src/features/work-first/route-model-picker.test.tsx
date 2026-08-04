@@ -1,12 +1,17 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import { gatewayRoutesOptions } from "../../api/queries/gatewayRoutes";
 import {
   groupBridgeRoutes,
   RouteModelPicker,
   selectedRouteForCatalog,
 } from "./RouteModelPicker";
-import { gatewayRouteAgentForHarness } from "./ReviewedRouteControls";
+import {
+  gatewayRouteAgentForHarness,
+  ReviewedRouteControls,
+} from "./ReviewedRouteControls";
 import type {
   BridgeRouteCatalogProjectionV1,
   BridgeRouteOptionV1,
@@ -19,12 +24,13 @@ const routes = Object.freeze<readonly BridgeRouteOptionV1[]>([
     support_status: "technical_preview",
   }),
   route({
-    agent_id: "acp-agent",
+    agent_id: "acp",
     acp_selector: {
       category: "model",
       selector_id: "model-id",
       value: "giga/max",
     },
+    client_protocol: "openai_chat_completions",
     public_model_alias: "giga/max",
     route_id: "acp-gpt2giga-gigachat-max",
     support_status: "stable",
@@ -40,15 +46,75 @@ const routes = Object.freeze<readonly BridgeRouteOptionV1[]>([
 ]);
 
 describe("capability-aware route model picker", () => {
+  it("offers an explicit managed gateway recovery without provider fallback", () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(
+      gatewayRoutesOptions().queryKey,
+      catalog("unknown"),
+    );
+
+    const markup = renderToStaticMarkup(
+      <QueryClientProvider client={queryClient}>
+        <ReviewedRouteControls
+          agentId="acp"
+          agentLabel="OpenCode"
+          onBindingChange={vi.fn()}
+          onPendingSelectionChange={vi.fn()}
+          sessionId="sess_existing_123"
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(markup).toContain("Start/reconnect gpt2giga");
+    expect(markup).toContain("provider default is not used");
+  });
+
   it("maps every managed ACP harness to the shared ACP gateway catalog", () => {
     expect(gatewayRouteAgentForHarness({
       spec: {
         id: "opencode",
-        metadata: { managed_agent: true, registry_id: "opencode" },
+        metadata: {
+          managed_agent: true,
+          registry_id: "opencode",
+          managed_acp_gateway: {
+            reason_id: "opencode_config_content_overlay_reviewed",
+            support: "supported",
+          },
+        },
         tags: ["agent", "managed", "acp"],
         title: "OpenCode",
       },
-    })).toEqual({ id: "acp", label: "OpenCode" });
+    })).toEqual({
+      id: "acp",
+      label: "OpenCode",
+      managedAcpGateway: {
+        reasonId: "opencode_config_content_overlay_reviewed",
+        support: "supported",
+      },
+    });
+  });
+
+  it("keeps ACP provider support explicit instead of inferring it from transport", () => {
+    expect(gatewayRouteAgentForHarness({
+      spec: {
+        id: "amp-acp",
+        metadata: {
+          managed_agent: true,
+          managed_acp_gateway: {
+            reason_id: "amp_acp_provider_configuration_unsupported",
+            support: "unsupported",
+          },
+        },
+        tags: ["agent", "managed", "acp"],
+        title: "Amp",
+      },
+    })).toMatchObject({
+      id: "acp",
+      managedAcpGateway: {
+        reasonId: "amp_acp_provider_configuration_unsupported",
+        support: "unsupported",
+      },
+    });
   });
 
   it("groups exact public aliases by gateway and upstream provider", () => {
@@ -104,6 +170,7 @@ function catalog(
   status: BridgeRouteCatalogProjectionV1["status"],
 ): BridgeRouteCatalogProjectionV1 {
   return {
+    lifecycle: { mode: "managed", start_available: true },
     reason_ids: status === "current" ? [] : ["contract_revision_mismatch"],
     routes,
     status,

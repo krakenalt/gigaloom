@@ -26,7 +26,10 @@ from gigaloom.routing import (
     route_recommendation_to_dict,
 )
 from gigaloom.sessions import SessionNotFoundError
-from gigaloom.cli_capabilities import cli_capability_snapshot_to_dict
+from gigaloom.cli_capabilities import (
+    cli_capability_probe_scope,
+    cli_capability_snapshot_to_dict,
+)
 from gigaloom.claude_handoff import (
     ClaudeHandoffError,
     claude_execution_surfaces_to_dict,
@@ -48,43 +51,50 @@ def create_router(services: AppServices) -> APIRouter:
     @router.fs_read.get("/api/harnesses")
     def harnesses() -> dict[str, Any]:
         harness_items = []
-        for harness in services.registry.list():
-            spec = harness.spec()
-            validation = services.registry.validation_report(
-                spec.id
-            ) or validate_harness_spec(spec)
-            capability_probe = getattr(harness, "capability_probe", None)
-            provider_handoff_probe = getattr(
-                harness, "provider_handoff_capability", None
-            )
-            provider_handoff = None
-            execution_surfaces: list[dict[str, Any]] = []
-            if callable(provider_handoff_probe):
-                try:
-                    handoff_capability = provider_handoff_probe()
-                except ClaudeHandoffError:
-                    handoff_capability = None
-                if handoff_capability is not None:
-                    provider_handoff = claude_handoff_capability_to_dict(
-                        handoff_capability
-                    )
-                    execution_surfaces = claude_execution_surfaces_to_dict(
-                        handoff_capability
-                    )
-            harness_items.append(
-                {
-                    "spec": spec_to_dict(spec),
-                    "availability": availability_to_dict(harness.availability()),
-                    "compatibility": cli_capability_snapshot_to_dict(capability_probe())
-                    if callable(capability_probe)
-                    else None,
-                    "provider_handoff": provider_handoff,
-                    "execution_surfaces": execution_surfaces,
-                    "workbench_admission": workbench_admission_projection(harness),
-                    "workbench_transport": workbench_transport_projection(harness),
-                    "validation": harness_validation_report_to_dict(validation),
-                }
-            )
+        with cli_capability_probe_scope():
+            for harness in services.registry.list():
+                spec = harness.spec()
+                availability = harness.availability()
+                capability_probe = getattr(harness, "capability_probe", None)
+                provider_handoff_probe = getattr(
+                    harness, "provider_handoff_capability", None
+                )
+                provider_handoff = None
+                execution_surfaces: list[dict[str, Any]] = []
+                if callable(provider_handoff_probe):
+                    try:
+                        handoff_capability = provider_handoff_probe()
+                    except ClaudeHandoffError:
+                        handoff_capability = None
+                    if handoff_capability is not None:
+                        provider_handoff = claude_handoff_capability_to_dict(
+                            handoff_capability
+                        )
+                        execution_surfaces = claude_execution_surfaces_to_dict(
+                            handoff_capability
+                        )
+                harness_items.append(
+                    {
+                        "spec": spec_to_dict(spec),
+                        "availability": availability_to_dict(availability),
+                        "compatibility": cli_capability_snapshot_to_dict(
+                            capability_probe()
+                        )
+                        if callable(capability_probe)
+                        else None,
+                        "provider_handoff": provider_handoff,
+                        "execution_surfaces": execution_surfaces,
+                        "workbench_admission": workbench_admission_projection(
+                            harness, _availability=availability
+                        ),
+                        "workbench_transport": workbench_transport_projection(
+                            harness, _availability=availability
+                        ),
+                        "validation": harness_validation_report_to_dict(
+                            validate_harness_spec(spec)
+                        ),
+                    }
+                )
         return {
             "harnesses": harness_items,
             "discovery_errors": list(services.registry.discovery_errors),

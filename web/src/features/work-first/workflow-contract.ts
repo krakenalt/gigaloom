@@ -51,9 +51,22 @@ export interface BridgeRouteOptionV1 {
 }
 
 export interface BridgeRouteCatalogProjectionV1 {
+  lifecycle: GatewayRouteLifecycleProjectionV1;
   reason_ids: readonly string[];
   routes: readonly BridgeRouteOptionV1[];
   status: GatewayCatalogStatus;
+}
+
+export interface GatewayRouteLifecycleProjectionV1 {
+  mode: "external" | "managed";
+  start_available: boolean;
+}
+
+export interface GatewayRouteStartProjectionV1 {
+  catalog: BridgeRouteCatalogProjectionV1;
+  readiness_confirmed: true;
+  reason_id: null;
+  status: "reused" | "started";
 }
 
 export interface GatewayPreflightReceiptProjectionV1 {

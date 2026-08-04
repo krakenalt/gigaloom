@@ -9,6 +9,7 @@ import type {
   SettingsDefaultsSectionResponse,
   SettingsDiagnosticsSectionResponse,
   SettingsMcpSectionResponse,
+  SettingsPersonalizationSectionResponse,
   SettingsRuntimeSectionResponse,
   SettingsSummaryResponse,
   SettingsWorkspaceSectionResponse,
@@ -20,6 +21,7 @@ export type SettingsSectionName =
   | "defaults"
   | "diagnostics"
   | "mcp"
+  | "personalization"
   | "runtime"
   | "workspace";
 
@@ -61,6 +63,14 @@ export function settingsDefaultsOptions(revision: string) {
     "defaults",
     revision,
     "/api/settings/defaults",
+  );
+}
+
+export function settingsPersonalizationOptions(revision: string) {
+  return sectionOptions<SettingsPersonalizationSectionResponse>(
+    "personalization",
+    revision,
+    "/api/settings/personalization",
   );
 }
 

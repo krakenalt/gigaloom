@@ -2,6 +2,7 @@ import { fetchCockpit, mutateCockpit } from "./core";
 import type {
   BridgeRouteCatalogProjectionV1,
   GatewayPreflightReceiptProjectionV1,
+  GatewayRouteStartProjectionV1,
 } from "../features/work-first/workflow-contract";
 
 export function fetchGatewayRoutes(signal?: AbortSignal) {
@@ -15,5 +16,12 @@ export function preflightGatewayRoute(
   return mutateCockpit<GatewayPreflightReceiptProjectionV1>(
     `/api/gateway/routes/${encodeURIComponent(routeId)}/preflight`,
     { acknowledgement_id: acknowledgementId },
+  );
+}
+
+export function startGatewayRoutes(sessionId: string) {
+  return mutateCockpit<GatewayRouteStartProjectionV1>(
+    "/api/gateway/routes/start",
+    { session_id: sessionId },
   );
 }

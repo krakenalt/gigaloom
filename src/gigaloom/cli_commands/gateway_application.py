@@ -46,6 +46,9 @@ from gigaloom.native.launch.gateway_discovery import (
     GatewayDiscoveryResult,
     GatewayRouteDiscovery,
 )
+from gigaloom.native.launch.gateway_environment import (
+    managed_gpt2giga_environment,
+)
 from gigaloom.native.launch.gateway_injection import (
     GatewayAgentInjectionV1,
     build_gateway_agent_injection,
@@ -235,51 +238,12 @@ class GatewayLaunchApplication:
         request: GatewayLaunchRequestV1,
     ) -> dict[str, str]:
         """Build an isolated startup environment for the exact reviewed profile."""
-        environment = {
-            name: value
-            for name, value in os.environ.items()
-            if name.startswith("GIGACHAT_")
-            or name
-            in {
-                "PATH",
-                "TMPDIR",
-                "TEMP",
-                "TMP",
-                "LANG",
-                "LC_ALL",
-                "SSL_CERT_FILE",
-                "SSL_CERT_DIR",
-                "HTTP_PROXY",
-                "HTTPS_PROXY",
-                "NO_PROXY",
-            }
-        }
-        if not any(
-            environment.get(name, "").strip()
-            for name in (
-                "GIGACHAT_CREDENTIALS",
-                "GIGACHAT_ACCESS_TOKEN",
-                "GIGACHAT_USER",
-            )
-        ):
-            raise ValueError("gateway_upstream_credentials_unavailable")
-        environment.update(
-            {
-                "HOME": os.fspath(self.managed_root / "startup-home"),
-                "GPT2GIGA_MODE": "DEV",
-                "GPT2GIGA_ENABLE_API_KEY_AUTH": "True",
-                "GPT2GIGA_API_KEY": self.gateway_api_key,
-                "GIGALOOM_MODEL_KEY": secrets.token_urlsafe(32),
-                "GPT2GIGA_GIGACHAT_API_MODE": "v2",
-                "GPT2GIGA_NORMALIZATION_MODE": "on",
-                "GPT2GIGA_LEGACY_CHAT_FALLBACK": "False",
-                "GPT2GIGA_PASS_MODEL": "True",
-            }
+        return managed_gpt2giga_environment(
+            self.config,
+            managed_root=self.managed_root,
+            gateway_api_key=self.gateway_api_key,
+            public_model_alias=request.public_model_alias,
         )
-        selected_model = request.public_model_alias or self.config.default_model
-        if selected_model:
-            environment["GIGACHAT_MODEL"] = selected_model
-        return environment
 
     def _dry_run(
         self,

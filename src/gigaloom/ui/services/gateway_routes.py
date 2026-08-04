@@ -5,9 +5,15 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+import secrets
+from threading import Lock
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
+from gigaloom.cli_commands.gateway_transport import (
+    AuthenticatedGatewayMachineTransport,
+)
 from gigaloom.config import HarnessConfig
 from gigaloom.contracts.operational_validation import canonical_digest
 from gigaloom.native.launch.gateway_codec import (
@@ -26,17 +32,35 @@ from gigaloom.native.launch.gateway_discovery import (
     GatewayDiscoveryStatus,
     GatewayRouteCatalogV1,
     GatewayRouteDiscovery,
-    UrlLibGatewayMachineTransport,
+)
+from gigaloom.native.launch.gateway_environment import (
+    managed_gpt2giga_environment,
 )
 from gigaloom.native.launch.gateway_profile import (
     resolve_installed_gpt2giga_artifact,
     reviewed_gpt2giga_profile,
 )
 from gigaloom.native.launch.gateway_sidecar import GatewayArtifactEvidenceV1
+from gigaloom.native.launch.gateway_sidecar import (
+    GatewayProcessLeaseOwner,
+    GatewaySidecarStatus,
+    ManagedGatewayLeaseV1,
+    ManagedGatewaySidecarService,
+    UrlLibGatewayStartupReadinessProbe,
+)
 
 
 _PREFLIGHT_TTL = timedelta(minutes=5)
 ArtifactResolver = Callable[[GatewayProfileV1], GatewayArtifactEvidenceV1 | None]
+SidecarEnvironmentFactory = Callable[[], Mapping[str, str]]
+
+
+class GatewayRouteStartError(ValueError):
+    """Typed fail-closed refusal for an explicit managed start action."""
+
+    def __init__(self, reason_id: str) -> None:
+        super().__init__(reason_id)
+        self.reason_id = reason_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,16 +78,28 @@ class GatewayRouteWebService:
         discovery: GatewayRouteDiscovery,
         *,
         artifact_resolver: ArtifactResolver = resolve_installed_gpt2giga_artifact,
+        sidecar: ManagedGatewaySidecarService | None = None,
+        sidecar_environment: SidecarEnvironmentFactory | None = None,
+        gateway_api_key: str | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self.profile = profile
         self.discovery = discovery
         self.artifact_resolver = artifact_resolver
+        self.sidecar = sidecar
+        self.sidecar_environment = sidecar_environment
+        self.gateway_api_key = gateway_api_key
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self._issued: dict[str, _IssuedPreflight] = {}
+        self._lifecycle_lock = Lock()
 
     @classmethod
-    def from_config(cls, config: HarnessConfig) -> GatewayRouteWebService:
+    def from_config(
+        cls,
+        config: HarnessConfig,
+        *,
+        process_owner: GatewayProcessLeaseOwner | None = None,
+    ) -> GatewayRouteWebService:
         """Build the one reviewed profile from existing Harness configuration."""
         parsed = urlsplit(config.proxy_url)
         managed = (
@@ -76,11 +112,37 @@ class GatewayRouteWebService:
             base_url=_credential_free_base_url(parsed),
             mode=GatewayMode.MANAGED if managed else GatewayMode.EXTERNAL,
         )
+        gateway_api_key = config.api_key or (
+            secrets.token_urlsafe(32) if managed else None
+        )
+        transport = AuthenticatedGatewayMachineTransport(gateway_api_key)
+        managed_root = (
+            Path(config.data_dir).expanduser().resolve() / "native" / "gateway-runtime"
+        )
+        sidecar = (
+            ManagedGatewaySidecarService(
+                process_owner,
+                UrlLibGatewayStartupReadinessProbe(transport),
+                managed_data_root=managed_root,
+                startup_timeout_seconds=config.proxy_start_timeout_seconds,
+            )
+            if managed and process_owner is not None
+            else None
+        )
         return cls(
             profile,
-            GatewayRouteDiscovery(
-                UrlLibGatewayMachineTransport(api_key=config.api_key)
-            ),
+            GatewayRouteDiscovery(transport),
+            sidecar=sidecar,
+            sidecar_environment=(
+                lambda: managed_gpt2giga_environment(
+                    config,
+                    managed_root=managed_root,
+                    gateway_api_key=gateway_api_key or "0",
+                )
+            )
+            if sidecar is not None
+            else None,
+            gateway_api_key=gateway_api_key,
         )
 
     def catalog(self, *, refresh: bool = False) -> dict[str, Any]:
@@ -96,7 +158,63 @@ class GatewayRouteWebService:
             "status": result.status.value,
             "reason_ids": [reason.value for reason in result.reason_ids],
             "routes": routes,
+            "lifecycle": {
+                "mode": self.profile.mode.value,
+                "start_available": (
+                    self.sidecar is not None and self.sidecar_environment is not None
+                ),
+            },
         }
+
+    def start(self, *, session_id: str) -> dict[str, Any]:
+        """Explicitly start or reuse the exact managed sidecar, then rediscover."""
+        _validate_session_id(session_id)
+        with self._lifecycle_lock:
+            return self._start_bound(session_id)
+
+    def _start_bound(self, session_id: str) -> dict[str, Any]:
+        if (
+            self.profile.mode is not GatewayMode.MANAGED
+            or self.sidecar is None
+            or self.sidecar_environment is None
+        ):
+            raise GatewayRouteStartError("gateway_managed_start_unavailable")
+        artifact = self.artifact_resolver(self.profile)
+        if not _artifact_matches(self.profile, artifact):
+            raise GatewayRouteStartError("gateway_artifact_unverified")
+        assert artifact is not None
+        try:
+            environment = self.sidecar_environment()
+        except ValueError as error:
+            raise GatewayRouteStartError(_safe_reason_id(error)) from error
+        lease = self.sidecar.ensure_started(
+            self.profile,
+            artifact,
+            environment=environment,
+            session_id=session_id,
+            run_id=f"gateway-route-{self.profile.gateway_id}",
+        )
+        if not _lease_ready(lease):
+            raise GatewayRouteStartError(
+                lease.reason.value
+                if lease.reason is not None
+                else "gateway_sidecar_not_ready"
+            )
+        catalog = self.catalog(refresh=True)
+        if catalog["status"] != GatewayDiscoveryStatus.CURRENT.value:
+            raise GatewayRouteStartError("gateway_route_catalog_not_ready")
+        return {
+            "status": lease.status.value,
+            "readiness_confirmed": lease.readiness_confirmed,
+            "reason_id": None,
+            "catalog": catalog,
+        }
+
+    def close(self) -> None:
+        """Stop only the exact managed lease owned by this Web service."""
+        with self._lifecycle_lock:
+            if self.sidecar is not None and self.profile.mode is GatewayMode.MANAGED:
+                self.sidecar.stop(self.profile)
 
     def preflight(
         self,
@@ -222,6 +340,37 @@ def _artifact_matches(
     )
 
 
+def _lease_ready(lease: ManagedGatewayLeaseV1) -> bool:
+    return bool(
+        lease.status in {GatewaySidecarStatus.STARTED, GatewaySidecarStatus.REUSED}
+        and lease.readiness_confirmed
+    )
+
+
+def _validate_session_id(value: str) -> None:
+    if (
+        not isinstance(value, str)
+        or not value.strip()
+        or len(value) > 256
+        or any(character in value for character in ("\r", "\n", "\x00"))
+    ):
+        raise GatewayRouteStartError("gateway_session_binding_invalid")
+
+
+def _safe_reason_id(error: ValueError) -> str:
+    value = str(error)
+    if (
+        not value
+        or len(value) > 128
+        or any(
+            character not in "abcdefghijklmnopqrstuvwxyz0123456789_"
+            for character in value
+        )
+    ):
+        return "gateway_startup_environment_invalid"
+    return value
+
+
 def _aware(value: datetime) -> datetime:
     if value.tzinfo is None:
         raise ValueError("gateway route clock must be timezone-aware")
@@ -237,4 +386,4 @@ def _credential_free_base_url(parsed: Any) -> str:
     return urlunsplit((parsed.scheme, host, parsed.path, "", ""))
 
 
-__all__ = ["GatewayRouteWebService"]
+__all__ = ["GatewayRouteStartError", "GatewayRouteWebService"]

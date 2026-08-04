@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from gigaloom.runtime.policy import PermissionAction
 from gigaloom.ui.mutation_contract_models import (
     ConformanceBehavior,
     ConformanceEvidence,
@@ -56,6 +57,20 @@ CONFORMANCE_EVIDENCE = (
             "tests/harness/test_mcp_apps.py::test_backend_router_returns_typed_fallback_and_security_errors",
         ),
     ),
+    ConformanceEvidence(
+        id="native_gateway.managed_sidecar",
+        behaviors=frozenset(
+            {
+                ConformanceBehavior.ALLOW,
+                ConformanceBehavior.DENY,
+                ConformanceBehavior.REDACTION,
+            }
+        ),
+        test_nodes=(
+            "tests/harness/test_gateway_routes_web.py::test_explicit_start_reuses_ready_sidecar_and_refreshes_catalog",
+            "tests/harness/test_gateway_routes_web.py::test_explicit_start_fails_closed_before_spawn",
+        ),
+    ),
 )
 
 _AUTH = ("ui.auth_boundary", "ui.redaction_boundary")
@@ -63,6 +78,7 @@ _READ = (*_AUTH, "projection.allow")
 _PROJECTS = (*_AUTH, "native_gateway.projects")
 _ROUTING = (*_AUTH, "native_gateway.routing")
 _MCP_APPS = (*_AUTH, "native_gateway.mcp_apps")
+_GATEWAY = (*_AUTH, "native_gateway.managed_sidecar")
 
 
 def _contract(
@@ -72,6 +88,8 @@ def _contract(
     control: EnforcementControl,
     owner: str | None,
     evidence: tuple[str, ...],
+    *,
+    actions: tuple[PermissionAction, ...] = (),
 ) -> MutationRouteContract:
     return MutationRouteContract(
         method=method,
@@ -79,12 +97,21 @@ def _contract(
         mutation_class=mutation_class,
         control=control,
         enforcement_owner=owner,
-        permission_actions=(),
+        permission_actions=actions,
         evidence_ids=evidence,
     )
 
 
 MUTATION_ROUTE_CONTRACTS = (
+    _contract(
+        "POST",
+        "/api/gateway/routes/start",
+        MutationClass.GOVERNED_EXTERNAL_EFFECT,
+        EnforcementControl.EXPLICIT_OPERATOR_ACTION,
+        "gateway.managed_sidecar.explicit_start",
+        _GATEWAY,
+        actions=(PermissionAction.PROCESS_SPAWN,),
+    ),
     *(
         _contract(
             "POST",

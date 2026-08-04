@@ -142,7 +142,9 @@ def effective_workbench_transport(
     return selected
 
 
-def workbench_transport_options(harness: Any) -> tuple[WorkbenchTransportOption, ...]:
+def workbench_transport_options(
+    harness: Any, *, _availability: Any = None
+) -> tuple[WorkbenchTransportOption, ...]:
     """Project canonical transport choices for API, CLI, and Web clients."""
     spec = harness.spec()
     try:
@@ -197,18 +199,24 @@ def workbench_transport_options(harness: Any) -> tuple[WorkbenchTransportOption,
         durable=False,
         provider_native_continuity=False,
     )
+    available = _harness_available(harness, _availability)
     return tuple(
-        _block_unavailable_transport(harness, option)
+        _block_unavailable_transport(harness, option, available)
         for option in (structured, terminal, one_shot)
     )
 
 
-def workbench_transport_projection(harness: Any) -> dict[str, Any]:
+def workbench_transport_projection(
+    harness: Any, *, _availability: Any = None
+) -> dict[str, Any]:
     """Return one complete bounded Workbench transport projection."""
     return {
         "default": default_workbench_transport(harness).value,
         "options": [
-            option.to_dict() for option in workbench_transport_options(harness)
+            option.to_dict()
+            for option in workbench_transport_options(
+                harness, _availability=_availability
+            )
         ],
     }
 
@@ -218,10 +226,11 @@ def admit_workbench_execution(
     payload: Mapping[str, Any],
     *,
     configured_default: str | ExecutionTransport | None = None,
+    _availability: Any = None,
 ) -> WorkbenchAdmission:
     """Select an internal route from product intent or a legacy machine request."""
     if _has_product_request(payload):
-        return _admit_product_request(harness, payload)
+        return _admit_product_request(harness, payload, _availability=_availability)
     return _admit_legacy_request(
         harness,
         payload,
@@ -229,7 +238,9 @@ def admit_workbench_execution(
     )
 
 
-def workbench_admission_projection(harness: Any) -> dict[str, Any]:
+def workbench_admission_projection(
+    harness: Any, *, _availability: Any = None
+) -> dict[str, Any]:
     """Project ordinary product modes while keeping transport diagnostic-only."""
     capabilities = {
         capability.value for capability in tuple(harness.spec().capabilities or ())
@@ -264,6 +275,7 @@ def workbench_admission_projection(harness: Any) -> dict[str, Any]:
                     else AuthorityLevel.READ_ONLY.value
                 ),
             },
+            _availability=_availability,
         )
         modes.append(
             {
@@ -282,6 +294,8 @@ def workbench_admission_projection(harness: Any) -> dict[str, Any]:
 def _admit_product_request(
     harness: Any,
     payload: Mapping[str, Any],
+    *,
+    _availability: Any = None,
 ) -> WorkbenchAdmission:
     kind = _parse_enum(
         payload.get("workbench_kind"),
@@ -303,7 +317,8 @@ def _admit_product_request(
         raise ProductCapabilityError(f"{harness.spec().id} does not admit {kind.value}")
 
     options = {
-        option.transport: option for option in workbench_transport_options(harness)
+        option.transport: option
+        for option in workbench_transport_options(harness, _availability=_availability)
     }
     reasons: list[str] = []
     recovery: list[str] = []
@@ -406,16 +421,10 @@ def _admit_product_request(
 def _block_unavailable_transport(
     harness: Any,
     option: WorkbenchTransportOption,
+    available: bool | None,
 ) -> WorkbenchTransportOption:
     """Fail closed when the selected harness cannot execute any transport."""
-    availability_provider = getattr(harness, "availability", None)
-    if not callable(availability_provider):
-        return option
-    try:
-        available = availability_provider().status is AvailabilityStatus.AVAILABLE
-    except Exception:
-        available = False
-    if available or option.status == "blocked":
+    if available is not False or option.status == "blocked":
         return option
     harness_id = harness.spec().id
     return WorkbenchTransportOption(
@@ -427,6 +436,17 @@ def _block_unavailable_transport(
         durable=option.durable,
         provider_native_continuity=False,
     )
+
+
+def _harness_available(harness: Any, availability: Any) -> bool | None:
+    availability_provider = getattr(harness, "availability", None)
+    if availability is None and not callable(availability_provider):
+        return None
+    try:
+        value = availability if availability is not None else availability_provider()
+        return value.status is AvailabilityStatus.AVAILABLE
+    except Exception:
+        return False
 
 
 def _admit_legacy_request(

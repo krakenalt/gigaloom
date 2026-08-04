@@ -29,8 +29,8 @@ DEFAULT_GATEWAY_DISCOVERY_TTL_SECONDS = 60
 MAX_GATEWAY_API_KEY_CHARS = 4096
 _PROTOCOL_AGENTS = {
     "openai_responses": "codex",
+    "openai_chat_completions": "acp",
     "anthropic_messages": "claude",
-    "acp": "acp",
 }
 _PROVIDER_ALIASES = {
     "sber": "gigachat",

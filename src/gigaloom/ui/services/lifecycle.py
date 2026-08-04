@@ -27,6 +27,7 @@ def create_app_lifespan(services: AppServices):
         try:
             yield
         finally:
+            services.gateway_route_service.close()
             await stop_monitor(monitor)
 
     return lifespan

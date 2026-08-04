@@ -102,6 +102,7 @@ describe("work-first responsive and accessibility contract", () => {
     const markup = renderToStaticMarkup(
       <RouteModelPicker
         catalog={{
+          lifecycle: { mode: "managed", start_available: true },
           reason_ids: [],
           routes: [{
             agent_id: "codex",

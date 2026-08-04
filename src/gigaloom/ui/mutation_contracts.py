@@ -1,5 +1,4 @@
 """Authoritative policy classification for unsafe-method Harness UI routes.
-
 The route inventory remains the single fail-closed source for mounted mutations.
 Shared enum definitions live in a small dependency-light companion module.
 Route records stay here so policy owners and retained evidence remain adjacent.
@@ -430,6 +429,7 @@ MUTATION_ROUTE_CONTRACTS = (
             "/api/project/state",
             "/api/project/memory/{memory_id}",
             "/api/settings/defaults",
+            "/api/settings/personalization",
             "/api/sessions/{session_id}",
         ),
         MutationClass.LOCAL_STATE,

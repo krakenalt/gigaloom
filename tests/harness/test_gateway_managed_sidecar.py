@@ -182,6 +182,62 @@ def test_healthy_sidecar_is_warm_reused_without_second_spawn(tmp_path: Path) -> 
     assert len(owner.plans) == 1
 
 
+def test_unhealthy_owned_sidecar_is_stopped_before_reconnect(tmp_path: Path) -> None:
+    owner = FakeProcessOwner()
+    service = ManagedGatewaySidecarService(
+        owner,
+        FakeReadiness(True, False, True),
+        managed_data_root=tmp_path / "data",
+    )
+    artifact = _artifact(_executable(tmp_path))
+    first = service.ensure_started(
+        _profile(),
+        artifact,
+        environment={"PATH": "/usr/bin"},
+        session_id="session_first",
+        run_id="run_first",
+    )
+    reconnected = service.ensure_started(
+        _profile(),
+        artifact,
+        environment={"PATH": "/usr/bin"},
+        session_id="session_second",
+        run_id="run_second",
+    )
+
+    assert first.process_lease_ref == "native-process:proc_1"
+    assert reconnected.status is GatewaySidecarStatus.STARTED
+    assert reconnected.process_lease_ref == "native-process:proc_2"
+    assert owner.stopped == ["proc_1"]
+
+
+def test_missing_session_binding_is_a_content_free_start_refusal(
+    tmp_path: Path,
+) -> None:
+    class MissingSessionOwner(FakeProcessOwner):
+        def start(self, *args, **kwargs):
+            del args, kwargs
+            raise KeyError("secret-session-title")
+
+    service = ManagedGatewaySidecarService(
+        MissingSessionOwner(),
+        FakeReadiness(True),
+        managed_data_root=tmp_path / "data",
+    )
+
+    result = service.ensure_started(
+        _profile(),
+        _artifact(_executable(tmp_path)),
+        environment={"PATH": "/usr/bin"},
+        session_id="missing-session",
+        run_id="run",
+    )
+
+    assert result.status is GatewaySidecarStatus.BLOCKED
+    assert result.reason is GatewaySidecarReason.PROCESS_START_FAILED
+    assert "secret-session-title" not in repr(result)
+
+
 def test_process_loss_is_visible_and_next_ensure_recovers_with_new_lease(
     tmp_path: Path,
 ) -> None:

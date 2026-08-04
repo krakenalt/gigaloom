@@ -60,7 +60,14 @@ def test_settings_sections_are_etagged_and_recompose_the_legacy_contract(tmp_pat
                 f"/api/settings/{name}",
                 params={"workspace": tmp_path},
             ).json()
-            for name in ("runtime", "defaults", "workspace", "mcp", "diagnostics")
+            for name in (
+                "runtime",
+                "defaults",
+                "personalization",
+                "workspace",
+                "mcp",
+                "diagnostics",
+            )
         }
         legacy = client.get(
             "/api/settings",
@@ -105,6 +112,20 @@ def test_summary_revision_tracks_defaults_project_and_provider_sources(tmp_path)
             "/api/settings/summary",
             params={"workspace": workspace},
         ).json()
+        personalization = client.patch(
+            "/api/settings/personalization",
+            json={
+                "expected_revision": after_defaults["sections"]["personalization"][
+                    "revision"
+                ],
+                "developer_instructions": "Keep updates concise.",
+            },
+        )
+        assert personalization.status_code == 200
+        after_personalization = client.get(
+            "/api/settings/summary",
+            params={"workspace": workspace},
+        ).json()
 
         config_dir = workspace / ".giga"
         config_dir.mkdir()
@@ -142,7 +163,11 @@ def test_summary_revision_tracks_defaults_project_and_provider_sources(tmp_path)
         != (after_defaults["sections"]["defaults"]["revision"])
     )
     assert (
-        after_defaults["sections"]["workspace"]["revision"]
+        after_defaults["sections"]["personalization"]["revision"]
+        != after_personalization["sections"]["personalization"]["revision"]
+    )
+    assert (
+        after_personalization["sections"]["workspace"]["revision"]
         != (after_project["sections"]["workspace"]["revision"])
     )
     assert (

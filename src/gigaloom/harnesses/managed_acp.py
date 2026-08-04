@@ -32,11 +32,17 @@ from gigaloom.harnesses.agent_profiles.installations import AgentRuntimeService
 from gigaloom.harnesses.agent_profiles.onboarding import ManagedAgentOnboardingResult
 from gigaloom.harnesses.base import BaseHarness
 from gigaloom.harnesses.managed_acp_gateway import (
+    ManagedAcpGatewayRouteRequired,
+    ManagedAcpGatewayUnsupported,
     gateway_process_environment,
     gateway_route_selection,
+    managed_acp_gateway_capability,
+    require_managed_acp_gateway_route,
 )
 from gigaloom.harnesses.managed_acp_permissions import (
+    ManagedAcpAuthenticationRequired,
     answer_permission,
+    is_canceled,
     permission_context as build_permission_context,
 )
 from gigaloom.structured_processes import (
@@ -55,10 +61,6 @@ from gigaloom.types import (
     HeadlessContinuationStrategy,
     emit_event,
 )
-
-
-class ManagedAcpAuthenticationRequired(RuntimeError):
-    """Raised when a managed connector requires provider-owned authentication."""
 
 
 class ManagedAcpStateChanged(RuntimeError):
@@ -81,6 +83,7 @@ class ManagedAcpTurnRequest:
     gateway_route_id: str | None = None
     gateway_profile_id: str | None = None
     gateway_base_url: str | None = None
+    session_model_config_id: str | None = None
     gateway_api_key: str | None = field(default=None, repr=False)
 
 
@@ -171,18 +174,18 @@ def run_managed_acp_turn(
             if snapshot.snapshot_digest != record.probe.capability_snapshot_digest:
                 raise ManagedAcpStateChanged("managed ACP capability evidence changed")
             binding = new_session(client, workspace=workspace)
-            if request.model_id != "provider-default":
+            if request.session_model_config_id is not None:
                 set_session_config(
                     client,
                     binding,
-                    config_id="model",
+                    config_id=request.session_model_config_id,
                     value=request.model_id,
                 )
             prompt = begin_prompt(client, binding, text=request.prompt)
             permission_context = build_permission_context(request, binding)
             deadline = time.monotonic() + request.timeout_seconds
             while not prompt.done:
-                if _is_canceled(cancel_event):
+                if is_canceled(cancel_event):
                     prompt.cancel()
                     raise AcpRequestCancelled("managed ACP run was canceled")
                 if time.monotonic() >= deadline:
@@ -276,6 +279,11 @@ class ManagedAcpHarness(BaseHarness):
                 context,
                 registry_id=record.artifact.registry_id,
             )
+            require_managed_acp_gateway_route(
+                registry_id=record.artifact.registry_id,
+                requested_model=request.model,
+                selection=gateway,
+            )
 
             def forward(event: NormalizedStructuredEvent) -> None:
                 projected = _project_event(event)
@@ -322,6 +330,9 @@ class ManagedAcpHarness(BaseHarness):
                     gateway_base_url=(
                         gateway.base_url if gateway is not None else None
                     ),
+                    session_model_config_id=(
+                        gateway.session_model_config_id if gateway is not None else None
+                    ),
                     gateway_api_key=(gateway.api_key if gateway is not None else None),
                 ),
                 cancel_event=request.cancel_event,
@@ -357,12 +368,23 @@ class ManagedAcpHarness(BaseHarness):
                 events=tuple(retained_events),
                 command=command,
             )
-        except ManagedAcpAuthenticationRequired:
+        except ManagedAcpGatewayRouteRequired:
             return _managed_failure(
                 self._agent_id,
                 retained_events,
-                "Provider authentication is required. Complete the connector's "
-                "provider-owned authentication flow, run Probe only, and try again.",
+                "gpt2giga route is not ready. Start or reconnect the gateway, "
+                "refresh routes, and preflight the selected model. The ACP "
+                "provider default was not used.",
+                reason_id="managed_acp_gateway_route_required",
+            )
+        except ManagedAcpGatewayUnsupported as exc:
+            return _managed_failure(
+                self._agent_id,
+                retained_events,
+                "gpt2giga routing is unsupported for this ACP connector. ACP v1 "
+                "does not standardize model-provider endpoints, and this agent "
+                "has no reviewed provider overlay. The provider default was not used.",
+                reason_id=exc.reason_id,
             )
         except ManagedAcpStateChanged:
             return _managed_failure(
@@ -420,6 +442,7 @@ def acp_harnesses(
 
 def _managed_spec(record: ManagedAgentOnboardingResult) -> HarnessSpec:
     profile = record.profile
+    gateway_capability = managed_acp_gateway_capability(record.artifact.registry_id)
     return HarnessSpec(
         id=profile.agent_id,
         title=profile.display_name,
@@ -439,6 +462,7 @@ def _managed_spec(record: ManagedAgentOnboardingResult) -> HarnessSpec:
             "version": record.artifact.version,
             "distribution_kind": record.artifact.distribution_kind.value,
             "profile_digest": profile.profile_digest,
+            "managed_acp_gateway": gateway_capability.projection(),
         },
         headless_continuation=HeadlessContinuationStrategy.ONE_SHOT,
     )
@@ -542,11 +566,16 @@ def _managed_failure(
     agent_id: str,
     events: list[HarnessEvent],
     error: str,
+    *,
+    reason_id: str | None = None,
 ) -> HarnessResult:
     return HarnessResult(
         ok=False,
         text="",
-        raw={"agent_id": agent_id},
+        raw={
+            "agent_id": agent_id,
+            **({"reason_id": reason_id} if reason_id is not None else {}),
+        },
         events=tuple(events),
         error=error,
     )
@@ -554,11 +583,6 @@ def _managed_failure(
 
 def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
-
-
-def _is_canceled(value: object | None) -> bool:
-    checker = getattr(value, "is_set", None)
-    return bool(checker()) if callable(checker) else False
 
 
 __all__ = [

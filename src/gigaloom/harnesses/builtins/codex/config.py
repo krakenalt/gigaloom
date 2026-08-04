@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Mapping
 
 from gigaloom import proxy
+from gigaloom.contracts.codex_instructions import codex_developer_instructions
 from gigaloom.harnesses.attachment_plan import (
     prompt_with_attachments,
     request_render_plan,
@@ -44,6 +46,10 @@ def _write_codex_config(
         else "none"
     )
     base_url = context.api_base_url(request.api_mode)
+    custom_instructions = request.extra.get("developer_instructions")
+    developer_instructions = codex_developer_instructions(
+        custom_instructions if isinstance(custom_instructions, str) else ""
+    )
     attachment_headers = ""
     if attachment_file_ids:
         header_value = ",".join(attachment_file_ids)
@@ -56,6 +62,7 @@ def _write_codex_config(
         f'model = "{_toml_escape(model)}"\n'
         'model_provider = "gigaloom"\n'
         f'model_reasoning_effort = "{reasoning_effort}"\n\n'
+        f"developer_instructions = {_toml_string(developer_instructions)}\n\n"
         "[model_providers.gigaloom]\n"
         'name = "gigaloom"\n'
         f'base_url = "{_toml_escape(base_url)}"\n'
@@ -221,3 +228,7 @@ def _structured_chat_prompt(request: HarnessRequest) -> str:
 
 def _toml_escape(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _toml_string(value: str) -> str:
+    return json.dumps(value, ensure_ascii=False)

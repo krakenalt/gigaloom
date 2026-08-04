@@ -15,6 +15,10 @@ from gigaloom.config import (
     DEFAULT_TITLE_MODEL,
     HarnessConfig,
 )
+from gigaloom.contracts.codex_instructions import (
+    ASYNC_AGENT_RULES_VERSION,
+    normalize_developer_instructions,
+)
 from gigaloom.diagnostics.inventory.capabilities import (
     legacy_mode_compatibility_receipt,
 )
@@ -29,6 +33,7 @@ from gigaloom.secrets import (
 
 SETTINGS_SCHEMA_VERSION = 1
 SECRET_REFERENCE_SETTINGS_SCHEMA_VERSION = 1
+PERSONALIZATION_SETTINGS_SCHEMA_VERSION = 1
 _SECRET_REFERENCE_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 SETTINGS_FIELDS = frozenset(
     {
@@ -81,6 +86,14 @@ class SecretReferenceSettingsSnapshot:
     """Persisted reference-only settings plus optimistic-write revision."""
 
     references: Mapping[str, SecretReference]
+    revision: str
+
+
+@dataclass(frozen=True)
+class PersonalizationSettingsSnapshot:
+    """User-authored Codex instructions plus optimistic-write revision."""
+
+    developer_instructions: str
     revision: str
 
 
@@ -203,6 +216,72 @@ class HarnessSettingsStore:
 
 class SettingsConflictError(RuntimeError):
     """Raised when an optimistic settings write uses a stale revision."""
+
+
+class PersonalizationSettingsStore:
+    """Atomically persist user-authored instructions outside native Codex homes."""
+
+    def __init__(self, data_dir: str | Path) -> None:
+        self.path = Path(data_dir).expanduser() / "settings" / "personalization.json"
+        self.lock_path = self.path.with_suffix(".lock")
+
+    def load(self) -> PersonalizationSettingsSnapshot:
+        """Read strict versioned personalization without native-home fallback."""
+        with exclusive_file_lock(self.lock_path):
+            value = self._read_unlocked()
+        return PersonalizationSettingsSnapshot(
+            developer_instructions=value,
+            revision=_personalization_revision(value),
+        )
+
+    def save(
+        self,
+        developer_instructions: str,
+        *,
+        expected_revision: str | None = None,
+    ) -> PersonalizationSettingsSnapshot:
+        """Validate and atomically replace the user-authored instruction text."""
+        normalized = normalize_developer_instructions(developer_instructions)
+        with exclusive_file_lock(self.lock_path):
+            current = self._read_unlocked()
+            if (
+                expected_revision is not None
+                and expected_revision != _personalization_revision(current)
+            ):
+                raise SettingsConflictError("personalization revision changed")
+            payload = {
+                "schema_version": PERSONALIZATION_SETTINGS_SCHEMA_VERSION,
+                "developer_instructions": normalized,
+            }
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = self.path.with_suffix(".tmp")
+            temporary.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
+                + "\n",
+                encoding="utf-8",
+            )
+            os.chmod(temporary, 0o600)
+            os.replace(temporary, self.path)
+            os.chmod(self.path, 0o600)
+        return self.load()
+
+    def _read_unlocked(self) -> str:
+        try:
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return ""
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("personalization settings are unreadable") from exc
+        if not isinstance(payload, Mapping):
+            raise ValueError("personalization settings must be an object")
+        if set(payload) != {"schema_version", "developer_instructions"}:
+            raise ValueError("personalization settings fields are invalid")
+        if payload.get("schema_version") != PERSONALIZATION_SETTINGS_SCHEMA_VERSION:
+            raise ValueError("unsupported personalization settings schema_version")
+        value = payload.get("developer_instructions")
+        if not isinstance(value, str):
+            raise ValueError("developer_instructions must be a string")
+        return normalize_developer_instructions(value)
 
 
 class SecretReferenceSettingsStore:
@@ -332,6 +411,20 @@ def _secret_reference_revision(
             name: secret_reference_to_dict(reference)
             for name, reference in sorted(references.items())
         },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _personalization_revision(developer_instructions: str) -> str:
+    encoded = json.dumps(
+        {
+            "schema_version": PERSONALIZATION_SETTINGS_SCHEMA_VERSION,
+            "async_agent_rules_version": ASYNC_AGENT_RULES_VERSION,
+            "developer_instructions": developer_instructions,
+        },
+        ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
     ).encode("utf-8")
