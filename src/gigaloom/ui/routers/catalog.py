@@ -141,12 +141,10 @@ def create_router(services: AppServices) -> APIRouter:
                 "note": pass_model_env_note(),
             }
         try:
-            discovery = proxy.discover_models(
-                services.config,
-                mode,
-                include_compat_paths=False,
-                include_fallback=False,
-            )
+            return {
+                **services.gateway_route_service.models(api_mode=mode.value),
+                "note": pass_model_env_note(),
+            }
         except Exception:
             return {
                 "schema_version": 1,
@@ -160,18 +158,6 @@ def create_router(services: AppServices) -> APIRouter:
                 "error": "model discovery failed",
                 "note": pass_model_env_note(),
             }
-        return {
-            "schema_version": 1,
-            "ok": discovery.ok,
-            "api_mode": mode.value,
-            "route_path": f"/{mode.value}/models",
-            "health": "ready" if discovery.ok else "blocked",
-            "last_checked_at": checked_at,
-            "models": list(discovery.models[:100]),
-            "source": discovery.source,
-            "error": None if discovery.ok else "model discovery failed",
-            "note": pass_model_env_note(),
-        }
 
     @router.net_read.get("/api/health")
     def health() -> dict[str, Any]:

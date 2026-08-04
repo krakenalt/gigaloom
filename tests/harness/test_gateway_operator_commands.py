@@ -243,6 +243,21 @@ def test_drifted_artifact_fails_doctor_closed(tmp_path: Path) -> None:
     assert payload["artifact_state"] == "executable_unavailable"
 
 
+def test_patch_compatible_artifact_passes_public_admission(tmp_path: Path) -> None:
+    service, _transport, _health, _sidecar = _service(tmp_path)
+    artifact = replace(
+        _artifact(_executable(tmp_path)),
+        version="0.3.1",
+        artifact_sha256="9" * 64,
+    )
+    compatible = replace(service, artifact_resolver=lambda _profile: artifact)
+
+    payload = compatible.doctor("gpt2giga")
+
+    assert payload["ready"] is True
+    assert payload["artifact_state"] == "verified"
+
+
 def test_start_and_stop_delegate_only_to_existing_profile_scoped_lease(
     tmp_path: Path,
 ) -> None:

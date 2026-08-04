@@ -22,6 +22,7 @@ from gigaloom.native.api import (
     GatewayStartupReadinessProbe,
     ManagedGatewayLeaseV1,
     bridge_route_to_dict,
+    gateway_artifact_admitted,
     gateway_profile_to_dict,
 )
 
@@ -287,11 +288,7 @@ def _artifact_state(
         return "unavailable"
     if not artifact.verified:
         return "unverified"
-    if (
-        artifact.distribution != profile.distribution
-        or artifact.version != profile.version
-        or artifact.artifact_sha256 != profile.artifact_sha256
-    ):
+    if not gateway_artifact_admitted(profile, artifact):
         return "identity_mismatch"
     try:
         executable = Path(artifact.executable_path).resolve(strict=True)

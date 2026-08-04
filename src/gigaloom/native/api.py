@@ -17,6 +17,7 @@ if TYPE_CHECKING:
         ManagedGatewayLeaseV1,
         ManagedGatewaySidecarService,
         UrlLibGatewayStartupReadinessProbe,
+        gateway_artifact_admitted,
     )
 
 from gigaloom.native.launch import (
@@ -40,6 +41,8 @@ from gigaloom.native.launch import (
     GatewayProfileV1,
     GatewayRouteCatalogV1,
     GatewayRouteDiscovery,
+    GatewayRouteRefusal,
+    GatewayRouteResolver,
     GatewaySupportStatus,
     LaunchOverlayV1,
     NativeAgentLaunchSpec,
@@ -79,6 +82,7 @@ _GATEWAY_SIDECAR_EXPORTS = frozenset(
         "ManagedGatewayLeaseV1",
         "ManagedGatewaySidecarService",
         "UrlLibGatewayStartupReadinessProbe",
+        "gateway_artifact_admitted",
     }
 )
 
@@ -108,6 +112,8 @@ __all__ = [
     "GatewayProfileV1",
     "GatewayRouteCatalogV1",
     "GatewayRouteDiscovery",
+    "GatewayRouteRefusal",
+    "GatewayRouteResolver",
     "GatewaySidecarReason",
     "GatewaySidecarStatus",
     "GatewayStartupReadinessProbe",
@@ -130,6 +136,7 @@ __all__ = [
     "bridge_route_to_dict",
     "build_gateway_agent_injection",
     "gateway_contract_digest",
+    "gateway_artifact_admitted",
     "gateway_preflight_receipt_from_dict",
     "gateway_preflight_receipt_to_dict",
     "gateway_profile_from_dict",

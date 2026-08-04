@@ -9,7 +9,12 @@ from typing import Any
 
 import pytest
 
-from gigaloom.native.api import ResolvedGatewayRoute
+from gigaloom.native.api import (
+    GatewayRouteRefusal,
+    GatewayRouteResolver,
+    ResolvedGatewayRoute,
+    gateway_artifact_admitted,
+)
 
 
 FIXTURE = (
@@ -64,6 +69,14 @@ def test_resolved_route_is_frozen_slotted_and_has_no_secret_field() -> None:
     assert not hasattr(route, "__dict__")
     with pytest.raises(FrozenInstanceError):
         setattr(route, "gateway_id", "other")
+
+
+def test_gateway_resolution_and_artifact_admission_are_public_native_contracts() -> (
+    None
+):
+    assert GatewayRouteResolver.__name__ == "GatewayRouteResolver"
+    assert GatewayRouteRefusal.__name__ == "GatewayRouteRefusal"
+    assert callable(gateway_artifact_admitted)
 
 
 @pytest.mark.parametrize(
