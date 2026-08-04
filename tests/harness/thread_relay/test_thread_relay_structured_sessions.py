@@ -254,6 +254,22 @@ def test_follow_up_enqueues_existing_turn_owner_with_content_free_provenance(
     ]
 
 
+def test_public_read_revision_is_accepted_for_preview_and_delivery(tmp_path) -> None:
+    service, store, _, _, _, _ = _service(tmp_path)
+    target = _session(store, "Target")
+    public_revision = service.read_thread(_locator(target.id)).updated_at.isoformat()
+
+    assert target.updated_at.endswith("Z")
+    assert public_revision.endswith("+00:00")
+    envelope = _envelope(target.id, public_revision)
+
+    preview = service.preview(envelope, now=NOW)
+    delivered = service.deliver(envelope, now=NOW)
+
+    assert preview.target_revision == public_revision
+    assert delivered.record.receipt.status is ThreadDeliveryStatus.COMPLETED
+
+
 def test_delivery_rechecks_target_revision_and_scope_before_persistence(
     tmp_path,
 ) -> None:

@@ -1,10 +1,12 @@
 import { useRef, useState } from "react";
 
+import type { ChatMention } from "../../chat-mentions";
 import type { SkillMention } from "../../skill-mentions";
 
 export function useComposerController() {
   const [prompt, setPrompt] = useState("");
   const [selectedSkills, setSelectedSkills] = useState<SkillMention[]>([]);
+  const [selectedChats, setSelectedChats] = useState<ChatMention[]>([]);
   const [builtinTools, setBuiltinTools] = useState<string[]>([]);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
@@ -26,6 +28,7 @@ export function useComposerController() {
     modelMenuOpen,
     plusMenuOpen,
     prompt,
+    selectedChats,
     selectedSkills,
     setAtSelection,
     setBuiltinTools,
@@ -34,6 +37,7 @@ export function useComposerController() {
     setModelMenuOpen,
     setPlusMenuOpen,
     setPrompt,
+    setSelectedChats,
     setSelectedSkills,
     setToolPickerOpen,
     setToolSearch,

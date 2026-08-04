@@ -42,7 +42,7 @@ const relay = Object.freeze<RelayPreviewFacts>({
   action: "send",
   expectedTargetRevision: "revision-7",
   expiresAt: "2026-08-04T12:05:00Z",
-  intent: "follow_up_task",
+  intent: "follow_up",
   messagePreview: "Verify the exact gateway route without provider traffic.",
   sourceTitle: "Release planning",
   targetTitle: "Gateway conformance",

@@ -6,6 +6,7 @@ import {
   RouteModelPicker,
   selectedRouteForCatalog,
 } from "./RouteModelPicker";
+import { gatewayRouteAgentForHarness } from "./ReviewedRouteControls";
 import type {
   BridgeRouteCatalogProjectionV1,
   BridgeRouteOptionV1,
@@ -39,6 +40,17 @@ const routes = Object.freeze<readonly BridgeRouteOptionV1[]>([
 ]);
 
 describe("capability-aware route model picker", () => {
+  it("maps every managed ACP harness to the shared ACP gateway catalog", () => {
+    expect(gatewayRouteAgentForHarness({
+      spec: {
+        id: "opencode",
+        metadata: { managed_agent: true, registry_id: "opencode" },
+        tags: ["agent", "managed", "acp"],
+        title: "OpenCode",
+      },
+    })).toEqual({ id: "acp", label: "OpenCode" });
+  });
+
   it("groups exact public aliases by gateway and upstream provider", () => {
     const groups = groupBridgeRoutes(routes);
 

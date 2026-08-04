@@ -95,7 +95,7 @@ export interface RelayPreviewFacts {
   expectedActiveTurnId?: string | null;
   expectedTargetRevision: string;
   expiresAt: string;
-  intent: "follow_up_task" | "message";
+  intent: "follow_up" | "message" | "steer";
   messagePreview: string;
   sourceTitle: string;
   targetTitle: string;

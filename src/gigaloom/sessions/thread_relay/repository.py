@@ -14,6 +14,7 @@ from uuid import uuid4
 
 from gigaloom.contracts.operational_validation import (
     canonical_json_bytes,
+    timestamps_match,
     validate_digest,
     validate_timestamp,
 )
@@ -150,7 +151,10 @@ class ThreadDeliveryRepository:
         validate_timestamp(now, field_name="thread delivery reservation time")
         if envelope.expires_at <= now:
             raise ThreadDeliveryConflictError("thread delivery envelope is expired")
-        if envelope.expected_target_revision != observed_target_revision:
+        if not timestamps_match(
+            envelope.expected_target_revision,
+            observed_target_revision,
+        ):
             raise ThreadDeliveryConflictError("thread target revision is stale")
         envelope_digest = thread_message_envelope_digest(envelope)
         idempotency_hash = _idempotency_hash(envelope.idempotency_key)

@@ -3,18 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import tempfile
 import time
 from typing import Any, Mapping
 
-from gigaloom.contracts.operational_validation import canonical_digest
 from gigaloom.harnesses.acp import (
     AcpLimits,
-    AcpPermissionContextV1,
     AcpPermissionRequestV1,
     AcpRouteIdentity,
     begin_prompt,
@@ -22,7 +19,6 @@ from gigaloom.harnesses.acp import (
     new_session,
     next_permission,
     pin_acp_process,
-    respond_permission,
     set_session_config,
 )
 from gigaloom.harnesses.acp.errors import (
@@ -35,7 +31,14 @@ from gigaloom.harnesses.acp.usage import AcpTokenUsageV1, usage_payload
 from gigaloom.harnesses.agent_profiles.installations import AgentRuntimeService
 from gigaloom.harnesses.agent_profiles.onboarding import ManagedAgentOnboardingResult
 from gigaloom.harnesses.base import BaseHarness
-from gigaloom.runtime.api import PermissionAction, PolicyDecision, permission_profile
+from gigaloom.harnesses.managed_acp_gateway import (
+    gateway_process_environment,
+    gateway_route_selection,
+)
+from gigaloom.harnesses.managed_acp_permissions import (
+    answer_permission,
+    permission_context as build_permission_context,
+)
 from gigaloom.structured_processes import (
     NormalizedStructuredEvent,
     StructuredProcessError,
@@ -75,6 +78,10 @@ class ManagedAcpTurnRequest:
     permission_profile_id: str
     network_profile: str
     timeout_seconds: float
+    gateway_route_id: str | None = None
+    gateway_profile_id: str | None = None
+    gateway_base_url: str | None = None
+    gateway_api_key: str | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,6 +138,13 @@ def run_managed_acp_turn(
             "TMPDIR": root,
             **dict(artifact.environment),
         }
+        environment.update(
+            gateway_process_environment(
+                request,
+                registry_id=artifact.registry_id,
+                root=Path(root),
+            )
+        )
         process = pin_acp_process(
             (str(executable), *artifact.arguments),
             cwd=workspace.as_posix(),
@@ -165,7 +179,7 @@ def run_managed_acp_turn(
                     value=request.model_id,
                 )
             prompt = begin_prompt(client, binding, text=request.prompt)
-            permission_context = _permission_context(request, binding)
+            permission_context = build_permission_context(request, binding)
             deadline = time.monotonic() + request.timeout_seconds
             while not prompt.done:
                 if _is_canceled(cancel_event):
@@ -183,7 +197,7 @@ def run_managed_acp_turn(
                 if pending is not None:
                     if permission_sink is not None:
                         permission_sink(pending)
-                    _answer_permission(client, binding, permission_context, pending)
+                    answer_permission(client, binding, permission_context, pending)
                 _consume_event(client, events, text_parts, event_sink, timeout=0.02)
             while _consume_event(
                 client,
@@ -257,6 +271,11 @@ class ManagedAcpHarness(BaseHarness):
             workspace = str(request.workspace or "").strip()
             if not workspace:
                 raise ValueError("managed ACP run requires a workspace")
+            gateway = gateway_route_selection(
+                request.extra.get("gateway_route_binding"),
+                context,
+                registry_id=record.artifact.registry_id,
+            )
 
             def forward(event: NormalizedStructuredEvent) -> None:
                 projected = _project_event(event)
@@ -281,7 +300,9 @@ class ManagedAcpHarness(BaseHarness):
                 ManagedAcpTurnRequest(
                     agent_id=self._agent_id,
                     route_id=route.route_id,
-                    model_id="provider-default",
+                    model_id=(
+                        gateway.model_id if gateway is not None else "provider-default"
+                    ),
                     workspace=workspace,
                     prompt=request.prompt,
                     run_id=request.run_id or f"managed-{self._agent_id}",
@@ -292,6 +313,16 @@ class ManagedAcpHarness(BaseHarness):
                         request.extra.get("network_profile") or "interactive"
                     ),
                     timeout_seconds=context.timeout_seconds,
+                    gateway_route_id=(
+                        gateway.route_id if gateway is not None else None
+                    ),
+                    gateway_profile_id=(
+                        gateway.gateway_profile_id if gateway is not None else None
+                    ),
+                    gateway_base_url=(
+                        gateway.base_url if gateway is not None else None
+                    ),
+                    gateway_api_key=(gateway.api_key if gateway is not None else None),
                 ),
                 cancel_event=request.cancel_event,
                 event_sink=forward,
@@ -313,6 +344,15 @@ class ManagedAcpHarness(BaseHarness):
                     "route_id": route.route_id,
                     "stop_reason": result.stop_reason,
                     "capability_snapshot_digest": (result.capability_snapshot_digest),
+                    **(
+                        {
+                            "gateway_route_id": gateway.route_id,
+                            "gateway_profile_id": gateway.gateway_profile_id,
+                            "gateway_model": gateway.public_model_alias,
+                        }
+                        if gateway is not None
+                        else {}
+                    ),
                 },
                 events=tuple(retained_events),
                 command=command,
@@ -420,59 +460,6 @@ def _managed_command(record: ManagedAgentOnboardingResult) -> tuple[str, ...]:
         Path(record.artifact.managed_root) / record.artifact.executable_relative_path
     )
     return (str(executable), *record.artifact.arguments)
-
-
-def _permission_context(
-    request: ManagedAcpTurnRequest, binding
-) -> AcpPermissionContextV1:  # noqa: ANN001
-    selected = permission_profile(request.permission_profile_id, origin="interactive")
-    action_map = {
-        "filesystem_read": PermissionAction.WORKSPACE_READ,
-        "filesystem_write": PermissionAction.WORKSPACE_WRITE,
-        "terminal": PermissionAction.PROCESS_SPAWN,
-        "network": PermissionAction.NETWORK_CONNECT,
-    }
-    allowed = {"reasoning"}
-    allowed.update(
-        action_class
-        for action_class, action in action_map.items()
-        if selected.decision_for(action) is PolicyDecision.ALLOW
-    )
-    revision = canonical_digest(
-        {
-            "permission_profile": selected.id,
-            "network_profile": request.network_profile,
-            "allowed_action_classes": sorted(allowed),
-        }
-    )
-    return AcpPermissionContextV1(
-        agent_id=request.agent_id,
-        route_id=request.route_id,
-        run_id=request.run_id,
-        session_id=binding.gigaloom_session_id,
-        workspace_digest=binding.workspace_digest,
-        policy_revision=revision,
-        expires_at=datetime.now(UTC) + timedelta(seconds=request.timeout_seconds),
-        allowed_action_classes=frozenset(allowed),
-    )
-
-
-def _answer_permission(client, binding, context, pending) -> None:  # noqa: ANN001
-    if not pending.admissible:
-        respond_permission(client, binding, context, pending, allow=False)
-        raise AcpPermissionError("managed ACP permission exceeds parent authority")
-    option = next(
-        (item.option_id for item in pending.options if item.kind == "allow_once"),
-        None,
-    )
-    respond_permission(
-        client,
-        binding,
-        context,
-        pending,
-        allow=True,
-        option_id=option,
-    )
 
 
 def _consume_event(

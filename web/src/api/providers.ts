@@ -2,6 +2,8 @@ export interface HarnessOption {
   spec: {
     capabilities?: string[];
     id: string;
+    metadata?: Record<string, unknown>;
+    tags?: string[];
     title?: string;
     supported_builtin_tools?: string[];
     supports_api_mode_selection?: boolean;

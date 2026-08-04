@@ -2,27 +2,58 @@ import type { RelayPreviewFacts } from "./workflow-contract";
 
 export function RelayPreview({
   facts,
+  locale = "en",
   onCancel,
   onConfirm,
   pending = false,
 }: {
   facts: RelayPreviewFacts;
+  locale?: "en" | "ru";
   onCancel: () => void;
   onConfirm: () => void;
   pending?: boolean;
 }) {
   const blockedReasons = facts.blockedReasons ?? [];
   const blocked = blockedReasons.length > 0;
+  const labels = locale === "ru" ? {
+    action: "Действие",
+    activeTurn: "Активный turn",
+    blocked: "Заблокировано",
+    cancel: "Отмена",
+    confirmSend: "Подтвердить отправку",
+    confirmSteer: "Подтвердить steer",
+    expectedRevision: "Ожидаемая ревизия",
+    expires: "Истекает",
+    intent: "Intent",
+    preview: "Thread Relay preview",
+    ready: "Готово к подтверждению",
+    send: "Отправить в другой чат",
+    sending: "Отправляем…",
+  } : {
+    action: "Action",
+    activeTurn: "Active turn",
+    blocked: "Blocked",
+    cancel: "Cancel",
+    confirmSend: "Confirm send",
+    confirmSteer: "Confirm steer",
+    expectedRevision: "Expected revision",
+    expires: "Expires",
+    intent: "Intent",
+    preview: "Thread Relay preview",
+    ready: "Ready for confirmation",
+    send: "Send to another chat",
+    sending: "Sending…",
+  };
 
   return (
     <section aria-labelledby="relay-preview-title" className="relay-preview">
       <header>
         <div>
-          <span>Thread Relay preview</span>
-          <h2 id="relay-preview-title">Send to another thread</h2>
+          <span>{labels.preview}</span>
+          <h2 id="relay-preview-title">{labels.send}</h2>
         </div>
         <span className={`relay-preview-state ${blocked ? "blocked" : "ready"}`}>
-          {blocked ? "Blocked" : "Ready for confirmation"}
+          {blocked ? labels.blocked : labels.ready}
         </span>
       </header>
       <div className="relay-path" aria-label="Relay destination">
@@ -34,12 +65,12 @@ export function RelayPreview({
       </div>
       <blockquote>{facts.messagePreview}</blockquote>
       <dl>
-        <div><dt>Intent</dt><dd>{facts.intent.replaceAll("_", " ")}</dd></div>
-        <div><dt>Action</dt><dd>{facts.action}</dd></div>
-        <div><dt>Expected revision</dt><dd>{facts.expectedTargetRevision}</dd></div>
-        <div><dt>Expires</dt><dd>{facts.expiresAt}</dd></div>
+        <div><dt>{labels.intent}</dt><dd>{facts.intent.replaceAll("_", " ")}</dd></div>
+        <div><dt>{labels.action}</dt><dd>{facts.action}</dd></div>
+        <div><dt>{labels.expectedRevision}</dt><dd>{facts.expectedTargetRevision}</dd></div>
+        <div><dt>{labels.expires}</dt><dd>{facts.expiresAt}</dd></div>
         {facts.expectedActiveTurnId ? (
-          <div><dt>Active turn</dt><dd>{facts.expectedActiveTurnId}</dd></div>
+          <div><dt>{labels.activeTurn}</dt><dd>{facts.expectedActiveTurnId}</dd></div>
         ) : null}
       </dl>
       {blocked ? (
@@ -49,14 +80,18 @@ export function RelayPreview({
         </div>
       ) : null}
       <footer>
-        <button disabled={pending} onClick={onCancel} type="button">Cancel</button>
+        <button disabled={pending} onClick={onCancel} type="button">{labels.cancel}</button>
         <button
           className="primary-button"
           disabled={blocked || pending}
           onClick={onConfirm}
           type="button"
         >
-          {pending ? "Sending…" : facts.action === "steer" ? "Confirm steer" : "Confirm send"}
+          {pending
+            ? labels.sending
+            : facts.action === "steer"
+              ? labels.confirmSteer
+              : labels.confirmSend}
         </button>
       </footer>
     </section>

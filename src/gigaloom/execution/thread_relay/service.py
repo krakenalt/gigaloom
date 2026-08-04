@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Mapping, Protocol, cast
 
+from gigaloom.contracts.operational_validation import parse_timestamp, timestamps_match
 from gigaloom.execution.thread_relay.projections import (
     GigaLoomThreadListPage,
     GigaLoomThreadProjector,
@@ -141,7 +142,7 @@ class GigaLoomStructuredThreadRelay:
         return ThreadDeliveryPreview(
             envelope_digest=thread_message_envelope_digest(envelope),
             content_digest=digest,
-            target_revision=session.updated_at,
+            target_revision=_public_session_revision(session.updated_at),
             intent=envelope.intent,
             expires_at=envelope.expires_at,
             redacted=redacted,
@@ -261,7 +262,10 @@ class GigaLoomStructuredThreadRelay:
         if envelope.expires_at <= now:
             raise ThreadRelayTargetStateError("thread delivery envelope is expired")
         session = self.projector.bound_session(envelope.target_locator.thread_id)
-        if session.updated_at != envelope.expected_target_revision:
+        if not timestamps_match(
+            session.updated_at,
+            envelope.expected_target_revision,
+        ):
             raise ThreadRelayTargetStateError("thread target revision changed")
         content = self.message_resolver.resolve(envelope.message_ref)
         redacted = redact_secrets(content)
@@ -372,6 +376,10 @@ class GigaLoomStructuredThreadRelay:
             raise ThreadRelayAuthorizationError(
                 "thread envelope scope is not permitted"
             )
+
+
+def _public_session_revision(value: str) -> str:
+    return parse_timestamp(value, field_name="thread target revision").isoformat()
 
 
 def _submission_identities(value: object) -> tuple[str, str, str]:
