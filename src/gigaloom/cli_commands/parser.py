@@ -10,6 +10,7 @@ from gigaloom.cli_commands.commands import (
     agent_runtimes,
     capsules,
     execution,
+    gateway,
     harness,
     headless,
     integrations,
@@ -18,6 +19,7 @@ from gigaloom.cli_commands.commands import (
     reliability,
     route_advisor,
     system,
+    schemas,
     ui,
     worker,
 )
@@ -57,6 +59,8 @@ def build_parser() -> argparse.ArgumentParser:
     integrations.register(subparsers, common)
     ui.register(subparsers, common)
     execution.register(subparsers, common)
+    gateway.register(subparsers, include_lifecycle=False)
+    schemas.register(subparsers)
     headless.register(subparsers)
     agent_runtimes.register(subparsers)
     worker.register(subparsers, common)

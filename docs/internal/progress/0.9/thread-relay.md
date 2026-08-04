@@ -117,8 +117,9 @@
   tests/harness/architecture/test_module_budgets.py -q -n 0` — 43 passed;
   root-namespace and existing CLI registry regression suite — 17 passed;
   focused Ruff check/format and `ty check` — passed; `git diff --check` — passed
-- Known limitations: shared composition remains intentionally absent until I1;
-  the restricted agent tool surface and product UI are owned by Wave B
+- Known limitations: shared composition remains intentionally absent until
+  exclusive integration; the restricted agent tool surface and product UI are
+  owned by the next product-integration stage
 - Shared-file patch request: integrator should (1) call
   `cli_commands.commands.thread_relay.register(session_subparsers, common)`
   from the existing `session` parser composition, preserving the existing

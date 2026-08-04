@@ -12,6 +12,8 @@ class ThreadRelaySendRequest(BaseModel):
     """One user-role delivery request bound to exact target state."""
 
     source: Literal["gigaloom", "codex", "acp"] = "gigaloom"
+    project_id: str = Field(min_length=1, max_length=256)
+    source_thread_id: str | None = Field(default=None, max_length=256)
     thread_id: str = Field(min_length=1, max_length=256)
     text: str = Field(min_length=1, max_length=16_384)
     intent: Literal["message", "follow_up", "steer"] = "message"

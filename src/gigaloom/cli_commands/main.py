@@ -25,6 +25,11 @@ _STATE_FREE_HANDLERS = frozenset(
         "_handle_reliability_simulate",
         "_handle_agent_upgrade_check",
         "_handle_eval_visual",
+        "_handle_gateway_doctor",
+        "_handle_gateway_inspect",
+        "_handle_gateway_list",
+        "_handle_schema_export",
+        "_handle_schema_list",
     }
 )
 

@@ -8,6 +8,11 @@ from gigaloom.execution.thread_relay.actions import (
     ThreadRelayRouteActions,
     validated_preview,
 )
+from gigaloom.execution.thread_relay.application import (
+    GigaLoomThreadRelayActions,
+    ThreadRelayScopeV1,
+    build_thread_relay_actions,
+)
 from gigaloom.execution.thread_relay.codex_adapter import (
     CODEX_THREAD_ADAPTER_ID,
     CODEX_THREAD_CAPABILITY_REVISION,
@@ -16,6 +21,7 @@ from gigaloom.execution.thread_relay.codex_adapter import (
 from gigaloom.execution.thread_relay.projections import (
     GIGALOOM_THREAD_ADAPTER_ID,
     GIGALOOM_THREAD_CAPABILITY_REVISION,
+    LOCAL_THREAD_ACTOR_SCOPE,
     MAX_GIGALOOM_THREAD_LIST,
     MAX_GIGALOOM_THREAD_LIST_SCAN,
     GigaLoomThreadListPage,
@@ -50,9 +56,11 @@ __all__ = [
     "CODEX_THREAD_CAPABILITY_REVISION",
     "GIGALOOM_THREAD_ADAPTER_ID",
     "GIGALOOM_THREAD_CAPABILITY_REVISION",
+    "LOCAL_THREAD_ACTOR_SCOPE",
     "MAX_GIGALOOM_THREAD_LIST",
     "MAX_GIGALOOM_THREAD_LIST_SCAN",
     "GigaLoomStructuredThreadRelay",
+    "GigaLoomThreadRelayActions",
     "GigaLoomThreadListPage",
     "AcpThreadRelayAdapter",
     "CodexThreadRelayAdapter",
@@ -70,10 +78,12 @@ __all__ = [
     "ThreadRelayAuthorizationError",
     "ThreadRelayError",
     "ThreadRelayRouteActions",
+    "ThreadRelayScopeV1",
     "ThreadRelayTargetStateError",
     "ThreadRelayUnsupportedError",
     "ThreadSessionStorePort",
     "ThreadSteerPort",
     "ThreadTurnSubmissionPort",
     "validated_preview",
+    "build_thread_relay_actions",
 ]

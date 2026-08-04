@@ -109,6 +109,42 @@ def test_codex_root_resolves_the_declarative_native_profile(monkeypatch):
     assert calls == [(["codex", "--help"], ("codex",))]
 
 
+def test_gateway_selector_reaches_one_command_application_without_shadowing_suffix(
+    monkeypatch,
+):
+    calls = []
+
+    class Application:
+        def run(self, request, *, native_launcher):
+            calls.append((request, native_launcher))
+            return 23
+
+    monkeypatch.setattr(
+        "gigaloom.cli_commands.gateway_application.build_gateway_launch_application",
+        lambda _config: Application(),
+    )
+
+    assert (
+        entrypoint.main(
+            [
+                "--with",
+                "gpt2giga",
+                "--model",
+                "GigaChat-2-Max",
+                "codex",
+                "--model",
+                "native-model",
+            ],
+            context=PTY,
+            registry=_registry(),
+        )
+        == 23
+    )
+    request, _launcher = calls[0]
+    assert request.public_model_alias == "GigaChat-2-Max"
+    assert request.agent_args == ("--model", "native-model")
+
+
 @pytest.mark.parametrize("command", ("chat", "run", "session"))
 def test_human_tty_core_commands_remain_plain_cli(command, monkeypatch):
     calls = []
@@ -213,6 +249,10 @@ def test_root_help_is_static_and_teaches_native_vs_structured_split():
     assert "giga <agent-id-or-alias> [provider arguments...]" in help_text
     assert "giga run" in help_text
     assert "giga session" in help_text
+    assert "giga --route <route-id>" in help_text
+    assert "giga --with <gateway> --model <alias>" in help_text
+    assert "giga gateway" in help_text
+    assert "giga schema" in help_text
     assert "Textual" not in help_text
     assert "tui" not in help_text.casefold()
 

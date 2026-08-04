@@ -20,6 +20,7 @@ from gigaloom.sessions.api import (
     ThreadSourceKind,
     ThreadVisibleMessageV1,
     ThreadVisibleRole,
+    session_catalog_project_id,
     thread_message_content_digest,
 )
 from gigaloom.types import redact_secrets
@@ -27,6 +28,7 @@ from gigaloom.types import redact_secrets
 
 GIGALOOM_THREAD_ADAPTER_ID = "gigaloom-structured-session-v1"
 GIGALOOM_THREAD_CAPABILITY_REVISION = "gigaloom-thread-relay-v1"
+LOCAL_THREAD_ACTOR_SCOPE = "local-operator"
 MAX_GIGALOOM_THREAD_LIST = 100
 MAX_GIGALOOM_THREAD_LIST_SCAN = 400
 
@@ -124,7 +126,8 @@ class GigaLoomThreadProjector:
         admitted = tuple(
             session
             for session in sessions
-            if _session_actor_scope(session) == self.actor_scope
+            if _session_actor_scope(session, requested=self.actor_scope)
+            == self.actor_scope
         )
         selected = admitted[:limit]
         has_more = len(admitted) > limit or (
@@ -252,7 +255,10 @@ class GigaLoomThreadProjector:
             raise ThreadRelayAuthorizationError(
                 "thread target project is not permitted"
             )
-        if _session_actor_scope(session) != self.actor_scope:
+        if (
+            _session_actor_scope(session, requested=self.actor_scope)
+            != self.actor_scope
+        ):
             raise ThreadRelayAuthorizationError("thread target actor is not permitted")
         return session
 
@@ -317,12 +323,21 @@ class GigaLoomThreadProjector:
         return tuple(relationships)
 
 
-def _session_actor_scope(session: HarnessSession) -> str | None:
-    return _optional_identity(session.metadata.get("actor_scope"))
+def _session_actor_scope(
+    session: HarnessSession,
+    *,
+    requested: str,
+) -> str | None:
+    explicit = _optional_identity(session.metadata.get("actor_scope"))
+    if explicit is not None:
+        return explicit
+    # Pre-0.9 local sessions had no actor field. They remain visible only to
+    # the fixed loopback actor; remote OIDC actors never inherit this fallback.
+    return LOCAL_THREAD_ACTOR_SCOPE if requested == LOCAL_THREAD_ACTOR_SCOPE else None
 
 
 def _session_project_id(session: HarnessSession) -> str | None:
-    return _optional_identity(session.metadata.get("project_id"))
+    return _optional_identity(session_catalog_project_id(session.metadata))
 
 
 def _session_status(session: HarnessSession, latest_run: HarnessRun | None) -> str:

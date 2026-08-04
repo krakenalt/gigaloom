@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "c62e42097d0034f7bfb79fc637589dfdaba959a268c20b8ec2f53c14e6d18d58",
+  "content_sha256": "9d6ccb514273c6b1373870764c03f1d6ccf04194cb5132eaea611696e6536b71",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -1767,6 +1767,16 @@
       },
       {
         "method": "GET",
+        "name": "effective_instructions_summary",
+        "path": "/api/project/effective-instructions"
+      },
+      {
+        "method": "GET",
+        "name": "effective_instruction_detail",
+        "path": "/api/project/effective-instructions/{source_id}"
+      },
+      {
+        "method": "GET",
         "name": "project_impact",
         "path": "/api/project/impact"
       },
@@ -2469,6 +2479,10 @@
       "eval list",
       "eval run",
       "eval visual",
+      "gateway",
+      "gateway doctor",
+      "gateway inspect",
+      "gateway list",
       "handoff",
       "handoff capsule",
       "harness",
@@ -2562,12 +2576,22 @@
       "schedule show",
       "schedule test-now",
       "schedule update",
+      "schema",
+      "schema agent",
+      "schema eval",
+      "schema list",
+      "schema schedule-source",
+      "schema workflow",
       "session",
       "session approve",
       "session create",
       "session events",
       "session list",
+      "session read",
+      "session send",
       "session show",
+      "session status",
+      "session threads",
       "session turn",
       "state",
       "state backup",

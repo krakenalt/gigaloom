@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from gigaloom.cli_commands.commands import thread_relay as thread_commands
 from gigaloom.cli_commands.handlers.thread_relay import ThreadRelayCommandHandlers
 from gigaloom.config import HarnessConfig
+from gigaloom.execution.thread_relay import LOCAL_THREAD_ACTOR_SCOPE
 from gigaloom.ui.routers.thread_relay import create_router
 
 
@@ -82,6 +83,8 @@ def _send_args(*extra: str) -> argparse.Namespace:
             "thread-1",
             "--source",
             "codex",
+            "--project-id",
+            "project-1",
             "--text",
             "secret delivery text",
             "--expected-revision",
@@ -134,12 +137,27 @@ def test_cli_send_previews_before_delivery_and_exposes_other_actions(
 
     parser = _parser()
     assert (
-        handlers.list(parser.parse_args(["session", "threads", "--json"]), config) == 0
+        handlers.list(
+            parser.parse_args(
+                ["session", "threads", "--project-id", "project-1", "--json"]
+            ),
+            config,
+        )
+        == 0
     )
     assert (
         handlers.read(
             parser.parse_args(
-                ["session", "read", "thread-1", "--source", "acp", "--json"]
+                [
+                    "session",
+                    "read",
+                    "thread-1",
+                    "--source",
+                    "acp",
+                    "--project-id",
+                    "project-1",
+                    "--json",
+                ]
             ),
             config,
         )
@@ -147,7 +165,16 @@ def test_cli_send_previews_before_delivery_and_exposes_other_actions(
     )
     assert (
         handlers.status(
-            parser.parse_args(["session", "status", "delivery-1", "--json"]),
+            parser.parse_args(
+                [
+                    "session",
+                    "status",
+                    "delivery-1",
+                    "--project-id",
+                    "project-1",
+                    "--json",
+                ]
+            ),
             config,
         )
         == 0
@@ -158,6 +185,8 @@ def test_cli_send_previews_before_delivery_and_exposes_other_actions(
 def _send_payload() -> dict[str, Any]:
     return {
         "source": "gigaloom",
+        "project_id": "project-1",
+        "source_thread_id": None,
         "thread_id": "thread-1",
         "text": "review the failing tests",
         "intent": "follow_up",
@@ -178,12 +207,18 @@ def test_route_local_api_lists_reads_previews_sends_and_reports_status() -> None
 
     listed = client.get(
         "/api/thread-relay/threads",
-        params={"source": "codex", "limit": 10},
+        params={"source": "codex", "project_id": "project-1", "limit": 10},
     )
-    read = client.get("/api/thread-relay/threads/acp/thread-1")
+    read = client.get(
+        "/api/thread-relay/threads/acp/thread-1",
+        params={"project_id": "project-1"},
+    )
     preview = client.post("/api/thread-relay/deliveries/preview", json=_send_payload())
     delivered = client.post("/api/thread-relay/deliveries", json=_send_payload())
-    status = client.get("/api/thread-relay/deliveries/delivery-1")
+    status = client.get(
+        "/api/thread-relay/deliveries/delivery-1",
+        params={"project_id": "project-1"},
+    )
 
     assert listed.status_code == read.status_code == 200
     assert preview.json()["dry_run"] is True
@@ -196,6 +231,41 @@ def test_route_local_api_lists_reads_previews_sends_and_reports_status() -> None
         "preview",
         "send",
         "status",
+    ]
+
+
+def test_route_factory_binds_request_actor_and_explicit_project() -> None:
+    actions = _Actions()
+    scopes: list[tuple[str, str]] = []
+
+    def factory(actor_scope: str, project_id: str) -> _Actions:
+        scopes.append((actor_scope, project_id))
+        return actions
+
+    remote = FastAPI()
+
+    @remote.middleware("http")
+    async def bind_remote_actor(request, call_next):
+        request.state.ui_actor = {"actor_id": "actor-remote-1"}
+        return await call_next(request)
+
+    remote.include_router(create_router(actions_factory=factory))
+    response = TestClient(remote).get(
+        "/api/thread-relay/threads",
+        params={"project_id": "project-1"},
+    )
+
+    local = FastAPI()
+    local.include_router(create_router(actions_factory=factory))
+    local_response = TestClient(local).get(
+        "/api/thread-relay/threads",
+        params={"project_id": "project-2"},
+    )
+
+    assert response.status_code == local_response.status_code == 200
+    assert scopes == [
+        ("actor-remote-1", "project-1"),
+        (LOCAL_THREAD_ACTOR_SCOPE, "project-2"),
     ]
 
 

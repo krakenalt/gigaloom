@@ -16,6 +16,12 @@ from urllib.request import Request, urlopen
 
 import pytest
 
+from gigaloom.cli_commands.gateway_application import (
+    build_gateway_launch_application,
+)
+from gigaloom.cli_commands.gateway_launch import parse_gateway_launch_argv
+from gigaloom.config import HarnessConfig
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 HANDOFF = json.loads(
@@ -306,6 +312,60 @@ def test_hermetic_codex_responses_route_and_shutdown(tmp_path: Path) -> None:
     assert process.returncode in {0, -signal.SIGTERM}
     assert not upstream_thread.is_alive()
     assert not output_thread.is_alive()
+
+
+def test_gigaloom_one_command_composes_public_gateway_to_native_handoff(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _gateway_executable()
+    _FakeGigaChatHandler.requests = []
+    upstream = ThreadingHTTPServer(("127.0.0.1", 0), _FakeGigaChatHandler)
+    upstream_thread = threading.Thread(target=upstream.serve_forever)
+    upstream_thread.start()
+    gateway_port = _available_port()
+    monkeypatch.setenv("GIGACHAT_ACCESS_TOKEN", "hermetic-token")
+    monkeypatch.setenv(
+        "GIGACHAT_BASE_URL",
+        f"http://127.0.0.1:{upstream.server_port}/v1",
+    )
+    monkeypatch.setenv("GIGACHAT_VERIFY_SSL_CERTS", "False")
+    application = build_gateway_launch_application(
+        HarnessConfig(
+            proxy_url=f"http://127.0.0.1:{gateway_port}",
+            api_key="hermetic-gateway-key",
+            data_dir=str(tmp_path / "state"),
+        )
+    )
+    # The exact startup contract is covered above. This fake upstream changes
+    # the otherwise-frozen profile revision solely to keep the E2E hermetic.
+    application.startup_inspector = None
+    request = parse_gateway_launch_argv(
+        ["--with", "gpt2giga", "--model", MODEL, "codex", "--help"]
+    )
+    assert request is not None
+    launched: list[tuple[tuple[str, ...], dict[str, str]]] = []
+
+    try:
+        result = application.run(
+            request,
+            native_launcher=lambda argv, environment: (
+                launched.append((argv, dict(environment))) or 0
+            ),
+        )
+    finally:
+        upstream.shutdown()
+        upstream.server_close()
+        upstream_thread.join(timeout=5)
+
+    assert result == 0
+    assert [item[0] for item in launched] == [("codex", "--help")]
+    native_environment = launched[0][1]
+    assert native_environment["GPT2GIGA_API_KEY"] == "hermetic-gateway-key"
+    assert Path(native_environment["CODEX_HOME"]).is_relative_to(tmp_path / "state")
+    assert "GIGACHAT_ACCESS_TOKEN" not in native_environment
+    assert _FakeGigaChatHandler.requests == [("GET", "/v1/models", None)]
+    assert not upstream_thread.is_alive()
 
 
 def _gateway_executable() -> str:

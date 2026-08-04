@@ -8,6 +8,9 @@ from typing import Protocol
 from gigaloom.sessions.conversation import (
     EDITED_FROM_MESSAGE_ID as EDITED_FROM_MESSAGE_ID,
 )
+from gigaloom.sessions.catalog_binding import (
+    session_catalog_project_id as session_catalog_project_id,
+)
 from gigaloom.sessions.event_stream import EventTailPage
 from gigaloom.sessions.models import (
     HarnessMessage as HarnessMessage,

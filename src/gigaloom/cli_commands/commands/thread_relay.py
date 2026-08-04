@@ -18,6 +18,7 @@ def register(
     """Add bounded thread actions to an existing ``session`` command group."""
     threads = session_subparsers.add_parser("threads", parents=[common])
     _source(threads)
+    _project(threads)
     threads.add_argument("--cursor", default=None)
     threads.add_argument("--limit", type=int, default=50)
     threads.add_argument("--json", action="store_true")
@@ -26,6 +27,7 @@ def register(
     read = session_subparsers.add_parser("read", parents=[common])
     read.add_argument("thread_id")
     _source(read)
+    _project(read)
     read.add_argument("--cursor", default=None)
     read.add_argument("--limit", type=int, default=50)
     read.add_argument("--json", action="store_true")
@@ -34,6 +36,8 @@ def register(
     send = session_subparsers.add_parser("send", parents=[common])
     send.add_argument("thread_id")
     _source(send)
+    _project(send)
+    send.add_argument("--source-thread-id", default=None)
     send.add_argument("--text", required=True)
     send.add_argument(
         "--intent",
@@ -56,6 +60,7 @@ def register(
 
     status = session_subparsers.add_parser("status", parents=[common])
     status.add_argument("delivery_id")
+    _project(status)
     status.add_argument("--json", action="store_true")
     status.set_defaults(handler="_handle_thread_status")
 
@@ -65,6 +70,14 @@ def _source(parser: argparse.ArgumentParser) -> None:
         "--source",
         choices=tuple(item.value for item in ThreadSourceKind),
         default=ThreadSourceKind.GIGALOOM.value,
+    )
+
+
+def _project(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--project-id",
+        default=None,
+        help="Exact project binding (defaults to the cataloged current workspace)",
     )
 
 

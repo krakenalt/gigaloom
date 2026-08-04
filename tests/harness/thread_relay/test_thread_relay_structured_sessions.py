@@ -1,4 +1,4 @@
-"""GigaLoom-owned structured-session Thread Relay behavior."""
+"""GigaLoom-owned structured-session Thread Relay contracts."""
 
 from __future__ import annotations
 

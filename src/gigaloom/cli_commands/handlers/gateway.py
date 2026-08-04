@@ -256,7 +256,11 @@ def _handle_gateway_stop(args: argparse.Namespace, config: HarnessConfig) -> int
 
 def _service(config: HarnessConfig) -> GatewayCommandService:
     if _SERVICE_FACTORY is None:
-        raise RuntimeError("gateway command service is not configured")
+        from gigaloom.cli_commands.gateway_runtime import (
+            build_gateway_command_service,
+        )
+
+        return build_gateway_command_service(config)
     return _SERVICE_FACTORY(config)
 
 
