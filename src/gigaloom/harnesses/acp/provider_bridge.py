@@ -107,7 +107,7 @@ _CODEX_ACP_ADAPTER = AcpProviderAdapterSpec(
     ),
     provider_protocols=("openai_responses",),
     strategy=AcpProviderBridgeStrategy.EPHEMERAL_CONFIG,
-    model_selection="session_config",
+    model_selection="ephemeral_config",
     adapter_revision="1",
 )
 _ADAPTERS = (_CODEX_ACP_ADAPTER, _OPENCODE_ADAPTER)
@@ -233,7 +233,7 @@ def build_provider_launch_overlay(
                 "-c",
                 f"model={json.dumps(route.public_model_alias)}",
             ),
-            session_model_config_id="model",
+            session_model_config_id=None,
         )
     if resolution.strategy is AcpProviderBridgeStrategy.ACP_PROVIDERS:
         return AcpProviderLaunchOverlay((), (), "model")

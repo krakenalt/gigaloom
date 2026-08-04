@@ -144,7 +144,7 @@ def test_codex_overlay_uses_isolated_home_and_runtime_config_overrides(
     assert "model_providers.gpt2giga=" in overlay.arguments[1]
     assert 'wire_api = "responses"' in overlay.arguments[1]
     assert overlay.arguments[-1] == 'model="GigaChat-2-Max"'
-    assert overlay.session_model_config_id == "model"
+    assert overlay.session_model_config_id is None
     assert "ephemeral-secret" not in repr(overlay)
 
 
