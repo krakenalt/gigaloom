@@ -185,7 +185,7 @@ UI по умолчанию слушает только loopback. Первый OS
 rotation, recovery, same-origin checks и CSRF marker сохраняют opaque
 server-side browser-session boundary без локального `.env` token. `/healthz`
 намеренно минимален и не требует аутентификации. Remote bind допускает только
-реализованный [single-issuer OIDC/BFF контракт](remote-ui-identity-adr.md) с
+реализованный [контракт OIDC/BFF с одним издателем](remote-user-identity.md) с
 полной статической конфигурацией и явным CLI opt-in. Legacy bootstrap token,
 Host allowlist и retired bearer exchange не аутентифицируют remote users.
 Секреты и скрытые reasoning-данные удаляются до сохранения и повторно перед

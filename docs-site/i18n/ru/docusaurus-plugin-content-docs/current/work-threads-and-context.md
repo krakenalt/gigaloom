@@ -1,4 +1,4 @@
-# Work, потоки и контекст
+# Рабочие задачи, потоки и контекст
 
 GigaLoom 0.9 строит основной путь как
 `Project -> Thread -> Run -> Evidence -> Action`. Экран Work объединяет
@@ -109,7 +109,7 @@ giga evidence product-beta --project PROJECT_ID --output report.json
 Команда записывает только выбранный локальный файл. Она не выполняет upload,
 telemetry, provider call, account lookup или outreach. Prompts, responses,
 содержимое messages/events, credentials, unrestricted paths и тела attachments
-исключены. См. [контракт пилота Product Beta](product-beta-pilot-contract.md).
+исключены. См. [условия пилотного внедрения](pilot-program.md).
 
 ## Обновление и откат
 

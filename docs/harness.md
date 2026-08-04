@@ -634,7 +634,7 @@ Discovery never follows redirects, and every advertised authorization, token,
 JWKS, and logout endpoint must use the issuer's exact scheme, host, and port.
 The old bootstrap token and Host allowlist never authenticate remote users.
 
-See the [remote UI identity ADR](architecture/remote-ui-identity-adr.md) for the
+See [remote user identity](architecture/remote-user-identity.md) for the
 accepted role, session, CSRF, revocation, trusted-proxy, and recovery contract.
 Do not expose or tunnel the loopback listener as a multi-user workaround.
 
@@ -1080,7 +1080,7 @@ provider-owned. A denied required action blocks startup; runtime-dependent and
 provider-owned actions are never presented as guaranteed grants.
 
 Harness-owned outbound HTTPS is default-deny and uses the
-[scoped network access contract](architecture/scoped-network-access-adr.md).
+[controlled network access contract](architecture/network-access.md).
 An exact, unexpired grant and an enabled sandbox boundary are both required;
 host, port, method class, redirect policy, purpose, request digest, and transfer
 ceilings are revalidated before connection. Public DNS answers are pinned and
@@ -2096,7 +2096,7 @@ variables are not the primary local human access flow. Remote binding requires
 the complete static single-issuer OIDC profile and explicit `--allow-remote`;
 partial configuration and the retired shared bearer exchange fail closed. The
 implemented single-issuer OIDC/BFF boundary is documented in the
-[remote UI identity ADR](architecture/remote-ui-identity-adr.md).
+[remote user identity](architecture/remote-user-identity.md).
 
 Compiled Cockpit bundles are not tracked source. A fresh source checkout must
 run `npm --prefix web ci --ignore-scripts` and

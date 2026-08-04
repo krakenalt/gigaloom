@@ -187,7 +187,7 @@ rotation, recovery, same-origin checks, and CSRF marker preserve an opaque
 server-side browser-session boundary without a local `.env` token.
 `/healthz` is intentionally minimal and unauthenticated. Remote binding admits
 only the implemented
-[single-issuer OIDC/BFF contract](remote-ui-identity-adr.md) with complete
+[single-issuer OIDC/BFF contract](remote-user-identity.md) with complete
 static configuration and explicit CLI opt-in. The legacy bootstrap token, Host
 allowlist, and retired bearer exchange do not authenticate remote users.
 Secrets and hidden reasoning are removed before persistence and again before

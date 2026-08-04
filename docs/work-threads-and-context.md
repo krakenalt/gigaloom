@@ -109,7 +109,7 @@ giga evidence product-beta --project PROJECT_ID --output report.json
 The command writes only the selected local file. It performs no upload,
 telemetry, provider call, account lookup, or outreach. Prompts, responses,
 message/event content, credentials, unrestricted paths, and attachment bodies
-are excluded. See the [Product beta pilot contract](product-beta-pilot-contract.md).
+are excluded. See the [Product beta pilot program](pilot-program.md).
 
 ## Upgrade and rollback
 
