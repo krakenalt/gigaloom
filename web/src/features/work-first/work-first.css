@@ -424,6 +424,110 @@
   overflow-wrap: anywhere;
 }
 
+.route-support-notice {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--success);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px;
+}
+
+.route-support-notice[data-support-status="technical_preview"] {
+  border-left-color: var(--warning);
+}
+
+.route-support-notice[data-route-gate="blocked"],
+.route-support-notice[data-support-status="vendor_unsupported"] {
+  border-left-color: var(--danger);
+}
+
+.route-support-notice > header {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+.route-support-notice > header > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.route-support-notice > header strong,
+.route-support-notice > header code,
+.route-support-reasons span,
+.route-support-reasons code,
+.route-acknowledgement span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.route-support-notice > header strong {
+  font-size: 11px;
+}
+
+.route-support-notice > header code,
+.route-support-notice > header > span,
+.route-support-reasons,
+.route-acknowledgement,
+.route-support-outcome {
+  font-size: 9px;
+}
+
+.route-support-notice > header code,
+.route-support-reasons code,
+.route-acknowledgement code {
+  color: var(--muted);
+}
+
+.route-support-notice > header > span {
+  border-radius: 999px;
+  background: var(--surface-muted);
+  padding: 4px 7px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.route-support-reasons {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.route-support-reasons li {
+  display: grid;
+  gap: 2px;
+}
+
+.route-acknowledgement {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+  padding: 8px;
+}
+
+.route-acknowledgement span {
+  display: grid;
+  gap: 3px;
+}
+
+.route-support-outcome {
+  margin: 0;
+  font-weight: 700;
+}
+
 .thread-navigation {
   min-width: 0;
   display: grid;

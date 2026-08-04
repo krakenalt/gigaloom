@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { RelayPreview } from "./RelayPreview";
 import { RouteModelBadge } from "./RouteModelBadge";
 import { RouteModelPicker } from "./RouteModelPicker";
+import { RouteSupportNotice } from "./RouteSupportNotice";
 import { ThreadNavigation } from "./ThreadNavigation";
 import { WorkDestination } from "./WorkDestination";
 
@@ -22,6 +23,7 @@ const requestFreeComponents = [
   "./RelayPreview.tsx",
   "./RouteModelBadge.tsx",
   "./RouteModelPicker.tsx",
+  "./RouteSupportNotice.tsx",
   "./RunNarrative.tsx",
   "./ThreadNavigation.tsx",
   "./WorkDestination.tsx",
@@ -120,6 +122,35 @@ describe("work-first responsive and accessibility contract", () => {
     expect(markup).toContain("<fieldset");
     expect(markup).toContain("type=\"radio\"");
     expect(markup).toContain("data-support-status=\"stable\"");
+  });
+
+  it("exposes route acknowledgement through a named native checkbox", () => {
+    const markup = renderToStaticMarkup(
+      <RouteSupportNotice
+        acknowledged={false}
+        catalogStatus="current"
+        onAcknowledgementChange={() => undefined}
+        route={{
+          agent_id: "claude",
+          capability_profile_revision: "capability-v1",
+          client_protocol: "anthropic_messages",
+          gateway_display_name: "gpt2giga",
+          gateway_profile_id: "gpt2giga",
+          loss_matrix_revision: "loss-v1",
+          public_model_alias: "openai/gpt-x",
+          reason_ids: ["vendor_model_family_unsupported"],
+          required_acknowledgement: "acknowledge_vendor_unsupported",
+          route_id: "claude-gpt2giga-openai-preview",
+          support_status: "vendor_unsupported",
+          upstream_model: "gpt-x",
+          upstream_provider: "openai",
+        }}
+      />,
+    );
+
+    expect(markup).toContain("type=\"checkbox\"");
+    expect(markup).toContain("Vendor unsupported");
+    expect(markup).toContain("data-route-gate=\"acknowledgement_required\"");
   });
 
   it("freezes mobile, safe-area, focus, and reduced-motion safeguards", () => {
