@@ -3,17 +3,21 @@
     "message": "Текущая",
     "description": "The label for version current"
   },
-  "sidebar.docs.category.Overview": {
-    "message": "Обзор",
-    "description": "The label for category 'Overview' in sidebar 'docs'"
+  "sidebar.docs.category.Get started": {
+    "message": "Начало работы",
+    "description": "The label for category 'Get started' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Agents and gateways": {
+    "message": "Агенты и шлюзы",
+    "description": "The label for category 'Agents and gateways' in sidebar 'docs'"
   },
   "sidebar.docs.doc.harness": {
     "message": "Unified Harness (альфа)",
     "description": "The label for the harness document"
   },
-  "sidebar.docs.category.Operate": {
-    "message": "Эксплуатация",
-    "description": "The label for category 'Operate' in sidebar 'docs'"
+  "sidebar.docs.category.Work and operate": {
+    "message": "Работа и эксплуатация",
+    "description": "The label for category 'Work and operate' in sidebar 'docs'"
   },
   "sidebar.docs.category.Architecture": {
     "message": "Архитектура",

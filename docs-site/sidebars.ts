@@ -4,13 +4,27 @@ const sidebars: SidebarsConfig = {
   docs: [
     {
       type: 'category',
-      label: 'Overview',
+      label: 'Get started',
       collapsible: false,
       items: [
         'index',
         'installation',
         'quickstart',
-        'work-threads-and-context',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Agents and gateways',
+      collapsible: false,
+      items: [
+        {
+          type: 'doc',
+          id: 'agent-runtimes',
+          label: 'Install agent runtimes',
+          key: 'agent-runtimes',
+        },
+        'gateway-integration',
+        'agent-capability-matrix',
         {
           type: 'doc',
           id: 'harness',
@@ -23,20 +37,13 @@ const sidebars: SidebarsConfig = {
           label: 'Agents and multi-agent behavior',
           key: 'agents-and-multi-agent',
         },
-        {
-          type: 'doc',
-          id: 'agent-runtimes',
-          label: 'Install agent runtimes',
-          key: 'agent-runtimes',
-        },
-        'agent-capability-matrix',
       ],
     },
     {
       type: 'category',
-      label: 'Operate',
+      label: 'Work and operate',
       collapsible: false,
-      items: ['operations', 'security', 'gateway-integration'],
+      items: ['work-threads-and-context', 'operations', 'security'],
     },
     {
       type: 'category',
