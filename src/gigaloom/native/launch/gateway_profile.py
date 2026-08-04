@@ -11,7 +11,11 @@ import shutil
 import sys
 
 from gigaloom.contracts.operational_validation import canonical_digest
-from gigaloom.native.launch.gateway_contracts import GatewayMode, GatewayProfileV1
+from gigaloom.native.launch.gateway_contracts import (
+    GatewayMode,
+    GatewayProfileV1,
+    gateway_version_admitted,
+)
 from gigaloom.native.launch.gateway_sidecar import GatewayArtifactEvidenceV1
 
 
@@ -101,21 +105,26 @@ def resolve_installed_gpt2giga_artifact(
         for entry in installed.entry_points
         if entry.group == "console_scripts"
     }
-    verified = (
-        installed.version == profile.version == GPT2GIGA_VERSION
-        and profile.artifact_sha256 == GPT2GIGA_WHEEL_SHA256
-        and installed.read_text("direct_url.json") is None
-        and scripts == {GPT2GIGA_EXECUTABLE: "gpt2giga:run"}
-        and executable is not None
-        and _record_hashes_match(installed)
-    )
+    observed_digest = _verified_record_digest(installed)
+    reason_id: str | None = None
+    if not gateway_version_admitted(installed.version, profile.version_window):
+        reason_id = "gateway_version_outside_supported_window"
+    elif installed.read_text("direct_url.json") is not None:
+        reason_id = "gateway_package_provenance_unverified"
+    elif scripts != {GPT2GIGA_EXECUTABLE: "gpt2giga:run"}:
+        reason_id = "gateway_executable_contract_mismatch"
+    elif executable is None:
+        reason_id = "gateway_executable_unavailable"
+    elif observed_digest is None:
+        reason_id = "gateway_package_record_invalid"
     return GatewayArtifactEvidenceV1(
         distribution=installed.metadata["Name"] or GPT2GIGA_DISTRIBUTION,
         version=installed.version,
-        artifact_sha256=GPT2GIGA_WHEEL_SHA256,
+        artifact_sha256=observed_digest or "0" * 64,
         executable_path=os.fspath(executable) if executable is not None else "",
-        source="locked-registry:pypi/gpt2giga==0.3.0",
-        verified=verified,
+        source=f"registry:pypi/gpt2giga=={installed.version}",
+        verified=reason_id is None,
+        reason_id=reason_id,
     )
 
 
@@ -134,12 +143,12 @@ def _installed_executable(name: str) -> Path | None:
     return None
 
 
-def _record_hashes_match(installed: object) -> bool:
+def _verified_record_digest(installed: object) -> str | None:
     files = getattr(installed, "files", None)
     locate = getattr(installed, "locate_file", None)
     if not files or not callable(locate):
-        return False
-    checked = 0
+        return None
+    records: list[tuple[str, str]] = []
     for item in files:
         recorded = getattr(item, "hash", None)
         if recorded is None:
@@ -148,12 +157,14 @@ def _record_hashes_match(installed: object) -> bool:
             data = Path(locate(item)).read_bytes()
             digest = hashlib.new(recorded.mode, data).digest()
         except (OSError, ValueError):
-            return False
+            return None
         actual = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
         if actual != recorded.value:
-            return False
-        checked += 1
-    return checked > 0
+            return None
+        records.append((recorded.mode, recorded.value))
+    if not records:
+        return None
+    return canonical_digest(sorted(records))
 
 
 __all__ = [

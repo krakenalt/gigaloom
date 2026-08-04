@@ -159,6 +159,7 @@ def _lease(
         startup_config_ref="managed-config:startup.json",
         readiness_confirmed=ready,
         reason=reason,
+        observed_artifact_sha256="8" * 64,
     )
 
 

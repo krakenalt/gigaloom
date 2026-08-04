@@ -256,7 +256,6 @@ def _binding_refusal(
         or receipt.gateway_id != profile.gateway_id
         or receipt.route_id != route.route_id
         or receipt.profile_digest != profile.profile_digest
-        or receipt.artifact_sha256 != profile.artifact_sha256
         or receipt.capability_revision != bridge_route.capability_profile_revision
         or receipt.models_revision != catalog.models_revision
         or receipt.loss_matrix_revision != bridge_route.loss_matrix_revision

@@ -66,6 +66,7 @@ from gigaloom.native.launch.gateway_sidecar import (
     ManagedGatewayLeaseV1,
     ManagedGatewaySidecarService,
     UrlLibGatewayStartupReadinessProbe,
+    gateway_artifact_admitted,
 )
 from gigaloom.native.process import NativeProcessManager
 
@@ -142,7 +143,14 @@ class GatewayLaunchApplication:
         try:
             if self.profile.mode is GatewayMode.MANAGED:
                 if not _artifact_matches(self.profile, artifact):
-                    self._emit_refusal(request, "gateway_artifact_unverified")
+                    self._emit_refusal(
+                        request,
+                        (
+                            artifact.reason_id
+                            if artifact is not None and artifact.reason_id is not None
+                            else "gateway_artifact_unverified"
+                        ),
+                    )
                     return 2
                 assert artifact is not None
                 if self.sidecar is None:
@@ -432,14 +440,7 @@ def _artifact_matches(
     profile: GatewayProfileV1,
     artifact: GatewayArtifactEvidenceV1 | None,
 ) -> bool:
-    return bool(
-        artifact is not None
-        and artifact.verified
-        and artifact.distribution == profile.distribution
-        and artifact.version == profile.version
-        and artifact.artifact_sha256 == profile.artifact_sha256
-        and artifact.executable_path
-    )
+    return gateway_artifact_admitted(profile, artifact)
 
 
 def _preflight_receipt(
@@ -460,13 +461,19 @@ def _preflight_receipt(
         or not lease.readiness_confirmed
         or lease.status
         not in {GatewaySidecarStatus.STARTED, GatewaySidecarStatus.REUSED}
+        or lease.observed_artifact_sha256 != artifact.artifact_sha256
     ):
         raise ValueError("managed gateway preflight is not ready")
+    observed_artifact_sha256 = (
+        artifact.artifact_sha256
+        if profile.mode is GatewayMode.MANAGED and artifact is not None
+        else profile.artifact_sha256
+    )
     binding = {
         "gateway_id": profile.gateway_id,
         "route_id": route.route_id,
         "profile_digest": profile.profile_digest,
-        "artifact_sha256": profile.artifact_sha256,
+        "artifact_sha256": observed_artifact_sha256,
         "capability_revision": route.capability_profile_revision,
         "models_revision": catalog.models_revision,
         "loss_matrix_revision": route.loss_matrix_revision,
@@ -478,7 +485,7 @@ def _preflight_receipt(
         gateway_id=profile.gateway_id,
         route_id=route.route_id,
         profile_digest=profile.profile_digest,
-        artifact_sha256=profile.artifact_sha256,
+        artifact_sha256=observed_artifact_sha256,
         capability_revision=route.capability_profile_revision,
         models_revision=catalog.models_revision,
         loss_matrix_revision=route.loss_matrix_revision,

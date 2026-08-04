@@ -13,7 +13,11 @@ from urllib.parse import urlsplit
 
 from gigaloom.contracts.operational_validation import canonical_json_bytes
 from gigaloom.native.base import NativeCommandPlan
-from gigaloom.native.launch.gateway_contracts import GatewayMode, GatewayProfileV1
+from gigaloom.native.launch.gateway_contracts import (
+    GatewayMode,
+    GatewayProfileV1,
+    gateway_version_admitted,
+)
 from gigaloom.native.launch.gateway_discovery import (
     GatewayMachineTransport,
     UrlLibGatewayMachineTransport,
@@ -66,6 +70,7 @@ class GatewayArtifactEvidenceV1:
     executable_path: str
     source: str
     verified: bool
+    reason_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -80,6 +85,26 @@ class ManagedGatewayLeaseV1:
     startup_config_ref: str | None
     readiness_confirmed: bool
     reason: GatewaySidecarReason | None = None
+    observed_artifact_sha256: str | None = None
+
+
+def gateway_artifact_admitted(
+    profile: GatewayProfileV1,
+    artifact: GatewayArtifactEvidenceV1 | None,
+) -> bool:
+    """Admit verified registry evidence by public version and identity contracts."""
+    return bool(
+        artifact is not None
+        and artifact.verified
+        and artifact.reason_id is None
+        and artifact.distribution == profile.distribution
+        and gateway_version_admitted(artifact.version, profile.version_window)
+        and len(artifact.artifact_sha256) == 64
+        and all(
+            character in "0123456789abcdef" for character in artifact.artifact_sha256
+        )
+        and artifact.executable_path
+    )
 
 
 class GatewayProcessLeaseOwner(Protocol):
@@ -156,7 +181,7 @@ class ManagedGatewaySidecarService:
         self._poll_seconds = min(poll_seconds, startup_timeout_seconds)
         self._monotonic = monotonic
         self._sleeper = sleeper
-        self._leases: dict[tuple[str, str], str] = {}
+        self._leases: dict[tuple[str, str], tuple[str, str]] = {}
 
     def ensure_started(
         self,
@@ -172,8 +197,9 @@ class ManagedGatewaySidecarService:
         if refusal is not None:
             return _blocked(profile, refusal)
         key = (profile.gateway_id, profile.profile_digest)
-        existing_id = self._leases.get(key)
-        if existing_id is not None:
+        existing_lease = self._leases.get(key)
+        if existing_lease is not None:
+            existing_id, observed_digest = existing_lease
             try:
                 existing = self._process_owner.status(existing_id)
             except (KeyError, RuntimeError):
@@ -181,6 +207,7 @@ class ManagedGatewaySidecarService:
             if (
                 existing is not None
                 and existing.status is NativeProcessStatus.RUNNING
+                and observed_digest == artifact.artifact_sha256
                 and self._readiness_probe.startup_ready(profile.base_url)
             ):
                 return _lease(
@@ -189,6 +216,7 @@ class ManagedGatewaySidecarService:
                     existing.id,
                     self._profile_root(profile),
                     readiness_confirmed=True,
+                    observed_artifact_sha256=observed_digest,
                 )
             self._leases.pop(key, None)
             if existing is not None and existing.status is NativeProcessStatus.RUNNING:
@@ -222,7 +250,7 @@ class ManagedGatewaySidecarService:
                 "harness_id": "gpt2giga-gateway",
                 "gateway_id": profile.gateway_id,
                 "profile_digest": profile.profile_digest,
-                "artifact_sha256": profile.artifact_sha256,
+                "artifact_sha256": artifact.artifact_sha256,
                 "startup_config_ref": f"managed-config:{config_path.name}",
                 "managed_sidecar": True,
             },
@@ -235,7 +263,7 @@ class ManagedGatewaySidecarService:
             )
         except (KeyError, NativeProcessStartError, OSError, RuntimeError):
             return _blocked(profile, GatewaySidecarReason.PROCESS_START_FAILED)
-        self._leases[key] = process.id
+        self._leases[key] = (process.id, artifact.artifact_sha256)
         if not self._wait_until_ready(profile.base_url, process.id):
             try:
                 self._process_owner.stop(process.id)
@@ -249,14 +277,16 @@ class ManagedGatewaySidecarService:
             process.id,
             profile_root,
             readiness_confirmed=True,
+            observed_artifact_sha256=artifact.artifact_sha256,
         )
 
     def status(self, profile: GatewayProfileV1) -> ManagedGatewayLeaseV1:
         """Project the current owned lease without starting a process."""
         key = (profile.gateway_id, profile.profile_digest)
-        process_id = self._leases.get(key)
-        if process_id is None:
+        lease_binding = self._leases.get(key)
+        if lease_binding is None:
             return _blocked(profile, GatewaySidecarReason.LEASE_NOT_FOUND)
+        process_id, observed_digest = lease_binding
         try:
             process = self._process_owner.status(process_id)
         except (KeyError, RuntimeError):
@@ -272,6 +302,7 @@ class ManagedGatewaySidecarService:
                 startup_config_ref="managed-config:startup.json",
                 readiness_confirmed=False,
                 reason=GatewaySidecarReason.PROCESS_LOST,
+                observed_artifact_sha256=observed_digest,
             )
         ready = self._readiness_probe.startup_ready(profile.base_url)
         return _lease(
@@ -280,14 +311,16 @@ class ManagedGatewaySidecarService:
             process_id,
             self._profile_root(profile),
             readiness_confirmed=ready,
+            observed_artifact_sha256=observed_digest,
         )
 
     def stop(self, profile: GatewayProfileV1) -> ManagedGatewayLeaseV1:
         """Stop only the process lease owned for this exact profile digest."""
         key = (profile.gateway_id, profile.profile_digest)
-        process_id = self._leases.pop(key, None)
-        if process_id is None:
+        lease_binding = self._leases.pop(key, None)
+        if lease_binding is None:
             return _blocked(profile, GatewaySidecarReason.LEASE_NOT_FOUND)
+        process_id, observed_digest = lease_binding
         try:
             self._process_owner.stop(process_id)
         except (KeyError, RuntimeError):
@@ -300,6 +333,7 @@ class ManagedGatewaySidecarService:
                 startup_config_ref="managed-config:startup.json",
                 readiness_confirmed=False,
                 reason=GatewaySidecarReason.PROCESS_LOST,
+                observed_artifact_sha256=observed_digest,
             )
         return _lease(
             profile,
@@ -307,6 +341,7 @@ class ManagedGatewaySidecarService:
             process_id,
             self._profile_root(profile),
             readiness_confirmed=False,
+            observed_artifact_sha256=observed_digest,
         )
 
     def _profile_root(self, profile: GatewayProfileV1) -> Path:
@@ -373,11 +408,7 @@ def _validate_start_request(
         return GatewaySidecarReason.MANAGED_ENDPOINT_INVALID
     if not artifact.verified:
         return GatewaySidecarReason.ARTIFACT_UNVERIFIED
-    if (
-        artifact.distribution != profile.distribution
-        or artifact.version != profile.version
-        or artifact.artifact_sha256 != profile.artifact_sha256
-    ):
+    if not gateway_artifact_admitted(profile, artifact):
         return GatewaySidecarReason.ARTIFACT_IDENTITY_MISMATCH
     executable = Path(artifact.executable_path)
     try:
@@ -451,6 +482,7 @@ def _lease(
     profile_root: Path,
     *,
     readiness_confirmed: bool,
+    observed_artifact_sha256: str,
 ) -> ManagedGatewayLeaseV1:
     return ManagedGatewayLeaseV1(
         gateway_id=profile.gateway_id,
@@ -460,4 +492,5 @@ def _lease(
         managed_root=os.fspath(profile_root),
         startup_config_ref="managed-config:startup.json",
         readiness_confirmed=readiness_confirmed,
+        observed_artifact_sha256=observed_artifact_sha256,
     )

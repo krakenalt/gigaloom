@@ -290,6 +290,7 @@ class _Sidecar:
     def __init__(self) -> None:
         self.ensure_calls = 0
         self.stop_calls = 0
+        self.observed_artifact_sha256: str | None = None
 
     def ensure_started(
         self,
@@ -300,10 +301,10 @@ class _Sidecar:
         session_id: str,
         run_id: str,
     ) -> ManagedGatewayLeaseV1:
-        del artifact
         assert environment["GIGACHAT_ACCESS_TOKEN"] == "fixture-token"
         assert (session_id, run_id) == ("gateway-launch", "gateway-gpt2giga")
         self.ensure_calls += 1
+        self.observed_artifact_sha256 = cast(Any, artifact).artifact_sha256
         return ManagedGatewayLeaseV1(
             gateway_id=cast(Any, profile).gateway_id,
             profile_digest=cast(Any, profile).profile_digest,
@@ -312,6 +313,7 @@ class _Sidecar:
             managed_root="/managed/gateway",
             startup_config_ref="managed-config:startup.json",
             readiness_confirmed=True,
+            observed_artifact_sha256=self.observed_artifact_sha256,
         )
 
     def stop(self, profile: object) -> ManagedGatewayLeaseV1:
@@ -324,6 +326,7 @@ class _Sidecar:
             managed_root="/managed/gateway",
             startup_config_ref="managed-config:startup.json",
             readiness_confirmed=False,
+            observed_artifact_sha256=self.observed_artifact_sha256,
         )
 
 
