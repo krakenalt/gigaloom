@@ -8,7 +8,7 @@ run native agents while keeping
 worktrees, approvals, evidence, schedules, and stored state under explicit
 local policy.
 
-The current `0.8.1` line is the latest stable GigaLoom release. Begin with
+The current `0.9.0` line is the latest stable GigaLoom release. Begin with
 [Installation](installation.md), then complete the [Quickstart](quickstart.md).
 
 ## Choose a path
@@ -17,6 +17,7 @@ The current `0.8.1` line is the latest stable GigaLoom release. Begin with
 |---|---|
 | Install or upgrade GigaLoom | [Installation](installation.md) |
 | Run the first governed session | [Quickstart](quickstart.md) |
+| Use Work, Thread Relay, schemas, and context evidence | [Work, threads, and context](work-threads-and-context.md) |
 | Install or register a coding-agent runtime | [Agent runtimes](agent-runtimes.md) |
 | Understand components and trust boundaries | [Architecture](architecture.md) |
 | Back up state or troubleshoot a local runtime | [Operations](operations.md) |
@@ -24,7 +25,8 @@ The current `0.8.1` line is the latest stable GigaLoom release. Begin with
 | Connect the optional gpt2giga gateway | [Gateway integration](gateway-integration.md) |
 | Contribute or prepare a release | [Contributing](contributing.md) · [Release](release.md) |
 
-The detailed [Harness reference](harness.md), [agent workflows](agents-and-multi-agent.md),
+The detailed [Harness reference](harness.md),
+[work and context guide](work-threads-and-context.md), [agent workflows](agents-and-multi-agent.md),
 [agent runtime guide](agent-runtimes.md), and
 [capability matrix](agent-capability-matrix.md) cover the wider product surface.
 

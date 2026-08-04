@@ -7,7 +7,7 @@ agents. Provider-native CLI, structured automation и браузерный cockp
 агентов, а worktrees, approvals, evidence, schedules и сохранённое состояние
 остаются под явной локальной политикой.
 
-Линия `0.8.1` — актуальный стабильный релиз GigaLoom. Начните с [Установки](installation.md), затем
+Линия `0.9.0` — актуальный стабильный релиз GigaLoom. Начните с [Установки](installation.md), затем
 пройдите [Быстрый старт](quickstart.md).
 
 ## Выберите путь
@@ -16,6 +16,7 @@ agents. Provider-native CLI, structured automation и браузерный cockp
 |---|---|
 | Установить или обновить GigaLoom | [Установка](installation.md) |
 | Запустить первую управляемую сессию | [Быстрый старт](quickstart.md) |
+| Использовать Work, Thread Relay, schemas и context evidence | [Work, потоки и контекст](work-threads-and-context.md) |
 | Установить или зарегистрировать coding-agent runtime | [Agent runtimes](agent-runtimes.md) |
 | Понять компоненты и trust boundaries | [Архитектура](architecture.md) |
 | Сохранить состояние или устранить проблему | [Операции](operations.md) |
@@ -23,7 +24,8 @@ agents. Provider-native CLI, structured automation и браузерный cockp
 | Подключить необязательный gateway gpt2giga | [Интеграция с gateway](gateway-integration.md) |
 | Внести вклад или подготовить релиз | [Разработка](contributing.md) · [Релиз](release.md) |
 
-Подробный [справочник Harness](harness.md), [agent workflows](agents-and-multi-agent.md),
+Подробный [справочник Harness](harness.md),
+[руководство Work и context](work-threads-and-context.md), [agent workflows](agents-and-multi-agent.md),
 [руководство по agent runtimes](agent-runtimes.md) и
 [матрица возможностей](agent-capability-matrix.md) описывают расширенную
 поверхность продукта.

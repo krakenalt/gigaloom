@@ -49,10 +49,10 @@ def register(
         choices=tuple(item.value for item in ThreadAuthorMode),
         default=ThreadAuthorMode.USER_AUTHORED.value,
     )
-    send.add_argument("--expected-revision", required=True)
+    send.add_argument("--expected-revision", default=None)
     send.add_argument("--active-turn", default=None)
-    send.add_argument("--idempotency-key", required=True)
-    send.add_argument("--expires-at", required=True)
+    send.add_argument("--idempotency-key", default=None)
+    send.add_argument("--expires-at", default=None)
     send.add_argument("--attachment", action="append", default=[])
     send.add_argument("--dry-run", action="store_true")
     send.add_argument("--json", action="store_true")

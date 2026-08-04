@@ -1,13 +1,13 @@
 # GigaLoom 0.9 workflow performance gate
 
-This capture compares the exact Checkpoint I2 revision
-`7143d9bf421765f0207beda7c8abe9a33c4d478b` with the Wave C security revision
+This capture compares the exact integrated baseline revision
+`7143d9bf421765f0207beda7c8abe9a33c4d478b` with the current security revision
 `6a96d3119021eaa28d56c2bf030eb28f2f35d566`. Both runs used the same 20 samples,
 three warmups, lock SHA, CPython 3.13.8 interpreter, machine, content-free
 fixtures and collector. Positive change means faster; tiny sub-millisecond
 gateway deltas are reported but are not treated as optimization claims.
 
-| Workload | I2 p50 ms | I2 p95 ms | Wave C p50 ms | Wave C p95 ms | p50 change | p95 change |
+| Workload | Baseline p50 ms | Baseline p95 ms | Current p50 ms | Current p95 ms | p50 change | p95 change |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Work initial request graph | 4.576 | 4.929 | 4.375 | 4.679 | +4.39% | +5.08% |
 | Run narrative update | 1.028 | 1.063 | 0.994 | 1.088 | +3.27% | -2.38% |
@@ -28,11 +28,11 @@ thread pages; one gateway discovery; three machine-contract reads; one cold
 spawn; zero warm spawns with lease reuse; bounded instruction paths/sources;
 and zero evidence-export network calls. The required UTF-8 p95 regression is
 at most 10%; the measured change is a 0.22% improvement. Work initial p95 is
-5.08% faster than I2.
+5.08% faster than the integrated baseline.
 
-The Wave C capture reports a dirty source tree because the collector and its
+The current capture reports a dirty source tree because the collector and its
 JSON evidence were the uncommitted files under measurement; the product source
-revision is recorded separately and the I2 baseline was clean. No provider,
+revision is recorded separately and the integrated baseline was clean. No provider,
 external network, native home or persistent product state is touched.
 
 Reproduce from a clean repository root with a prepared locked environment:

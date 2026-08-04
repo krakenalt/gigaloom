@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import pytest
 
 from gigaloom.cli_commands.commands import thread_relay as thread_commands
 from gigaloom.cli_commands.handlers.thread_relay import ThreadRelayCommandHandlers
@@ -36,7 +37,13 @@ class _Actions:
         limit: int,
     ):
         self.calls.append(("read", (source, thread_id, cursor, limit)))
-        return {"thread": {"thread_id": thread_id, "messages": []}}
+        return {
+            "thread": {
+                "thread_id": thread_id,
+                "updated_at": "2026-08-04T12:00:00+00:00",
+                "messages": [],
+            }
+        }
 
     def list_deliveries(
         self,
@@ -137,6 +144,53 @@ def test_cli_dry_run_json_previews_without_mutation_or_content_echo(
     assert payload["preview"]["preview_digest"] == PREVIEW_DIGEST
     assert "secret delivery text" not in json.dumps(payload)
     assert [name for name, _ in actions.calls] == ["preview"]
+
+
+def test_cli_short_dry_run_derives_preview_only_delivery_guards(
+    tmp_path: Path, capsys
+) -> None:
+    actions = _Actions()
+    handlers = ThreadRelayCommandHandlers(actions)
+    args = _parser().parse_args(
+        [
+            "session",
+            "send",
+            "thread-1",
+            "--text",
+            "review failing tests",
+            "--dry-run",
+            "--json",
+        ]
+    )
+
+    assert handlers.send(args, HarnessConfig(data_dir=tmp_path)) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["dry_run"] is True
+    assert [name for name, _ in actions.calls] == ["read", "preview"]
+    request = actions.calls[1][1]
+    assert request["expected_target_revision"] == "2026-08-04T12:00:00+00:00"
+    assert request["idempotency_key"] == "thread-relay-dry-run"
+    assert request["expires_at"]
+
+
+def test_cli_real_send_requires_explicit_delivery_guards(tmp_path: Path) -> None:
+    actions = _Actions()
+    handlers = ThreadRelayCommandHandlers(actions)
+    args = _parser().parse_args(
+        ["session", "send", "thread-1", "--text", "review failing tests"]
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "thread relay send requires --expected-revision, "
+            "--idempotency-key, and --expires-at"
+        ),
+    ):
+        handlers.send(args, HarnessConfig(data_dir=tmp_path))
+
+    assert actions.calls == []
 
 
 def test_cli_send_previews_before_delivery_and_exposes_other_actions(

@@ -17,6 +17,16 @@ The participant chooses the output file and controls any later sharing. Support
 does not request native-agent homes, raw transcripts, captured traffic, or
 credentials as a condition of participation.
 
+Export is a local, explicit command:
+
+```sh
+giga evidence product-beta --project PROJECT_ID --output report.json
+```
+
+A successful export means only that the selected file was written. It does not
+upload the report, call a provider, validate a remote account, or enroll the
+project in future collection.
+
 ## Cohort and metric definitions
 
 The pilot cohort is the explicitly opted-in set of projects running the pinned

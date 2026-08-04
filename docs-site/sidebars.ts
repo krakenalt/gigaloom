@@ -10,6 +10,7 @@ const sidebars: SidebarsConfig = {
         'index',
         'installation',
         'quickstart',
+        'work-threads-and-context',
         {
           type: 'doc',
           id: 'harness',

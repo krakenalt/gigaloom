@@ -18,6 +18,16 @@ filesystem timestamps.
 распространение. Поддержка не требует native-agent homes, сырые transcripts,
 captured traffic или credentials как условие участия.
 
+Экспорт выполняется локальной явной командой:
+
+```sh
+giga evidence product-beta --project PROJECT_ID --output report.json
+```
+
+Успешный экспорт означает только запись выбранного файла. Он не загружает
+отчёт, не вызывает provider, не проверяет remote account и не включает проект в
+будущий сбор.
+
 ## Cohort и определения метрик
 
 Pilot cohort — явно согласованный набор проектов на закреплённом candidate

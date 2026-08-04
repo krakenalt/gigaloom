@@ -15,11 +15,12 @@ combines provider-native `giga <agent>` commands and a browser cockpit for gover
 sessions, approvals, worktrees, schedules, evaluations, and multi-agent
 workflows.
 
-GigaLoom 0.8 builds on the first stable 0.7 release with native-agent profiles,
-an ACP registry, reviewed app installation, and deterministic headless
-execution. It keeps user state local, redacts sensitive values at storage and
-UI boundaries, and fails closed when an action needs authority that has not
-been granted.
+GigaLoom 0.9 adds a work-first `Project -> Thread -> Run -> Evidence -> Action`
+journey, bounded Thread Relay, editor schemas, encoding-safe attachments,
+read-only Effective Instructions, local product evidence, and exact
+agent-to-`gpt2giga` launch routes. It keeps user state local, redacts sensitive
+values at storage and UI boundaries, and fails closed when authority or
+compatibility evidence is incomplete.
 
 Use it to:
 
@@ -28,6 +29,8 @@ Use it to:
 - isolate work in project-bound worktrees while retaining approvals, receipts,
   evaluations, and replayable evidence;
 - add reviewed MCP apps and ACP agents through digest-bound installation plans;
+- inspect and address supported threads without copying provider-private state;
+- launch one reviewed gateway route without editing a provider-native home;
 - automate headless runs through a deterministic JSONL contract and optional
   adapters without granting ambient credentials or workspace authority.
 
@@ -38,7 +41,7 @@ terminals additionally use `tmux` on Linux and macOS; systems without it keep
 provider-native passthrough.
 
 ```sh
-uv tool install 'gigaloom==0.8.1'
+uv tool install 'gigaloom==0.9.0'
 giga doctor
 giga --version
 ```
@@ -59,6 +62,14 @@ giga gemini -p "review this repository"
 giga pi
 ```
 
+Launch Codex through the reviewed `gpt2giga 0.3` route, or preview a Thread
+Relay delivery without provider traffic:
+
+```sh
+giga --with gpt2giga --model GigaChat-2-Max codex
+giga session send THREAD_ID --text "review failing tests" --dry-run --json
+```
+
 See [Installation](./docs/installation.md) and
 [Quickstart](./docs/quickstart.md) for the complete first-run flow.
 
@@ -68,6 +79,7 @@ See [Installation](./docs/installation.md) and
 |---|---|
 | Product overview | [Documentation home](./docs/index.md) |
 | Installation, upgrades, and first run | [Installation](./docs/installation.md) · [Quickstart](./docs/quickstart.md) |
+| Work, Thread Relay, schemas, and context | [Work, threads, and context](./docs/work-threads-and-context.md) |
 | Architecture and safety boundaries | [Architecture](./docs/architecture.md) · [Durability and performance](./docs/architecture/durability-performance-contracts.md) · [Security](./docs/security.md) |
 | Runtime, backup, and troubleshooting | [Operations](./docs/operations.md) |
 | Optional gpt2giga gateway | [Gateway integration](./docs/gateway-integration.md) |
@@ -85,13 +97,14 @@ not require a gateway source checkout. Direct Chat and the legacy local-gateway
 preset are optional:
 
 ```sh
-uv tool install 'gigaloom[gpt2giga]==0.8.1'
+uv tool install 'gigaloom[gpt2giga]==0.9.0'
 ```
 
 The optional extra consumes the released `gpt2giga` distribution. Its
 normalized protocol and compatibility contracts remain owned by the
 [gpt2giga gateway project](https://github.com/ai-forever/gpt2giga); see the
-[integration guide](./docs/gateway-integration.md) for canonical links.
+[integration guide](./docs/gateway-integration.md) for exact routes, reviewed
+client windows, support status, and canonical links.
 
 ## Development
 

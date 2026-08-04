@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Mapping
@@ -45,7 +46,7 @@ class ThreadRelayCommandHandlers:
         return 0
 
     def send(self, args: argparse.Namespace, _config: HarnessConfig) -> int:
-        request = _send_request(args)
+        request = _send_request(args, self.actions)
         preview = validated_preview(self.actions.preview_send(request))
         if args.dry_run:
             _print(
@@ -71,7 +72,33 @@ class ThreadRelayCommandHandlers:
         return 0
 
 
-def _send_request(args: argparse.Namespace) -> dict[str, Any]:
+def _send_request(
+    args: argparse.Namespace,
+    actions: ThreadRelayRouteActions,
+) -> dict[str, Any]:
+    expected_revision = args.expected_revision
+    idempotency_key = args.idempotency_key
+    expires_at = args.expires_at
+    if not args.dry_run and (
+        expected_revision is None or idempotency_key is None or expires_at is None
+    ):
+        raise ValueError(
+            "thread relay send requires --expected-revision, "
+            "--idempotency-key, and --expires-at"
+        )
+    if args.dry_run:
+        if expected_revision is None:
+            thread = actions.read_thread(
+                source=args.source,
+                thread_id=args.thread_id,
+                cursor=None,
+                limit=1,
+            )
+            expected_revision = _thread_revision(thread)
+        if idempotency_key is None:
+            idempotency_key = "thread-relay-dry-run"
+        if expires_at is None:
+            expires_at = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
     return {
         "source": args.source,
         "source_thread_id": args.source_thread_id,
@@ -79,12 +106,22 @@ def _send_request(args: argparse.Namespace) -> dict[str, Any]:
         "text": args.text,
         "intent": args.intent,
         "author_mode": args.author_mode,
-        "expected_target_revision": args.expected_revision,
+        "expected_target_revision": expected_revision,
         "expected_active_turn_id": args.active_turn,
-        "idempotency_key": args.idempotency_key,
-        "expires_at": args.expires_at,
+        "idempotency_key": idempotency_key,
+        "expires_at": expires_at,
         "attachment_refs": list(args.attachment),
     }
+
+
+def _thread_revision(payload: Mapping[str, Any]) -> str:
+    thread = payload.get("thread")
+    if not isinstance(thread, Mapping):
+        raise ValueError("thread relay dry-run could not read the target revision")
+    revision = thread.get("updated_at")
+    if not isinstance(revision, str) or not revision.strip():
+        raise ValueError("thread relay dry-run target revision is unavailable")
+    return revision
 
 
 def _actions(
