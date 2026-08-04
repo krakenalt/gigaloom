@@ -217,6 +217,8 @@
 .attachment-file-copy > span:first-child { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 7px; background: var(--surface); color: var(--accent); }
 .attachment-file-copy > span:last-child { min-width: 0; display: grid; gap: 2px; }
 .attachment-file-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.attachment-encoding-evidence { max-width: 100%; overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.attachment-encoding-evidence.rejected { color: var(--danger); white-space: normal; overflow-wrap: anywhere; }
 .attachment-remove { position: absolute; top: 5px; right: 5px; z-index: 2; width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--surface) 92%, transparent); padding: 0; color: var(--text); box-shadow: 0 2px 8px #080c1238; backdrop-filter: blur(8px); }
 .attachment-remove:hover { border-color: var(--accent); color: var(--accent); }
 .attachment-lightbox { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; background: #080b10d9; padding: clamp(12px, 3vw, 32px); backdrop-filter: blur(8px); }
@@ -356,7 +358,10 @@
   .advanced-composer-panel { max-height: 310px; }
   .plus-menu { width: 220px; }
   .run-readiness { display: none; }
-  .mobile-environment { display: block; margin: 0 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 12px; }
+  .mobile-environment { display: block; margin: 0 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+  .mobile-environment > summary { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; padding: 10px 12px; font-size: 11px; }
+  .mobile-environment > summary span { color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+  .mobile-environment-card { border-top: 1px solid var(--border); padding: 12px; }
   .mobile-environment .plan-fields > div { grid-template-columns: minmax(76px, .7fr) minmax(0, 1.3fr); }
   .mobile-environment .environment-commit-form > div { grid-template-columns: 1fr; }
 }

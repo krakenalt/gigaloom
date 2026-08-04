@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SessionOverviewResponse } from "./api";
 import {
   cancelRequestScope,
+  effectiveInstructionsOptions,
   operatorEvidenceOptions,
   operatorInboxOptions,
   operatorTerminalOptions,
@@ -46,6 +47,7 @@ describe("Cockpit request graph", () => {
       approvals: requestKeys.approvals(),
       attention: requestKeys.attention(),
       environment: requestKeys.environment("session-one"),
+      effectiveInstructions: requestKeys.effectiveInstructions("/workspace/one"),
       harnesses: requestKeys.harnesses(),
       models: requestKeys.models("v2"),
       operatorEvidence: requestKeys.operatorEvidence("run-one", "workspace-one"),
@@ -80,6 +82,11 @@ describe("Cockpit request graph", () => {
       approvals: ["cockpit", "approvals"],
       attention: ["cockpit", "attention"],
       environment: ["cockpit", "session", "session-one", "environment"],
+      effectiveInstructions: [
+        "cockpit",
+        "effective-instructions",
+        "/workspace/one",
+      ],
       harnesses: ["cockpit", "harnesses"],
       models: ["cockpit", "models", "v2"],
       operatorEvidence: [
@@ -158,6 +165,27 @@ describe("Cockpit request graph", () => {
       }),
     );
     await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+  });
+
+  it("defers a bounded Effective Instructions read to the exact workspace", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({
+        cursor: 0,
+        effective_instructions: { launch_ready: true },
+        next_cursor: null,
+        sources: [],
+      })),
+    );
+    const client = queryClient();
+
+    await client.fetchQuery(effectiveInstructionsOptions("/workspace one"));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/project/effective-instructions?workspace=%2Fworkspace+one&limit=50",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
   });
 
   it("binds operator evidence reads to the selected run and workspace", async () => {

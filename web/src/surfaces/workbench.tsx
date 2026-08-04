@@ -1,8 +1,4 @@
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { Fragment, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
@@ -24,6 +20,7 @@ import {
 } from "../features/workbench/attachment-actions";
 import { useComposerController } from "../features/workbench/composer-controller";
 import { useReviewedRouteBinding } from "../features/work-first/ReviewedRouteControls";
+import { EffectiveInstructionsForWorkspace } from "../features/work-first/EffectiveInstructionsSummary";
 import {
   CompletionNotices,
   isActiveRunStatus,
@@ -31,6 +28,7 @@ import {
 } from "../features/workbench/completion-notifications";
 import {
   EnvironmentCard,
+  MobileEnvironmentDisclosure,
   useEnvironmentActions,
 } from "../features/workbench/environment-actions";
 import { useDeferredWorkbenchProjection } from "../features/workbench/lazy-projections";
@@ -1126,15 +1124,10 @@ export function WorkbenchSurface() {
                 </button>
               </div>
             </header>
-            <EnvironmentCard
-              className="mobile-environment"
-              commitAction={environmentActions.commitAction}
-              pushAction={environmentActions.pushAction}
-              pullRequestAction={environmentActions.pullRequestAction}
+            <MobileEnvironmentDisclosure
+              actions={environmentActions}
               environment={environmentView}
-              error={environment.isError}
-              locale={locale}
-              pending={environment.isPending}
+              error={environment.isError} locale={locale} pending={environment.isPending}
             />
             <section
               className="message-region"
@@ -1637,6 +1630,11 @@ export function WorkbenchSurface() {
                   <p className="runtime-owned-copy">{message(locale, "streamRuntimeOwned")}</p>
                 </section>
               ) : null}
+              <EffectiveInstructionsForWorkspace
+                locale={locale}
+                pending={environment.isPending}
+                workspace={environment.data?.environment.worktree_root}
+              />
               {reviewedRoute.controls}
               <div className="composer-footer">
                 <div className="composer-footer-left">

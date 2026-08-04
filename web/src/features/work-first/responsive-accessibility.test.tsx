@@ -15,6 +15,9 @@ import { WorkRouteSubmissionHeader } from "./WorkRouteSubmission";
 const featureCss = source("./work-first.css");
 const globalLayoutCss = source("../../shared/styles/layout.css");
 const globalResetCss = source("../../shared/styles/reset.css");
+const workbenchCss = source("../workbench/workbench.css");
+const environmentActions = source("../workbench/environment-actions.tsx");
+const workbenchSurface = source("../../surfaces/workbench.tsx");
 const requestFreeComponents = [
   "./AutomationsDestination.tsx",
   "./DestinationFrame.tsx",
@@ -187,6 +190,10 @@ describe("work-first responsive and accessibility contract", () => {
     expect(featureCss).toContain("overflow-wrap: anywhere");
     expect(globalResetCss).toContain("button:focus-visible, a:focus-visible");
     expect(globalLayoutCss).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(workbenchCss).toContain(".mobile-environment > summary");
+    expect(environmentActions).toContain('<details className="mobile-environment">');
+    expect(workbenchSurface).toContain("<MobileEnvironmentDisclosure");
+    expect(workbenchSurface).toContain("<EffectiveInstructionsForWorkspace");
   });
 
   it("keeps the feature request graph empty until integrator wiring", () => {

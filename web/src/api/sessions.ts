@@ -91,6 +91,15 @@ export interface AttachmentSummary {
   size_bytes: number;
   url?: string;
   warnings?: string[];
+  charset_evidence?: {
+    charset?: string | null;
+    confidence_class?: string | null;
+    bom_present?: boolean;
+    truncated?: boolean;
+    replacement_count?: number;
+    failure_reason?: string | null;
+    source_digest?: string;
+  };
 }
 
 export interface AttachmentsResponse {

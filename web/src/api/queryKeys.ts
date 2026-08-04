@@ -27,6 +27,8 @@ export const requestKeys = {
   attention: () => [...rootKey, "attention"] as const,
   environment: (sessionId: string) =>
     [...requestKeys.sessionScope(sessionId), "environment"] as const,
+  effectiveInstructions: (workspace: string) =>
+    [...rootKey, "effective-instructions", workspace] as const,
   runScope: (runId: string) => [...rootKey, "run", runId] as const,
   runOverview: (runId: string) =>
     [...requestKeys.runScope(runId), "overview"] as const,

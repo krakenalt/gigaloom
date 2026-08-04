@@ -1005,6 +1005,103 @@
   color: var(--danger);
 }
 
+.effective-instructions-summary {
+  display: grid;
+  gap: 7px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-muted) 38%, var(--surface));
+  padding: 9px 12px;
+  font-size: 10px;
+}
+
+.effective-instructions-summary > header,
+.effective-instructions-summary > footer {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.effective-instructions-summary > header > span:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.effective-instructions-summary > header small,
+.effective-instructions-summary > footer,
+.effective-instructions-summary .muted-copy {
+  color: var(--muted);
+}
+
+.effective-instructions-state {
+  flex: none;
+  max-width: 42%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 7px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.effective-instructions-summary[data-state="ready"] .effective-instructions-state {
+  border-color: color-mix(in srgb, var(--success) 45%, var(--border));
+  color: var(--success);
+}
+
+.effective-instructions-summary[data-state="review"] .effective-instructions-state,
+.effective-instructions-warning {
+  color: var(--warning);
+}
+
+.effective-instructions-summary dl {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  margin: 0;
+}
+
+.effective-instructions-summary dl div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 5px 6px;
+}
+
+.effective-instructions-summary dt {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.effective-instructions-summary dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.effective-instructions-summary > footer {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  font-size: 9px;
+}
+
+.effective-instructions-summary code {
+  overflow-wrap: anywhere;
+}
+
+.effective-instructions-warning,
+.effective-instructions-summary .error-state,
+.effective-instructions-summary .muted-copy {
+  margin: 0;
+}
+
 @media (max-width: 760px) {
   .work-first-destination {
     height: calc(100dvh - 68px - env(safe-area-inset-bottom, 0px));
@@ -1071,5 +1168,9 @@
   .thread-relationship-status {
     grid-column: 2;
     justify-items: start;
+  }
+
+  .effective-instructions-summary dl {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
