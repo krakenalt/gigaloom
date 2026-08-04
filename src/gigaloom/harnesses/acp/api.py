@@ -26,6 +26,12 @@ from gigaloom.harnesses.acp.permissions import (
     respond_permission,
 )
 from gigaloom.harnesses.acp.process import pin_acp_process
+from gigaloom.harnesses.acp.providers import (
+    AcpProviderV1,
+    configure_provider,
+    disable_provider,
+    list_providers,
+)
 from gigaloom.harnesses.acp.prompts import (
     AcpPromptHandle,
     AcpPromptResultV1,
@@ -51,6 +57,7 @@ __all__ = [
     "AcpClientInfo",
     "AcpLimits",
     "AcpProcessSpec",
+    "AcpProviderV1",
     "AcpProbeReceiptV1",
     "AcpPromptHandle",
     "AcpPromptResultV1",
@@ -63,8 +70,11 @@ __all__ = [
     "begin_prompt",
     "cancel_session",
     "close_session",
+    "configure_provider",
     "create_acp_client",
     "delete_session",
+    "disable_provider",
+    "list_providers",
     "list_sessions",
     "logout",
     "load_session",

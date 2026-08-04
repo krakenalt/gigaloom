@@ -133,6 +133,12 @@ def _feature_matrix(
         unsupported.append(
             CapabilityLoss("authentication", "unsupported", "not_advertised")
         )
+    if isinstance(agent.get("providers"), Mapping):
+        negotiated.append(NegotiatedFeature("provider_configuration"))
+    else:
+        unsupported.append(
+            CapabilityLoss("provider_configuration", "unsupported", "not_advertised")
+        )
     return tuple(negotiated), tuple(unsupported)
 
 
@@ -170,7 +176,7 @@ def _stable_capabilities(value: Mapping[str, Any]) -> dict[str, JsonValue]:
     return {
         str(key): _stable_json(item)
         for key, item in sorted(value.items())
-        if key not in {"_meta", "nes", "positionEncoding", "providers"}
+        if key not in {"_meta", "nes", "positionEncoding"}
     }
 
 
