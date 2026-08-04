@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { RelayPreview } from "./RelayPreview";
 import { RouteModelBadge } from "./RouteModelBadge";
+import { RouteModelPicker } from "./RouteModelPicker";
 import { ThreadNavigation } from "./ThreadNavigation";
 import { WorkDestination } from "./WorkDestination";
 
@@ -20,6 +21,7 @@ const requestFreeComponents = [
   "./MoreDestination.tsx",
   "./RelayPreview.tsx",
   "./RouteModelBadge.tsx",
+  "./RouteModelPicker.tsx",
   "./RunNarrative.tsx",
   "./ThreadNavigation.tsx",
   "./WorkDestination.tsx",
@@ -87,6 +89,37 @@ describe("work-first responsive and accessibility contract", () => {
     expect(markup).toContain("Active turn changed");
     expect(markup).toContain("Confirm steer");
     expect(markup).toContain("disabled=\"\"");
+  });
+
+  it("uses a native fieldset and radio group for route selection", () => {
+    const markup = renderToStaticMarkup(
+      <RouteModelPicker
+        catalog={{
+          reason_ids: [],
+          routes: [{
+            agent_id: "codex",
+            capability_profile_revision: "capability-v1",
+            client_protocol: "openai_responses",
+            gateway_display_name: "gpt2giga",
+            gateway_profile_id: "gpt2giga",
+            loss_matrix_revision: "loss-v1",
+            public_model_alias: "GigaChat-2-Max",
+            reason_ids: [],
+            route_id: "route-max",
+            support_status: "stable",
+            upstream_model: "GigaChat-2-Max",
+            upstream_provider: "gigachat",
+          }],
+          status: "current",
+        }}
+        onSelect={() => undefined}
+        selectedRouteId="route-max"
+      />,
+    );
+
+    expect(markup).toContain("<fieldset");
+    expect(markup).toContain("type=\"radio\"");
+    expect(markup).toContain("data-support-status=\"stable\"");
   });
 
   it("freezes mobile, safe-area, focus, and reduced-motion safeguards", () => {

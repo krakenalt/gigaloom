@@ -291,6 +291,139 @@
   color: var(--danger);
 }
 
+.route-model-picker {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.route-model-picker legend {
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.route-picker-groups,
+.route-picker-group,
+.route-picker-options {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.route-picker-group > header {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 10px;
+}
+
+.route-picker-group > header strong,
+.route-picker-group > header span {
+  overflow-wrap: anywhere;
+}
+
+.route-picker-group > header strong {
+  font-size: 11px;
+}
+
+.route-picker-group > header span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.route-picker-option {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--success);
+  border-radius: 8px;
+  padding: 9px;
+  cursor: pointer;
+}
+
+.route-picker-option:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.route-picker-option:has(input:checked) {
+  background: var(--accent-soft);
+}
+
+.route-picker-option:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.route-picker-option[data-support-status="technical_preview"] {
+  border-left-color: var(--warning);
+}
+
+.route-picker-option[data-support-status="blocked"],
+.route-picker-option[data-support-status="vendor_unsupported"] {
+  border-left-color: var(--danger);
+}
+
+.route-picker-option-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.route-picker-option-copy > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.route-picker-option-copy > strong {
+  font-size: 11px;
+}
+
+.route-picker-option-copy > span,
+.route-picker-option-copy > code,
+.route-picker-option-copy > small,
+.route-picker-support,
+.route-catalog-warning,
+.route-picker-empty {
+  font-size: 9px;
+}
+
+.route-picker-option-copy > span,
+.route-picker-option-copy > code,
+.route-picker-option-copy > small,
+.route-picker-empty {
+  color: var(--muted);
+}
+
+.route-loss-warning,
+.route-catalog-warning {
+  color: var(--warning);
+}
+
+.route-picker-support {
+  border-radius: 999px;
+  background: var(--surface-muted);
+  padding: 4px 7px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.route-catalog-warning,
+.route-picker-empty {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .thread-navigation {
   min-width: 0;
   display: grid;
