@@ -1,0 +1,27 @@
+{
+  "schema_version": "gigaloom.workflow-0.9-performance-budgets.v1",
+  "deterministic": {
+    "attachment_max_replacement_count": 0,
+    "attachment_max_truncated": 0,
+    "gateway_cold_max_process_spawns": 1,
+    "gateway_cold_required_started": 1,
+    "gateway_preflight_max_discovery_calls": 1,
+    "gateway_preflight_required_ready": 1,
+    "gateway_route_discovery_max_transport_calls": 3,
+    "gateway_route_discovery_required_routes": 1,
+    "gateway_warm_max_process_spawns": 0,
+    "gateway_warm_required_reused": 1,
+    "instruction_max_scanned_paths": 20000,
+    "instruction_max_sources": 256,
+    "local_evidence_max_network_calls": 0,
+    "narrative_update_max_projected_nodes": 200,
+    "narrative_update_max_requests": 1,
+    "thread_list_max_items": 50,
+    "thread_read_max_messages": 50,
+    "work_initial_max_requests": 6
+  },
+  "relative": {
+    "utf8_p95_max_regression_pct": 10.0,
+    "work_initial_p95_max_fraction_of_i2": 1.0
+  }
+}
