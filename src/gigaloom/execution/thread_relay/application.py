@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Any, cast, Protocol
 
 from gigaloom.contracts.operational_validation import canonical_digest
 from gigaloom.execution.thread_relay.projections import (
@@ -32,6 +32,19 @@ from gigaloom.sessions.api import (
 
 
 Clock = Callable[[], datetime]
+
+
+class ThreadRelayApprovalVerifierPort(Protocol):
+    """Verify a content-free user approval at the durable action boundary."""
+
+    def verify(
+        self,
+        receipt_ref: str,
+        *,
+        actor_scope: str,
+        project_id: str,
+        preview_digest: str,
+    ) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,12 +82,14 @@ class GigaLoomThreadRelayActions:
         session_store: ThreadSessionStorePort,
         delivery_repository: ThreadDeliveryRepository,
         turn_submitter: ThreadTurnSubmissionPort,
+        approval_verifier: ThreadRelayApprovalVerifierPort | None = None,
         clock: Clock | None = None,
     ) -> None:
         self.scope = scope
         self.session_store = session_store
         self.delivery_repository = delivery_repository
         self.turn_submitter = turn_submitter
+        self.approval_verifier = approval_verifier
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.projector = GigaLoomThreadProjector(
             actor_scope=scope.actor_scope,
@@ -122,7 +137,22 @@ class GigaLoomThreadRelayActions:
         return {"thread": thread_read_projection_to_dict(projection)}
 
     def preview_send(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
-        envelope, relay = self._delivery(payload)
+        return self._preview(payload, allow_agent_approved=False)
+
+    def preview_agent_send(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Preview an agent proposal after a dedicated approval surface binds it."""
+        return self._preview(payload, allow_agent_approved=True)
+
+    def _preview(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        allow_agent_approved: bool,
+    ) -> Mapping[str, Any]:
+        envelope, relay = self._delivery(
+            payload,
+            allow_agent_approved=allow_agent_approved,
+        )
         preview = relay.preview(envelope, now=self._now())
         facts = {
             "envelope_digest": preview.envelope_digest,
@@ -140,12 +170,59 @@ class GigaLoomThreadRelayActions:
         *,
         preview_digest: str,
     ) -> Mapping[str, Any]:
-        current = self.preview_send(payload)
+        return self._send(
+            payload,
+            preview_digest=preview_digest,
+            allow_agent_approved=False,
+        )
+
+    def send_agent_approved(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        preview_digest: str,
+        approval_receipt_ref: str,
+    ) -> Mapping[str, Any]:
+        """Deliver an agent proposal already admitted by the tool approval owner."""
+        verifier = self.approval_verifier
+        if verifier is None:
+            raise ThreadRelayUnsupportedError(
+                "agent-proposed relay approval verifier is unavailable"
+            )
+        if not verifier.verify(
+            approval_receipt_ref,
+            actor_scope=self.scope.actor_scope,
+            project_id=self.scope.project_id,
+            preview_digest=preview_digest,
+        ):
+            raise ThreadRelayAuthorizationError(
+                "agent-proposed relay approval receipt is not valid"
+            )
+        return self._send(
+            payload,
+            preview_digest=preview_digest,
+            allow_agent_approved=True,
+        )
+
+    def _send(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        preview_digest: str,
+        allow_agent_approved: bool,
+    ) -> Mapping[str, Any]:
+        current = self._preview(
+            payload,
+            allow_agent_approved=allow_agent_approved,
+        )
         if current["preview_digest"] != preview_digest:
             raise ThreadRelayAuthorizationError(
                 "thread relay preview changed; review the delivery again"
             )
-        envelope, relay = self._delivery(payload)
+        envelope, relay = self._delivery(
+            payload,
+            allow_agent_approved=allow_agent_approved,
+        )
         outcome = relay.deliver(envelope, now=self._now())
         return {
             "receipt": thread_delivery_receipt_to_dict(outcome.record.receipt),
@@ -169,12 +246,17 @@ class GigaLoomThreadRelayActions:
     def _delivery(
         self,
         payload: Mapping[str, Any],
+        *,
+        allow_agent_approved: bool,
     ) -> tuple[ThreadMessageEnvelopeV1, GigaLoomStructuredThreadRelay]:
         self._require_gigaloom_source(str(payload.get("source") or "gigaloom"))
         author_mode = ThreadAuthorMode(
             str(payload.get("author_mode") or ThreadAuthorMode.USER_AUTHORED.value)
         )
-        if author_mode is not ThreadAuthorMode.USER_AUTHORED:
+        if (
+            author_mode is not ThreadAuthorMode.USER_AUTHORED
+            and not allow_agent_approved
+        ):
             raise ThreadRelayUnsupportedError(
                 "agent-proposed relay requires the dedicated approval surface"
             )
@@ -244,6 +326,7 @@ def build_thread_relay_actions(
     session_store: ThreadSessionStorePort,
     data_dir: str,
     turn_submitter: ThreadTurnSubmissionPort,
+    approval_verifier: ThreadRelayApprovalVerifierPort | None = None,
 ) -> GigaLoomThreadRelayActions:
     """Construct production actions without introducing another state owner."""
     return GigaLoomThreadRelayActions(
@@ -251,6 +334,7 @@ def build_thread_relay_actions(
         session_store=session_store,
         delivery_repository=ThreadDeliveryRepository(data_dir),
         turn_submitter=turn_submitter,
+        approval_verifier=approval_verifier,
     )
 
 
@@ -293,6 +377,7 @@ def _timestamp(value: object) -> datetime:
 
 __all__ = [
     "GigaLoomThreadRelayActions",
+    "ThreadRelayApprovalVerifierPort",
     "ThreadRelayScopeV1",
     "build_thread_relay_actions",
 ]

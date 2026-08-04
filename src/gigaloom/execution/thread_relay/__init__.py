@@ -10,6 +10,7 @@ from gigaloom.execution.thread_relay.actions import (
 )
 from gigaloom.execution.thread_relay.application import (
     GigaLoomThreadRelayActions,
+    ThreadRelayApprovalVerifierPort,
     ThreadRelayScopeV1,
     build_thread_relay_actions,
 )
@@ -76,6 +77,7 @@ __all__ = [
     "ThreadProviderOperation",
     "ThreadProviderReadResultV1",
     "ThreadRelayAuthorizationError",
+    "ThreadRelayApprovalVerifierPort",
     "ThreadRelayError",
     "ThreadRelayRouteActions",
     "ThreadRelayScopeV1",
