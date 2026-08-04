@@ -14,9 +14,11 @@ from gigaloom.contracts import AgentActivationV1
 from gigaloom.contracts.operational_validation import validate_identity
 from gigaloom.harnesses.agent_profiles.installations import (
     AgentInstallCancelled,
+    AgentRuntimeReadiness,
     AgentRuntimeService,
     InstallCancellationToken,
     InstallPlanningResult,
+    project_agent_runtime_readiness,
 )
 from gigaloom.harnesses.agent_profiles.installations.filesystem import (
     atomic_write_json,
@@ -231,6 +233,19 @@ class AgentInstallationWebService:
 
     def probe(self, local_agent_id: str) -> ManagedAcpProbeReceipt:
         return self._runtime.probe(local_agent_id)
+
+    def readiness(
+        self,
+        local_agent_id: str,
+        *,
+        probe: ManagedAcpProbeReceipt | None = None,
+    ) -> AgentRuntimeReadiness:
+        """Project current or freshly observed readiness through the shared owner."""
+        record = self._runtime.inspect(local_agent_id)
+        return project_agent_runtime_readiness(
+            probe or record.probe,
+            active=record.active,
+        )
 
     def activate(
         self, local_agent_id: str, install_id: str | None, *, confirmed: bool

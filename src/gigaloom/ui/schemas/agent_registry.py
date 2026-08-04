@@ -34,6 +34,20 @@ class AgentRegistryEntryResponse(BaseModel):
     distributions: list[AgentDistributionResponse] = Field(max_length=32)
 
 
+class AgentRuntimeReadinessResponse(BaseModel):
+    schema_version: Literal[1] = 1
+    status: Literal["ready", "native-only", "reprobe", "blocked"]
+    acp_transport: Literal["ready", "blocked"]
+    provider_bridge: Literal["ready", "native-only", "reprobe", "blocked"]
+    protocols: list[str] = Field(max_length=32)
+    gateway_availability: Literal["available", "unsupported", "reprobe", "blocked"]
+    native_launch_available: bool
+    reason_ids: list[str] = Field(max_length=32)
+    action: Literal[
+        "select_gateway_route", "use_native", "reprobe", "activate", "inspect"
+    ]
+
+
 class InstalledAgentResponse(BaseModel):
     local_agent_id: Identity
     registry_id: Identity
@@ -45,6 +59,7 @@ class InstalledAgentResponse(BaseModel):
     probe_state: str
     auth_required: bool
     update_available: bool
+    readiness: AgentRuntimeReadinessResponse
 
 
 class LocalManifestResponse(BaseModel):
@@ -170,6 +185,7 @@ class AgentProbeResponse(BaseModel):
     warnings: list[str] = Field(max_length=128)
     native_home_isolated: bool
     network_policy: str
+    readiness: AgentRuntimeReadinessResponse
     content_free: Literal[True]
 
 
@@ -229,6 +245,7 @@ __all__ = [
     "AgentProbeResponse",
     "AgentRecoveryResponse",
     "AgentRegistryInventoryResponse",
+    "AgentRuntimeReadinessResponse",
     "AgentRemoveResponse",
     "AgentRollbackResponse",
     "AgentUpdateStartRequest",
