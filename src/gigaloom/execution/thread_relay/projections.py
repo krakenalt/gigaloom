@@ -248,7 +248,10 @@ class GigaLoomThreadProjector:
 
     def bound_session(self, session_id: str) -> HarnessSession:
         """Load one session only when its persisted scope remains current."""
-        session = self.session_store.get_session(session_id)
+        try:
+            session = self.session_store.get_session(session_id)
+        except KeyError as error:
+            raise ThreadRelayTargetStateError("thread target is unavailable") from error
         if session.archived:
             raise ThreadRelayTargetStateError("thread target is archived")
         if _session_project_id(session) != self.project_id:

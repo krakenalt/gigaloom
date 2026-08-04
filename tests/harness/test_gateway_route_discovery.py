@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from gigaloom.native.api import (
     GatewayDiscoveryReason,
     GatewayDiscoveryStatus,
@@ -12,6 +14,7 @@ from gigaloom.native.api import (
     GatewayProfileV1,
     GatewayRouteDiscovery,
     GatewaySupportStatus,
+    UrlLibGatewayMachineTransport,
 )
 
 
@@ -179,3 +182,75 @@ def test_unknown_capability_schema_fails_closed_without_routes() -> None:
     result = GatewayRouteDiscovery(Drifted()).discover(_profile())
     assert result.status is GatewayDiscoveryStatus.UNKNOWN
     assert result.reason_ids == (GatewayDiscoveryReason.CONTRACT_REVISION_MISMATCH,)
+
+
+@pytest.mark.parametrize("api_key", ("line\r\nx-injected: yes", "x" * 4097))
+def test_machine_transport_rejects_header_key_injection(api_key: str) -> None:
+    with pytest.raises(ValueError, match="gateway API key is invalid"):
+        UrlLibGatewayMachineTransport(api_key)
+
+
+def test_alias_collision_and_provider_model_mismatch_fail_without_fallback() -> None:
+    class AliasCollision(FakeTransport):
+        def get_json(
+            self,
+            base_url: str,
+            path: str,
+            *,
+            timeout_seconds: float,
+        ) -> tuple[int, object]:
+            status, payload = super().get_json(
+                base_url,
+                path,
+                timeout_seconds=timeout_seconds,
+            )
+            if path == "/models":
+                assert isinstance(payload, dict)
+                payload = {
+                    **payload,
+                    "data": [
+                        payload["data"][0],
+                        {
+                            "id": "GigaChat 2 Max",
+                            "object": "model",
+                            "owned_by": "sber",
+                        },
+                    ],
+                }
+            return status, payload
+
+    collision = GatewayRouteDiscovery(AliasCollision()).discover(_profile())
+    assert collision.status is GatewayDiscoveryStatus.UNKNOWN
+    assert collision.reason_ids == (GatewayDiscoveryReason.CONTRACT_INVALID,)
+
+    class ProviderMismatch(FakeTransport):
+        def get_json(
+            self,
+            base_url: str,
+            path: str,
+            *,
+            timeout_seconds: float,
+        ) -> tuple[int, object]:
+            status, payload = super().get_json(
+                base_url,
+                path,
+                timeout_seconds=timeout_seconds,
+            )
+            if path == "/models":
+                assert isinstance(payload, dict)
+                model = payload["data"][0]
+                assert isinstance(model, dict)
+                payload = {
+                    **payload,
+                    "data": [{**model, "owned_by": "anthropic"}],
+                }
+            return status, payload
+
+    mismatch = GatewayRouteDiscovery(ProviderMismatch()).discover(_profile())
+    assert mismatch.status is GatewayDiscoveryStatus.CURRENT
+    assert mismatch.catalog is not None
+    assert len(mismatch.catalog.routes) == 1
+    route = mismatch.catalog.routes[0]
+    assert route.upstream_provider == "anthropic"
+    assert route.support_status is GatewaySupportStatus.BLOCKED
+    assert route.reason_ids == ("provider_not_supported",)

@@ -281,6 +281,34 @@ def test_delivery_rechecks_target_revision_and_scope_before_persistence(
     )
 
 
+def test_archived_or_deleted_target_is_denied_before_delivery_persistence(
+    tmp_path,
+) -> None:
+    service, store, repository, submitter, _, _ = _service(tmp_path)
+    archived = _session(store, "Archived target")
+    archived_envelope = _envelope(archived.id, archived.updated_at)
+    store.update_session(archived.id, archived=True)
+
+    with pytest.raises(ThreadRelayTargetStateError, match="archived"):
+        service.deliver(archived_envelope, now=NOW)
+
+    deleted = _session(store, "Deleted target")
+    deleted_envelope = _envelope(deleted.id, deleted.updated_at, index=2)
+    store.delete_session(deleted.id)
+
+    with pytest.raises(ThreadRelayTargetStateError, match="unavailable"):
+        service.deliver(deleted_envelope, now=NOW)
+
+    assert submitter.calls == []
+    for target in (archived, deleted):
+        assert (
+            repository.list_for_thread(
+                _locator(target.id), direction="incoming", limit=10
+            ).items
+            == ()
+        )
+
+
 def test_steer_requires_exact_active_turn_and_records_provenance(tmp_path) -> None:
     service, store, repository, _, _, steerer = _service(tmp_path, with_steer=True)
     target = _session(store, "Active target")

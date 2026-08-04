@@ -79,6 +79,7 @@ class ThreadDeliveryPreview:
     intent: ThreadDeliveryIntent
     expires_at: datetime
     redacted: bool
+    attachment_omissions: tuple[Mapping[str, str], ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +145,7 @@ class GigaLoomStructuredThreadRelay:
             intent=envelope.intent,
             expires_at=envelope.expires_at,
             redacted=redacted,
+            attachment_omissions=_attachment_omissions(envelope.attachment_refs),
         )
 
     def deliver(
@@ -290,6 +292,9 @@ class GigaLoomStructuredThreadRelay:
             "author_mode": envelope.author_mode.value,
             "content_digest": record.receipt.content_digest,
             "attachment_refs": list(envelope.attachment_refs),
+            "attachment_omissions": list(
+                _attachment_omissions(envelope.attachment_refs)
+            ),
         }
         submission = self.turn_submitter.submit_turn(
             session.id,
@@ -384,3 +389,17 @@ def _submission_identities(value: object) -> tuple[str, str, str]:
             "thread turn submitter returned incomplete durable identities"
         )
     return cast(tuple[str, str, str], identities)
+
+
+def _attachment_omissions(
+    attachment_refs: tuple[str, ...],
+) -> tuple[Mapping[str, str], ...]:
+    """Make unsupported attachment transfer explicit without reading content."""
+    return tuple(
+        {
+            "attachment_ref": attachment_ref,
+            "reason_id": "attachment_transfer_unavailable",
+            "status": "not_transferred",
+        }
+        for attachment_ref in attachment_refs
+    )

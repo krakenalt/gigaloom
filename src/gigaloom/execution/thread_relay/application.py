@@ -199,6 +199,7 @@ class GigaLoomThreadRelayActions:
             "intent": preview.intent.value,
             "expires_at": preview.expires_at.isoformat(),
             "redacted": preview.redacted,
+            "attachment_omissions": list(preview.attachment_omissions),
         }
         return {"preview_digest": canonical_digest(facts), **facts}
 

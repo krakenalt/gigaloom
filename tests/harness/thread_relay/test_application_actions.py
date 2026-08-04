@@ -110,6 +110,7 @@ def test_actions_list_preview_deliver_and_report_without_content_echo(tmp_path) 
     )
     request = _request(target.id, target.updated_at)
     request["source_thread_id"] = source.id
+    request["attachment_refs"] = ["attachment-ref-1"]
 
     listed = actions.list_threads(source="gigaloom", cursor=None, limit=10)
     preview = actions.preview_send(request)
@@ -137,6 +138,13 @@ def test_actions_list_preview_deliver_and_report_without_content_echo(tmp_path) 
     }
     assert len(preview["preview_digest"]) == 64
     assert "super-secret" not in repr(preview)
+    assert preview["attachment_omissions"] == [
+        {
+            "attachment_ref": "attachment-ref-1",
+            "reason_id": "attachment_transfer_unavailable",
+            "status": "not_transferred",
+        }
+    ]
     assert receipt["status"] == "completed"
     assert status["receipt"]["delivery_id"] == receipt["delivery_id"]
     assert incoming["items"][0]["receipt"]["delivery_id"] == receipt["delivery_id"]
@@ -145,6 +153,10 @@ def test_actions_list_preview_deliver_and_report_without_content_echo(tmp_path) 
     assert "text" not in repr(outgoing)
     assert len(submitter.calls) == 1
     assert submitter.calls[0][1]["prompt"] == "Please review token=<redacted>"
+    assert (
+        submitter.calls[0][1]["extra"]["thread_relay"]["attachment_omissions"]
+        == preview["attachment_omissions"]
+    )
 
 
 def test_legacy_local_actor_fallback_never_admits_remote_actor(tmp_path) -> None:

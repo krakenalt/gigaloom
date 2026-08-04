@@ -26,6 +26,7 @@ MAX_GATEWAY_DISCOVERY_BYTES = 1_048_576
 MAX_GATEWAY_DISCOVERY_MODELS = 512
 MAX_GATEWAY_DISCOVERY_CELLS = 512
 DEFAULT_GATEWAY_DISCOVERY_TTL_SECONDS = 60
+MAX_GATEWAY_API_KEY_CHARS = 4096
 _PROTOCOL_AGENTS = {
     "openai_responses": "codex",
     "anthropic_messages": "claude",
@@ -115,6 +116,11 @@ class UrlLibGatewayMachineTransport:
     """Bounded JSON GET transport with redirects disabled."""
 
     def __init__(self, api_key: str | None = None) -> None:
+        if api_key is not None and (
+            len(api_key) > MAX_GATEWAY_API_KEY_CHARS
+            or any(character in api_key for character in ("\r", "\n", "\x00"))
+        ):
+            raise ValueError("gateway API key is invalid")
         self._api_key = api_key
 
     def get_json(
