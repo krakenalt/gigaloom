@@ -16,17 +16,14 @@ from gigaloom.attachments import FilesystemAttachmentStore
 from gigaloom.config import HarnessConfig
 from gigaloom.diagnostics.api import RecoveryReceiptService
 from gigaloom.environment_actions import (
-    EnvironmentCommitError,
     EnvironmentCommitService,
     GovernedEnvironmentCommitService,
 )
 from gigaloom.environment_pull_requests import (
-    EnvironmentPullRequestError,
     EnvironmentPullRequestService,
     GovernedEnvironmentPullRequestService,
 )
 from gigaloom.environment_push import (
-    EnvironmentPushError,
     EnvironmentPushService,
     GovernedEnvironmentPushService,
 )
@@ -102,6 +99,12 @@ from gigaloom.ui.services.context_impact import (
     ImpactProjectionService,
 )
 from gigaloom.ui.services.credentials import CredentialOperatorService
+from gigaloom.ui.services.environment_actions import (
+    optional_commit_service,
+    optional_pull_request_service,
+    optional_push_service,
+)
+from gigaloom.ui.services.gateway_routes import GatewayRouteWebService
 from gigaloom.ui.services.legacy_bundles import (
     LegacyFullBundleCompatibility,
 )
@@ -111,6 +114,7 @@ from gigaloom.ui.services.operator_arena import ReviewedArenaOwner
 from gigaloom.ui.services.operator_terminal import TerminalBrowserOwner
 from gigaloom.ui.services.project_catalog import ProjectCatalogWebService
 from gigaloom.ui.services.route_advisor import RouteAdvisorWebService
+from gigaloom.ui.services.thread_relay import ThreadRelayComposition
 from gigaloom.ui.services.run_capsules import (
     OperatorEvidenceObservedInputsProvider,
     RunCapsuleEvidenceQuery,
@@ -192,6 +196,8 @@ class AppServices:
     agent_runtimes: AgentRuntimeWebBundle
     project_catalog_service: ProjectCatalogWebService
     route_advisor_service: RouteAdvisorWebService
+    gateway_route_service: GatewayRouteWebService
+    thread_relay: ThreadRelayComposition
     mcp_app_host_service: MCPAppHostService
     run_capsule_evidence_query: RunCapsuleEvidenceQuery
     reviewed_arena_owner: ReviewedArenaOwner | None = None
@@ -335,13 +341,11 @@ def build_app_services(
     github_environment_service = (
         github_environment_service or GitHubEnvironmentService()
     )
-    environment_commit_service = _environment_commit_service(
+    environment_commit_service = optional_commit_service(
         config, environment_commit_service
     )
-    environment_push_service = _environment_push_service(
-        config, environment_push_service
-    )
-    environment_pull_request_service = _environment_pull_request_service(
+    environment_push_service = optional_push_service(config, environment_push_service)
+    environment_pull_request_service = optional_pull_request_service(
         config, environment_pull_request_service
     )
     grouped_integration_service = (
@@ -450,6 +454,12 @@ def build_app_services(
     )
     visual_evidence_root = Path(config.data_dir) / "automation" / "visual-qa-v1"
     credential_broker = InMemoryCredentialBroker("gigaloom-fake-broker-v1")
+    thread_relay = ThreadRelayComposition(
+        session_store=session_store,
+        data_dir=str(config.data_dir),
+        turn_submitter=session_service,
+        runtime_store=runtime_store,
+    )
     return AppServices(
         config=config,
         ui_security=HarnessUISecurity(config, oidc_client=remote_oidc_client),
@@ -557,44 +567,10 @@ def build_app_services(
         agent_runtimes=agent_runtimes,
         project_catalog_service=project_catalog_service,
         route_advisor_service=route_advisor_service,
+        gateway_route_service=GatewayRouteWebService.from_config(config),
+        thread_relay=thread_relay,
         mcp_app_host_service=MCPAppHostService(),
         run_capsule_evidence_query=capsule_evidence_query,
         reviewed_arena_owner=reviewed_arena_owner,
         terminal_browser_owner=terminal_browser_owner,
     )
-
-
-def _environment_commit_service(
-    config: HarnessConfig,
-    service: EnvironmentCommitService | None,
-) -> EnvironmentCommitService | None:
-    if service is not None:
-        return service
-    try:
-        return EnvironmentCommitService(config.data_dir)
-    except EnvironmentCommitError:
-        return None
-
-
-def _environment_push_service(
-    config: HarnessConfig,
-    service: EnvironmentPushService | None,
-) -> EnvironmentPushService | None:
-    if service is not None:
-        return service
-    try:
-        return EnvironmentPushService(config.data_dir)
-    except EnvironmentPushError:
-        return None
-
-
-def _environment_pull_request_service(
-    config: HarnessConfig,
-    service: EnvironmentPullRequestService | None,
-) -> EnvironmentPullRequestService | None:
-    if service is not None:
-        return service
-    try:
-        return EnvironmentPullRequestService(config.data_dir)
-    except EnvironmentPullRequestError:
-        return None

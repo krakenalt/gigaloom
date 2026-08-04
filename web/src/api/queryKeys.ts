@@ -20,6 +20,7 @@ export const requestKeys = {
   models: (apiMode: string) => [...rootKey, "models", apiMode] as const,
   settings: () => [...rootKey, "settings"] as const,
   providers: () => [...rootKey, "providers"] as const,
+  gatewayRoutes: () => [...rootKey, "gateway-routes"] as const,
   providerAccounts: () => [...rootKey, "provider-accounts"] as const,
   runsCenter: () => [...rootKey, "runs-center"] as const,
   approvals: () => [...rootKey, "approvals"] as const,

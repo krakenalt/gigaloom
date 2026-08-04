@@ -16,6 +16,7 @@ from gigaloom.cli_commands.commands import (
     integrations,
     operations,
     provider,
+    product_evidence,
     reliability,
     route_advisor,
     system,
@@ -70,4 +71,5 @@ def build_parser() -> argparse.ArgumentParser:
     harness.register(subparsers, common)
     route_advisor.register(subparsers, common)
     capsules.register(subparsers)
+    product_evidence.register(subparsers, common)
     return parser

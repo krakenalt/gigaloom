@@ -37,52 +37,34 @@ export function PrimaryRailIcon({ surface }: PrimaryRailIconProps) {
           <path d="M12 2.75v3M12 18.25v3M2.75 12h3M18.25 12h3M5.46 5.46l2.12 2.12M16.42 16.42l2.12 2.12M18.54 5.46l-2.12 2.12M7.58 16.42l-2.12 2.12" />
         </svg>
       );
-    case "runs":
+    case "inbox":
       return (
-        <svg {...common} data-icon="runs">
-          <circle cx="12" cy="12" r="8.25" />
-          <path className="rail-icon-accent" d="m10.25 8.75 5 3.25-5 3.25V8.75Z" />
-          <path d="M3.75 8.25h2.1M2.75 12h2.1M3.75 15.75h2.1" />
+        <svg {...common} data-icon="inbox">
+          <path d="M4 4.5h16v15H4z" />
+          <path className="rail-icon-accent" d="M4 14h4l2 2h4l2-2h4" />
         </svg>
       );
-    case "projects":
+    case "library":
       return (
-        <svg {...common} data-icon="projects">
-          <path d="M3.5 6.5h6l1.75 2h9.25v9H3.5v-11Z" />
-          <path className="rail-icon-accent" d="M3.5 9h17" />
+        <svg {...common} data-icon="library">
+          <path d="M4 4h5v16H4zM10.5 4h4v16h-4zM16 5l3.5-1 3 15-3.5 1z" />
         </svg>
       );
-    case "coding-agents":
+    case "more":
       return (
-        <svg {...common} data-icon="coding-agents">
-          <rect x="4" y="5" width="16" height="14" rx="3" />
-          <path d="M8 10h.01M16 10h.01M8.5 15h7M12 2.75V5" />
+        <svg {...common} data-icon="more">
+          <circle cx="5" cy="12" r="1.5" />
+          <circle cx="12" cy="12" r="1.5" />
+          <circle cx="19" cy="12" r="1.5" />
         </svg>
       );
-    case "automation":
+    case "automations":
       return (
         <svg {...common} data-icon="automation">
           <circle cx="6" cy="5" r="2" />
           <circle cx="18" cy="8" r="2" />
           <circle cx="18" cy="18" r="2" />
           <path d="M8 5h2a3 3 0 0 1 3 3v7a3 3 0 0 0 3 3M13 10a3 3 0 0 1 3-2" />
-        </svg>
-      );
-    case "evaluation":
-      return (
-        <svg {...common} data-icon="evaluation">
-          <rect x="3.5" y="5" width="6.5" height="14" rx="2" />
-          <rect x="14" y="5" width="6.5" height="14" rx="2" />
-          <path d="M6 12h1.5M16.5 9.5H18M16.5 12.5H18M6.25 15.25l1 1 1.75-2" />
-        </svg>
-      );
-    case "integrations":
-      return (
-        <svg {...common} data-icon="integrations">
-          <circle cx="12" cy="4.5" r="2.25" />
-          <circle cx="5.25" cy="17.25" r="2.25" />
-          <circle cx="18.75" cy="17.25" r="2.25" />
-          <path d="m10.8 6.5-4.3 8.6M13.2 6.5l4.3 8.6M7.5 17.25h9" />
         </svg>
       );
   }

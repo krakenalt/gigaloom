@@ -123,6 +123,7 @@ _GATEWAY_HANDLERS = frozenset(
     }
 )
 _SCHEMA_HANDLERS = frozenset({"_handle_schema_list", "_handle_schema_export"})
+_PRODUCT_EVIDENCE_HANDLERS = frozenset({"_handle_product_beta_evidence"})
 
 
 def resolve_handler(name: str) -> CommandHandler:
@@ -164,6 +165,8 @@ def resolve_handler(name: str) -> CommandHandler:
         module_name = "gigaloom.cli_commands.handlers.gateway"
     elif name in _SCHEMA_HANDLERS:
         module_name = "gigaloom.automation.schemas.cli"
+    elif name in _PRODUCT_EVIDENCE_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.product_evidence"
     elif name == "_handle_run_command":
         module_name = "gigaloom.cli_commands.handlers.runs"
     else:

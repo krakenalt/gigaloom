@@ -1,0 +1,39 @@
+{
+  "cases": [
+    {
+      "case_id": "claude-anthropic-gigachat",
+      "expectation_digest": "0c6badff29c4bf0a3ab2089c68ac7cb95f6051917383a1d93d84379c5336b601",
+      "request_digest": "c82f516abd75bd84ffce400545f87b25865eddfddd9adf8ef6ed96ff6cbf69cb",
+      "required_capabilities": ["anthropic_messages", "gateway_route"],
+      "required_gates": ["acknowledgement_bound", "artifact_verified", "route_preflight_ready"],
+      "schema_version": 1
+    },
+    {
+      "case_id": "codex-responses-gigachat",
+      "expectation_digest": "8e64c860c3b98f81332dd32b5f1e7ca84f26b2bc5d649c9fab3912389624222f",
+      "request_digest": "468a3d6f33ca9dc88a81fb52c5ab79a599706796076125184dd3dfc4858aefd7",
+      "required_capabilities": ["gateway_route", "openai_responses"],
+      "required_gates": ["artifact_verified", "response_valid", "route_preflight_ready"],
+      "schema_version": 1
+    },
+    {
+      "case_id": "gemini-native-custom-endpoint-blocked",
+      "expectation_digest": "89629edc95994c7a60cfdcb9b2f7a886bc354f71004653d4ce6313d4ab2c6266",
+      "request_digest": "6686faed21696584ba4a8cba9a8d708559c2ad1389cc8a8cdcd13178b1f937d9",
+      "required_capabilities": ["truthful_block"],
+      "required_gates": ["no_process_spawn", "no_provider_traffic"],
+      "schema_version": 1
+    },
+    {
+      "case_id": "managed-acp-model-selector",
+      "expectation_digest": "921f0e074d5db56092681f4256090bf0a46dbde3009248b5c449e2572d55f491",
+      "request_digest": "2900a33b8cc65e70fc4303918f24e634e2ca9433be85c8487e7ddcc784d52638",
+      "required_capabilities": ["acp", "gateway_route"],
+      "required_gates": ["artifact_verified", "selector_advertised", "session_actions_valid"],
+      "schema_version": 1
+    }
+  ],
+  "corpus_id": "agent-gateway-launch",
+  "schema_version": 1,
+  "sealed_digest": "845a2b8b822a72200d21d8adc2a4003c187c7cc69e96b7174068ea6e15d5438b"
+}

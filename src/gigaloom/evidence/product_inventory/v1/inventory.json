@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "9d6ccb514273c6b1373870764c03f1d6ccf04194cb5132eaea611696e6536b71",
+  "content_sha256": "e928ae36272911d7c0071b262193588e9abc28348b418b659bdbeef8e30b21c4",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -1447,6 +1447,11 @@
       },
       {
         "method": "GET",
+        "name": "product_beta_report",
+        "path": "/api/evidence/product-beta"
+      },
+      {
+        "method": "GET",
         "name": "generated_file",
         "path": "/api/files/generated/{run_key}/{filename}"
       },
@@ -1454,6 +1459,16 @@
         "method": "GET",
         "name": "preview_file",
         "path": "/api/files/preview"
+      },
+      {
+        "method": "GET",
+        "name": "gateway_routes",
+        "path": "/api/gateway/routes"
+      },
+      {
+        "method": "POST",
+        "name": "gateway_route_preflight",
+        "path": "/api/gateway/routes/{route_id}/preflight"
       },
       {
         "method": "GET",
@@ -2262,6 +2277,36 @@
       },
       {
         "method": "POST",
+        "name": "send_delivery",
+        "path": "/api/thread-relay/deliveries"
+      },
+      {
+        "method": "POST",
+        "name": "preview_delivery",
+        "path": "/api/thread-relay/deliveries/preview"
+      },
+      {
+        "method": "GET",
+        "name": "delivery_status",
+        "path": "/api/thread-relay/deliveries/{delivery_id}"
+      },
+      {
+        "method": "GET",
+        "name": "list_threads",
+        "path": "/api/thread-relay/threads"
+      },
+      {
+        "method": "GET",
+        "name": "read_thread",
+        "path": "/api/thread-relay/threads/{source}/{thread_id}"
+      },
+      {
+        "method": "GET",
+        "name": "list_deliveries",
+        "path": "/api/thread-relay/threads/{source}/{thread_id}/deliveries"
+      },
+      {
+        "method": "POST",
         "name": "apply_tool_config",
         "path": "/api/tool-config/apply"
       },
@@ -2479,6 +2524,8 @@
       "eval list",
       "eval run",
       "eval visual",
+      "evidence",
+      "evidence product-beta",
       "gateway",
       "gateway doctor",
       "gateway inspect",

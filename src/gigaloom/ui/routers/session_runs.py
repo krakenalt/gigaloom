@@ -37,6 +37,7 @@ def create_router(services: AppServices) -> APIRouter:
     async def _start_headless_run(
         session_id: str, payload: Mapping[str, Any]
     ) -> HarnessRun:
+        payload = services.gateway_route_service.bind_submission(payload)
         if services.job_dispatcher is not None:
             idempotency_key = str(
                 payload.get("idempotency_key") or f"ui_{new_id('submit')}"
@@ -137,7 +138,9 @@ def create_router(services: AppServices) -> APIRouter:
     @router.bounded_job.post("/api/sessions/run")
     def create_session_and_run(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
         try:
-            result = services.session_service.create_and_run(payload)
+            result = services.session_service.create_and_run(
+                services.gateway_route_service.bind_submission(payload)
+            )
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Unknown harness") from exc
         except ProviderAccountSessionError as exc:
@@ -151,7 +154,10 @@ def create_router(services: AppServices) -> APIRouter:
         session_id: str, payload: dict[str, Any] = Body(...)
     ) -> dict[str, Any]:
         try:
-            result = services.session_service.run_turn(session_id, payload)
+            result = services.session_service.run_turn(
+                session_id,
+                services.gateway_route_service.bind_submission(payload),
+            )
         except SessionNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Session not found") from exc
         except KeyError as exc:

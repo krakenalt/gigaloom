@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from gigaloom.contracts.operational_validation import canonical_digest
+from gigaloom.diagnostics.upgrade_radar import load_named_sealed_corpus
 from gigaloom.native.launch.gateway_profile import (
     GPT2GIGA_CAPABILITIES_CONTRACT_REVISION,
     GPT2GIGA_DISTRIBUTION,
@@ -158,3 +160,35 @@ def test_corpus_contains_no_credentials_or_executable_authority() -> None:
     assert "access_token" not in serialized
     assert "api_key_value" not in serialized
     assert all(len(case["selection"]) <= 8 for case in corpus["cases"])
+
+
+def test_upgrade_radar_corpus_is_sealed_to_exact_gateway_launch_revisions() -> None:
+    launch = _load(CORPUS_PATH)
+    radar = load_named_sealed_corpus("agent-gateway-launch")
+    radar_cases = {item.case_id: item for item in radar.cases}
+
+    assert radar.sealed_digest == (
+        "845a2b8b822a72200d21d8adc2a4003c187c7cc69e96b7174068ea6e15d5438b"
+    )
+    assert set(radar_cases) == {item["case_id"] for item in launch["cases"]}
+    for item in launch["cases"]:
+        case = radar_cases[item["case_id"]]
+        assert case.request_digest == canonical_digest(
+            {
+                "selection": item["selection"],
+                "agent_version_window": item.get("agent_version_window"),
+                "gateway_client_version_window": item.get(
+                    "gateway_client_version_window"
+                ),
+            }
+        )
+        assert case.expectation_digest == canonical_digest(
+            {
+                "artifact": launch["artifact"],
+                "contracts": launch["contracts"],
+                "effective_support_status": item["effective_support_status"],
+                "expected_adapter": item["expected_adapter"],
+                "reason_ids": item.get("reason_ids", []),
+                "required_acknowledgement": item.get("required_acknowledgement"),
+            }
+        )

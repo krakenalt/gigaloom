@@ -14,6 +14,12 @@ from gigaloom.diagnostics.upgrade_radar.contracts import (
 
 MAX_SEALED_CORPUS_BYTES = 64 * 1024
 _NAMED_CORPORA = {
+    "agent-gateway-launch": (
+        "evidence",
+        "upgrade_radar",
+        "v1",
+        "agent-gateway-launch.json",
+    ),
     "sealed-smoke": ("evidence", "upgrade_radar", "v1", "sealed-smoke.json"),
 }
 

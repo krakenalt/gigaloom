@@ -114,6 +114,9 @@ class GatewayDiscoveryResult:
 class UrlLibGatewayMachineTransport:
     """Bounded JSON GET transport with redirects disabled."""
 
+    def __init__(self, api_key: str | None = None) -> None:
+        self._api_key = api_key
+
     def get_json(
         self,
         base_url: str,
@@ -123,9 +126,17 @@ class UrlLibGatewayMachineTransport:
     ) -> tuple[int, object]:
         if path not in {"/health", "/models", "/bridge/capabilities"}:
             raise ValueError("gateway discovery path is not admitted")
+        headers = {"accept": "application/json"}
+        if self._api_key and self._api_key != "0":
+            headers.update(
+                {
+                    "authorization": f"Bearer {self._api_key}",
+                    "x-api-key": self._api_key,
+                }
+            )
         request = Request(
             urljoin(base_url.rstrip("/") + "/", path.lstrip("/")),
-            headers={"accept": "application/json"},
+            headers=headers,
             method="GET",
         )
         opener = build_opener(_NoRedirectHandler())

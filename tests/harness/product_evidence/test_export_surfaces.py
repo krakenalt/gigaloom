@@ -10,6 +10,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from gigaloom.cli_commands.commands.product_evidence import register
+from gigaloom.cli_commands.parser import build_parser
+from gigaloom.cli_commands.registry import resolve_handler
 from gigaloom.cli_commands.handlers.product_evidence import (
     _handle_product_beta_evidence,
 )
@@ -66,6 +68,22 @@ def test_route_local_cli_parser_matches_canonical_command() -> None:
     assert args.handler == "_handle_product_beta_evidence"
     assert args.project_id == "project-1"
     assert args.output == "report.json"
+
+
+def test_root_cli_composes_product_evidence_parser_and_lazy_handler() -> None:
+    args = build_parser().parse_args(
+        [
+            "evidence",
+            "product-beta",
+            "--project",
+            "project-1",
+            "--output",
+            "report.json",
+        ]
+    )
+
+    assert args.handler == "_handle_product_beta_evidence"
+    assert resolve_handler(args.handler) is _handle_product_beta_evidence
 
 
 def test_route_local_cli_handler_writes_only_explicit_output(

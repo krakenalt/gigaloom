@@ -13,6 +13,7 @@
     "config",
     "doctor",
     "eval",
+    "evidence",
     "gateway",
     "handoff",
     "harness",

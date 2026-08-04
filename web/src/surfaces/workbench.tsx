@@ -23,6 +23,7 @@ import {
   useAttachmentActions,
 } from "../features/workbench/attachment-actions";
 import { useComposerController } from "../features/workbench/composer-controller";
+import { useReviewedRouteBinding } from "../features/work-first/ReviewedRouteControls";
 import {
   CompletionNotices,
   isActiveRunStatus,
@@ -137,12 +138,10 @@ import {
   type WorkbenchKind,
 } from "../workbench-execution";
 import { permissionSimulationRows } from "../approval-ux";
-
 const layoutKey = "gpt2giga.web.workbench-layout.v1";
 type StartResult =
   | { kind: "preview"; report: RunPreflightResponse["preflight"] }
   | { kind: "run"; run: RunStartResponse["run"] };
-
 const builtinToolLabels: Record<string, string> = {
   code_interpreter: "Code interpreter",
   image_generate: "Image generation",
@@ -158,7 +157,6 @@ const toolCategoryMessageKeys: Record<ComposerToolCategory, MessageKey> = {
   skill: "toolCategorySkill",
 };
 const emptyStringList: readonly string[] = [];
-
 type ProviderHandoffPreview = {
   handoff: {
     command: string[];
@@ -166,7 +164,6 @@ type ProviderHandoffPreview = {
     status: string;
   };
 };
-
 export function WorkbenchSurface() {
   const params = useParams({ strict: false });
   const routeSearch = useSearch({ strict: false });
@@ -231,6 +228,7 @@ export function WorkbenchSurface() {
     setPrompt,
   });
   const [previewReport, setPreviewReport] = useState<RunPreflightResponse["preflight"] | null>(null);
+  const reviewedRoute = useReviewedRouteBinding();
   const messageAction = useMessageActions({
     clearPreview: () => setPreviewReport(null),
     composerRef,
@@ -527,16 +525,17 @@ export function WorkbenchSurface() {
         workspace: session.workspace_bound ? undefined : ".",
         workspace_policy: advancedConfig.workspacePolicy,
       };
+      const submissionPayload = reviewedRoute.bindPayload(payload);
       if (advancedConfig.dryRun) {
         const response = await mutateCockpit<RunPreflightResponse>("/api/preflight/run", {
-          ...payload,
+          ...submissionPayload,
           dry_run: true,
         });
         return { kind: "preview", report: response.preflight };
       }
       const response = await mutateCockpit<RunStartResponse>(
         `/api/sessions/${encodeURIComponent(sessionId)}/run/start`,
-        payload,
+        submissionPayload,
       );
       return { kind: "run", run: response.run };
     },
@@ -1638,6 +1637,7 @@ export function WorkbenchSurface() {
                   <p className="runtime-owned-copy">{message(locale, "streamRuntimeOwned")}</p>
                 </section>
               ) : null}
+              {reviewedRoute.controls}
               <div className="composer-footer">
                 <div className="composer-footer-left">
                   <div className="composer-controls" aria-label={message(locale, "runConfiguration")}>
@@ -1804,7 +1804,7 @@ export function WorkbenchSurface() {
                     {message(locale, "cancelRun")}
                   </button>
                 ) : (
-                  <button className="primary-button" disabled={!prompt.trim() || startRun.isPending} type="submit">
+                  <button className="primary-button" disabled={!prompt.trim() || startRun.isPending || reviewedRoute.pending} type="submit">
                     {message(locale, advancedConfig.dryRun ? "previewExecution" : "runTask")}
                   </button>
                 )}

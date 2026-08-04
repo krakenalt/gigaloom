@@ -8,25 +8,19 @@ import { validateOperationalSearch } from "./operational-navigation";
 describe("Cockpit V2 route contract", () => {
   it("keeps the accepted native-agent gateway surface order", () => {
     expect(primarySurfaces.map((surface) => surface.label)).toEqual([
-      "Workbench",
-      "Runs",
-      "Projects",
-      "Coding Agents",
-      "Automation",
-      "Evaluation",
-      "Plugins",
+      "Work", "Inbox", "Automations", "Library", "More",
     ]);
   });
 
   it("maps exact and deep links without claiming unknown routes", () => {
     expect(surfaceForPath("/web/work/session_123")).toBe("work");
-    expect(surfaceForPath("/web/projects/routes/route_123")).toBe("projects");
-    expect(surfaceForPath("/web/coding-agents")).toBe("coding-agents");
-    expect(surfaceForPath("/web/runs/run_123/")).toBe("runs");
-    expect(surfaceForPath("/web/automation/workflows")).toBe("automation");
-    expect(surfaceForPath("/web/evaluation/baselines")).toBe("evaluation");
-    expect(surfaceForPath("/web/plugins/skills")).toBe("integrations");
-    expect(surfaceForPath("/web/integrations/doctor")).toBe("integrations");
+    expect(surfaceForPath("/web/projects/routes/route_123")).toBe("more");
+    expect(surfaceForPath("/web/coding-agents")).toBe("more");
+    expect(surfaceForPath("/web/runs/run_123/")).toBe("more");
+    expect(surfaceForPath("/web/automation/workflows")).toBe("automations");
+    expect(surfaceForPath("/web/evaluation/baselines")).toBe("more");
+    expect(surfaceForPath("/web/plugins/skills")).toBe("more");
+    expect(surfaceForPath("/web/integrations/doctor")).toBe("more");
     expect(surfaceForPath("/web/settings")).toBe("settings");
     expect(surfaceForPath("/api/runs/run_123")).toBeNull();
     expect(surfaceForPath("/web/assets/main.js")).toBeNull();

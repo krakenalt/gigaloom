@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from gigaloom.diagnostics.api import UpgradeRadarReportStore
+from gigaloom.application.product_evidence import ProductEvidenceApplication
 from gigaloom.provider_authentication_broker import NativeLoginBroker
 from gigaloom.ui.container import AppServices
 from gigaloom.ui.routers.agents import router as agents_router
@@ -34,6 +35,9 @@ from gigaloom.ui.routers.environments import router as environments_router
 from gigaloom.ui.routers.evals import create_router as create_evals_router
 from gigaloom.ui.routers.evaluate import router as evaluate_router
 from gigaloom.ui.routers.files import create_file_preview_router
+from gigaloom.ui.routers.gateway_routes import (
+    create_router as create_gateway_routes_router,
+)
 from gigaloom.ui.routers.handoff_capsules import (
     router as handoff_capsules_router,
 )
@@ -67,6 +71,9 @@ from gigaloom.ui.routers.project_catalog import (
 )
 from gigaloom.ui.routers.project_tools import (
     create_router as create_project_tools_router,
+)
+from gigaloom.ui.routers.product_evidence import (
+    create_router as create_product_evidence_router,
 )
 from gigaloom.ui.routers.projects import create_router as create_projects_router
 from gigaloom.ui.routers.provider_handoffs import create_provider_handoff_router
@@ -104,6 +111,7 @@ from gigaloom.ui.routers.settings import router as settings_router
 from gigaloom.ui.routers.shell import create_shell_router
 from gigaloom.ui.routers.tools import router as tools_router
 from gigaloom.ui.routers.trace_replays import router as trace_replays_router
+from gigaloom.ui.routers.thread_relay import create_router as create_thread_relay_router
 from gigaloom.ui.routers.run_actions import router as run_actions_router
 from gigaloom.ui.routers.workbench_resources import (
     router as workbench_resources_router,
@@ -125,6 +133,7 @@ def install_application_routers(
     app.include_router(create_run_worktrees_router(services))
     app.include_router(create_legacy_run_router(services))
     app.include_router(create_catalog_router(services))
+    app.include_router(create_gateway_routes_router(services.gateway_route_service))
     app.include_router(create_projects_router(services))
     app.include_router(create_context_impact_router(services))
     app.include_router(
@@ -144,6 +153,9 @@ def install_application_routers(
     app.include_router(create_project_tools_router(services))
     app.include_router(create_evals_router(services))
     app.include_router(create_session_catalog_router(services))
+    app.include_router(
+        create_thread_relay_router(actions_factory=services.thread_relay.actions)
+    )
     app.include_router(create_attachments_router(services))
     app.include_router(create_arena_router(services))
     app.include_router(create_native_sessions_router(services))
@@ -184,6 +196,11 @@ def install_application_routers(
     app.include_router(create_route_advisor_router(services.route_advisor_service))
     app.include_router(create_mcp_apps_router(services.mcp_app_host_service))
     app.include_router(create_run_capsules_router(services.run_capsule_evidence_query))
+    app.include_router(
+        create_product_evidence_router(
+            ProductEvidenceApplication.from_data_dir(services.config.data_dir)
+        )
+    )
     # The shell catch-all must remain last so unknown API and asset paths never
     # become HTML responses.
     app.include_router(create_shell_router(services.ui_security))

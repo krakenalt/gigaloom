@@ -25,6 +25,10 @@ const workbenchComponent = lazyRouteComponent(
   "WorkbenchSurface",
 );
 const runsComponent = lazyRouteComponent(() => import("./surfaces/runs"), "RunsSurface");
+const inboxComponent = lazyRouteComponent(() => import("./surfaces/inbox"), "InboxSurface");
+const automationsComponent = lazyRouteComponent(() => import("./surfaces/automations"), "AutomationsSurface");
+const libraryComponent = lazyRouteComponent(() => import("./surfaces/library"), "LibrarySurface");
+const moreComponent = lazyRouteComponent(() => import("./surfaces/more"), "MoreSurface");
 const automationComponent = lazyRouteComponent(() => import("./surfaces/automation"), "AutomationSurface");
 const evaluationComponent = lazyRouteComponent(() => import("./surfaces/evaluation"), "EvaluationSurface");
 const integrationsComponent = lazyRouteComponent(() => import("./surfaces/integrations"), "IntegrationsSurface");
@@ -51,6 +55,10 @@ const routes = [
     validateSearch: validateWorkbenchEntrySearch,
   }),
   createRoute({ getParentRoute: () => rootRoute, path: "/web/runs", component: runsComponent }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/web/inbox", component: inboxComponent }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/web/automations", component: automationsComponent }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/web/library", component: libraryComponent }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/web/more", component: moreComponent }),
   createRoute({ getParentRoute: () => rootRoute, path: "/web/runs/$runId", component: runsComponent }),
   createRoute({ getParentRoute: () => rootRoute, path: "/web/projects", component: projectsComponent }),
   createRoute({ getParentRoute: () => rootRoute, path: "/web/coding-agents", component: codingAgentsComponent }),

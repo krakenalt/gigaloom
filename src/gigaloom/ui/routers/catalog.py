@@ -187,8 +187,9 @@ def create_router(services: AppServices) -> APIRouter:
         if payload.get("durable") is False:
             durable = False
         try:
+            bound = services.gateway_route_service.bind_submission(payload)
             prepared = services.session_service.prepare_turn_payload(
-                payload, session_id=_optional_text(payload.get("session_id"))
+                bound, session_id=_optional_text(bound.get("session_id"))
             )
             report = services.session_runner.preflight(
                 prepared,
