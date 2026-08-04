@@ -26,6 +26,11 @@ from gigaloom.harnesses.agent_profiles.installations.filesystem import (
 )
 from gigaloom.harnesses.agent_profiles.onboarding import ManagedAcpProbeReceipt
 from gigaloom.harnesses.agent_profiles.onboarding import ManagedAgentOnboardingResult
+from gigaloom.ui.services.agent_operation_values import (
+    operation_failure_reason,
+    operation_timestamp,
+    optional_boolean,
+)
 
 
 MAX_INSTALLATION_OPERATIONS, MAX_OPERATION_EVENTS = 256, 64
@@ -332,7 +337,7 @@ class AgentInstallationWebService:
             self._terminal(
                 operation_id,
                 state="failed",
-                reason_code=_failure_reason(error),
+                reason_code=operation_failure_reason(error),
             )
 
     def _run_update(self, operation_id: str) -> None:
@@ -358,7 +363,7 @@ class AgentInstallationWebService:
             self._terminal(
                 operation_id,
                 state="failed",
-                reason_code=_failure_reason(error),
+                reason_code=operation_failure_reason(error),
             )
 
     def _progress(self, operation_id: str, state: str, reason_code: str) -> None:
@@ -411,7 +416,7 @@ class AgentInstallationWebService:
                 sequence=len(operation.events),
                 state=state,
                 reason_code=reason_code,
-                observed_at=_timestamp(self._clock()),
+                observed_at=operation_timestamp(self._clock()),
             )
         )
         self._persist_locked(operation)
@@ -554,7 +559,7 @@ def _operation_from_dict(value: Mapping[str, object], file_id: str) -> _Operatio
         result_local_agent_id=_optional_string(value["result_local_agent_id"]),
         result_install_id=_optional_string(value["result_install_id"]),
         result_version=_optional_string(value["result_version"]),
-        result_active=_optional_boolean(value["result_active"]),
+        result_active=optional_boolean(value["result_active"]),
         terminal_reason_code=_optional_string(value["terminal_reason_code"]),
     )
 
@@ -571,22 +576,6 @@ def _event_from_dict(value: Mapping[str, object]) -> AgentInstallationWebEvent:
         reason_code=_identity(value["reason_code"], "agent installation event reason"),
         observed_at=_string(value["observed_at"]),
     )
-
-
-def _failure_reason(error: Exception) -> str:
-    value = getattr(error, "reason_code", None)
-    if isinstance(value, str):
-        try:
-            return validate_identity(value, field_name="installation failure reason")
-        except ValueError:
-            pass
-    return f"{error.__class__.__name__.lower()}_during_agent_operation"
-
-
-def _timestamp(value: datetime) -> str:
-    if value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError("agent installation Web clock must be timezone-aware")
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _mapping(value: object) -> Mapping[str, object]:
@@ -607,9 +596,3 @@ def _identity(value: object, field_name: str) -> str:
 
 def _optional_string(value: object) -> str | None:
     return None if value is None else _string(value)
-
-
-def _optional_boolean(value: object) -> bool | None:
-    if value is None or isinstance(value, bool):
-        return value
-    raise ValueError("agent installation operation value must be boolean")
