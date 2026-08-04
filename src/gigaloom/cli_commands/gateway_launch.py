@@ -10,8 +10,13 @@ from typing import Any
 from gigaloom.native.api import (
     BridgeRouteV1,
     GatewayDiscoveryResult,
-    GatewayDiscoveryStatus,
+    GatewayProfileV1,
     GatewaySupportStatus,
+    ResolvedGatewayRoute,
+)
+from gigaloom.native.launch.gateway_discovery import (
+    GatewayRouteRefusal,
+    GatewayRouteResolver,
 )
 
 
@@ -86,13 +91,18 @@ class GatewayLaunchResolutionV1:
     status: GatewayLaunchResolutionStatus
     request: GatewayLaunchRequestV1
     route: BridgeRouteV1 | None
+    resolved_route: ResolvedGatewayRoute | None
     candidate_route_ids: tuple[str, ...]
     reason_ids: tuple[str, ...]
 
     @property
     def ready(self) -> bool:
         """Return whether the exact route may proceed to preflight."""
-        return self.status is GatewayLaunchResolutionStatus.READY
+        return (
+            self.status is GatewayLaunchResolutionStatus.READY
+            and self.route is not None
+            and self.resolved_route is not None
+        )
 
 
 GatewayRoutePicker = Callable[[tuple[str, ...]], str | None]
@@ -168,70 +178,69 @@ def resolve_gateway_launch_request(
     request: GatewayLaunchRequestV1,
     discovery: GatewayDiscoveryResult,
     *,
+    profile: GatewayProfileV1,
     interactive: bool,
     picker: GatewayRoutePicker | None = None,
 ) -> GatewayLaunchResolutionV1:
     """Resolve one immutable route without fallback or provider traffic."""
-    if discovery.status is GatewayDiscoveryStatus.UNKNOWN:
+    if request.gateway_id is not None and request.gateway_id != profile.gateway_id:
         return _refusal(
-            GatewayLaunchResolutionStatus.CAPABILITY_UNKNOWN,
-            request,
-            tuple(reason.value for reason in discovery.reason_ids),
-        )
-    if discovery.status is GatewayDiscoveryStatus.STALE:
-        return _refusal(
-            GatewayLaunchResolutionStatus.CAPABILITY_STALE,
-            request,
-            tuple(reason.value for reason in discovery.reason_ids),
-        )
-    assert discovery.catalog is not None
-    candidates = tuple(
-        route
-        for route in discovery.catalog.routes
-        if route.agent_id == request.agent_id
-        and (
-            (request.route_id is not None and route.route_id == request.route_id)
-            or (
-                request.route_id is None
-                and route.gateway_profile_id == request.gateway_id
-                and route.public_model_alias == request.public_model_alias
-            )
-        )
-    )
-    candidate_ids = tuple(route.route_id for route in candidates)
-    if not candidates:
-        return GatewayLaunchResolutionV1(
             GatewayLaunchResolutionStatus.NOT_FOUND,
             request,
-            None,
-            (),
             ("route_not_found",),
         )
-    if len(candidates) > 1:
+    resolver = GatewayRouteResolver(discovery)
+    resolved = resolver.resolve(
+        profile,
+        requested_agent_kind=request.agent_id,
+        requested_model_alias=request.public_model_alias,
+        route_id=request.route_id,
+    )
+    candidate_ids: tuple[str, ...] = ()
+    if isinstance(resolved, GatewayRouteRefusal):
+        candidate_ids = resolved.candidate_route_ids
+    if isinstance(resolved, GatewayRouteRefusal) and resolved.status == "ambiguous":
         if not interactive or picker is None:
             return GatewayLaunchResolutionV1(
                 GatewayLaunchResolutionStatus.AMBIGUOUS,
                 request,
                 None,
+                None,
                 candidate_ids,
-                ("multiple_routes_match",),
+                resolved.reason_ids,
             )
         selected_id = picker(candidate_ids)
-        selected = next(
-            (route for route in candidates if route.route_id == selected_id),
-            None,
-        )
-        if selected is None:
+        if selected_id not in candidate_ids:
             return GatewayLaunchResolutionV1(
                 GatewayLaunchResolutionStatus.AMBIGUOUS,
                 request,
                 None,
+                None,
                 candidate_ids,
                 ("route_picker_did_not_select_candidate",),
             )
-    else:
-        selected = candidates[0]
-    if selected.support_status is GatewaySupportStatus.BLOCKED:
+        resolved = resolver.resolve(
+            profile,
+            requested_agent_kind=request.agent_id,
+            requested_model_alias=request.public_model_alias,
+            route_id=selected_id,
+        )
+    if isinstance(resolved, GatewayRouteRefusal):
+        return GatewayLaunchResolutionV1(
+            GatewayLaunchResolutionStatus(resolved.status),
+            request,
+            None,
+            None,
+            resolved.candidate_route_ids,
+            resolved.reason_ids,
+        )
+    assert discovery.catalog is not None
+    selected = next(
+        route
+        for route in discovery.catalog.routes
+        if route.route_id == resolved.route_id
+    )
+    if resolved.support_status == GatewaySupportStatus.BLOCKED.value:
         status = GatewayLaunchResolutionStatus.BLOCKED
     elif selected.required_acknowledgement is not None:
         status = GatewayLaunchResolutionStatus.ACKNOWLEDGEMENT_REQUIRED
@@ -241,8 +250,9 @@ def resolve_gateway_launch_request(
         status,
         request,
         selected,
-        candidate_ids,
-        selected.reason_ids,
+        resolved,
+        candidate_ids or (selected.route_id,),
+        resolved.reason_ids,
     )
 
 
@@ -292,4 +302,4 @@ def _refusal(
     request: GatewayLaunchRequestV1,
     reasons: tuple[str, ...],
 ) -> GatewayLaunchResolutionV1:
-    return GatewayLaunchResolutionV1(status, request, None, (), reasons)
+    return GatewayLaunchResolutionV1(status, request, None, None, (), reasons)

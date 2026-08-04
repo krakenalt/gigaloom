@@ -20,9 +20,33 @@ from gigaloom.native.api import (
     GatewayDiscoveryReason,
     GatewayDiscoveryResult,
     GatewayDiscoveryStatus,
+    GatewayMode,
+    GatewayProfileV1,
     GatewayRouteCatalogV1,
     GatewaySupportStatus,
 )
+
+
+def _profile() -> GatewayProfileV1:
+    return GatewayProfileV1(
+        gateway_id="gpt2giga",
+        display_name="gpt2giga 0.3",
+        mode=GatewayMode.EXTERNAL,
+        distribution="gpt2giga",
+        executable="gpt2giga",
+        version="0.3.0",
+        version_window=">=0.3.0,<0.4.0",
+        artifact_sha256="8" * 64,
+        base_url="http://127.0.0.1:8090",
+        startup_config_revision="sha256:" + "1" * 64,
+        health_contract_revision="gpt2giga.health.v1",
+        readiness_contract_revision="gpt2giga.readiness.v1",
+        models_contract_revision="openai.models.v1",
+        capabilities_contract_revision="gpt2giga.route-support-matrix.v1",
+        auth_ref=None,
+        tls_policy_ref="tls-policy:loopback",
+        profile_digest="a" * 64,
+    )
 
 
 def _route(
@@ -149,17 +173,22 @@ def test_exact_route_and_convenience_route_resolve_without_fallback() -> None:
     exact_result = resolve_gateway_launch_request(
         exact,
         _discovery(route),
+        profile=_profile(),
         interactive=False,
     )
     convenience_result = resolve_gateway_launch_request(
         convenience,
         _discovery(route),
+        profile=_profile(),
         interactive=False,
     )
 
     assert exact_result.status is GatewayLaunchResolutionStatus.READY
     assert convenience_result.status is GatewayLaunchResolutionStatus.READY
     assert exact_result.route == convenience_result.route == route
+    assert exact_result.resolved_route == convenience_result.resolved_route
+    assert exact_result.resolved_route is not None
+    assert exact_result.resolved_route.provider_protocol == "openai_responses"
 
 
 def test_non_tty_ambiguity_is_hard_error_and_tty_picker_is_bounded() -> None:
@@ -173,11 +202,13 @@ def test_non_tty_ambiguity_is_hard_error_and_tty_picker_is_bounded() -> None:
     non_tty = resolve_gateway_launch_request(
         request,
         _discovery(first, second),
+        profile=_profile(),
         interactive=False,
     )
     tty = resolve_gateway_launch_request(
         request,
         _discovery(first, second),
+        profile=_profile(),
         interactive=True,
         picker=lambda candidates: candidates[1],
     )
@@ -206,17 +237,22 @@ def test_stale_unknown_blocked_and_acknowledgement_states_are_explicit() -> None
     )
 
     assert (
-        resolve_gateway_launch_request(request, stale, interactive=False).status
+        resolve_gateway_launch_request(
+            request, stale, profile=_profile(), interactive=False
+        ).status
         is GatewayLaunchResolutionStatus.CAPABILITY_STALE
     )
     assert (
-        resolve_gateway_launch_request(request, unknown, interactive=False).status
+        resolve_gateway_launch_request(
+            request, unknown, profile=_profile(), interactive=False
+        ).status
         is GatewayLaunchResolutionStatus.CAPABILITY_UNKNOWN
     )
     assert (
         resolve_gateway_launch_request(
             request,
             _discovery(replace(_route(), support_status=GatewaySupportStatus.BLOCKED)),
+            profile=_profile(),
             interactive=False,
         ).status
         is GatewayLaunchResolutionStatus.BLOCKED
@@ -231,6 +267,7 @@ def test_stale_unknown_blocked_and_acknowledgement_states_are_explicit() -> None
                     required_acknowledgement="acknowledge_vendor_unsupported",
                 )
             ),
+            profile=_profile(),
             interactive=False,
         ).status
         is GatewayLaunchResolutionStatus.ACKNOWLEDGEMENT_REQUIRED
@@ -253,6 +290,7 @@ def test_dry_run_json_is_redacted_and_never_contains_native_argument_values() ->
     result = resolve_gateway_launch_request(
         request,
         _discovery(_route()),
+        profile=_profile(),
         interactive=False,
     )
 

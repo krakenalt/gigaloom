@@ -19,6 +19,7 @@ from gigaloom.native.launch.gateway_contracts import (
     BridgeRouteV1,
     GatewayProfileV1,
     GatewaySupportStatus,
+    ResolvedGatewayRoute,
 )
 
 
@@ -36,6 +37,7 @@ _PROVIDER_ALIASES = {
     "sber": "gigachat",
     "sberbank": "gigachat",
 }
+_ACP_CONSUMER_KINDS = {"acp", "managed_acp", "managed-acp-agent"}
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
@@ -110,6 +112,90 @@ class GatewayDiscoveryResult:
             raise ValueError("known gateway discovery requires a catalog")
         if self.status is GatewayDiscoveryStatus.CURRENT and self.reason_ids:
             raise ValueError("current gateway discovery cannot contain failure reasons")
+
+
+@dataclass(frozen=True, slots=True)
+class GatewayRouteRefusal:
+    """Typed content-free refusal from the single route resolver."""
+
+    status: str
+    reason_ids: tuple[str, ...]
+    candidate_route_ids: tuple[str, ...] = ()
+
+
+class GatewayRouteResolver:
+    """Resolve native and ACP consumers from one current route catalog."""
+
+    def __init__(self, discovery: GatewayDiscoveryResult) -> None:
+        self._discovery = discovery
+
+    def resolve(
+        self,
+        profile: GatewayProfileV1,
+        *,
+        requested_agent_kind: str,
+        requested_model_alias: str | None,
+        route_id: str | None = None,
+    ) -> ResolvedGatewayRoute | GatewayRouteRefusal:
+        """Return credential-free route facts or an explicit refusal."""
+        if self._discovery.status is GatewayDiscoveryStatus.UNKNOWN:
+            return GatewayRouteRefusal(
+                "capability_unknown",
+                tuple(reason.value for reason in self._discovery.reason_ids),
+            )
+        if self._discovery.status is GatewayDiscoveryStatus.STALE:
+            return GatewayRouteRefusal(
+                "capability_stale",
+                tuple(reason.value for reason in self._discovery.reason_ids),
+            )
+        catalog = self._discovery.catalog
+        assert catalog is not None
+        if (
+            catalog.gateway_id != profile.gateway_id
+            or catalog.profile_digest != profile.profile_digest
+        ):
+            return GatewayRouteRefusal(
+                "blocked",
+                ("gateway_profile_binding_mismatch",),
+            )
+        route_agent_id = (
+            "acp"
+            if requested_agent_kind in _ACP_CONSUMER_KINDS
+            else requested_agent_kind
+        )
+        candidates = tuple(
+            route
+            for route in catalog.routes
+            if route.agent_id == route_agent_id
+            and route.gateway_profile_id == profile.gateway_id
+            and (
+                (route_id is not None and route.route_id == route_id)
+                or (
+                    route_id is None
+                    and route.public_model_alias == requested_model_alias
+                )
+            )
+        )
+        candidate_ids = tuple(route.route_id for route in candidates)
+        if not candidates:
+            return GatewayRouteRefusal("not_found", ("route_not_found",))
+        if len(candidates) > 1:
+            return GatewayRouteRefusal(
+                "ambiguous",
+                ("multiple_routes_match",),
+                candidate_ids,
+            )
+        route = candidates[0]
+        return ResolvedGatewayRoute(
+            route_id=route.route_id,
+            gateway_id=profile.gateway_id,
+            provider_protocol=route.client_protocol,
+            credential_free_base_url=profile.base_url,
+            public_model_alias=route.public_model_alias,
+            support_status=route.support_status.value,
+            capability_digest=catalog.catalog_digest,
+            reason_ids=route.reason_ids,
+        )
 
 
 class UrlLibGatewayMachineTransport:

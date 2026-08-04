@@ -192,12 +192,14 @@ class GatewayLaunchApplication:
             resolution = resolve_gateway_launch_request(
                 request,
                 discovered,
+                profile=self.profile,
                 interactive=False,
             )
             if not resolution.ready:
                 self._emit_resolution(resolution)
                 return 2
             assert resolution.route is not None
+            assert resolution.resolved_route is not None
             preflight = _preflight_receipt(
                 self.profile,
                 resolution.route,
@@ -207,7 +209,8 @@ class GatewayLaunchApplication:
                 now=self._now(),
             )
             injection = build_gateway_agent_injection(
-                resolution.route,
+                resolution.resolved_route,
+                request.agent_id,
                 self.profile,
                 discovered,
                 preflight,
@@ -255,6 +258,7 @@ class GatewayLaunchApplication:
         resolution = resolve_gateway_launch_request(
             request,
             discovery,
+            profile=self.profile,
             interactive=False,
         )
         payload = gateway_launch_resolution_to_dict(resolution)

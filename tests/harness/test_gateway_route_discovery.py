@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from gigaloom.native.api import (
+    GatewayDiscoveryResult,
     GatewayDiscoveryReason,
     GatewayDiscoveryStatus,
     GatewayMode,
@@ -15,6 +16,10 @@ from gigaloom.native.api import (
     GatewayRouteDiscovery,
     GatewaySupportStatus,
     UrlLibGatewayMachineTransport,
+)
+from gigaloom.native.launch.gateway_discovery import (
+    GatewayRouteRefusal,
+    GatewayRouteResolver,
 )
 
 
@@ -127,6 +132,51 @@ def test_discovery_uses_only_public_get_contracts_and_builds_exact_route() -> No
     assert acp_route.route_id == "acp-gpt2giga-gigachat-2-max"
     assert acp_route.client_protocol == "openai_chat_completions"
     assert acp_route.support_status is GatewaySupportStatus.STABLE
+
+
+def test_one_resolver_projects_the_same_route_facts_for_native_and_acp() -> None:
+    discovery = GatewayRouteDiscovery(FakeTransport()).discover(_profile())
+    resolver = GatewayRouteResolver(discovery)
+
+    native = resolver.resolve(
+        _profile(),
+        requested_agent_kind="codex",
+        requested_model_alias="GigaChat-2-Max",
+    )
+    managed_acp = resolver.resolve(
+        _profile(),
+        requested_agent_kind="managed_acp",
+        requested_model_alias="GigaChat-2-Max",
+    )
+
+    assert not isinstance(native, GatewayRouteRefusal)
+    assert not isinstance(managed_acp, GatewayRouteRefusal)
+    assert native.gateway_id == managed_acp.gateway_id == "gpt2giga"
+    assert native.public_model_alias == managed_acp.public_model_alias
+    assert native.capability_digest == managed_acp.capability_digest
+    assert native.provider_protocol == "openai_responses"
+    assert managed_acp.provider_protocol == "openai_chat_completions"
+
+
+def test_route_resolver_returns_typed_refusal_for_stale_facts() -> None:
+    current = GatewayRouteDiscovery(FakeTransport()).discover(_profile())
+    assert current.catalog is not None
+    stale = GatewayDiscoveryResult(
+        GatewayDiscoveryStatus.STALE,
+        current.catalog,
+        (GatewayDiscoveryReason.MODELS_UNAVAILABLE,),
+    )
+
+    result = GatewayRouteResolver(stale).resolve(
+        _profile(),
+        requested_agent_kind="managed_acp",
+        requested_model_alias="GigaChat-2-Max",
+    )
+
+    assert result == GatewayRouteRefusal(
+        status="capability_stale",
+        reason_ids=("models_unavailable",),
+    )
 
 
 def test_fresh_cache_avoids_network_and_profile_digest_partitions_entries() -> None:

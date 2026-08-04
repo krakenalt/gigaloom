@@ -10,20 +10,21 @@ import os
 from pathlib import Path
 import re
 
-from gigaloom.contracts.operational_validation import canonical_json_bytes
 from gigaloom.native.launch.gateway_contracts import (
-    BridgeRouteV1,
     GatewayMode,
     GatewayPreflightReceiptV1,
     GatewayPreflightStatus,
     GatewayProfileV1,
     GatewaySupportStatus,
     LaunchOverlayV1,
+    ResolvedGatewayRoute,
 )
 from gigaloom.native.launch.gateway_discovery import (
     GatewayDiscoveryResult,
     GatewayDiscoveryStatus,
     GatewayRouteCatalogV1,
+    GatewayRouteRefusal,
+    GatewayRouteResolver,
 )
 
 
@@ -48,7 +49,6 @@ class GatewayInjectionReason(str, Enum):
     ACKNOWLEDGEMENT_REQUIRED = "acknowledgement_required"
     AGENT_PROTOCOL_UNSUPPORTED = "agent_protocol_unsupported"
     GEMINI_NATIVE_GATEWAY_UNSUPPORTED = "gemini_custom_endpoint_unsupported"
-    ACP_MODEL_SELECTOR_REQUIRED = "acp_model_selector_required"
     MANAGED_ROOT_INVALID = "managed_root_invalid"
     OVERLAY_WRITE_FAILED = "overlay_write_failed"
 
@@ -63,7 +63,6 @@ class GatewayAgentInjectionV1:
     effective_support_status: GatewaySupportStatus
     overlay: LaunchOverlayV1 | None
     command_args: tuple[str, ...]
-    acp_config_selector: tuple[str, str] | None
     reason_ids: tuple[str, ...]
 
     @property
@@ -73,7 +72,8 @@ class GatewayAgentInjectionV1:
 
 
 def build_gateway_agent_injection(
-    route: BridgeRouteV1,
+    route: ResolvedGatewayRoute,
+    agent_id: str,
     profile: GatewayProfileV1,
     discovery: GatewayDiscoveryResult,
     preflight: GatewayPreflightReceiptV1,
@@ -81,72 +81,81 @@ def build_gateway_agent_injection(
     managed_root: str | os.PathLike[str],
     process_lease_ref: str | None,
     acknowledged: bool = False,
-    acp_model_selector_id: str | None = None,
     clock: Callable[[], datetime] | None = None,
 ) -> GatewayAgentInjectionV1:
     """Build a route-bound overlay without mutating provider-native homes."""
     current_catalog, refusal = _current_catalog(discovery, clock=clock)
     if refusal is not None:
-        return _blocked(route, route.support_status, refusal)
+        return _blocked(
+            route,
+            agent_id,
+            GatewaySupportStatus(route.support_status),
+            refusal,
+        )
     assert current_catalog is not None
-    binding_refusal = _binding_refusal(route, profile, current_catalog, preflight)
+    binding_refusal = _binding_refusal(
+        route,
+        agent_id,
+        profile,
+        discovery,
+        current_catalog,
+        preflight,
+    )
+    support_status = GatewaySupportStatus(route.support_status)
     if binding_refusal is not None:
-        return _blocked(route, route.support_status, binding_refusal)
+        return _blocked(route, agent_id, support_status, binding_refusal)
     if profile.mode is GatewayMode.MANAGED and process_lease_ref is None:
         return _blocked(
             route,
-            route.support_status,
+            agent_id,
+            support_status,
             GatewayInjectionReason.PROCESS_LEASE_REQUIRED,
         )
-    if route.support_status is GatewaySupportStatus.BLOCKED:
+    if support_status is GatewaySupportStatus.BLOCKED:
         return _blocked(
             route,
+            agent_id,
             GatewaySupportStatus.BLOCKED,
             GatewayInjectionReason.SUPPORT_BLOCKED,
         )
-    adapter = _adapter_kind(route)
+    adapter = _adapter_kind(agent_id, route.provider_protocol)
     if adapter == "gemini":
         return _blocked(
             route,
+            agent_id,
             GatewaySupportStatus.BLOCKED,
             GatewayInjectionReason.GEMINI_NATIVE_GATEWAY_UNSUPPORTED,
         )
     if adapter is None:
         return _blocked(
             route,
+            agent_id,
             GatewaySupportStatus.BLOCKED,
             GatewayInjectionReason.AGENT_PROTOCOL_UNSUPPORTED,
         )
     effective_support = (
         GatewaySupportStatus.VENDOR_UNSUPPORTED
         if adapter == "claude"
-        else route.support_status
+        else support_status
     )
     acknowledgement_required = (
         effective_support is GatewaySupportStatus.VENDOR_UNSUPPORTED
-        or route.required_acknowledgement is not None
     )
     if acknowledgement_required and not acknowledged:
         return GatewayAgentInjectionV1(
             status=GatewayInjectionStatus.ACKNOWLEDGEMENT_REQUIRED,
             route_id=route.route_id,
-            agent_id=route.agent_id,
+            agent_id=agent_id,
             effective_support_status=effective_support,
             overlay=None,
             command_args=(),
-            acp_config_selector=None,
             reason_ids=(GatewayInjectionReason.ACKNOWLEDGEMENT_REQUIRED.value,),
-        )
-    if adapter == "acp" and acp_model_selector_id is None:
-        return _blocked(
-            route,
-            effective_support,
-            GatewayInjectionReason.ACP_MODEL_SELECTOR_REQUIRED,
         )
     root = Path(managed_root)
     if not root.is_absolute() or _native_home_component(root):
         return _blocked(
             route,
+            agent_id,
             effective_support,
             GatewayInjectionReason.MANAGED_ROOT_INVALID,
         )
@@ -154,16 +163,16 @@ def build_gateway_agent_injection(
     try:
         overlay_root.mkdir(parents=True, exist_ok=True)
         overlay_root.chmod(0o700)
-        generated_refs, environment, command_args, selector = _write_adapter_overlay(
+        generated_refs, environment, command_args = _write_adapter_overlay(
             adapter,
             route,
             profile,
             overlay_root,
-            acp_model_selector_id=acp_model_selector_id,
         )
     except OSError:
         return _blocked(
             route,
+            agent_id,
             effective_support,
             GatewayInjectionReason.OVERLAY_WRITE_FAILED,
         )
@@ -182,11 +191,10 @@ def build_gateway_agent_injection(
     return GatewayAgentInjectionV1(
         status=GatewayInjectionStatus.READY,
         route_id=route.route_id,
-        agent_id=route.agent_id,
+        agent_id=agent_id,
         effective_support_status=effective_support,
         overlay=overlay,
         command_args=command_args,
-        acp_config_selector=selector,
         reason_ids=tuple(dict.fromkeys(reasons)),
     )
 
@@ -212,12 +220,14 @@ def _current_catalog(
 
 
 def _binding_refusal(
-    route: BridgeRouteV1,
+    route: ResolvedGatewayRoute,
+    agent_id: str,
     profile: GatewayProfileV1,
+    discovery: GatewayDiscoveryResult,
     catalog: GatewayRouteCatalogV1,
     receipt: GatewayPreflightReceiptV1,
 ) -> GatewayInjectionReason | None:
-    current_route = next(
+    bridge_route = next(
         (
             candidate
             for candidate in catalog.routes
@@ -225,12 +235,20 @@ def _binding_refusal(
         ),
         None,
     )
-    if current_route != route:
+    if bridge_route is None:
+        return GatewayInjectionReason.ROUTE_NOT_CURRENT
+    current_route = GatewayRouteResolver(discovery).resolve(
+        profile,
+        requested_agent_kind=agent_id,
+        requested_model_alias=route.public_model_alias,
+        route_id=route.route_id,
+    )
+    if isinstance(current_route, GatewayRouteRefusal) or current_route != route:
         return GatewayInjectionReason.ROUTE_NOT_CURRENT
     if (
         catalog.gateway_id != profile.gateway_id
         or catalog.profile_digest != profile.profile_digest
-        or route.gateway_profile_id != profile.gateway_id
+        or route.gateway_id != profile.gateway_id
     ):
         return GatewayInjectionReason.PROFILE_BINDING_MISMATCH
     if (
@@ -239,39 +257,34 @@ def _binding_refusal(
         or receipt.route_id != route.route_id
         or receipt.profile_digest != profile.profile_digest
         or receipt.artifact_sha256 != profile.artifact_sha256
-        or receipt.capability_revision != route.capability_profile_revision
+        or receipt.capability_revision != bridge_route.capability_profile_revision
         or receipt.models_revision != catalog.models_revision
-        or receipt.loss_matrix_revision != route.loss_matrix_revision
-        or receipt.support_status is not route.support_status
+        or receipt.loss_matrix_revision != bridge_route.loss_matrix_revision
+        or receipt.support_status.value != route.support_status
     ):
         return GatewayInjectionReason.PREFLIGHT_BINDING_MISMATCH
     return None
 
 
-def _adapter_kind(route: BridgeRouteV1) -> str | None:
-    if route.agent_id == "codex" and route.client_protocol == "openai_responses":
+def _adapter_kind(agent_id: str, provider_protocol: str) -> str | None:
+    if agent_id == "codex" and provider_protocol == "openai_responses":
         return "codex"
-    if route.agent_id == "claude" and route.client_protocol == "anthropic_messages":
+    if agent_id == "claude" and provider_protocol == "anthropic_messages":
         return "claude"
-    if route.agent_id == "gemini":
+    if agent_id == "gemini":
         return "gemini"
-    if route.client_protocol == "acp":
-        return "acp"
     return None
 
 
 def _write_adapter_overlay(
     adapter: str,
-    route: BridgeRouteV1,
+    route: ResolvedGatewayRoute,
     profile: GatewayProfileV1,
     overlay_root: Path,
-    *,
-    acp_model_selector_id: str | None,
 ) -> tuple[
     tuple[str, ...],
     tuple[tuple[str, str], ...],
     tuple[str, ...],
-    tuple[str, str] | None,
 ]:
     if adapter == "codex":
         config = overlay_root / "config.toml"
@@ -284,7 +297,6 @@ def _write_adapter_overlay(
                 ("GPT2GIGA_API_KEY", "<secret-ref>"),
             ),
             (),
-            None,
         )
     if adapter == "claude":
         return (
@@ -295,32 +307,11 @@ def _write_adapter_overlay(
                 ("CLAUDE_CONFIG_DIR", os.fspath(overlay_root)),
             ),
             ("--model", route.public_model_alias),
-            None,
         )
-    assert adapter == "acp" and acp_model_selector_id is not None
-    manifest = overlay_root / "selector.json"
-    manifest.write_bytes(
-        canonical_json_bytes(
-            {
-                "schema_version": "gigaloom.acp-gateway-selector.v1",
-                "route_id": route.route_id,
-                "config_id": acp_model_selector_id,
-                "value": route.public_model_alias,
-                "capability_revision": route.capability_profile_revision,
-            }
-        )
-        + b"\n"
-    )
-    manifest.chmod(0o600)
-    return (
-        ("managed-config:selector.json",),
-        (),
-        (),
-        (acp_model_selector_id, route.public_model_alias),
-    )
+    raise AssertionError("unsupported gateway adapter")
 
 
-def _codex_config(route: BridgeRouteV1, profile: GatewayProfileV1) -> str:
+def _codex_config(route: ResolvedGatewayRoute, profile: GatewayProfileV1) -> str:
     provider = "gigaloom-gateway"
     return (
         f'model = "{_toml_escape(route.public_model_alias)}"\n'
@@ -351,17 +342,17 @@ def _slug(value: str) -> str:
 
 
 def _blocked(
-    route: BridgeRouteV1,
+    route: ResolvedGatewayRoute,
+    agent_id: str,
     support: GatewaySupportStatus,
     reason: GatewayInjectionReason,
 ) -> GatewayAgentInjectionV1:
     return GatewayAgentInjectionV1(
         status=GatewayInjectionStatus.BLOCKED,
         route_id=route.route_id,
-        agent_id=route.agent_id,
+        agent_id=agent_id,
         effective_support_status=support,
         overlay=None,
         command_args=(),
-        acp_config_selector=None,
         reason_ids=(reason.value,),
     )
