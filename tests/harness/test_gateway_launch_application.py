@@ -22,6 +22,9 @@ from gigaloom.native.api import (
     ManagedGatewayLeaseV1,
 )
 from gigaloom.cli_commands.gateway_application import GatewayLaunchApplication
+from gigaloom.cli_commands.gateway_compatibility import (
+    GatewayAgentCompatibilityDecisionV1,
+)
 from gigaloom.native.launch.gateway_profile import (
     GPT2GIGA_WHEEL_SHA256,
     reviewed_gpt2giga_profile,
@@ -29,6 +32,17 @@ from gigaloom.native.launch.gateway_profile import (
 
 
 NOW = datetime(2026, 8, 4, 10, 0, tzinfo=timezone.utc)
+
+
+def _ready_compatibility(agent_id: str) -> GatewayAgentCompatibilityDecisionV1:
+    return GatewayAgentCompatibilityDecisionV1(
+        agent_id=agent_id,
+        harness_id="codex-cli",
+        status="ready",
+        reason_id="gateway_agent_compatibility_admitted",
+        expected_version_window="==0.146.0",
+        observed_version="0.146.0",
+    )
 
 
 class _Discovery:
@@ -161,6 +175,7 @@ def _application(tmp_path: Path):
         artifact_resolver=lambda _profile: _artifact(executable),
         managed_root=tmp_path / "managed",
         gateway_api_key="gateway-secret-key",
+        compatibility_resolver=_ready_compatibility,
         sidecar=sidecar,
         startup_inspector=lambda *_args: None,
         clock=lambda: NOW,
@@ -204,6 +219,11 @@ def test_dry_run_is_content_free_and_does_not_start_or_write(
     application, discovery, sidecar = _application(tmp_path)
     managed_root = application.managed_root
 
+    def fail_if_probed(_agent_id: str) -> GatewayAgentCompatibilityDecisionV1:
+        raise AssertionError("dry-run must not execute an installed-agent probe")
+
+    application.compatibility_resolver = fail_if_probed
+
     assert (
         application.run(
             _request(dry_run=True, json_output=True),
@@ -220,6 +240,49 @@ def test_dry_run_is_content_free_and_does_not_start_or_write(
     assert sidecar.environments == []
     assert sidecar.stopped == 0
     assert not managed_root.exists()
+
+
+def test_agent_compatibility_refusal_precedes_sidecar_and_native_handoff(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    application, discovery, sidecar = _application(tmp_path)
+    monkeypatch.setenv("GIGACHAT_CREDENTIALS", "upstream-secret")
+    application.compatibility_resolver = lambda agent_id: (
+        GatewayAgentCompatibilityDecisionV1(
+            agent_id=agent_id,
+            harness_id="codex-cli",
+            status="blocked",
+            reason_id="gateway_agent_version_outside_reviewed_window",
+            expected_version_window="==0.146.0",
+            observed_version="0.147.0",
+        )
+    )
+    artifacts: list[object] = []
+    application.artifact_resolver = lambda _profile: artifacts.append(object()) or None
+    launched: list[object] = []
+
+    assert (
+        application.run(
+            _request(json_output=True),
+            native_launcher=lambda *_args: launched.append(object()) or 0,
+        )
+        == 2
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["reason_ids"] == ["gateway_agent_version_outside_reviewed_window"]
+    assert payload["expected_version_window"] == "==0.146.0"
+    assert payload["observed_version"] == "0.147.0"
+    assert payload["fallback_allowed"] is False
+    assert payload["provider_traffic"] is False
+    assert payload["process_spawn"] is False
+    assert artifacts == []
+    assert discovery.calls == []
+    assert sidecar.environments == []
+    assert sidecar.stopped == 0
+    assert launched == []
 
 
 def test_resolution_refusal_stops_the_sidecar_before_native_handoff(

@@ -25,12 +25,62 @@
     "effective_capabilities_schema": "gpt2giga.effective-capabilities.v1",
     "hermetic_capability_revision": "sha256:16fc5d3cf3d39e782372d3f29c9ef3ea4e0f23e29ff3c9d21be63f4031992df1"
   },
+  "compatibility": {
+    "agents": {
+      "codex": {
+        "harness_id": "codex-cli",
+        "version_window": "==0.146.0",
+        "reviewed_version": "0.146.0",
+        "required_capabilities": [
+          "--json",
+          "--sandbox",
+          "--ephemeral",
+          "app-server"
+        ]
+      },
+      "claude": {
+        "harness_id": "claude-code",
+        "version_window": ">=2.1.0,<2.2.0",
+        "reviewed_version": "2.1.212",
+        "required_capabilities": [
+          "--output-format",
+          "stream-json",
+          "--permission-mode",
+          "--no-session-persistence"
+        ]
+      },
+      "gemini": {
+        "harness_id": "gemini-cli",
+        "version_window": ">=0.46.0,<0.47.0",
+        "reviewed_version": "0.46.0",
+        "required_capabilities": [
+          "--output-format",
+          "stream-json",
+          "--approval-mode",
+          "--skip-trust"
+        ]
+      }
+    },
+    "acp": {
+      "sdk_distribution": "agent-client-protocol",
+      "sdk_version_window": "==0.11.1",
+      "wire_protocol_version": "1"
+    },
+    "gigaloom_assets": {
+      "canonical_version_source": "release/version.toml",
+      "python_distribution": "gigaloom",
+      "npm_package": "@gigaloom/web",
+      "alignment": "exact"
+    },
+    "fallback_allowed": false
+  },
   "cases": [
     {
       "case_id": "codex-responses-gigachat",
       "agent_id": "codex",
       "harness_id": "codex-cli",
       "agent_version_window": "==0.146.0",
+      "pinned_agent_version": "0.146.0",
       "gateway_client_version_window": "codex-cli==0.146.0;openai-python==2.50.0",
       "selection": [
         "--with",
@@ -100,6 +150,7 @@
       "agent_id": "managed-acp-agent",
       "harness_id": "acp",
       "protocol_version": "1",
+      "sdk_version_window": "==0.11.1",
       "selection": [
         "--with",
         "gpt2giga",

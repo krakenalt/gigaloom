@@ -11,6 +11,9 @@ from typing import Any, cast
 import pytest
 
 from gigaloom.cli_commands.gateway_application import GatewayLaunchApplication
+from gigaloom.cli_commands.gateway_compatibility import (
+    GatewayAgentCompatibilityDecisionV1,
+)
 from gigaloom.cli_commands.gateway_launch import (
     GatewayLaunchResolutionStatus,
     parse_gateway_launch_argv,
@@ -41,6 +44,19 @@ from gigaloom.native.launch.gateway_profile import (
 
 
 NOW = datetime(2026, 8, 4, 10, 0, tzinfo=timezone.utc)
+
+
+def _ready_compatibility(agent_id: str) -> GatewayAgentCompatibilityDecisionV1:
+    return GatewayAgentCompatibilityDecisionV1(
+        agent_id=agent_id,
+        harness_id="codex-cli",
+        status="ready",
+        reason_id="gateway_agent_compatibility_admitted",
+        expected_version_window="==0.146.0",
+        observed_version="0.146.0",
+    )
+
+
 CORPUS_PATH = (
     Path(__file__).parents[1]
     / "fixtures"
@@ -329,6 +345,7 @@ def _application(
         artifact_resolver=lambda _profile: _artifact(tmp_path),
         managed_root=tmp_path / "managed",
         gateway_api_key="fixture-gateway-key",
+        compatibility_resolver=_ready_compatibility,
         sidecar=sidecar,
         startup_inspector=None,
         clock=lambda: NOW,

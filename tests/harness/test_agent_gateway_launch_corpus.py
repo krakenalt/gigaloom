@@ -97,6 +97,7 @@ def test_corpus_covers_the_four_frozen_agent_launch_outcomes() -> None:
     assert codex["gateway_client_version_window"] == (
         "codex-cli==0.146.0;openai-python==2.50.0"
     )
+    assert codex["pinned_agent_version"] == "0.146.0"
     assert codex["effective_support_status"] == "technical_preview"
     assert codex["expected_adapter"]["wire_api"] == "responses"
 
@@ -108,6 +109,8 @@ def test_corpus_covers_the_four_frozen_agent_launch_outcomes() -> None:
 
     acp = cases["managed-acp-model-selector"]
     assert acp["client_protocol"] == "acp"
+    assert acp["sdk_version_window"] == "==0.11.1"
+    assert acp["protocol_version"] == "1"
     assert acp["expected_adapter"]["advertised_selector_categories"] == [
         "model",
         "model_config",
@@ -168,7 +171,7 @@ def test_upgrade_radar_corpus_is_sealed_to_exact_gateway_launch_revisions() -> N
     radar_cases = {item.case_id: item for item in radar.cases}
 
     assert radar.sealed_digest == (
-        "845a2b8b822a72200d21d8adc2a4003c187c7cc69e96b7174068ea6e15d5438b"
+        "f497ab3deb4cf5539aaf05211f5bf347cf5ee127f5ea6f31773f610c928c58ab"
     )
     assert set(radar_cases) == {item["case_id"] for item in launch["cases"]}
     for item in launch["cases"]:
@@ -180,12 +183,15 @@ def test_upgrade_radar_corpus_is_sealed_to_exact_gateway_launch_revisions() -> N
                 "gateway_client_version_window": item.get(
                     "gateway_client_version_window"
                 ),
+                "sdk_version_window": item.get("sdk_version_window"),
+                "protocol_version": item.get("protocol_version"),
             }
         )
         assert case.expectation_digest == canonical_digest(
             {
                 "artifact": launch["artifact"],
                 "contracts": launch["contracts"],
+                "compatibility": launch["compatibility"],
                 "effective_support_status": item["effective_support_status"],
                 "expected_adapter": item["expected_adapter"],
                 "reason_ids": item.get("reason_ids", []),

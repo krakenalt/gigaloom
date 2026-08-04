@@ -18,6 +18,12 @@ from gigaloom.cli_commands.gateway_launch import (
     gateway_launch_resolution_to_dict,
     resolve_gateway_launch_request,
 )
+from gigaloom.cli_commands.gateway_compatibility import (
+    GatewayAgentCompatibilityDecisionV1,
+    GatewayAgentCompatibilityResolver,
+    build_gateway_agent_compatibility_resolver,
+    gateway_agent_compatibility_to_dict,
+)
 from gigaloom.cli_commands.gateway_transport import (
     AuthenticatedGatewayMachineTransport,
     is_managed_gateway_endpoint,
@@ -94,6 +100,7 @@ class GatewayLaunchApplication:
     artifact_resolver: GatewayArtifactResolver
     managed_root: Path
     gateway_api_key: str
+    compatibility_resolver: GatewayAgentCompatibilityResolver
     sidecar: GatewaySidecarPort | None = None
     process_manager: NativeProcessManager | None = None
     startup_inspector: GatewayStartupInspector | None = None
@@ -112,6 +119,12 @@ class GatewayLaunchApplication:
         ):
             self._emit_refusal(request, "gateway_not_configured")
             return 2
+
+        if not request.dry_run:
+            compatibility = self.compatibility_resolver(request.agent_id)
+            if not compatibility.ready:
+                self._emit_compatibility_refusal(request, compatibility)
+                return 2
 
         artifact = (
             self.artifact_resolver(self.profile)
@@ -350,6 +363,22 @@ class GatewayLaunchApplication:
             as_json=request.json_output,
         )
 
+    @staticmethod
+    def _emit_compatibility_refusal(
+        request: GatewayLaunchRequestV1,
+        compatibility: GatewayAgentCompatibilityDecisionV1,
+    ) -> None:
+        payload = gateway_agent_compatibility_to_dict(compatibility)
+        payload.update(
+            {
+                "route_id": request.route_id,
+                "gateway_id": request.gateway_id,
+                "reason_ids": [compatibility.reason_id],
+                "process_spawn": False,
+            }
+        )
+        _emit(payload, as_json=request.json_output)
+
 
 def build_gateway_launch_application(config: HarnessConfig) -> GatewayLaunchApplication:
     """Construct the production gpt2giga runtime from existing process owners."""
@@ -383,6 +412,7 @@ def build_gateway_launch_application(config: HarnessConfig) -> GatewayLaunchAppl
         gateway_api_key=api_key
         if mode is GatewayMode.MANAGED
         else config.api_key or "0",
+        compatibility_resolver=build_gateway_agent_compatibility_resolver(),
         sidecar=sidecar,
         process_manager=manager,
         startup_inspector=inspect_gpt2giga_startup,
