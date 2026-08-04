@@ -113,7 +113,6 @@ def test_discovery_uses_only_public_get_contracts_and_builds_exact_route() -> No
     assert result.status is GatewayDiscoveryStatus.CURRENT
     assert result.catalog is not None
     assert transport.calls == [
-        ("http://127.0.0.1:8090", "/health", 3.0),
         ("http://127.0.0.1:8090", "/models", 3.0),
         ("http://127.0.0.1:8090", "/bridge/capabilities", 3.0),
     ]
@@ -188,10 +187,10 @@ def test_fresh_cache_avoids_network_and_profile_digest_partitions_entries() -> N
     second = discovery.discover(_profile())
 
     assert second == first
-    assert len(transport.calls) == 3
+    assert len(transport.calls) == 2
     changed = replace(_profile(), profile_digest="b" * 64)
     discovery.discover(changed)
-    assert len(transport.calls) == 6
+    assert len(transport.calls) == 4
 
 
 def test_expired_cache_is_returned_only_as_stale_and_first_failure_is_unknown() -> None:
@@ -214,11 +213,11 @@ def test_expired_cache_is_returned_only_as_stale_and_first_failure_is_unknown() 
     assert stale.reason_ids == (GatewayDiscoveryReason.MODELS_UNAVAILABLE,)
 
     unknown_transport = FakeTransport()
-    unknown_transport.failure_path = "/health"
+    unknown_transport.failure_path = "/models"
     unknown = GatewayRouteDiscovery(unknown_transport).discover(_profile())
     assert unknown.status is GatewayDiscoveryStatus.UNKNOWN
     assert unknown.catalog is None
-    assert unknown.reason_ids == (GatewayDiscoveryReason.HEALTH_UNAVAILABLE,)
+    assert unknown.reason_ids == (GatewayDiscoveryReason.MODELS_UNAVAILABLE,)
 
 
 def test_unknown_capability_schema_fails_closed_without_routes() -> None:

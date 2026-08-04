@@ -218,6 +218,22 @@ def test_catalog_preflight_and_submission_share_exact_current_revisions() -> Non
         )
 
 
+def test_models_and_gateway_routes_share_one_fresh_catalog() -> None:
+    transport = _Transport()
+    service = GatewayRouteWebService(
+        _profile(),
+        GatewayRouteDiscovery(transport),
+    )
+
+    routes = service.catalog()
+    models = service.models(api_mode="v1")
+
+    assert routes["status"] == "current"
+    assert models["ok"] is True
+    assert models["models"] == ["GigaChat-2-Max"]
+    assert transport.calls == ["/models", "/bridge/capabilities"]
+
+
 def test_explicit_start_reuses_ready_sidecar_and_refreshes_catalog() -> None:
     profile = _profile(GatewayMode.MANAGED)
     transport = _Transport()
@@ -251,7 +267,9 @@ def test_explicit_start_reuses_ready_sidecar_and_refreshes_catalog() -> None:
         ("sess_existing_123", "gateway-route-gpt2giga"),
         ("sess_existing_123", "gateway-route-gpt2giga"),
     ]
-    assert transport.calls.count("/health") == 2
+    assert transport.calls.count("/health") == 0
+    assert transport.calls.count("/models") == 2
+    assert transport.calls.count("/bridge/capabilities") == 2
     assert "gateway-secret" not in repr(started)
     assert "upstream-secret" not in repr(started)
 

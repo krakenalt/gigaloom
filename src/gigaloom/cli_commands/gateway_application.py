@@ -196,7 +196,7 @@ class GatewayLaunchApplication:
                     return 2
                 sidecar_started = lease.status is GatewaySidecarStatus.STARTED
 
-            discovered = self.discovery.discover(self.profile, force_refresh=True)
+            discovered = self.discovery.discover(self.profile)
             resolution = resolve_gateway_launch_request(
                 request,
                 discovered,
@@ -262,7 +262,7 @@ class GatewayLaunchApplication:
         *,
         artifact: GatewayArtifactEvidenceV1 | None,
     ) -> int:
-        discovery = self.discovery.discover(self.profile, force_refresh=True)
+        discovery = self.discovery.discover(self.profile)
         resolution = resolve_gateway_launch_request(
             request,
             discovery,
@@ -366,7 +366,10 @@ def build_gateway_launch_application(config: HarnessConfig) -> GatewayLaunchAppl
     profile = reviewed_gpt2giga_profile(base_url=config.proxy_url, mode=mode)
     api_key = config.api_key or secrets.token_urlsafe(32)
     transport = AuthenticatedGatewayMachineTransport(api_key)
-    discovery = GatewayRouteDiscovery(transport)
+    discovery = GatewayRouteDiscovery(
+        transport,
+        credential_fingerprint=transport.credential_fingerprint,
+    )
     root = Path(config.data_dir).expanduser().resolve() / "native" / "gateway-runtime"
     manager: NativeProcessManager | None = None
     sidecar: ManagedGatewaySidecarService | None = None

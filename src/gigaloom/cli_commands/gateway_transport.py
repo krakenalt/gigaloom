@@ -8,6 +8,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from gigaloom.contracts.operational_validation import canonical_digest
 from gigaloom.native.launch.gateway_discovery import MAX_GATEWAY_DISCOVERY_BYTES
 
 
@@ -16,6 +17,9 @@ class AuthenticatedGatewayMachineTransport:
 
     def __init__(self, api_key: str | None) -> None:
         self.api_key = api_key
+        self.credential_fingerprint = canonical_digest(
+            {"gateway_api_key": api_key or ""}
+        )
 
     def get_json(
         self,

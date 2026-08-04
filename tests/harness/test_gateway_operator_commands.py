@@ -190,7 +190,7 @@ def test_inspect_reads_only_public_machine_contracts_and_projects_routes(
 
     payload = service.inspect("gpt2giga", refresh=True)
 
-    assert transport.calls == ["/health", "/models", "/bridge/capabilities"]
+    assert transport.calls == ["/models", "/bridge/capabilities"]
     assert payload["discovery_status"] == "current"
     assert payload["catalog"]["routes"][0]["route_id"] == (
         "codex-gpt2giga-gigachat-2-max"

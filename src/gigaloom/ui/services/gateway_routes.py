@@ -132,7 +132,10 @@ class GatewayRouteWebService:
         )
         return cls(
             profile,
-            GatewayRouteDiscovery(transport),
+            GatewayRouteDiscovery(
+                transport,
+                credential_fingerprint=transport.credential_fingerprint,
+            ),
             sidecar=sidecar,
             sidecar_environment=(
                 lambda: managed_gpt2giga_environment(
@@ -165,6 +168,48 @@ class GatewayRouteWebService:
                     self.sidecar is not None and self.sidecar_environment is not None
                 ),
             },
+        }
+
+    def models(self, *, api_mode: str) -> dict[str, Any]:
+        """Project dynamic models from the same cached machine contracts."""
+        protocols = {
+            "v1": "openai_chat_completions",
+            "v2": "openai_responses",
+        }
+        protocol = protocols.get(api_mode)
+        if protocol is None:
+            raise ValueError("invalid api_mode; expected v1 or v2")
+        result = self.discovery.discover(self.profile)
+        catalog = result.catalog
+        models = (
+            sorted(
+                {
+                    route.public_model_alias
+                    for route in catalog.routes
+                    if route.client_protocol == protocol
+                }
+            )
+            if catalog is not None
+            else []
+        )
+        return {
+            "schema_version": 1,
+            "ok": result.status is GatewayDiscoveryStatus.CURRENT,
+            "api_mode": api_mode,
+            "route_path": f"/{api_mode}/models",
+            "health": (
+                "ready"
+                if result.status is GatewayDiscoveryStatus.CURRENT
+                else result.status.value
+            ),
+            "last_checked_at": (catalog.discovered_at if catalog is not None else None),
+            "models": models,
+            "source": "gateway_route_catalog",
+            "error": (
+                None
+                if result.status is GatewayDiscoveryStatus.CURRENT
+                else "model discovery is not current"
+            ),
         }
 
     def start(self, *, session_id: str) -> dict[str, Any]:
@@ -227,7 +272,7 @@ class GatewayRouteWebService:
         acknowledgement_id: str | None,
     ) -> dict[str, Any]:
         """Issue one short-lived receipt for the exact current route facts."""
-        result = self.discovery.discover(self.profile, force_refresh=True)
+        result = self.discovery.discover(self.profile)
         if result.status is not GatewayDiscoveryStatus.CURRENT:
             raise ValueError("gateway route capabilities are not current")
         catalog = result.catalog
@@ -296,7 +341,7 @@ class GatewayRouteWebService:
         if _aware(self.clock()) - checked_at > _PREFLIGHT_TTL:
             self._issued.pop(issued.receipt.receipt_id, None)
             raise ValueError("gateway route preflight receipt expired")
-        result = self.discovery.discover(self.profile, force_refresh=True)
+        result = self.discovery.discover(self.profile)
         if result.status is not GatewayDiscoveryStatus.CURRENT:
             raise ValueError("gateway route capabilities are not current")
         catalog = result.catalog

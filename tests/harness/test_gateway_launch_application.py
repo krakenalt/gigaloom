@@ -207,7 +207,7 @@ def test_managed_launch_composes_artifact_discovery_preflight_overlay_and_native
     )
 
     assert exit_code == 17
-    assert discovery.calls == [True]
+    assert discovery.calls == [False]
     assert sidecar.stopped == 1
     assert sidecar.environments[0]["GIGACHAT_CREDENTIALS"] == "upstream-secret"
     argv, environment = launched[0]
@@ -308,7 +308,7 @@ def test_dry_run_is_content_free_and_does_not_start_or_write(
     assert payload["status"] == "ready"
     assert payload["artifact_state"] == "verified"
     assert payload["process_spawn"] is False
-    assert discovery.calls == [True]
+    assert discovery.calls == [False]
     assert sidecar.environments == []
     assert sidecar.stopped == 0
     assert not managed_root.exists()
@@ -383,6 +383,6 @@ def test_resolution_refusal_stops_the_sidecar_before_native_handoff(
         == 2
     )
 
-    assert discovery.calls == [True]
+    assert discovery.calls == [False]
     assert sidecar.stopped == 1
     assert launched == []

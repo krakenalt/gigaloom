@@ -252,6 +252,8 @@ class GatewayRouteDiscovery:
         self,
         transport: GatewayMachineTransport | None = None,
         *,
+        credential_fingerprint: str = "anonymous",
+        api_mode: str = "bridge",
         clock: Callable[[], datetime] | None = None,
         ttl_seconds: int = DEFAULT_GATEWAY_DISCOVERY_TTL_SECONDS,
         timeout_seconds: float = 3.0,
@@ -260,11 +262,15 @@ class GatewayRouteDiscovery:
             raise ValueError("gateway discovery TTL must be positive")
         if timeout_seconds <= 0:
             raise ValueError("gateway discovery timeout must be positive")
+        if not credential_fingerprint or not api_mode:
+            raise ValueError("gateway discovery cache identity is invalid")
         self._transport = transport or UrlLibGatewayMachineTransport()
+        self._credential_fingerprint = credential_fingerprint
+        self._api_mode = api_mode
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._ttl_seconds = ttl_seconds
         self._timeout_seconds = timeout_seconds
-        self._cache: dict[tuple[str, str], GatewayRouteCatalogV1] = {}
+        self._cache: dict[tuple[str, str, str, str, str], GatewayRouteCatalogV1] = {}
 
     def discover(
         self,
@@ -274,7 +280,13 @@ class GatewayRouteDiscovery:
     ) -> GatewayDiscoveryResult:
         """Return current facts or an explicitly stale/unknown result."""
         now = _aware(self._clock())
-        cache_key = (profile.gateway_id, profile.profile_digest)
+        cache_key = (
+            profile.gateway_id,
+            profile.profile_digest,
+            self._credential_fingerprint,
+            self._api_mode,
+            profile.capabilities_contract_revision,
+        )
         cached = self._cache.get(cache_key)
         if (
             not force_refresh
@@ -311,9 +323,6 @@ class GatewayRouteDiscovery:
         *,
         now: datetime,
     ) -> GatewayRouteCatalogV1:
-        health_status, _ = self._get(profile, "/health")
-        if health_status != 200:
-            raise GatewayDiscoveryError(GatewayDiscoveryReason.HEALTH_UNAVAILABLE)
         models_status, models_payload = self._get(profile, "/models")
         if models_status != 200:
             raise GatewayDiscoveryError(GatewayDiscoveryReason.MODELS_UNAVAILABLE)

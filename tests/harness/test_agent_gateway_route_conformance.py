@@ -281,7 +281,7 @@ class _Discovery:
         self.calls = 0
 
     def discover(self, _profile: object, *, force_refresh: bool = False):
-        assert force_refresh is True
+        assert force_refresh is False
         self.calls += 1
         return self.result
 

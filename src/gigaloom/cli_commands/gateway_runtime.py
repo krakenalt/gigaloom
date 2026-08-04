@@ -30,7 +30,10 @@ def build_gateway_command_service(config: HarnessConfig) -> GatewayCommandServic
     transport = AuthenticatedGatewayMachineTransport(config.api_key)
     return GatewayCommandService.create(
         (profile,),
-        discovery=GatewayRouteDiscovery(transport),
+        discovery=GatewayRouteDiscovery(
+            transport,
+            credential_fingerprint=transport.credential_fingerprint,
+        ),
         readiness_probe=UrlLibGatewayStartupReadinessProbe(transport),
         artifact_resolver=resolve_installed_gpt2giga_artifact,
     )
