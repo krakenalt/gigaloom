@@ -21,6 +21,7 @@ from gigaloom.execution.thread_relay.service import (
 from gigaloom.sessions.api import (
     ThreadAuthorMode,
     ThreadDeliveryIntent,
+    ThreadDeliveryCursor,
     ThreadDeliveryRepository,
     ThreadMessageEnvelopeV1,
     ThreadSourceKind,
@@ -135,6 +136,43 @@ class GigaLoomThreadRelayActions:
             limit=limit,
         )
         return {"thread": thread_read_projection_to_dict(projection)}
+
+    def list_deliveries(
+        self,
+        *,
+        source: str,
+        thread_id: str,
+        direction: str,
+        cursor: str | None,
+        limit: int,
+    ) -> Mapping[str, Any]:
+        """Return digest-only delivery states for one permitted thread."""
+        self._require_gigaloom_source(source)
+        session = self.projector.bound_session(thread_id)
+        page = self.delivery_repository.list_for_thread(
+            self.projector.locator(session),
+            direction=direction,
+            cursor=_delivery_cursor(cursor),
+            limit=limit,
+        )
+        return {
+            "schema_version": 1,
+            "direction": direction,
+            "items": [
+                {
+                    "direction": direction,
+                    "envelope_digest": item.envelope_digest,
+                    "receipt": thread_delivery_receipt_to_dict(item.receipt),
+                }
+                for item in page.items
+            ],
+            "next_cursor": (
+                _delivery_cursor_text(page.next_cursor)
+                if page.next_cursor is not None
+                else None
+            ),
+            "has_more": page.has_more,
+        }
 
     def preview_send(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
         return self._preview(payload, allow_agent_approved=False)
@@ -373,6 +411,22 @@ def _timestamp(value: object) -> datetime:
     if parsed.tzinfo is None:
         raise ValueError("thread relay expires_at must be timezone-aware")
     return parsed
+
+
+def _delivery_cursor(value: str | None) -> ThreadDeliveryCursor | None:
+    if value is None:
+        return None
+    if len(value) > 1024 or "|" not in value:
+        raise ValueError("thread delivery cursor is invalid")
+    timestamp, delivery_id = value.rsplit("|", 1)
+    parsed = _timestamp(timestamp)
+    if not delivery_id:
+        raise ValueError("thread delivery cursor is invalid")
+    return ThreadDeliveryCursor(parsed, delivery_id)
+
+
+def _delivery_cursor_text(value: ThreadDeliveryCursor) -> str:
+    return f"{value.created_at.isoformat()}|{value.delivery_id}"
 
 
 __all__ = [

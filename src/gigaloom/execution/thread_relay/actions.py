@@ -28,6 +28,17 @@ class ThreadRelayRouteActions(Protocol):
     ) -> Mapping[str, Any]:
         """Return one bounded visible thread projection."""
 
+    def list_deliveries(
+        self,
+        *,
+        source: str,
+        thread_id: str,
+        direction: str,
+        cursor: str | None,
+        limit: int,
+    ) -> Mapping[str, Any]:
+        """Return one content-free incoming or outgoing delivery page."""
+
     def preview_send(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
         """Return a content-free preview without persisting or mutating."""
 

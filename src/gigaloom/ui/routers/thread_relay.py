@@ -73,6 +73,32 @@ def create_router(
             )
         )
 
+    @router.fs_read.get("/api/thread-relay/threads/{source}/{thread_id}/deliveries")
+    def list_deliveries(
+        request: Request,
+        source: ThreadSource,
+        thread_id: str = Path(min_length=1, max_length=256),
+        project_id: str = Query(min_length=1, max_length=256),
+        direction: Literal["incoming", "outgoing"] = Query(),
+        cursor: str | None = Query(default=None, max_length=1024),
+        limit: int = Query(default=50, ge=1, le=100),
+    ) -> dict[str, Any]:
+        return _mapping(
+            _invoke(
+                _actions(
+                    actions,
+                    actions_factory,
+                    request,
+                    project_id,
+                ).list_deliveries,
+                source=source,
+                thread_id=thread_id,
+                direction=direction,
+                cursor=cursor,
+                limit=limit,
+            )
+        )
+
     @router.fs_read.post("/api/thread-relay/deliveries/preview")
     def preview_delivery(
         request: Request,

@@ -38,6 +38,23 @@ class _Actions:
         self.calls.append(("read", (source, thread_id, cursor, limit)))
         return {"thread": {"thread_id": thread_id, "messages": []}}
 
+    def list_deliveries(
+        self,
+        *,
+        source: str,
+        thread_id: str,
+        direction: str,
+        cursor: str | None,
+        limit: int,
+    ):
+        self.calls.append(("deliveries", (source, thread_id, direction, cursor, limit)))
+        return {
+            "direction": direction,
+            "items": [],
+            "next_cursor": None,
+            "has_more": False,
+        }
+
     def preview_send(self, payload: Mapping[str, Any]):
         self.calls.append(("preview", dict(payload)))
         result = {
@@ -213,6 +230,14 @@ def test_route_local_api_lists_reads_previews_sends_and_reports_status() -> None
         "/api/thread-relay/threads/acp/thread-1",
         params={"project_id": "project-1"},
     )
+    deliveries = client.get(
+        "/api/thread-relay/threads/gigaloom/thread-1/deliveries",
+        params={
+            "project_id": "project-1",
+            "direction": "incoming",
+            "limit": 10,
+        },
+    )
     preview = client.post("/api/thread-relay/deliveries/preview", json=_send_payload())
     delivered = client.post("/api/thread-relay/deliveries", json=_send_payload())
     status = client.get(
@@ -220,13 +245,15 @@ def test_route_local_api_lists_reads_previews_sends_and_reports_status() -> None
         params={"project_id": "project-1"},
     )
 
-    assert listed.status_code == read.status_code == 200
+    assert listed.status_code == read.status_code == deliveries.status_code == 200
+    assert deliveries.json()["direction"] == "incoming"
     assert preview.json()["dry_run"] is True
     assert delivered.json()["delivery"]["status"] == "completed"
     assert status.json() == {"delivery_id": "delivery-1", "status": "completed"}
     assert [name for name, _ in actions.calls] == [
         "list",
         "read",
+        "deliveries",
         "preview",
         "preview",
         "send",

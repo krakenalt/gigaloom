@@ -104,19 +104,45 @@ def test_actions_list_preview_deliver_and_report_without_content_echo(tmp_path) 
         title="Target",
         metadata={"catalog_project_id": "project-1"},
     )
+    source = store.create_session(
+        title="Source",
+        metadata={"catalog_project_id": "project-1"},
+    )
     request = _request(target.id, target.updated_at)
+    request["source_thread_id"] = source.id
 
     listed = actions.list_threads(source="gigaloom", cursor=None, limit=10)
     preview = actions.preview_send(request)
     delivered = actions.send(request, preview_digest=preview["preview_digest"])
     receipt = delivered["receipt"]
     status = actions.status(receipt["delivery_id"])
+    incoming = actions.list_deliveries(
+        source="gigaloom",
+        thread_id=target.id,
+        direction="incoming",
+        cursor=None,
+        limit=10,
+    )
+    outgoing = actions.list_deliveries(
+        source="gigaloom",
+        thread_id=source.id,
+        direction="outgoing",
+        cursor=None,
+        limit=10,
+    )
 
-    assert [item["locator"]["thread_id"] for item in listed["threads"]] == [target.id]
+    assert {item["locator"]["thread_id"] for item in listed["threads"]} == {
+        source.id,
+        target.id,
+    }
     assert len(preview["preview_digest"]) == 64
     assert "super-secret" not in repr(preview)
     assert receipt["status"] == "completed"
     assert status["receipt"]["delivery_id"] == receipt["delivery_id"]
+    assert incoming["items"][0]["receipt"]["delivery_id"] == receipt["delivery_id"]
+    assert outgoing["items"][0]["direction"] == "outgoing"
+    assert "envelope_digest" in outgoing["items"][0]
+    assert "text" not in repr(outgoing)
     assert len(submitter.calls) == 1
     assert submitter.calls[0][1]["prompt"] == "Please review token=<redacted>"
 

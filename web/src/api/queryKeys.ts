@@ -71,6 +71,21 @@ export const requestKeys = {
       "delivery",
       deliveryId,
     ] as const,
+  threadDeliveries: (
+    projectId: string,
+    source: string,
+    threadId: string,
+    direction: string,
+    revision: string,
+  ) =>
+    [
+      ...requestKeys.threadLibraryScope(projectId),
+      "deliveries",
+      source,
+      threadId,
+      direction,
+      revision,
+    ] as const,
   operatorTerminal: (
     terminalId: string,
     workspaceId: string,

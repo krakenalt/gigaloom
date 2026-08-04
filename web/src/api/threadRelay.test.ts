@@ -6,6 +6,7 @@ import {
 } from "./queries/threadRelay";
 import {
   fetchThreadLibraryPage,
+  fetchThreadDeliveries,
   fetchThreadRead,
   previewThreadDelivery,
   type ThreadDeliveryRequest,
@@ -28,12 +29,22 @@ describe("Thread Relay API", () => {
 
     await fetchThreadLibraryPage("project/a", "codex", "cursor/2");
     await fetchThreadRead("project/a", "codex", "thread/1", null);
+    await fetchThreadDeliveries(
+      "project/a",
+      "codex",
+      "thread/1",
+      "incoming",
+      "cursor/3",
+    );
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "/api/thread-relay/threads?project_id=project%2Fa&source=codex&cursor=cursor%2F2&limit=50",
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
       "/api/thread-relay/threads/codex/thread%2F1?project_id=project%2Fa&limit=50",
+    );
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      "/api/thread-relay/threads/codex/thread%2F1/deliveries?project_id=project%2Fa&direction=incoming&cursor=cursor%2F3&limit=50",
     );
     expect(fetchMock.mock.calls.flatMap((call) => call)).not.toContain(
       expect.stringContaining("bundle"),

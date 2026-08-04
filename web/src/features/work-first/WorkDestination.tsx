@@ -7,12 +7,14 @@ export function WorkDestination({
   context,
   description,
   narrative,
+  deliveries,
   title,
 }: {
   composer: ReactNode;
   context: ReactNode;
   description: string;
   narrative: ReactNode;
+  deliveries?: ReactNode;
   title: string;
 }) {
   return (
@@ -25,7 +27,12 @@ export function WorkDestination({
         <aside aria-label="Work context" className="work-first-context-slot">
           {context}
         </aside>
-        <div className="work-first-narrative-slot">{narrative}</div>
+        <div className="work-first-narrative-slot">
+          {narrative}
+          {deliveries === undefined ? null : (
+            <section aria-label="Work thread deliveries">{deliveries}</section>
+          )}
+        </div>
       </div>
       <div className="work-first-composer-slot">{composer}</div>
     </DestinationFrame>

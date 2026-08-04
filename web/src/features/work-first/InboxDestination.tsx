@@ -5,11 +5,13 @@ import { DestinationFrame } from "./DestinationFrame";
 export function InboxDestination({
   description,
   items,
+  deliveries,
   preview,
   title,
 }: {
   description: string;
   items: ReactNode;
+  deliveries?: ReactNode;
   preview?: ReactNode;
   title: string;
 }) {
@@ -21,6 +23,9 @@ export function InboxDestination({
     >
       <div className="work-first-split-layout">
         <div aria-label="Inbox items" className="work-first-list-slot">
+          {deliveries === undefined ? null : (
+            <section aria-label="Inbox thread deliveries">{deliveries}</section>
+          )}
           {items}
         </div>
         {preview === undefined ? null : (

@@ -622,6 +622,107 @@
   color: var(--danger);
 }
 
+.thread-delivery-inbox {
+  display: grid;
+  gap: 10px;
+}
+
+.thread-delivery-feed {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.thread-delivery-card {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--muted);
+  border-radius: 9px;
+  background: var(--surface);
+  padding: 11px;
+  overflow-wrap: anywhere;
+}
+
+.thread-delivery-card.preview,
+.thread-delivery-card.accepted {
+  border-left-color: var(--accent);
+}
+
+.thread-delivery-card.completed {
+  border-left-color: var(--success);
+}
+
+.thread-delivery-card.failed {
+  border-left-color: var(--danger);
+}
+
+.thread-delivery-card > header,
+.thread-delivery-card > footer,
+.thread-delivery-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.thread-delivery-card > header,
+.thread-delivery-card > footer,
+.thread-delivery-card > small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.thread-delivery-card > header span,
+.thread-delivery-card > header strong {
+  text-transform: uppercase;
+}
+
+.thread-delivery-card > footer {
+  border-top: 1px solid var(--border);
+  padding-top: 7px;
+}
+
+.thread-delivery-card dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 0;
+}
+
+.thread-delivery-card dl div {
+  display: flex;
+  gap: 4px;
+  font-size: 10px;
+}
+
+.thread-delivery-card dd {
+  margin: 0;
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+.thread-delivery-reason {
+  margin: 0;
+  color: var(--danger);
+  font-size: 11px;
+}
+
+.thread-delivery-pagination {
+  justify-content: flex-start;
+}
+
+.thread-delivery-state {
+  margin: 0;
+  padding: 12px;
+  color: var(--muted);
+}
+
+.thread-delivery-state.error {
+  color: var(--danger);
+}
+
 @media (max-width: 760px) {
   .work-first-destination {
     height: calc(100dvh - 68px - env(safe-area-inset-bottom, 0px));

@@ -137,6 +137,22 @@ export interface ThreadDeliveryStatusResponse {
   receipt: ThreadDeliveryReceipt;
 }
 
+export type ThreadDeliveryDirection = "incoming" | "outgoing";
+
+export interface ThreadDeliveryListItem {
+  direction: ThreadDeliveryDirection;
+  envelope_digest: string;
+  receipt: ThreadDeliveryReceipt;
+}
+
+export interface ThreadDeliveryPage {
+  direction: ThreadDeliveryDirection;
+  has_more: boolean;
+  items: ThreadDeliveryListItem[];
+  next_cursor: string | null;
+  schema_version: number;
+}
+
 export function fetchThreadLibraryPage(
   projectId: string,
   source: ThreadSource,
@@ -201,6 +217,28 @@ export function fetchThreadDeliveryStatus(
     withQuery(
       `/api/thread-relay/deliveries/${encodeURIComponent(deliveryId)}`,
       { project_id: projectId },
+    ),
+    signal,
+  );
+}
+
+export function fetchThreadDeliveries(
+  projectId: string,
+  source: ThreadSource,
+  threadId: string,
+  direction: ThreadDeliveryDirection,
+  cursor: string | null,
+  signal?: AbortSignal,
+) {
+  return fetchCockpit<ThreadDeliveryPage>(
+    withQuery(
+      `/api/thread-relay/threads/${encodeURIComponent(source)}/${encodeURIComponent(threadId)}/deliveries`,
+      {
+        project_id: projectId,
+        direction,
+        cursor,
+        limit: 50,
+      },
     ),
     signal,
   );
