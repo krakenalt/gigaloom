@@ -493,11 +493,6 @@ def acp_harnesses(
 
 def _managed_spec(record: ManagedAgentOnboardingResult) -> HarnessSpec:
     profile = record.profile
-    provider_bridge = resolve_provider_bridge(
-        registry_id=record.artifact.registry_id,
-        version=record.artifact.version,
-        providers_advertised="provider_configuration" in record.probe.capabilities,
-    )
     return HarnessSpec(
         id=profile.agent_id,
         title=profile.display_name,
@@ -517,7 +512,7 @@ def _managed_spec(record: ManagedAgentOnboardingResult) -> HarnessSpec:
             "version": record.artifact.version,
             "distribution_kind": record.artifact.distribution_kind.value,
             "profile_digest": profile.profile_digest,
-            "provider_bridge": provider_bridge.projection(),
+            "provider_bridge": record.probe.provider_bridge.projection(),
         },
         headless_continuation=HeadlessContinuationStrategy.ONE_SHOT,
     )

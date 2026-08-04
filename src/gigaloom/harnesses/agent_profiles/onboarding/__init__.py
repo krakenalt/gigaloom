@@ -2,6 +2,7 @@
 
 from gigaloom.harnesses.agent_profiles.onboarding.models import (
     ManagedAcpProbeReceipt,
+    ManagedAcpProviderBridgeProjection,
     ManagedAgentOnboardingResult,
     ManagedProbeState,
 )
@@ -27,6 +28,7 @@ from gigaloom.harnesses.agent_profiles.onboarding.store import (
 
 __all__ = [
     "ManagedAcpProbePort",
+    "ManagedAcpProviderBridgeProjection",
     "ManagedAcpProbeReceipt",
     "ManagedAcpProbeRunner",
     "ManagedAcpNetworkIsolation",

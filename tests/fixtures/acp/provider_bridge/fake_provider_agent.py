@@ -38,6 +38,7 @@ def main() -> None:
             str(os.getpid()), encoding="utf-8"
         )
     current: dict[str, str] | None = None
+    method_log = os.environ.get("FAKE_METHOD_LOG")
     for line in sys.stdin:
         try:
             request = json.loads(line)
@@ -45,6 +46,9 @@ def main() -> None:
             continue
         method = request.get("method")
         params = request.get("params") or {}
+        if method_log and isinstance(method, str):
+            with Path(method_log).open("a", encoding="utf-8") as stream:
+                stream.write(method + "\n")
         if method == "initialize":
             if args.mode == "initialize-failure":
                 _error(request, "initialize rejected")
@@ -61,6 +65,9 @@ def main() -> None:
                 },
             )
         elif method == "providers/list":
+            if args.mode == "malformed-list":
+                _result(request, {"providers": "not-an-array"})
+                continue
             effective = current
             if args.mode == "post-set-mismatch" and current is not None:
                 effective = {**current, "baseUrl": "http://wrong.invalid/v1"}

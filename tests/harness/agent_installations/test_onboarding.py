@@ -50,6 +50,10 @@ from gigaloom.harnesses.agent_profiles.onboarding import (
     discover_managed_acp_network_isolation,
     generate_managed_agent_profile,
 )
+from gigaloom.harnesses.agent_profiles.onboarding.probe import (
+    managed_probe_from_dict,
+    managed_probe_to_dict,
+)
 from gigaloom.harnesses.agent_profiles.models import VersionPolicyKind
 from gigaloom.harnesses.acp import (
     build_provider_launch_overlay,
@@ -114,6 +118,7 @@ def _candidate(
     executable_name: str = "generic-agent",
     registry_id: str = "generic-agent",
     mode: str = "normal",
+    environment: tuple[tuple[str, str], ...] = (),
 ):
     snapshot_digest = _digest(f"snapshot-{version}")
     distribution_values = {
@@ -125,7 +130,7 @@ def _candidate(
         "expected_integrity": _digest(f"artifact-{version}"),
         "command": f"bin/{executable_name}",
         "arguments": ("--mode", mode),
-        "environment": (),
+        "environment": environment,
         "network_origins": ("https://downloads.example.test",),
     }
     distribution = ACPDistributionV1(
@@ -176,7 +181,7 @@ def _candidate(
         executable_relative_path=f"bin/{executable_name}",
         command=f"bin/{executable_name}",
         arguments=distribution.arguments,
-        environment=(),
+        environment=distribution.environment,
         installed_at=NOW,
         status=ManagedAgentStatus.STAGED,
     )
@@ -432,10 +437,12 @@ def test_reviewed_gateway_binding_reaches_opencode_without_secret_persistence(
 
 
 def test_standard_provider_bridge_configures_before_session_creation(tmp_path):
+    method_log = tmp_path / "provider-probe-methods.log"
     plan, entry, artifact = _candidate(
         tmp_path,
         executable_name="fake-provider-agent",
         registry_id="generic-agent",
+        environment=(("FAKE_METHOD_LOG", str(method_log)),),
     )
     fixture = (
         Path(__file__).parents[2]
@@ -450,6 +457,21 @@ def test_standard_provider_bridge_configures_before_session_creation(tmp_path):
         clock=lambda: NOW,
     ).onboard(plan, entry, artifact, network_isolated=True)
     assert "provider_configuration" in record.probe.capabilities
+    assert record.probe.provider_bridge.projection() == {
+        "status": "ready",
+        "strategy": "acp_providers",
+        "protocols": ["openai_chat_completions", "openai_responses"],
+        "provider_ids": ["main"],
+        "adapter_id": None,
+        "adapter_revision": None,
+        "model_selection": "acp_model_config",
+        "reason_ids": [],
+    }
+    assert method_log.read_text(encoding="utf-8").splitlines() == [
+        "initialize",
+        "providers/list",
+    ]
+    method_log.unlink()
     runtime = cast(AgentRuntimeService, _ActiveRuntimeProjection(record))
     harness = ManagedAcpHarness(runtime, record)
     workspace = tmp_path / "provider-workspace"
@@ -583,7 +605,8 @@ def test_selected_gateway_model_never_falls_back_for_unsupported_acp(
     )
     gateway_metadata = harness.spec().metadata["provider_bridge"]
     assert isinstance(gateway_metadata, dict)
-    assert gateway_metadata["reason_ids"] == [reason_id]
+    assert gateway_metadata["status"] == "unknown_until_reprobe"
+    assert gateway_metadata["reason_ids"] == ["provider_bridge_reprobe_required"]
     called = False
 
     def run_turn(*_args, **_kwargs):  # noqa: ANN202
@@ -779,8 +802,64 @@ def test_production_probe_uses_disposable_home_and_initialize_only(tmp_path):
     assert receipt.executable_observed is True
     assert receipt.native_home_isolated is True
     assert receipt.network_policy == "enforced_loopback_only"
+    assert receipt.provider_bridge.status == "native_only"
+    assert receipt.provider_bridge.strategy is None
+    assert receipt.provider_bridge.reason_ids == (
+        "acp_provider_configuration_not_advertised",
+    )
     assert receipt.session_created is False
     assert receipt.prompt_sent is False
+
+
+def test_provider_probe_contract_failure_is_content_free_and_does_not_start_session(
+    tmp_path,
+):
+    method_log = tmp_path / "malformed-provider-probe-methods.log"
+    _, entry, artifact = _candidate(
+        tmp_path,
+        executable_name="fake-provider-agent",
+        mode="malformed-list",
+        environment=(("FAKE_METHOD_LOG", str(method_log)),),
+    )
+    fixture = (
+        Path(__file__).parents[2]
+        / "fixtures/acp/provider_bridge/fake_provider_agent.py"
+    )
+    executable = Path(artifact.managed_root) / artifact.executable_relative_path
+    shutil.copyfile(fixture, executable)
+    executable.chmod(0o700)
+
+    receipt = ManagedAcpProbeRunner(HermeticIsolation()).probe(
+        generate_managed_agent_profile(entry, artifact),
+        artifact,
+        network_isolated=True,
+    )
+
+    assert receipt.state is ManagedProbeState.DEGRADED
+    assert receipt.provider_bridge.status == "blocked"
+    assert receipt.provider_bridge.reason_ids == ("acp_provider_contract_regression",)
+    assert receipt.session_created is False
+    assert receipt.prompt_sent is False
+    assert method_log.read_text(encoding="utf-8").splitlines() == [
+        "initialize",
+        "providers/list",
+    ]
+
+
+def test_legacy_probe_record_requires_reprobe_without_inference():
+    current = managed_probe_to_dict(_probe())
+    legacy = dict(current)
+    legacy.pop("provider_bridge")
+
+    restored = managed_probe_from_dict(legacy)
+
+    assert restored.receipt_digest == current["receipt_digest"]
+    assert restored.provider_bridge.status == "unknown_until_reprobe"
+    assert restored.provider_bridge.strategy is None
+    assert restored.provider_bridge.reason_ids == ("provider_bridge_reprobe_required",)
+    assert managed_probe_to_dict(restored)["provider_bridge"] == (
+        restored.provider_bridge.projection()
+    )
 
 
 def test_discovered_platform_isolation_launches_production_probe(tmp_path):
