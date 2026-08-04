@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from functools import partial
 from importlib import metadata
 import re
 from typing import Any
@@ -20,6 +21,9 @@ GATEWAY_COMPATIBILITY_SCHEMA_VERSION = 1
 ACP_SDK_DISTRIBUTION = "agent-client-protocol"
 ACP_SDK_VERSION = "0.11.1"
 ACP_WIRE_PROTOCOL_VERSION = str(ACP_PROTOCOL_VERSION)
+_ACP_EXPECTED = (
+    f"{ACP_SDK_DISTRIBUTION}=={ACP_SDK_VERSION};protocol=={ACP_WIRE_PROTOCOL_VERSION}"
+)
 _VERSION_PATTERN = re.compile(r"(?<!\d)(\d+\.\d+\.\d+)(?!\d)")
 
 
@@ -68,43 +72,36 @@ PackageVersionResolver = Callable[[str], str]
 GATEWAY_AGENT_COMPATIBILITY_CONTRACTS: Mapping[
     str, GatewayAgentCompatibilityContractV1
 ] = {
-    "codex": GatewayAgentCompatibilityContractV1(
-        agent_id="codex",
-        harness_id="codex-cli",
-        minimum_version="0.146.0",
-        maximum_version_exclusive="0.146.1",
-        pinned_version="0.146.0",
-        required_capabilities=(
-            "--json",
-            "--sandbox",
-            "--ephemeral",
-            "app-server",
+    contract.agent_id: contract
+    for contract in (
+        GatewayAgentCompatibilityContractV1(
+            "codex",
+            "codex-cli",
+            "0.146.0",
+            "0.146.1",
+            ("--json", "--sandbox", "--ephemeral", "app-server"),
+            "0.146.0",
         ),
-    ),
-    "claude": GatewayAgentCompatibilityContractV1(
-        agent_id="claude",
-        harness_id="claude-code",
-        minimum_version="2.1.0",
-        maximum_version_exclusive="2.2.0",
-        required_capabilities=(
-            "--output-format",
-            "stream-json",
-            "--permission-mode",
-            "--no-session-persistence",
+        GatewayAgentCompatibilityContractV1(
+            "claude",
+            "claude-code",
+            "2.1.0",
+            "2.2.0",
+            (
+                "--output-format",
+                "stream-json",
+                "--permission-mode",
+                "--no-session-persistence",
+            ),
         ),
-    ),
-    "gemini": GatewayAgentCompatibilityContractV1(
-        agent_id="gemini",
-        harness_id="gemini-cli",
-        minimum_version="0.46.0",
-        maximum_version_exclusive="0.47.0",
-        required_capabilities=(
-            "--output-format",
-            "stream-json",
-            "--approval-mode",
-            "--skip-trust",
+        GatewayAgentCompatibilityContractV1(
+            "gemini",
+            "gemini-cli",
+            "0.46.0",
+            "0.47.0",
+            ("--output-format", "stream-json", "--approval-mode", "--skip-trust"),
         ),
-    ),
+    )
 }
 
 
@@ -115,65 +112,35 @@ def evaluate_gateway_cli_compatibility(
     """Admit one CLI only from complete, internally consistent probe evidence."""
     contract = GATEWAY_AGENT_COMPATIBILITY_CONTRACTS.get(agent_id)
     if contract is None:
-        return _blocked(
-            agent_id,
-            "unknown",
-            "gateway_agent_compatibility_contract_missing",
-            "unavailable",
-        )
+        return _missing_contract(agent_id)
+
+    reject = partial(
+        _blocked,
+        agent_id,
+        contract.harness_id,
+        contract.version_window,
+    )
     status = getattr(snapshot, "status", None)
     version = getattr(snapshot, "version", None)
     parsed_version = getattr(snapshot, "parsed_version", None)
     capabilities = getattr(snapshot, "capabilities", None)
-    if status == "missing":
-        return _blocked(
-            agent_id,
-            contract.harness_id,
-            "gateway_agent_executable_missing",
-            contract.version_window,
-        )
-    if status == "error":
-        return _blocked(
-            agent_id,
-            contract.harness_id,
-            "gateway_agent_capability_probe_failed",
-            contract.version_window,
-        )
     if status not in {"supported", "degraded"}:
-        return _blocked(
-            agent_id,
-            contract.harness_id,
-            "gateway_agent_capability_probe_rejected",
-            contract.version_window,
-        )
+        reason = {
+            "missing": "gateway_agent_executable_missing",
+            "error": "gateway_agent_capability_probe_failed",
+        }.get(status, "gateway_agent_capability_probe_rejected")
+        return reject(reason)
     if not isinstance(version, str) or not version.strip():
-        return _blocked(
-            agent_id,
-            contract.harness_id,
-            "gateway_agent_version_evidence_missing",
-            contract.version_window,
-        )
+        return reject("gateway_agent_version_evidence_missing")
     observed = _parsed_version(version)
     if (
         observed is None
         or not isinstance(parsed_version, str)
         or parsed_version != observed
     ):
-        return _blocked(
-            agent_id,
-            contract.harness_id,
-            "gateway_agent_version_evidence_malformed",
-            contract.version_window,
-            observed_version=version[:200],
-        )
+        return reject("gateway_agent_version_evidence_malformed", version[:200])
     if not _version_admitted(observed, contract):
-        return _blocked(
-            agent_id,
-            contract.harness_id,
-            "gateway_agent_version_outside_reviewed_window",
-            contract.version_window,
-            observed_version=observed,
-        )
+        return reject("gateway_agent_version_outside_reviewed_window", observed)
     if (
         not isinstance(capabilities, Mapping)
         or len(capabilities) > 64
@@ -182,34 +149,21 @@ def evaluate_gateway_cli_compatibility(
             for name, value in capabilities.items()
         )
     ):
-        return _blocked(
-            agent_id,
-            contract.harness_id,
-            "gateway_agent_capability_evidence_malformed",
-            contract.version_window,
-            observed_version=observed,
-        )
+        return reject("gateway_agent_capability_evidence_malformed", observed)
     missing = tuple(
         item
         for item in contract.required_capabilities
         if capabilities.get(item) is not True
     )
     if missing:
-        return _blocked(
-            agent_id,
-            contract.harness_id,
-            "gateway_agent_required_capability_missing",
-            contract.version_window,
-            observed_version=observed,
-            missing_capabilities=missing,
-        )
+        return reject("gateway_agent_required_capability_missing", observed, missing)
     return GatewayAgentCompatibilityDecisionV1(
-        agent_id=agent_id,
-        harness_id=contract.harness_id,
-        status="ready",
-        reason_id="gateway_agent_compatibility_admitted",
-        expected_version_window=contract.version_window,
-        observed_version=observed,
+        agent_id,
+        contract.harness_id,
+        "ready",
+        "gateway_agent_compatibility_admitted",
+        contract.version_window,
+        observed,
     )
 
 
@@ -219,37 +173,29 @@ def evaluate_gateway_acp_compatibility(
     protocol_version: object,
 ) -> GatewayAgentCompatibilityDecisionV1:
     """Admit the managed ACP route only for the exact SDK and wire version."""
-    expected = f"{ACP_SDK_DISTRIBUTION}=={ACP_SDK_VERSION};protocol=={ACP_WIRE_PROTOCOL_VERSION}"
+
+    reject = partial(
+        _blocked,
+        "managed-acp-agent",
+        "acp",
+        _ACP_EXPECTED,
+    )
     if not isinstance(sdk_version, str) or not isinstance(protocol_version, str):
-        return _blocked(
-            "managed-acp-agent",
-            "acp",
-            "gateway_acp_compatibility_evidence_malformed",
-            expected,
-        )
+        return reject("gateway_acp_compatibility_evidence_malformed")
     if sdk_version != ACP_SDK_VERSION:
-        return _blocked(
-            "managed-acp-agent",
-            "acp",
-            "gateway_acp_sdk_version_mismatch",
-            expected,
-            observed_version=sdk_version[:200],
-        )
+        return reject("gateway_acp_sdk_version_mismatch", sdk_version[:200])
     if protocol_version != ACP_WIRE_PROTOCOL_VERSION:
-        return _blocked(
-            "managed-acp-agent",
-            "acp",
+        return reject(
             "gateway_acp_protocol_version_mismatch",
-            expected,
-            observed_version=f"sdk={sdk_version};protocol={protocol_version}"[:200],
+            f"sdk={sdk_version};protocol={protocol_version}"[:200],
         )
     return GatewayAgentCompatibilityDecisionV1(
-        agent_id="managed-acp-agent",
-        harness_id="acp",
-        status="ready",
-        reason_id="gateway_agent_compatibility_admitted",
-        expected_version_window=expected,
-        observed_version=f"sdk={sdk_version};protocol={protocol_version}",
+        "managed-acp-agent",
+        "acp",
+        "ready",
+        "gateway_agent_compatibility_admitted",
+        _ACP_EXPECTED,
+        f"sdk={sdk_version};protocol={protocol_version}",
     )
 
 
@@ -267,31 +213,18 @@ def build_gateway_agent_compatibility_resolver(
             try:
                 sdk_version = package_version(ACP_SDK_DISTRIBUTION)
             except metadata.PackageNotFoundError:
-                return _blocked(
-                    agent_id,
-                    "acp",
-                    "gateway_acp_sdk_missing",
-                    f"{ACP_SDK_DISTRIBUTION}=={ACP_SDK_VERSION};protocol=={ACP_WIRE_PROTOCOL_VERSION}",
-                )
+                reason = "gateway_acp_sdk_missing"
             except Exception:
-                return _blocked(
-                    agent_id,
-                    "acp",
-                    "gateway_acp_sdk_version_probe_failed",
-                    f"{ACP_SDK_DISTRIBUTION}=={ACP_SDK_VERSION};protocol=={ACP_WIRE_PROTOCOL_VERSION}",
+                reason = "gateway_acp_sdk_version_probe_failed"
+            else:
+                return evaluate_gateway_acp_compatibility(
+                    sdk_version=sdk_version,
+                    protocol_version=ACP_WIRE_PROTOCOL_VERSION,
                 )
-            return evaluate_gateway_acp_compatibility(
-                sdk_version=sdk_version,
-                protocol_version=ACP_WIRE_PROTOCOL_VERSION,
-            )
+            return _blocked(agent_id, "acp", _ACP_EXPECTED, reason)
         contract = GATEWAY_AGENT_COMPATIBILITY_CONTRACTS.get(agent_id)
         if contract is None:
-            return _blocked(
-                agent_id,
-                "unknown",
-                "gateway_agent_compatibility_contract_missing",
-                "unavailable",
-            )
+            return _missing_contract(agent_id)
         if harnesses is None:
             harnesses = create_default_registry(include_entry_points=False)
         try:
@@ -301,20 +234,12 @@ def build_gateway_agent_compatibility_resolver(
                 raise TypeError("capability probe missing")
             snapshot: Any = probe()
         except UnknownHarnessError:
-            return _blocked(
-                agent_id,
-                contract.harness_id,
-                "gateway_agent_adapter_missing",
-                contract.version_window,
-            )
+            reason = "gateway_agent_adapter_missing"
         except Exception:
-            return _blocked(
-                agent_id,
-                contract.harness_id,
-                "gateway_agent_capability_probe_failed",
-                contract.version_window,
-            )
-        return evaluate_gateway_cli_compatibility(agent_id, snapshot)
+            reason = "gateway_agent_capability_probe_failed"
+        else:
+            return evaluate_gateway_cli_compatibility(agent_id, snapshot)
+        return _blocked(agent_id, contract.harness_id, contract.version_window, reason)
 
     return resolve
 
@@ -341,9 +266,8 @@ def gateway_agent_compatibility_to_dict(
 def _blocked(
     agent_id: str,
     harness_id: str,
-    reason_id: str,
     expected_version_window: str,
-    *,
+    reason_id: str,
     observed_version: str | None = None,
     missing_capabilities: tuple[str, ...] = (),
 ) -> GatewayAgentCompatibilityDecisionV1:
@@ -355,6 +279,15 @@ def _blocked(
         expected_version_window=expected_version_window,
         observed_version=observed_version,
         missing_capabilities=missing_capabilities,
+    )
+
+
+def _missing_contract(agent_id: str) -> GatewayAgentCompatibilityDecisionV1:
+    return _blocked(
+        agent_id,
+        "unknown",
+        "unavailable",
+        "gateway_agent_compatibility_contract_missing",
     )
 
 

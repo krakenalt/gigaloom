@@ -276,7 +276,7 @@ def test_process_loss_is_visible_and_next_ensure_recovers_with_new_lease(
     assert recovered.process_lease_ref == "native-process:proc_2"
 
 
-def test_unverified_or_wrong_distribution_artifact_never_spawns(
+def test_unverified_or_drifted_artifact_never_spawns(
     tmp_path: Path,
 ) -> None:
     owner = FakeProcessOwner()

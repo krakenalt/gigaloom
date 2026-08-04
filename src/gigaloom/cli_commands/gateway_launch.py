@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Any
 
@@ -181,6 +182,7 @@ def resolve_gateway_launch_request(
     profile: GatewayProfileV1,
     interactive: bool,
     picker: GatewayRoutePicker | None = None,
+    now: datetime | None = None,
 ) -> GatewayLaunchResolutionV1:
     """Resolve one immutable route without fallback or provider traffic."""
     if request.gateway_id is not None and request.gateway_id != profile.gateway_id:
@@ -189,7 +191,7 @@ def resolve_gateway_launch_request(
             request,
             ("route_not_found",),
         )
-    resolver = GatewayRouteResolver(discovery)
+    resolver = GatewayRouteResolver(discovery, now=now)
     resolved = resolver.resolve(
         profile,
         requested_agent_kind=request.agent_id,
@@ -201,23 +203,19 @@ def resolve_gateway_launch_request(
         candidate_ids = resolved.candidate_route_ids
     if isinstance(resolved, GatewayRouteRefusal) and resolved.status == "ambiguous":
         if not interactive or picker is None:
-            return GatewayLaunchResolutionV1(
+            return _refusal(
                 GatewayLaunchResolutionStatus.AMBIGUOUS,
                 request,
-                None,
-                None,
-                candidate_ids,
                 resolved.reason_ids,
+                candidate_ids,
             )
         selected_id = picker(candidate_ids)
         if selected_id not in candidate_ids:
-            return GatewayLaunchResolutionV1(
+            return _refusal(
                 GatewayLaunchResolutionStatus.AMBIGUOUS,
                 request,
-                None,
-                None,
-                candidate_ids,
                 ("route_picker_did_not_select_candidate",),
+                candidate_ids,
             )
         resolved = resolver.resolve(
             profile,
@@ -226,13 +224,11 @@ def resolve_gateway_launch_request(
             route_id=selected_id,
         )
     if isinstance(resolved, GatewayRouteRefusal):
-        return GatewayLaunchResolutionV1(
+        return _refusal(
             GatewayLaunchResolutionStatus(resolved.status),
             request,
-            None,
-            None,
-            resolved.candidate_route_ids,
             resolved.reason_ids,
+            resolved.candidate_route_ids,
         )
     assert discovery.catalog is not None
     selected = next(
@@ -301,5 +297,6 @@ def _refusal(
     status: GatewayLaunchResolutionStatus,
     request: GatewayLaunchRequestV1,
     reasons: tuple[str, ...],
+    candidates: tuple[str, ...] = (),
 ) -> GatewayLaunchResolutionV1:
-    return GatewayLaunchResolutionV1(status, request, None, None, (), reasons)
+    return GatewayLaunchResolutionV1(status, request, None, None, candidates, reasons)

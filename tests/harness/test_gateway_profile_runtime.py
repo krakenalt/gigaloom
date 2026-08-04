@@ -180,3 +180,39 @@ def test_resolver_returns_typed_refusal_for_version_outside_window(
     assert artifact is not None
     assert artifact.verified is False
     assert artifact.reason_id == "gateway_version_outside_supported_window"
+
+
+def test_resolver_does_not_rehash_unchanged_installed_files(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    payload = tmp_path / "installed.py"
+    payload.write_text("VALUE = 1\n", encoding="utf-8")
+    executable = tmp_path / "gpt2giga"
+    executable.write_text("#!/bin/sh\n", encoding="utf-8")
+    executable.chmod(0o755)
+    installed = _Distribution(payload)
+    monkeypatch.setattr(profile_module, "distribution", lambda _name: installed)
+    monkeypatch.setattr(
+        profile_module,
+        "_installed_executable",
+        lambda _name: executable,
+    )
+    original_read_bytes = Path.read_bytes
+    reads: list[Path] = []
+
+    def counted_read_bytes(path: Path) -> bytes:
+        reads.append(path)
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", counted_read_bytes)
+    profile = reviewed_gpt2giga_profile(
+        base_url="http://127.0.0.1:8090",
+        mode=GatewayMode.MANAGED,
+    )
+
+    first = resolve_installed_gpt2giga_artifact(profile)
+    second = resolve_installed_gpt2giga_artifact(profile)
+
+    assert first == second
+    assert reads.count(payload) == 1

@@ -126,11 +126,9 @@ def _call(route: BridgeRouteV1, root: Path, **kwargs):
         resolved,
         route.agent_id,
         _profile(),
-        discovery,
         _preflight(route),
         managed_root=root,
         process_lease_ref="native-process:gateway-01",
-        clock=lambda: NOW,
         **kwargs,
     )
 
@@ -225,36 +223,28 @@ def test_stale_or_mismatched_preflight_never_materializes_overlay(
 ) -> None:
     route = _route()
     discovery = _discovery(route)
-    assert discovery.catalog is not None
     stale = GatewayDiscoveryResult(
         GatewayDiscoveryStatus.STALE,
         discovery.catalog,
         (),
     )
-    root = tmp_path / "managed"
-
-    stale_result = build_gateway_agent_injection(
-        _resolved(route),
-        route.agent_id,
+    stale_resolution = GatewayRouteResolver(stale).resolve(
         _profile(),
-        stale,
-        _preflight(route),
-        managed_root=root,
-        process_lease_ref="native-process:gateway-01",
-        clock=lambda: NOW,
+        requested_agent_kind=route.agent_id,
+        requested_model_alias=route.public_model_alias,
     )
+    root = tmp_path / "managed"
     mismatch = build_gateway_agent_injection(
         _resolved(route),
         route.agent_id,
         _profile(),
-        discovery,
         replace(_preflight(route), models_revision="sha256:" + "9" * 64),
         managed_root=root,
         process_lease_ref="native-process:gateway-01",
-        clock=lambda: NOW,
     )
 
-    assert stale_result.reason_ids == (GatewayInjectionReason.CAPABILITY_STALE.value,)
+    assert isinstance(stale_resolution, GatewayRouteRefusal)
+    assert stale_resolution.status == "capability_stale"
     assert mismatch.reason_ids == (
         GatewayInjectionReason.PREFLIGHT_BINDING_MISMATCH.value,
     )

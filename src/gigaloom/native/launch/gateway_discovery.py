@@ -126,8 +126,14 @@ class GatewayRouteRefusal:
 class GatewayRouteResolver:
     """Resolve native and ACP consumers from one current route catalog."""
 
-    def __init__(self, discovery: GatewayDiscoveryResult) -> None:
+    def __init__(
+        self,
+        discovery: GatewayDiscoveryResult,
+        *,
+        now: datetime | None = None,
+    ) -> None:
         self._discovery = discovery
+        self._now = now
 
     def resolve(
         self,
@@ -138,26 +144,20 @@ class GatewayRouteResolver:
         route_id: str | None = None,
     ) -> ResolvedGatewayRoute | GatewayRouteRefusal:
         """Return credential-free route facts or an explicit refusal."""
-        if self._discovery.status is GatewayDiscoveryStatus.UNKNOWN:
+        if self._discovery.status is not GatewayDiscoveryStatus.CURRENT:
             return GatewayRouteRefusal(
-                "capability_unknown",
-                tuple(reason.value for reason in self._discovery.reason_ids),
-            )
-        if self._discovery.status is GatewayDiscoveryStatus.STALE:
-            return GatewayRouteRefusal(
-                "capability_stale",
+                f"capability_{self._discovery.status.value}",
                 tuple(reason.value for reason in self._discovery.reason_ids),
             )
         catalog = self._discovery.catalog
         assert catalog is not None
+        if self._now is not None and self._now >= _parse_time(catalog.expires_at):
+            return GatewayRouteRefusal("capability_stale", ("capability_stale",))
         if (
             catalog.gateway_id != profile.gateway_id
             or catalog.profile_digest != profile.profile_digest
         ):
-            return GatewayRouteRefusal(
-                "blocked",
-                ("gateway_profile_binding_mismatch",),
-            )
+            return GatewayRouteRefusal("blocked", ("gateway_profile_binding_mismatch",))
         route_agent_id = (
             "acp"
             if requested_agent_kind in _ACP_CONSUMER_KINDS
@@ -169,11 +169,9 @@ class GatewayRouteResolver:
             if route.agent_id == route_agent_id
             and route.gateway_profile_id == profile.gateway_id
             and (
-                (route_id is not None and route.route_id == route_id)
-                or (
-                    route_id is None
-                    and route.public_model_alias == requested_model_alias
-                )
+                route.route_id == route_id
+                if route_id is not None
+                else route.public_model_alias == requested_model_alias
             )
         )
         candidate_ids = tuple(route.route_id for route in candidates)
@@ -181,9 +179,7 @@ class GatewayRouteResolver:
             return GatewayRouteRefusal("not_found", ("route_not_found",))
         if len(candidates) > 1:
             return GatewayRouteRefusal(
-                "ambiguous",
-                ("multiple_routes_match",),
-                candidate_ids,
+                "ambiguous", ("multiple_routes_match",), candidate_ids
             )
         route = candidates[0]
         return ResolvedGatewayRoute(
@@ -193,7 +189,13 @@ class GatewayRouteResolver:
             credential_free_base_url=profile.base_url,
             public_model_alias=route.public_model_alias,
             support_status=route.support_status.value,
-            capability_digest=catalog.catalog_digest,
+            capability_digest=canonical_digest(
+                {
+                    "capability_revision": route.capability_profile_revision,
+                    "models_revision": catalog.models_revision,
+                    "loss_matrix_revision": route.loss_matrix_revision,
+                }
+            ),
             reason_ids=route.reason_ids,
         )
 
@@ -279,7 +281,9 @@ class GatewayRouteDiscovery:
         force_refresh: bool = False,
     ) -> GatewayDiscoveryResult:
         """Return current facts or an explicitly stale/unknown result."""
-        now = _aware(self._clock())
+        now = self._clock()
+        if now.tzinfo is None:
+            raise ValueError("gateway discovery clock must be timezone-aware")
         cache_key = (
             profile.gateway_id,
             profile.profile_digest,
@@ -531,9 +535,9 @@ def _build_routes(
                     public_model_alias=alias,
                     upstream_provider=provider,
                     upstream_model=model["upstream_model"],
-                    capability_profile_revision=_capability_revision_for_cell(
-                        cell,
-                        matrix_revision,
+                    capability_profile_revision=(
+                        _optional_text(cell.get("capability_revision"))
+                        or matrix_revision
                     ),
                     loss_matrix_revision=matrix_revision,
                     support_status=support,
@@ -556,19 +560,11 @@ def _build_routes(
 
 
 def _capabilities_revision(payload: object, fallback: str) -> str:
-    if isinstance(payload, Mapping):
-        document = cast(Mapping[str, object], payload)
-        revision = _optional_text(document.get("capability_revision"))
-        if revision is not None:
-            return revision
-    return fallback
-
-
-def _capability_revision_for_cell(
-    cell: Mapping[str, object],
-    fallback: str,
-) -> str:
-    return _optional_text(cell.get("capability_revision")) or fallback
+    return (
+        _optional_text(cast(Mapping[str, object], payload).get("capability_revision"))
+        if isinstance(payload, Mapping)
+        else None
+    ) or fallback
 
 
 def _string_tuple(value: object, field_name: str) -> tuple[str, ...]:
@@ -588,8 +584,7 @@ def _optional_text(value: object) -> str | None:
 
 
 def _normalize_provider(value: str) -> str:
-    lowered = _slug(value)
-    return _PROVIDER_ALIASES.get(lowered, lowered)
+    return _PROVIDER_ALIASES.get(lowered := _slug(value), lowered)
 
 
 def _slug(value: str) -> str:
@@ -597,12 +592,6 @@ def _slug(value: str) -> str:
     if not normalized:
         raise ValueError("gateway identity cannot be slugged")
     return normalized
-
-
-def _aware(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        raise ValueError("gateway discovery clock must be timezone-aware")
-    return value
 
 
 def _parse_time(value: str) -> datetime:

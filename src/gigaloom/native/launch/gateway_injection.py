@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from enum import Enum
 import os
 from pathlib import Path
 import re
 
+from gigaloom.contracts.operational_validation import canonical_digest
 from gigaloom.native.launch.gateway_contracts import (
     GatewayMode,
     GatewayPreflightReceiptV1,
@@ -18,13 +17,6 @@ from gigaloom.native.launch.gateway_contracts import (
     GatewaySupportStatus,
     LaunchOverlayV1,
     ResolvedGatewayRoute,
-)
-from gigaloom.native.launch.gateway_discovery import (
-    GatewayDiscoveryResult,
-    GatewayDiscoveryStatus,
-    GatewayRouteCatalogV1,
-    GatewayRouteRefusal,
-    GatewayRouteResolver,
 )
 
 
@@ -75,33 +67,15 @@ def build_gateway_agent_injection(
     route: ResolvedGatewayRoute,
     agent_id: str,
     profile: GatewayProfileV1,
-    discovery: GatewayDiscoveryResult,
     preflight: GatewayPreflightReceiptV1,
     *,
     managed_root: str | os.PathLike[str],
     process_lease_ref: str | None,
     acknowledged: bool = False,
-    clock: Callable[[], datetime] | None = None,
 ) -> GatewayAgentInjectionV1:
     """Build a route-bound overlay without mutating provider-native homes."""
-    current_catalog, refusal = _current_catalog(discovery, clock=clock)
-    if refusal is not None:
-        return _blocked(
-            route,
-            agent_id,
-            GatewaySupportStatus(route.support_status),
-            refusal,
-        )
-    assert current_catalog is not None
-    binding_refusal = _binding_refusal(
-        route,
-        agent_id,
-        profile,
-        discovery,
-        current_catalog,
-        preflight,
-    )
     support_status = GatewaySupportStatus(route.support_status)
+    binding_refusal = _binding_refusal(route, profile, preflight)
     if binding_refusal is not None:
         return _blocked(route, agent_id, support_status, binding_refusal)
     if profile.mode is GatewayMode.MANAGED and process_lease_ref is None:
@@ -183,7 +157,7 @@ def build_gateway_agent_injection(
         generated_config_refs=generated_refs,
         process_lease_ref=process_lease_ref,
         preflight_receipt_ref=f"gateway-preflight:{preflight.receipt_id}",
-        gateway_capability_digest=current_catalog.catalog_digest,
+        gateway_capability_digest=route.capability_digest,
     )
     reasons = route.reason_ids
     if effective_support is GatewaySupportStatus.VENDOR_UNSUPPORTED:
@@ -199,66 +173,26 @@ def build_gateway_agent_injection(
     )
 
 
-def _current_catalog(
-    discovery: GatewayDiscoveryResult,
-    *,
-    clock: Callable[[], datetime] | None,
-) -> tuple[GatewayRouteCatalogV1 | None, GatewayInjectionReason | None]:
-    if discovery.status is GatewayDiscoveryStatus.UNKNOWN:
-        return None, GatewayInjectionReason.CAPABILITY_UNKNOWN
-    if discovery.status is GatewayDiscoveryStatus.STALE:
-        return None, GatewayInjectionReason.CAPABILITY_STALE
-    catalog = discovery.catalog
-    assert catalog is not None
-    now = (clock or (lambda: datetime.now(timezone.utc)))()
-    if now.tzinfo is None:
-        raise ValueError("gateway injection clock must be timezone-aware")
-    expires_at = datetime.fromisoformat(catalog.expires_at.replace("Z", "+00:00"))
-    if expires_at <= now:
-        return None, GatewayInjectionReason.CAPABILITY_STALE
-    return catalog, None
-
-
 def _binding_refusal(
     route: ResolvedGatewayRoute,
-    agent_id: str,
     profile: GatewayProfileV1,
-    discovery: GatewayDiscoveryResult,
-    catalog: GatewayRouteCatalogV1,
     receipt: GatewayPreflightReceiptV1,
 ) -> GatewayInjectionReason | None:
-    bridge_route = next(
-        (
-            candidate
-            for candidate in catalog.routes
-            if candidate.route_id == route.route_id
-        ),
-        None,
-    )
-    if bridge_route is None:
-        return GatewayInjectionReason.ROUTE_NOT_CURRENT
-    current_route = GatewayRouteResolver(discovery).resolve(
-        profile,
-        requested_agent_kind=agent_id,
-        requested_model_alias=route.public_model_alias,
-        route_id=route.route_id,
-    )
-    if isinstance(current_route, GatewayRouteRefusal) or current_route != route:
-        return GatewayInjectionReason.ROUTE_NOT_CURRENT
-    if (
-        catalog.gateway_id != profile.gateway_id
-        or catalog.profile_digest != profile.profile_digest
-        or route.gateway_id != profile.gateway_id
-    ):
+    if route.gateway_id != profile.gateway_id:
         return GatewayInjectionReason.PROFILE_BINDING_MISMATCH
+    receipt_digest = canonical_digest(
+        {
+            "capability_revision": receipt.capability_revision,
+            "models_revision": receipt.models_revision,
+            "loss_matrix_revision": receipt.loss_matrix_revision,
+        }
+    )
     if (
         receipt.status is not GatewayPreflightStatus.READY
         or receipt.gateway_id != profile.gateway_id
         or receipt.route_id != route.route_id
         or receipt.profile_digest != profile.profile_digest
-        or receipt.capability_revision != bridge_route.capability_profile_revision
-        or receipt.models_revision != catalog.models_revision
-        or receipt.loss_matrix_revision != bridge_route.loss_matrix_revision
+        or receipt_digest != route.capability_digest
         or receipt.support_status.value != route.support_status
     ):
         return GatewayInjectionReason.PREFLIGHT_BINDING_MISMATCH

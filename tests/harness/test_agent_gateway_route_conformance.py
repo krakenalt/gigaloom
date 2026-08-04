@@ -167,11 +167,9 @@ def _inject(
         resolved,
         agent_id,
         _profile(),
-        discovery,
         _preflight(route),
         managed_root=root,
         process_lease_ref="native-process:gateway-conformance",
-        clock=lambda: NOW,
         **kwargs,
     )
 
@@ -314,6 +312,17 @@ class _Sidecar:
             startup_config_ref="managed-config:startup.json",
             readiness_confirmed=True,
             observed_artifact_sha256=self.observed_artifact_sha256,
+        )
+
+    def status(self, profile: object) -> ManagedGatewayLeaseV1:
+        return ManagedGatewayLeaseV1(
+            gateway_id=cast(Any, profile).gateway_id,
+            profile_digest=cast(Any, profile).profile_digest,
+            status=GatewaySidecarStatus.BLOCKED,
+            process_lease_ref=None,
+            managed_root=None,
+            startup_config_ref=None,
+            readiness_confirmed=False,
         )
 
     def stop(self, profile: object) -> ManagedGatewayLeaseV1:

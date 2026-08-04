@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 import json
 import os
@@ -14,12 +14,10 @@ import sys
 from typing import Any, Protocol
 from gigaloom.cli_commands.gateway_launch import (
     GatewayLaunchRequestV1,
-    GatewayLaunchResolutionV1,
     gateway_launch_resolution_to_dict,
     resolve_gateway_launch_request,
 )
 from gigaloom.cli_commands.gateway_compatibility import (
-    GatewayAgentCompatibilityDecisionV1,
     GatewayAgentCompatibilityResolver,
     build_gateway_agent_compatibility_resolver,
     gateway_agent_compatibility_to_dict,
@@ -50,7 +48,6 @@ from gigaloom.native.launch.gateway_environment import (
     managed_gpt2giga_environment,
 )
 from gigaloom.native.launch.gateway_injection import (
-    GatewayAgentInjectionV1,
     build_gateway_agent_injection,
 )
 from gigaloom.native.launch.gateway_profile import (
@@ -76,6 +73,7 @@ GatewayArtifactResolver = Callable[[GatewayProfileV1], GatewayArtifactEvidenceV1
 GatewayStartupInspector = Callable[
     [GatewayProfileV1, GatewayArtifactEvidenceV1, Mapping[str, str]], str | None
 ]
+_SECRET_ENV_PARTS = ("KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL")
 
 
 class GatewaySidecarPort(Protocol):
@@ -90,6 +88,8 @@ class GatewaySidecarPort(Protocol):
         session_id: str,
         run_id: str,
     ) -> ManagedGatewayLeaseV1: ...
+
+    def status(self, profile: GatewayProfileV1) -> ManagedGatewayLeaseV1: ...
 
     def stop(self, profile: GatewayProfileV1) -> ManagedGatewayLeaseV1: ...
 
@@ -109,6 +109,9 @@ class GatewayLaunchApplication:
     process_manager: NativeProcessManager | None = None
     startup_inspector: GatewayStartupInspector | None = None
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc)
+    _startup_inspection_cache: dict[tuple[object, ...], str | None] = field(
+        default_factory=dict, init=False, repr=False
+    )
 
     def run(
         self,
@@ -127,7 +130,14 @@ class GatewayLaunchApplication:
         if not request.dry_run:
             compatibility = self.compatibility_resolver(request.agent_id)
             if not compatibility.ready:
-                self._emit_compatibility_refusal(request, compatibility)
+                payload = gateway_agent_compatibility_to_dict(compatibility)
+                payload.update(
+                    route_id=request.route_id,
+                    gateway_id=request.gateway_id,
+                    reason_ids=[compatibility.reason_id],
+                    process_spawn=False,
+                )
+                _emit(payload, as_json=request.json_output)
                 return 2
 
         artifact = (
@@ -142,7 +152,7 @@ class GatewayLaunchApplication:
         sidecar_started = False
         try:
             if self.profile.mode is GatewayMode.MANAGED:
-                if not _artifact_matches(self.profile, artifact):
+                if not gateway_artifact_admitted(self.profile, artifact):
                     self._emit_refusal(
                         request,
                         (
@@ -156,29 +166,36 @@ class GatewayLaunchApplication:
                 if self.sidecar is None:
                     self._emit_refusal(request, "gateway_sidecar_unavailable")
                     return 2
-                try:
-                    sidecar_environment = self.managed_sidecar_environment(request)
-                except ValueError as error:
-                    self._emit_refusal(request, str(error))
-                    return 2
-                self.managed_root.mkdir(parents=True, exist_ok=True)
-                self.managed_root.chmod(0o700)
-                if self.startup_inspector is not None:
-                    reason = self.startup_inspector(
-                        self.profile,
+                current_lease = self.sidecar.status(self.profile)
+                if _lease_matches_artifact(current_lease, artifact):
+                    lease = current_lease
+                else:
+                    try:
+                        sidecar_environment = managed_gpt2giga_environment(
+                            self.config,
+                            managed_root=self.managed_root,
+                            gateway_api_key=self.gateway_api_key,
+                            public_model_alias=request.public_model_alias,
+                        )
+                    except ValueError as error:
+                        self._emit_refusal(request, str(error))
+                        return 2
+                    self.managed_root.mkdir(parents=True, exist_ok=True)
+                    self.managed_root.chmod(0o700)
+                    reason = self._inspect_startup(
                         artifact,
                         sidecar_environment,
                     )
                     if reason is not None:
                         self._emit_refusal(request, reason)
                         return 2
-                lease = self.sidecar.ensure_started(
-                    self.profile,
-                    artifact,
-                    environment=sidecar_environment,
-                    session_id="gateway-launch",
-                    run_id=f"gateway-{self.profile.gateway_id}",
-                )
+                    lease = self.sidecar.ensure_started(
+                        self.profile,
+                        artifact,
+                        environment=sidecar_environment,
+                        session_id="gateway-launch",
+                        run_id=f"gateway-{self.profile.gateway_id}",
+                    )
                 if (
                     lease.status
                     not in {
@@ -202,9 +219,13 @@ class GatewayLaunchApplication:
                 discovered,
                 profile=self.profile,
                 interactive=False,
+                now=self._now(),
             )
             if not resolution.ready:
-                self._emit_resolution(resolution)
+                _emit(
+                    gateway_launch_resolution_to_dict(resolution),
+                    as_json=request.json_output,
+                )
                 return 2
             assert resolution.route is not None
             assert resolution.resolved_route is not None
@@ -220,18 +241,33 @@ class GatewayLaunchApplication:
                 resolution.resolved_route,
                 request.agent_id,
                 self.profile,
-                discovered,
                 preflight,
                 managed_root=self.managed_root,
                 process_lease_ref=(
                     lease.process_lease_ref if lease is not None else None
                 ),
-                clock=self.clock,
             )
             if not injection.ready or injection.overlay is None:
-                self._emit_injection_refusal(request, injection, preflight)
+                _emit(
+                    {
+                        "schema_version": 1,
+                        "status": injection.status.value,
+                        "agent_id": request.agent_id,
+                        "route_id": injection.route_id,
+                        "reason_ids": list(injection.reason_ids),
+                        "preflight": gateway_preflight_receipt_to_dict(preflight),
+                        "process_spawn": False,
+                    },
+                    as_json=request.json_output,
+                )
                 return 2
-            environment = self._native_environment(injection)
+            actual = {
+                name: (
+                    self.gateway_api_key if projected == "<secret-ref>" else projected
+                )
+                for name, projected in injection.overlay.redacted_env_delta
+            }
+            environment = build_safe_env(self.config.to_context(), extra=actual)
             argv = (
                 request.agent_id,
                 *injection.command_args,
@@ -243,18 +279,6 @@ class GatewayLaunchApplication:
                 self.sidecar.stop(self.profile)
             if self.process_manager is not None:
                 self.process_manager.close(terminate_owned=False)
-
-    def managed_sidecar_environment(
-        self,
-        request: GatewayLaunchRequestV1,
-    ) -> dict[str, str]:
-        """Build an isolated startup environment for the exact reviewed profile."""
-        return managed_gpt2giga_environment(
-            self.config,
-            managed_root=self.managed_root,
-            gateway_api_key=self.gateway_api_key,
-            public_model_alias=request.public_model_alias,
-        )
 
     def _dry_run(
         self,
@@ -268,11 +292,12 @@ class GatewayLaunchApplication:
             discovery,
             profile=self.profile,
             interactive=False,
+            now=self._now(),
         )
         payload = gateway_launch_resolution_to_dict(resolution)
         payload["artifact_state"] = (
             "verified"
-            if _artifact_matches(self.profile, artifact)
+            if gateway_artifact_admitted(self.profile, artifact)
             else (
                 "not_applicable"
                 if self.profile.mode is GatewayMode.EXTERNAL
@@ -282,27 +307,42 @@ class GatewayLaunchApplication:
         _emit(payload, as_json=request.json_output)
         return 0 if resolution.ready else 2
 
-    def _native_environment(
-        self,
-        injection: GatewayAgentInjectionV1,
-    ) -> dict[str, str]:
-        assert injection.overlay is not None
-        actual: dict[str, str] = {}
-        for name, projected in injection.overlay.redacted_env_delta:
-            actual[name] = (
-                self.gateway_api_key if projected == "<secret-ref>" else projected
-            )
-        return build_safe_env(self.config.to_context(), extra=actual)
-
     def _now(self) -> datetime:
         value = self.clock()
         if value.tzinfo is None:
             raise ValueError("gateway launch clock must be timezone-aware")
         return value
 
-    def _emit_resolution(self, resolution: GatewayLaunchResolutionV1) -> None:
-        payload = gateway_launch_resolution_to_dict(resolution)
-        _emit(payload, as_json=resolution.request.json_output)
+    def _inspect_startup(
+        self,
+        artifact: GatewayArtifactEvidenceV1,
+        environment: Mapping[str, str],
+    ) -> str | None:
+        if self.startup_inspector is None:
+            return None
+        try:
+            executable = Path(artifact.executable_path).resolve(strict=True)
+            stat = executable.stat()
+        except OSError:
+            return "startup_contract_unavailable"
+        key = (
+            os.fspath(executable),
+            stat.st_dev,
+            stat.st_ino,
+            stat.st_size,
+            stat.st_mtime_ns,
+            stat.st_ctime_ns,
+            artifact.artifact_sha256,
+            self.profile.startup_config_revision,
+            _environment_fingerprint(environment),
+        )
+        if key not in self._startup_inspection_cache:
+            self._startup_inspection_cache[key] = self.startup_inspector(
+                self.profile,
+                artifact,
+                environment,
+            )
+        return self._startup_inspection_cache[key]
 
     @staticmethod
     def _emit_refusal(request: GatewayLaunchRequestV1, reason: str) -> None:
@@ -319,41 +359,6 @@ class GatewayLaunchApplication:
             },
             as_json=request.json_output,
         )
-
-    @staticmethod
-    def _emit_injection_refusal(
-        request: GatewayLaunchRequestV1,
-        injection: GatewayAgentInjectionV1,
-        preflight: GatewayPreflightReceiptV1,
-    ) -> None:
-        _emit(
-            {
-                "schema_version": 1,
-                "status": injection.status.value,
-                "agent_id": request.agent_id,
-                "route_id": injection.route_id,
-                "reason_ids": list(injection.reason_ids),
-                "preflight": gateway_preflight_receipt_to_dict(preflight),
-                "process_spawn": False,
-            },
-            as_json=request.json_output,
-        )
-
-    @staticmethod
-    def _emit_compatibility_refusal(
-        request: GatewayLaunchRequestV1,
-        compatibility: GatewayAgentCompatibilityDecisionV1,
-    ) -> None:
-        payload = gateway_agent_compatibility_to_dict(compatibility)
-        payload.update(
-            {
-                "route_id": request.route_id,
-                "gateway_id": request.gateway_id,
-                "reason_ids": [compatibility.reason_id],
-                "process_spawn": False,
-            }
-        )
-        _emit(payload, as_json=request.json_output)
 
 
 def build_gateway_launch_application(config: HarnessConfig) -> GatewayLaunchApplication:
@@ -439,11 +444,29 @@ def inspect_gpt2giga_startup(
     return None
 
 
-def _artifact_matches(
-    profile: GatewayProfileV1,
-    artifact: GatewayArtifactEvidenceV1 | None,
+def _environment_fingerprint(environment: Mapping[str, str]) -> str:
+    return canonical_digest(
+        {
+            name: (
+                "<secret>"
+                if any(part in name.upper() for part in _SECRET_ENV_PARTS)
+                else value
+            )
+            for name, value in sorted(environment.items())
+        }
+    )
+
+
+def _lease_matches_artifact(
+    lease: ManagedGatewayLeaseV1,
+    artifact: GatewayArtifactEvidenceV1,
 ) -> bool:
-    return gateway_artifact_admitted(profile, artifact)
+    return bool(
+        lease.status is GatewaySidecarStatus.REUSED
+        and lease.readiness_confirmed
+        and lease.process_lease_ref is not None
+        and lease.observed_artifact_sha256 == artifact.artifact_sha256
+    )
 
 
 def _preflight_receipt(
@@ -459,7 +482,7 @@ def _preflight_receipt(
     if catalog is None or route not in catalog.routes:
         raise ValueError("gateway route is not current")
     if profile.mode is GatewayMode.MANAGED and (
-        not _artifact_matches(profile, artifact)
+        not gateway_artifact_admitted(profile, artifact)
         or lease is None
         or not lease.readiness_confirmed
         or lease.status
@@ -472,19 +495,8 @@ def _preflight_receipt(
         if profile.mode is GatewayMode.MANAGED and artifact is not None
         else profile.artifact_sha256
     )
-    binding = {
-        "gateway_id": profile.gateway_id,
-        "route_id": route.route_id,
-        "profile_digest": profile.profile_digest,
-        "artifact_sha256": observed_artifact_sha256,
-        "capability_revision": route.capability_profile_revision,
-        "models_revision": catalog.models_revision,
-        "loss_matrix_revision": route.loss_matrix_revision,
-        "support_status": route.support_status.value,
-        "checked_at": now.isoformat(),
-    }
-    return GatewayPreflightReceiptV1(
-        receipt_id=f"gateway-preflight-{canonical_digest(binding)[:24]}",
+    receipt = GatewayPreflightReceiptV1(
+        receipt_id="pending",
         gateway_id=profile.gateway_id,
         route_id=route.route_id,
         profile_digest=profile.profile_digest,
@@ -496,6 +508,13 @@ def _preflight_receipt(
         status=GatewayPreflightStatus.READY,
         reason_ids=route.reason_ids,
         checked_at=now.isoformat(),
+    )
+    semantic = gateway_preflight_receipt_to_dict(receipt)
+    for name in ("schema_version", "receipt_id", "status", "reason_ids"):
+        del semantic[name]
+    return replace(
+        receipt,
+        receipt_id=f"gateway-preflight-{canonical_digest(semantic)[:24]}",
     )
 
 
