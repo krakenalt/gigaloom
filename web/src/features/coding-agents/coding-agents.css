@@ -149,7 +149,10 @@
 .runtime-state.ready { background: color-mix(in srgb, var(--success) 10%, var(--surface)); color: var(--success); }
 .integrity-badge.unverified,
 .integrity-badge.mixed,
-.runtime-state.degraded { background: color-mix(in srgb, var(--warning) 10%, var(--surface)); color: var(--warning); }
+.runtime-state.degraded,
+.runtime-state.native-only,
+.runtime-state.reprobe { background: color-mix(in srgb, var(--warning) 10%, var(--surface)); color: var(--warning); }
+.runtime-state.blocked { background: color-mix(in srgb, var(--danger) 9%, var(--surface)); color: var(--danger); }
 .runtime-state.inactive { color: var(--muted); }
 .runtime-state.local { background: var(--surface-muted); }
 
@@ -168,8 +171,25 @@
 .agent-activation-guide p,
 .agent-activation-guide ol { color: var(--muted); font-size: 0.71rem; line-height: 1.45; margin: 0; }
 .agent-activation-guide ol { display: grid; gap: 4px; padding-left: 18px; }
+.agent-readiness-guide { background: var(--surface-muted); border: 1px solid var(--border); border-radius: 12px; display: grid; gap: 9px; padding: 11px 12px; }
+.agent-readiness-guide[data-status="ready"] { border-color: color-mix(in srgb, var(--success) 35%, var(--border)); }
+.agent-readiness-guide[data-status="native-only"],
+.agent-readiness-guide[data-status="reprobe"] { border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); }
+.agent-readiness-guide[data-status="blocked"] { border-color: color-mix(in srgb, var(--danger) 32%, var(--border)); }
+.agent-readiness-guide > div { display: grid; gap: 4px; }
+.agent-readiness-guide strong { font-size: 0.8rem; }
+.agent-readiness-guide span,
+.agent-readiness-guide small { color: var(--muted); font-size: 0.71rem; line-height: 1.45; }
+.agent-readiness-guide details { border-top: 1px solid var(--border); padding-top: 8px; }
+.agent-readiness-guide summary,
+.probe-result summary { cursor: pointer; font-size: 0.69rem; font-weight: 750; }
+.agent-readiness-guide dl { display: grid; gap: 7px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 9px 0 0; }
+.agent-readiness-guide dl div { min-width: 0; }
+.agent-readiness-guide dt { color: var(--muted); font-size: 0.61rem; }
+.agent-readiness-guide dd { font-size: 0.67rem; margin: 3px 0 0; overflow-wrap: anywhere; }
 .probe-result { background: var(--surface-muted); border-radius: 10px; display: grid; font-size: 0.72rem; gap: 4px; padding: 10px; }
 .probe-result span { color: var(--muted); }
+.probe-result details { display: grid; gap: 4px; }
 
 .agent-empty-state { align-items: center; border: 1px dashed var(--border); border-radius: var(--agent-radius); color: var(--muted); display: flex; flex-direction: column; grid-column: 1 / -1; justify-content: center; min-height: 260px; padding: 30px; text-align: center; }
 .agent-empty-state > span { color: var(--accent); font-size: 2.4rem; }
@@ -306,6 +326,7 @@
   .agent-card-heading { grid-template-columns: auto minmax(0, 1fr); }
   .agent-card-heading > :last-child { grid-column: 1 / -1; justify-self: start; }
   .agent-card-facts,
+  .agent-readiness-guide dl,
   .install-plan-facts,
   .operation-technical-details > dl { grid-template-columns: 1fr; }
   .install-phase-list li { align-items: start; grid-template-columns: auto minmax(0, 1fr); }

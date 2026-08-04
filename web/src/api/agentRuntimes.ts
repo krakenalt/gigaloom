@@ -26,6 +26,18 @@ export interface AgentRegistryEntryProjection {
   distributions: AgentDistributionProjection[];
 }
 
+export interface AgentRuntimeReadinessProjection {
+  schema_version: 1;
+  status: "ready" | "native-only" | "reprobe" | "blocked";
+  acp_transport: "ready" | "blocked";
+  provider_bridge: "ready" | "native-only" | "reprobe" | "blocked";
+  protocols: string[];
+  gateway_availability: "available" | "unsupported" | "reprobe" | "blocked";
+  native_launch_available: boolean;
+  reason_ids: string[];
+  action: "select_gateway_route" | "use_native" | "reprobe" | "activate" | "inspect";
+}
+
 export interface InstalledAgentProjection {
   local_agent_id: string;
   registry_id: string;
@@ -37,6 +49,7 @@ export interface InstalledAgentProjection {
   probe_state: string;
   auth_required: boolean;
   update_available: boolean;
+  readiness: AgentRuntimeReadinessProjection;
 }
 
 export interface LocalAgentManifestProjection {
@@ -135,6 +148,7 @@ export interface AgentProbeResponse {
   warnings: string[];
   native_home_isolated: boolean;
   network_policy: string;
+  readiness: AgentRuntimeReadinessProjection;
   content_free: true;
 }
 

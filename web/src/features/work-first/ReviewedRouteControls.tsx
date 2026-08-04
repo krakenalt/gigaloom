@@ -18,7 +18,7 @@ import type { ReviewedRouteBindingV1 } from "./workflow-contract";
 
 type ManagedAcpGatewayProjection = Readonly<{
   reasonId: string;
-  support: "supported" | "unsupported" | "unknown";
+  status: "ready" | "native-only" | "reprobe" | "blocked";
 }>;
 
 type GatewayRouteAgent = Readonly<{
@@ -54,9 +54,8 @@ export function useReviewedRouteBinding(
   useEffect(() => {
     setBinding(null);
     setPending(false);
-  }, [agent?.id, agent?.label, agent?.managedAcpGateway?.support]);
-  const gatewaySupported = agent?.managedAcpGateway?.support !== "unsupported"
-    && agent?.managedAcpGateway?.support !== "unknown";
+  }, [agent?.id, agent?.label, agent?.managedAcpGateway?.status]);
+  const gatewaySupported = agent?.managedAcpGateway?.status === "ready";
   const activeBinding = gatewaySupported && binding?.agent_id === agent?.id
     ? binding
     : null;
@@ -249,7 +248,8 @@ function ManagedAcpGatewayUnsupportedNotice({
   agentLabel: string;
   capability: ManagedAcpGatewayProjection;
 }) {
-  const amp = capability.reasonId === "amp_acp_provider_configuration_unsupported";
+  const reprobe = capability.status === "reprobe";
+  const nativeOnly = capability.status === "native-only";
   return (
     <section aria-label="Reviewed gateway route" className="reviewed-route-controls">
       <header className="reviewed-route-heading">
@@ -261,14 +261,19 @@ function ManagedAcpGatewayUnsupportedNotice({
         <span>
           <strong>gpt2giga route unavailable for {agentLabel}</strong>
           <small>
-            {amp
-              ? "The installed Amp ACP wrapper supports ACP transport, but it has no reviewed custom model-provider endpoint."
-              : "This ACP has no reviewed custom model-provider endpoint."}
-            {" ACP v1 does not standardize provider configuration, so GigaLoom will not guess or fall back."}
+            {reprobe
+              ? "Provider bridge evidence is missing or stale. Reprobe this installed agent before selecting a gateway model."
+              : nativeOnly
+                ? "ACP transport is ready, but this agent has no reviewed custom model-provider endpoint. Its native launch remains available."
+                : "Current provider bridge evidence blocks a gateway launch. Its native launch remains available when the installed runtime is active."}
+            {" GigaLoom will not guess a provider or fall back silently."}
           </small>
         </span>
       </header>
-      <code>{capability.reasonId}</code>
+      <details>
+        <summary>Technical details</summary>
+        <code>{capability.reasonId}</code>
+      </details>
     </section>
   );
 }
@@ -276,19 +281,29 @@ function ManagedAcpGatewayUnsupportedNotice({
 function managedAcpGatewayProjection(
   metadata: Record<string, unknown> | undefined,
 ): ManagedAcpGatewayProjection {
-  const raw = metadata?.managed_acp_gateway;
+  const raw = metadata?.provider_bridge;
   if (typeof raw === "object" && raw !== null) {
     const value = raw as Record<string, unknown>;
-    const support = value.support;
-    const reasonId = value.reason_id;
+    const status = value.status === "native_only"
+      ? "native-only"
+      : value.status === "unknown_until_reprobe"
+        ? "reprobe"
+        : value.status;
+    const reasonIds = Array.isArray(value.reason_ids)
+      ? value.reason_ids.filter((item): item is string => typeof item === "string")
+      : [];
     if (
-      (support === "supported" || support === "unsupported" || support === "unknown")
-      && typeof reasonId === "string"
-      && reasonId.length > 0
-    ) return { reasonId, support };
+      status === "ready"
+      || status === "native-only"
+      || status === "reprobe"
+      || status === "blocked"
+    ) return {
+      reasonId: reasonIds[0] ?? `provider_bridge_${status.replace("-", "_")}`,
+      status,
+    };
   }
   return {
-    reasonId: "acp_provider_configuration_not_advertised",
-    support: "unknown",
+    reasonId: "provider_bridge_reprobe_required",
+    status: "reprobe",
   };
 }

@@ -116,7 +116,9 @@ export function CodingAgentsMarketplace() {
     },
     onSuccess: (result, action) => {
       if (action.kind === "probe") {
-        setProbes((current) => ({ ...current, [action.installId]: result as AgentProbeResponse }));
+        const probe = result as AgentProbeResponse;
+        setProbes((current) => ({ ...current, [action.installId]: probe }));
+        setNotice(`${action.localAgentId} readiness is now ${probe.readiness.status} in this view.`);
         return;
       }
       if (action.kind === "activate") {
