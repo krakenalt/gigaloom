@@ -43,7 +43,12 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Work and operate',
       collapsible: false,
-      items: ['work-threads-and-context', 'operations', 'security'],
+      items: [
+        'work-threads-and-context',
+        'operations',
+        'troubleshooting',
+        'security',
+      ],
     },
     {
       type: 'category',

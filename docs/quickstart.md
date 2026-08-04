@@ -1,88 +1,87 @@
 # Quickstart
 
-Install GigaLoom first, then verify the local environment:
+Install GigaLoom and check the local environment:
 
 ```sh
+uv tool install gigaloom
 giga doctor
 giga --version
 ```
 
-Provider authentication stays provider-owned. Sign in with the native Codex,
-Claude, or Gemini CLI before asking GigaLoom to launch it.
+GigaLoom does not replace agent authentication. Sign in with the native Codex,
+Claude, or Gemini CLI before launching it through GigaLoom.
 
-## Prefix a native command
+## Scenario A: native Codex, Claude, or Gemini
 
-GigaLoom adds one prefix and preserves the remaining native command:
+Add `giga` before the command you already use. Everything after the agent name
+is passed to its CLI unchanged:
 
 ```sh
-giga codex exec --json "summarize this repository"
-giga claude -p "summarize this repository"
-giga gemini -p "summarize this repository"
+giga codex exec --json "review this repository"
+giga claude -p "review this repository"
+giga gemini -p "review this repository"
 ```
 
-Help, version output, stdin/stdout, JSON/JSONL, and exit status remain native.
-If a CLI is missing or its contract has drifted, dispatch fails closed before
-starting a provider session.
-
-## Open the browser cockpit
+To use the browser interface, run:
 
 ```sh
 giga ui
 ```
 
-Open `http://127.0.0.1:8091/`. The default listener is loopback-only. In the
-cockpit:
+Open `http://127.0.0.1:8091/`, select a project, and create a run. The interface
+listens only on the local machine by default.
 
-1. select or register a local project;
-2. choose a provider adapter;
-3. review the execution preview and required authority;
-4. approve only the exact action you intend to run;
-5. inspect the resulting events, diff, and evidence.
+## Scenario B: an ACP agent through gpt2giga
 
-Use `giga <agent>` for the provider's native terminal workflow, or `giga ui`
-for the governed browser Workbench.
-
-## Complete the 0.9 work-first journey
-
-Open `/web/work` and follow `Project -> Thread -> Run -> Evidence -> Action`.
-Before submission, inspect the route/model support, workspace, read-only
-Effective Instructions summary, authority mode, and blockers. After submission,
-review the causal run narrative and any required action in Inbox.
-
-Preview a bounded Thread Relay delivery without mutating the target or calling
-a provider:
+Install GigaLoom with the optional `gpt2giga` gateway:
 
 ```sh
-giga session send THREAD_ID --text "review failing tests" --dry-run --json
+uv tool install --force \
+  --with 'gpt2giga>=0.3.0,<0.4.0' \
+  'gigaloom[gpt2giga]'
 ```
 
-Export an editor schema or an explicitly opted-in local beta report:
+Find OpenCode in the ACP Registry, inspect the install plan, and confirm it:
 
 ```sh
-giga schema agent
-giga evidence product-beta --project PROJECT_ID --output report.json
+giga agent search opencode --refresh --json
+giga agent add opencode --dry-run --json
+giga agent add opencode --yes --json
+giga agent inspect opencode --json
 ```
 
-## Launch through gpt2giga
-
-Install the optional extra, then select the reviewed route by convenience name
-or immutable id:
+The inspection must report that the agent is ready for the selected gateway.
+Then launch it with a model returned by the gateway's `/models` endpoint:
 
 ```sh
-uv tool install 'gigaloom[gpt2giga]==0.9.0'
-giga --with gpt2giga --model GigaChat-2-Max codex
-giga --route codex-gpt2giga-gigachat-2-max codex --help
+giga --with gpt2giga --model GigaChat-2-Max opencode
 ```
 
-The Codex/GigaChat route is a technical preview. Unknown, stale, ambiguous, or
-version-drifted evidence fails before gateway/provider traffic and never falls
-back to a different route.
+GigaLoom creates configuration only for this launch. It does not modify
+`~/.opencode` and does not silently select another model provider when the
+route is unavailable. If the agent supports only its native provider, launch
+it without `--with` and `--model`.
+
+## If launch is blocked
+
+Repeat route resolution without launching the agent:
+
+```sh
+giga --with gpt2giga --model GigaChat-2-Max --dry-run --json opencode
+```
+
+Do not substitute a model or gateway address by trial and error. Find
+`reason_ids` in the JSON and use [Launch troubleshooting](troubleshooting.md).
+See [Agent runtimes](agent-runtimes.md) for installation details and
+[Gateway integration](gateway-integration.md) for routes and models.
 
 ## Next steps
 
-- [Harness reference](harness.md) for configuration and commands
-- [Work, threads, and context](work-threads-and-context.md)
-- [Gateway integration](gateway-integration.md) for route support and versions
-- [Agents and multi-agent behavior](agents-and-multi-agent.md)
-- [Operations](operations.md) for backup and troubleshooting
-- [Security](security.md) for approval, redaction, and network boundaries
+- [Agent runtimes](agent-runtimes.md): search, install, inspect, update, and
+  remove agents.
+- [Gateway integration](gateway-integration.md): models, routes, and launch
+  modes.
+- [Work, threads, and context](work-threads-and-context.md): everyday work in
+  the browser interface.
+- [Operations](operations.md): backups and the local service.
+- [Security](security.md): access, network, and secret storage.

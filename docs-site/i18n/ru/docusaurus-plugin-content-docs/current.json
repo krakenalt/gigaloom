@@ -15,6 +15,14 @@
     "message": "Unified Harness (альфа)",
     "description": "The label for the harness document"
   },
+  "sidebar.docs.doc.agent-runtimes": {
+    "message": "Установка агентов",
+    "description": "The label for the agent runtimes document"
+  },
+  "sidebar.docs.doc.agents-and-multi-agent": {
+    "message": "Агенты и мультиагентная работа",
+    "description": "The label for the agents and multi-agent document"
+  },
   "sidebar.docs.category.Work and operate": {
     "message": "Работа и эксплуатация",
     "description": "The label for category 'Work and operate' in sidebar 'docs'"
