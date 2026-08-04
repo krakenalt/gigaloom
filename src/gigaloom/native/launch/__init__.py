@@ -59,6 +59,7 @@ from gigaloom.native.launch.gateway_contracts import (
     GatewayProfileV1,
     GatewaySupportStatus,
     LaunchOverlayV1,
+    ResolvedGatewayRoute,
 )
 from gigaloom.native.launch.gateway_discovery import (
     DEFAULT_GATEWAY_DISCOVERY_TTL_SECONDS,
@@ -151,6 +152,7 @@ __all__ = [
     "RegisteredNativeLaunchExecution",
     "RegisteredNativeLaunchFailure",
     "RegisteredNativeLaunchStatus",
+    "ResolvedGatewayRoute",
     "TerminalContext",
     "UrlLibGatewayMachineTransport",
     "UrlLibGatewayStartupReadinessProbe",

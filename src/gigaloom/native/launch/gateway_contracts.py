@@ -41,6 +41,40 @@ class GatewayPreflightStatus(str, Enum):
     BLOCKED = "blocked"
 
 
+@dataclass(frozen=True, slots=True)
+class ResolvedGatewayRoute:
+    """Credential-free route facts shared by every launch consumer."""
+
+    route_id: str
+    gateway_id: str
+    provider_protocol: str
+    credential_free_base_url: str
+    public_model_alias: str
+    support_status: str
+    capability_digest: str
+    reason_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        for value, field_name in (
+            (self.route_id, "resolved route id"),
+            (self.gateway_id, "resolved route gateway id"),
+            (self.provider_protocol, "resolved route provider protocol"),
+            (self.public_model_alias, "resolved route public model alias"),
+        ):
+            _validate_identity(value, field_name=field_name)
+        _validate_http_url(self.credential_free_base_url)
+        if self.support_status not in {status.value for status in GatewaySupportStatus}:
+            raise ValueError("resolved route support status is invalid")
+        _validate_digest(
+            self.capability_digest,
+            field_name="resolved route capability digest",
+        )
+        _validate_identity_tuple(
+            self.reason_ids,
+            field_name="resolved route reason ids",
+        )
+
+
 @dataclass(frozen=True)
 class GatewayProfileV1:
     """One exact public gateway artifact and machine-contract profile."""
