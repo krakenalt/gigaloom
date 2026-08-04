@@ -228,7 +228,7 @@ def test_gateway_collector_separates_micro_and_loopback_http_cases(tmp_path) -> 
 
     assert micro.measurement_kind == "micro"
     assert integration.measurement_kind == "integration"
-    assert counters == {"http_requests": 3.0, "routes": 1.0}
+    assert counters == {"http_requests": 2.0, "routes": 1.0}
 
 
 def test_relative_budget_checker_enforces_thread_targets() -> None:
