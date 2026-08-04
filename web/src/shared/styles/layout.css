@@ -9,7 +9,8 @@
 .rail-link:hover { background: #2a333e; color: var(--rail-icon-hover); }
 .rail-link.active { background: #2a333e; color: var(--rail-icon-selected); }
 .rail-link[aria-disabled="true"] { color: var(--rail-icon-disabled); cursor: not-allowed; }
-.rail-symbol { display: grid; place-items: center; width: 24px; height: 24px; }
+.rail-symbol { position: relative; display: grid; place-items: center; width: 24px; height: 24px; }
+.rail-symbol .count-badge { position: absolute; top: -8px; right: -12px; min-width: 17px; height: 17px; border: 2px solid var(--rail); font-size: 9px; }
 .rail-icon { display: block; width: 100%; height: 100%; overflow: visible; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .rail-icon-accent { fill: color-mix(in srgb, currentColor 18%, transparent); }
 .rail-utility-actions { min-width: 0; margin-top: auto; display: grid; gap: 4px; }

@@ -19,7 +19,7 @@ export function LibraryDestination({
       destination="library"
       title={title}
     >
-      <div className="work-first-split-layout">
+      <div className={`work-first-split-layout${detail === undefined ? " single-pane" : ""}`}>
         <div aria-label="Library catalog" className="work-first-list-slot">
           {catalog}
         </div>

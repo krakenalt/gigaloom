@@ -67,4 +67,34 @@ describe("work-first destination modules", () => {
       );
     });
   });
+
+  it("uses a full-width pane when Inbox or Library has no detail", () => {
+    const inbox = renderToStaticMarkup(
+      <InboxDestination
+        description="Pending work"
+        items={<div>Actions</div>}
+        title="Inbox"
+      />,
+    );
+    const library = renderToStaticMarkup(
+      <LibraryDestination
+        catalog={<div>Master detail library</div>}
+        description="Reusable work"
+        title="Library"
+      />,
+    );
+    const libraryWithDetail = renderToStaticMarkup(
+      <LibraryDestination
+        catalog={<div>Catalog</div>}
+        description="Reusable work"
+        detail={<div>Detail</div>}
+        title="Library"
+      />,
+    );
+
+    expect(inbox).toContain("work-first-split-layout single-pane");
+    expect(library).toContain("work-first-split-layout single-pane");
+    expect(libraryWithDetail).toContain('class="work-first-split-layout"');
+    expect(libraryWithDetail).not.toContain("single-pane");
+  });
 });

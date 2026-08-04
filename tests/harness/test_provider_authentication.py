@@ -27,7 +27,7 @@ def clear_probe_cache():
 def test_packaged_provider_authentication_evidence_is_strict_and_source_bound():
     evidence = load_provider_authentication_evidence()
 
-    assert evidence.reviewed_at == "2026-07-26"
+    assert evidence.reviewed_at == "2026-08-04"
     assert len(evidence.evidence_hash) == 64
     assert [item["harness_id"] for item in evidence.providers] == [
         "codex-cli",
@@ -35,7 +35,7 @@ def test_packaged_provider_authentication_evidence_is_strict_and_source_bound():
         "gemini-cli",
     ]
     assert [item["pinned_cli_version"] for item in evidence.providers] == [
-        "0.144.3",
+        "0.146.0",
         "2.1.212",
         "0.46.0",
     ]
@@ -59,7 +59,7 @@ def test_hermetic_command_fakes_admit_only_exact_reviewed_cli_pins(monkeypatch):
         calls.append(command)
         if command[-1] == "--version":
             versions = {
-                "codex": "codex-cli 0.144.3",
+                "codex": "codex-cli 0.146.0",
                 "claude": "2.1.212 (Claude Code)",
                 "gemini": "0.46.0",
             }
@@ -77,7 +77,9 @@ def test_hermetic_command_fakes_admit_only_exact_reviewed_cli_pins(monkeypatch):
                 "--output-format stream-json --permission-mode "
                 "--no-session-persistence --remote-control"
             ),
-            "gemini": ("--output-format stream-json --approval-mode --skip-trust"),
+            "gemini": (
+                "--output-format stream-json --approval-mode --skip-trust --acp"
+            ),
         }
         return _Completed(stdout=output[Path(command[0]).name])
 
@@ -125,7 +127,7 @@ def test_version_drift_and_missing_runtime_evidence_fail_closed(monkeypatch):
         "gigaloom.cli_capabilities.subprocess.run",
         lambda command, **kwargs: _Completed(
             stdout=(
-                "codex-cli 0.144.4"
+                "codex-cli 0.146.1"
                 if command[-1] == "--version"
                 else "--json --sandbox --ephemeral"
                 if "app-server" not in command

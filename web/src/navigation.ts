@@ -3,7 +3,7 @@ export const cockpitBasePath = "/web" as const;
 export const primarySurfaces = [
   { id: "work", label: "Work", messageKey: "workbench", path: "/web/work" },
   { id: "inbox", label: "Inbox", messageKey: "inboxNav", path: "/web/inbox" },
-  { id: "automations", label: "Automations", messageKey: "automationNav", path: "/web/automations" },
+  { id: "automations", label: "Automations", messageKey: "automationNav", path: "/web/automation/workflows" },
   { id: "library", label: "Library", messageKey: "libraryNav", path: "/web/library" },
   { id: "more", label: "More", messageKey: "moreNav", path: "/web/more" },
 ] as const;

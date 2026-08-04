@@ -6,9 +6,9 @@ from dataclasses import dataclass
 import hashlib
 from importlib.resources import files
 import json
+import re
 from typing import Any, Mapping
 
-from gigaloom.cli_capabilities import CLI_PROBE_CONTRACTS
 from gigaloom.cli_capabilities import CliCapabilitySnapshot
 
 PROVIDER_AUTH_SCHEMA_VERSION = 1
@@ -193,8 +193,9 @@ def render_provider_authentication_capability_matrix_markdown(
             ),
             _join_markdown_fragments(
                 "- Gemini CLI OAuth may not be harvested or piggybacked by third-party",
-                "software. Only provider-owned interactive guidance or separately",
-                "supported API-key/Vertex paths are admissible.",
+                "software. Only documented provider-owned interactive or ACP",
+                "authentication and separately supported API-key/Vertex paths are",
+                "admissible.",
             ),
             "",
             "## Provider detail",
@@ -259,20 +260,20 @@ def _parse_provider(value: Any) -> Mapping[str, Any]:
     harness_id = _required_text(provider.get("harness_id"), "harness_id")
     if harness_id not in _PROVIDER_IDS:
         raise ProviderAuthenticationEvidenceError("Provider identity is invalid")
-    contract = CLI_PROBE_CONTRACTS[harness_id]
+    pinned_version = _required_text(
+        provider.get("pinned_cli_version"), "pinned_cli_version"
+    )
     version_window = _string_mapping(
         provider.get("version_window"),
         {"minimum", "maximum_exclusive"},
         "version_window",
     )
-    if version_window != {
-        "minimum": contract.minimum_version,
-        "maximum_exclusive": contract.maximum_version_exclusive,
-    }:
+    if not _version_window_contains(version_window, pinned_version):
         raise ProviderAuthenticationEvidenceError(
-            "Provider version window does not match the CLI contract"
+            "Provider authentication pin is outside its reviewed version window"
         )
     provider["version_window"] = version_window
+    provider["pinned_cli_version"] = pinned_version
     provider["surfaces"] = _string_list_mapping(
         provider.get("surfaces"), _SURFACE_KEYS, "surfaces"
     )
@@ -281,7 +282,6 @@ def _parse_provider(value: Any) -> Mapping[str, Any]:
     )
     for field in (
         "display_name",
-        "pinned_cli_version",
         "credential_owner",
         "cancellation",
         "timeout",
@@ -321,23 +321,58 @@ def _runtime_evidence(
 ) -> Mapping[str, Any]:
     if snapshot is None:
         return {"status": "not_probed", "reason": "no hermetic CLI evidence supplied"}
-    if snapshot.harness_id != contract["harness_id"] or not snapshot.compatible:
+    if snapshot.harness_id != contract["harness_id"]:
         return {"status": "blocked", "reason": "CLI capability contract is unproven"}
     if snapshot.parsed_version != contract["pinned_cli_version"]:
         return {
             "status": "blocked",
             "reason": "installed CLI version is outside the exact reviewed pin",
         }
+    if not provider_authentication_surface_proven(contract, snapshot):
+        return {"status": "blocked", "reason": "CLI auth surface is unproven"}
     return {
         "status": "reviewed_pin_present",
         "reason": "bounded version and help evidence matches the reviewed pin",
     }
 
 
+def provider_authentication_surface_proven(
+    contract: Mapping[str, Any],
+    snapshot: CliCapabilitySnapshot,
+) -> bool:
+    """Prove only the reviewed auth surface, independently of execution windows."""
+    provider_id = str(contract["harness_id"])
+    if (
+        snapshot.harness_id != provider_id
+        or snapshot.parsed_version != contract["pinned_cli_version"]
+    ):
+        return False
+    if provider_id == "codex-cli":
+        return snapshot.capabilities.get("app-server") is True
+    if provider_id == "gemini-cli":
+        return snapshot.capabilities.get("--acp") is True
+    return snapshot.compatible
+
+
 def _required_text(value: Any, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ProviderAuthenticationEvidenceError(f"{field_name} must be text")
     return value.strip()
+
+
+def _version_window_contains(window: Mapping[str, str], pinned: str) -> bool:
+    minimum = _numeric_version(window["minimum"])
+    maximum = _numeric_version(window["maximum_exclusive"])
+    selected = _numeric_version(pinned)
+    return minimum <= selected < maximum
+
+
+def _numeric_version(value: str) -> tuple[int, ...]:
+    if re.fullmatch(r"\d+(?:\.\d+){1,3}", value) is None:
+        raise ProviderAuthenticationEvidenceError(
+            "Provider authentication versions must be numeric"
+        )
+    return tuple(int(part) for part in value.split("."))
 
 
 def _string_list(value: Any, field_name: str) -> tuple[str, ...]:

@@ -245,7 +245,7 @@ function sectionRevision(
  * message(locale, "chatModel"); message(locale, "titleModel")
  * mutateCockpit<ProviderMutationResponse>("/api/providers"; /test`; /discover`
  * fork_or_new_session_required; providerFieldErrors(saveProvider.error)
- * /api/provider-accounts/; ProviderAccountCard; isolated_home_only
+ * /api/provider-accounts/; ProviderAccountCard; isolated_provider_account_home
  * /auth/status; /auth/local/rotate; /auth/logout; os_local_private_store
  * fetchCockpit<DoctorReport>("/api/doctor"); DoctorResult; downloadDoctorReport
  * gigaloom-doctor.json; message(locale, "backendOnly"); reference_name

@@ -10,6 +10,8 @@ describe("Cockpit V2 route contract", () => {
     expect(primarySurfaces.map((surface) => surface.label)).toEqual([
       "Work", "Inbox", "Automations", "Library", "More",
     ]);
+    expect(primarySurfaces.find((surface) => surface.id === "automations")?.path)
+      .toBe("/web/automation/workflows");
   });
 
   it("maps exact and deep links without claiming unknown routes", () => {
@@ -96,10 +98,36 @@ describe("Cockpit V2 route contract", () => {
     expect(shellSource).toContain("<ApprovalIcon />");
     expect(shellSource).toContain("<AttentionIcon />");
     expect(shellSource).toContain("<SettingsIcon />");
+    expect(shellSource).toContain('surface.id === "inbox"');
+    expect(shellSource).toContain("activeSurface === surface.id");
+    expect(shellSource).toContain('aria-current={activeSurface === surface.id ? "page" : undefined}');
+    expect(shellSource).not.toContain("<ActionInboxIcon />");
     expect(shellSource).toContain("useQuery(settingsSummaryOptions())");
     expect(shellSource).not.toContain("useQuery(settingsOptions())");
     expect(shellSource).not.toContain('className="cockpit-header"');
     expect(shellSource).not.toContain('message(preferences.locale, "connected")');
+  });
+
+  it("keeps the plural Automations URL as a compatibility redirect", () => {
+    const routerSource = readFileSync(
+      fileURLToPath(new URL("./router.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(routerSource).toContain('path: "/web/automations"');
+    expect(routerSource).toContain('redirect({ to: "/web/automation/workflows" })');
+  });
+
+  it("renders More as descriptive destination cards", () => {
+    const moreSource = readFileSync(
+      fileURLToPath(new URL("./surfaces/more.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(moreSource).toContain('aria-label="More destinations"');
+    expect(moreSource).toContain('className="more-destination-card"');
+    expect(moreSource).toContain("Inspect execution history");
+    expect(moreSource).toContain("Connect MCP servers");
   });
 
   it("loads the Coding Agents marketplace through its own lazy route", () => {

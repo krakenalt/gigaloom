@@ -59,12 +59,12 @@ export default function ProviderAccountsSection() {
           {message(locale, "loginActionFailed")}
         </p>
       ) : null}
-      <Boundary effect="isolated_home_only" source="provider_owned_cli" />
+      <Boundary effect="isolated_provider_account_home" source="provider_owned_cli" />
     </>
   );
 }
 
-function ProviderAccountCard({
+export function ProviderAccountCard({
   account,
   actionPending,
   locale,

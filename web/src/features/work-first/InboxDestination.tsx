@@ -21,12 +21,12 @@ export function InboxDestination({
       destination="inbox"
       title={title}
     >
-      <div className="work-first-split-layout">
+      <div className={`work-first-split-layout${preview === undefined ? " single-pane" : ""}`}>
         <div aria-label="Inbox items" className="work-first-list-slot">
+          {items}
           {deliveries === undefined ? null : (
             <section aria-label="Inbox thread deliveries">{deliveries}</section>
           )}
-          {items}
         </div>
         {preview === undefined ? null : (
           <aside aria-label="Inbox preview" className="work-first-detail-slot">

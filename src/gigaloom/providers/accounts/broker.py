@@ -271,7 +271,7 @@ def _operation_command(provider_id: str, operation: str) -> tuple[str, ...] | No
             "logout": ("auth", "logout"),
         },
         "gemini-cli": {
-            "start": None,
+            "start": ("--acp",),
             "status": None,
             "logout": None,
         },

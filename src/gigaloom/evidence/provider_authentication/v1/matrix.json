@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "reviewed_at": "2026-07-26",
+  "reviewed_at": "2026-08-04",
   "providers": [
     {
       "harness_id": "codex-cli",
       "display_name": "Codex CLI",
-      "pinned_cli_version": "0.144.3",
+      "pinned_cli_version": "0.146.0",
       "version_window": {
-        "minimum": "0.144.0",
-        "maximum_exclusive": "0.145.0"
+        "minimum": "0.146.0",
+        "maximum_exclusive": "0.147.0"
       },
       "flows": [
         "chatgpt_browser",
@@ -192,6 +192,7 @@
       ],
       "surfaces": {
         "start": [
+          "gemini --acp authenticate oauth-personal",
           "gemini interactive authentication chooser",
           "interactive /auth"
         ],
@@ -212,7 +213,7 @@
         "scopes": "not documented as a stable machine field"
       },
       "headless_limitations": [
-        "Google-account browser login is not supported as a new headless login",
+        "ACP oauth-personal delegates to Gemini CLI's provider-owned browser login and must not expose cached credentials",
         "headless mode requires an existing cached credential, API key, or Vertex AI credentials",
         "third-party software must not harvest or piggyback on Gemini CLI OAuth"
       ],
@@ -225,6 +226,13 @@
       ],
       "terms_reviewed_at": "2026-07-26",
       "sources": [
+        {
+          "id": "acp_mode",
+          "url": "https://geminicli.com/docs/cli/acp-mode/",
+          "claims": [
+            "provider_owned_acp_authentication"
+          ]
+        },
         {
           "id": "authentication",
           "url": "https://geminicli.com/docs/get-started/authentication/",

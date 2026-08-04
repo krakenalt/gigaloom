@@ -17,6 +17,7 @@ from gigaloom.provider_authentication_broker import (
     provider_account_snapshot_to_dict,
     provider_session_binding_to_dict,
 )
+from gigaloom.providers.accounts.gemini_acp import GeminiAcpAuthenticationRunner
 from gigaloom.registry import create_default_registry
 from gigaloom.sessions import InMemoryHarnessSessionStore
 from gigaloom.ui.app import create_app
@@ -93,7 +94,7 @@ def test_broker_projects_only_typed_status_from_isolated_homes(
     assert gemini["status"] == "unknown"
     assert gemini["reason_code"] == "machine_status_unavailable"
     assert gemini["actions"] == {
-        "start": False,
+        "start": True,
         "status": False,
         "logout": False,
         "cancel": False,
@@ -236,6 +237,107 @@ def test_broker_rejects_concurrent_login_and_cancels_exact_attempt(tmp_path):
     assert broker.status("codex-cli").reason_code == "provider_login_cancelled"
 
 
+def test_gemini_acp_login_initializes_then_authenticates_advertised_oauth_method(
+    tmp_path,
+):
+    supervisor = _AcpSupervisor(
+        initialize={
+            "protocolVersion": 1,
+            "authMethods": [{"id": "oauth-personal"}],
+        }
+    )
+    acp_runner = GeminiAcpAuthenticationRunner(
+        supervisor_factory=lambda _command, _environment, _cwd: supervisor
+    )
+    broker = _broker(tmp_path, _Runner(), gemini_acp_runner=acp_runner)
+
+    pending = broker.start("gemini-cli")
+    final = _wait_for_attempt(broker, "gemini-cli", pending.attempt_id)
+
+    assert final.status is ProviderAccountStatus.READY
+    assert final.authentication_method == "google_account"
+    assert supervisor.methods == ["initialize", "authenticate"]
+    assert supervisor.params[0]["clientCapabilities"] == {
+        "fs": {"readTextFile": False, "writeTextFile": False},
+        "terminal": False,
+    }
+    assert supervisor.params[-1] == {"methodId": "oauth-personal"}
+    assert supervisor.closed is True
+
+
+def test_gemini_acp_login_rejects_unadvertised_oauth_without_authenticating():
+    supervisor = _AcpSupervisor(
+        initialize={"protocolVersion": 1, "authMethods": [{"id": "api-key"}]}
+    )
+    runner = GeminiAcpAuthenticationRunner(
+        supervisor_factory=lambda _command, _environment, _cwd: supervisor
+    )
+
+    result = runner.run(
+        ("/fake/gemini", "--acp"),
+        environment={},
+        cwd=Path("/tmp"),
+        timeout_seconds=0.2,
+        cancel_event=threading.Event(),
+    )
+
+    assert result.returncode == 1
+    assert supervisor.methods == ["initialize"]
+    assert supervisor.closed is True
+
+
+def test_gemini_acp_login_cancels_exact_pending_request():
+    supervisor = _AcpSupervisor(
+        initialize={
+            "protocolVersion": 1,
+            "authMethods": [{"id": "oauth-personal"}],
+        },
+        block_authenticate=True,
+    )
+    runner = GeminiAcpAuthenticationRunner(
+        supervisor_factory=lambda _command, _environment, _cwd: supervisor
+    )
+    cancelled = threading.Event()
+    cancelled.set()
+
+    result = runner.run(
+        ("/fake/gemini", "--acp"),
+        environment={},
+        cwd=Path("/tmp"),
+        timeout_seconds=0.2,
+        cancel_event=cancelled,
+    )
+
+    assert result.cancelled is True
+    assert supervisor.authenticate_handle.cancelled is True
+    assert supervisor.closed is True
+
+
+def test_gemini_acp_login_times_out_and_cancels_exact_pending_request():
+    supervisor = _AcpSupervisor(
+        initialize={
+            "protocolVersion": 1,
+            "authMethods": [{"id": "oauth-personal"}],
+        },
+        block_authenticate=True,
+    )
+    runner = GeminiAcpAuthenticationRunner(
+        supervisor_factory=lambda _command, _environment, _cwd: supervisor
+    )
+
+    result = runner.run(
+        ("/fake/gemini", "--acp"),
+        environment={},
+        cwd=Path("/tmp"),
+        timeout_seconds=0.05,
+        cancel_event=threading.Event(),
+    )
+
+    assert result.timed_out is True
+    assert supervisor.authenticate_handle.cancelled is True
+    assert supervisor.closed is True
+
+
 @pytest.mark.parametrize(
     ("result", "expected_status", "expected_reason"),
     [
@@ -338,15 +440,15 @@ def test_provider_account_api_is_typed_bounded_and_content_free(tmp_path):
 
     refreshed = client.post("/api/provider-accounts/claude-code/refresh")
     logged_out = client.post("/api/provider-accounts/claude-code/logout")
-    unavailable = client.post("/api/provider-accounts/gemini-cli/login")
+    login = client.post("/api/provider-accounts/gemini-cli/login")
     unknown = client.post("/api/provider-accounts/not-a-provider/refresh")
 
     assert refreshed.status_code == 200
     assert refreshed.json()["account"]["status"] == "logged_out"
     assert logged_out.status_code == 200
     assert logged_out.json()["account"]["reason_code"] == "provider_logout_complete"
-    assert unavailable.status_code == 409
-    assert unavailable.json()["detail"]["code"] == "login_start_unavailable"
+    assert login.status_code == 200
+    assert login.json()["account"]["status"] == "pending"
     assert unknown.status_code == 404
     assert unknown.json()["detail"]["code"] == "provider_authentication_unknown"
 
@@ -454,9 +556,10 @@ def _broker(
     *,
     capabilities=None,
     resolutions=None,
+    gemini_acp_runner=None,
 ):
     capabilities = {
-        "codex-cli": _capability("codex-cli", version="0.144.3"),
+        "codex-cli": _capability("codex-cli", version="0.146.0"),
         "claude-code": _capability("claude-code", version="2.1.212"),
         "gemini-cli": _capability("gemini-cli", version="0.46.0"),
         **(capabilities or {}),
@@ -470,6 +573,7 @@ def _broker(
     return NativeLoginBroker(
         tmp_path,
         runner=runner,
+        gemini_acp_runner=gemini_acp_runner or _GeminiResultRunner(),
         resolution_provider=resolutions.__getitem__,
         capability_provider=capabilities.__getitem__,
         login_timeout_seconds=0.2,
@@ -489,7 +593,10 @@ def _capability(
         version=version,
         parsed_version=version,
         command=(harness_id,),
-        capabilities={},
+        capabilities={
+            "codex-cli": {"app-server": True},
+            "gemini-cli": {"--acp": True},
+        }.get(harness_id, {}),
         event_schema="test",
         history_schema="test",
         version_window_status="in_window" if version else "not_probed",
@@ -517,3 +624,58 @@ def _wait_for_attempt(broker, provider_id, attempt_id):
             return snapshot
         time.sleep(0.01)
     raise AssertionError("provider login attempt did not finish")
+
+
+class _GeminiResultRunner:
+    def __init__(self, result=None):
+        self.result = result or AuthenticationCommandResult(1)
+
+    def run(self, argv, **kwargs):
+        del argv, kwargs
+        return self.result
+
+
+class _AcpHandle:
+    def __init__(self, result, *, done=True):
+        self._result = result
+        self._done = done
+        self.cancelled = False
+
+    @property
+    def done(self):
+        return self._done
+
+    def result(self, timeout):
+        del timeout
+        return self._result
+
+    def cancel(self):
+        self.cancelled = True
+        self._done = True
+        return True
+
+
+class _AcpSupervisor:
+    def __init__(self, *, initialize, block_authenticate=False):
+        self.initialize_handle = _AcpHandle(initialize)
+        self.authenticate_handle = _AcpHandle({}, done=not block_authenticate)
+        self.methods = []
+        self.params = []
+        self.closed = False
+
+    def start(self):
+        return 1
+
+    def begin_request(self, method, params):
+        self.methods.append(method)
+        self.params.append(dict(params))
+        if method == "initialize":
+            return self.initialize_handle
+        if method == "authenticate":
+            assert self.methods[0] == "initialize"
+            assert self.initialize_handle.done is True
+            return self.authenticate_handle
+        raise AssertionError(f"unexpected ACP method: {method}")
+
+    def close(self):
+        self.closed = True

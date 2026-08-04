@@ -38,7 +38,7 @@ describe("backend-owned Settings contract", () => {
     expect(source).toContain("providerFieldErrors(saveProvider.error)");
     expect(source).toContain("/api/provider-accounts/");
     expect(source).toContain("ProviderAccountCard");
-    expect(source).toContain("isolated_home_only");
+    expect(source).toContain("isolated_provider_account_home");
     expect(source).toContain("/auth/status");
     expect(source).toContain("/auth/local/rotate");
     expect(source).toContain("/auth/logout");

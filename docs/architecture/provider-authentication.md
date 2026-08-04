@@ -1,6 +1,6 @@
 # Provider authentication capabilities
 
-Status: accepted on 2026-07-26.
+Status: accepted on 2026-08-04.
 
 > Generated from packaged schema-v1 primary-source evidence. It describes provider-owned surfaces; it does not authorize a login, credential read, browser launch, or embedded login broker.
 
@@ -8,9 +8,9 @@ Status: accepted on 2026-07-26.
 
 | Provider | Pinned CLI | Start | Status | Logout | Revoke | Headless boundary |
 | --- | --- | --- | --- | --- | --- | --- |
-| Codex CLI | `0.144.3` | codex login; app-server account/login/start | app-server account/read; app-server account/updated | codex logout; app-server account/logout | provider account or workspace control | browser login needs an interactive browser callback; device-code login still requires the user to complete provider authentication; API keys and enterprise access tokens are separate trusted-automation paths |
+| Codex CLI | `0.146.0` | codex login; app-server account/login/start | app-server account/read; app-server account/updated | codex logout; app-server account/logout | provider account or workspace control | browser login needs an interactive browser callback; device-code login still requires the user to complete provider authentication; API keys and enterprise access tokens are separate trusted-automation paths |
 | Claude Code | `2.1.212` | claude auth login; interactive /login | claude auth status; interactive /status | claude auth logout; interactive /logout | provider account, organization, or cloud-provider control | browser login may require copying a URL and pasting a code in SSH, WSL, or containers; cloud-provider and API-key modes are owned outside the subscription browser flow; status precedence must be respected before claiming which credential is active |
-| Gemini CLI | `0.46.0` | gemini interactive authentication chooser; interactive /auth | no documented machine-readable account-status command | provider-owned interactive authentication reset only | Google account, API key, or Google Cloud control | Google-account browser login is not supported as a new headless login; headless mode requires an existing cached credential, API key, or Vertex AI credentials; third-party software must not harvest or piggyback on Gemini CLI OAuth |
+| Gemini CLI | `0.46.0` | gemini --acp authenticate oauth-personal; gemini interactive authentication chooser; interactive /auth | no documented machine-readable account-status command | provider-owned interactive authentication reset only | Google account, API key, or Google Cloud control | ACP oauth-personal delegates to Gemini CLI's provider-owned browser login and must not expose cached credentials; headless mode requires an existing cached credential, API key, or Vertex AI credentials; third-party software must not harvest or piggyback on Gemini CLI OAuth |
 
 ## Safety contract
 
@@ -18,7 +18,7 @@ Status: accepted on 2026-07-26.
 - An installed executable or compatible `--help` surface never proves that an account is ready.
 - GigaLoom may retain capability evidence, status class, source, and recovery guidance; it must not retain tokens, raw credential files, browser callbacks, or unredacted command output.
 - Version drift is fail-closed. A broker implementation must re-review the exact CLI version before enabling a broker path.
-- Gemini CLI OAuth may not be harvested or piggybacked by third-party software. Only provider-owned interactive guidance or separately supported API-key/Vertex paths are admissible.
+- Gemini CLI OAuth may not be harvested or piggybacked by third-party software. Only documented provider-owned interactive or ACP authentication and separately supported API-key/Vertex paths are admissible.
 
 ## Provider detail
 
@@ -65,7 +65,7 @@ Status: accepted on 2026-07-26.
 - Timeout: the future broker must impose its own bounded timeout.
 - Recovery: return to the provider-owned interactive authentication chooser; configure an API key or Vertex AI credential for headless use; revoke or rotate credentials in the owning Google service.
 - Terms review date: `2026-07-26`.
-- Primary sources: [authentication](https://geminicli.com/docs/get-started/authentication/), [commands](https://geminicli.com/docs/reference/commands/), [terms](https://geminicli.com/docs/resources/tos-privacy/).
+- Primary sources: [acp_mode](https://geminicli.com/docs/cli/acp-mode/), [authentication](https://geminicli.com/docs/get-started/authentication/), [commands](https://geminicli.com/docs/reference/commands/), [terms](https://geminicli.com/docs/resources/tos-privacy/).
 
 ## Consequences
 

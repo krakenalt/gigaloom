@@ -76,7 +76,7 @@ export const enSettings = {
   modelsFound: "models found",
   noMcpServers: "No project MCP descriptors are configured.",
   providerAccountsHint:
-        "Provider-owned login status from isolated homes. An installed CLI alone never means the account is ready.",
+        "Sign-in and status use a separate provider account home. Credentials are not transferred to Workbench native project homes.",
   providerHint: "Configuration presence is visible; credential values never cross the backend boundary.",
   providerTemplate: "Provider template",
   chooseProviderTemplate: "Choose a reviewed template…",
