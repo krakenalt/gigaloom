@@ -212,7 +212,8 @@ def test_workflow_catalog_api_edits_histories_duplicates_imports_and_exports(
         )
         assert detail.status_code == 200
         initial = detail.json()
-        assert initial["source"].startswith("id: review-team")
+        assert initial["source"].startswith("# yaml-language-server:")
+        assert "\nid: review-team\n" in initial["source"]
         assert initial["history"] == []
 
         updated = client.put(

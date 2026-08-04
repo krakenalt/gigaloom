@@ -6,6 +6,10 @@ import pytest
 
 from gigaloom import proxy
 from gigaloom.config import HarnessConfig
+from gigaloom.contracts.codex_instructions import (
+    ASYNC_AGENT_RULES_VERSION,
+    codex_developer_instructions,
+)
 from gigaloom.registry import create_default_registry
 from gigaloom.provider_profiles import ProviderProtocol
 from gigaloom.provider_registry import ProviderProbeResponse
@@ -13,6 +17,7 @@ from gigaloom.provider_settings import ProviderSettingsService
 from gigaloom.secrets import SecretReference, SecretReferenceKind
 from gigaloom.sessions import InMemoryHarnessSessionStore
 from gigaloom.settings import (
+    PersonalizationSettingsStore,
     SecretReferenceSettingsStore,
     SettingsConflictError,
 )
@@ -461,6 +466,57 @@ def test_settings_reject_stale_revision_without_overwriting(tmp_path):
     assert stale.json()["detail"]["code"] == "revision_conflict"
     read_back = client.get("/api/settings", params={"workspace": str(tmp_path)}).json()
     assert read_back["harness_defaults"]["workspace_policy"] == "current"
+
+
+def test_personalization_settings_are_versioned_backend_state(tmp_path):
+    client = _client(tmp_path)
+    initial = client.get("/api/settings/personalization")
+    assert initial.status_code == 200
+    assert initial.json()["developer_instructions"] == ""
+    assert initial.json()["compatibility"] == {
+        "async_agent_rules_version": ASYNC_AGENT_RULES_VERSION,
+        "capability_guarded": True,
+    }
+
+    saved = client.patch(
+        "/api/settings/personalization",
+        json={
+            "developer_instructions": "  Prefer concise Russian updates.  ",
+            "expected_revision": initial.json()["revision"],
+        },
+    )
+
+    assert saved.status_code == 200
+    assert saved.json()["saved"] is True
+    assert saved.json()["developer_instructions"] == ("Prefer concise Russian updates.")
+    stored = tmp_path / "data" / "settings" / "personalization.json"
+    assert stat.S_IMODE(stored.stat().st_mode) == 0o600
+    serialized = stored.read_text(encoding="utf-8")
+    assert "Prefer concise Russian updates." in serialized
+    assert "async_agent_rules" not in serialized
+
+    stale = client.patch(
+        "/api/settings/personalization",
+        json={
+            "developer_instructions": "Stale overwrite",
+            "expected_revision": initial.json()["revision"],
+        },
+    )
+    assert stale.status_code == 409
+    assert stale.json()["detail"]["code"] == "revision_conflict"
+
+
+def test_codex_developer_instructions_keep_async_rules_capability_guarded(tmp_path):
+    store = PersonalizationSettingsStore(tmp_path / "data")
+    saved = store.save("Use Russian for progress updates.")
+
+    composed = codex_developer_instructions(saved.developer_instructions)
+
+    assert composed.startswith("Use Russian for progress updates.")
+    assert '<async_agent_rules version="1">' in composed
+    assert "current turn lists collaboration tools" in composed
+    assert "If those tools are absent, ignore this block." in composed
+    assert "at most two correction cycles" in composed
 
 
 def test_secret_reference_settings_round_trip_references_only(tmp_path):

@@ -5,6 +5,7 @@
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
+from . import instructions_api
 from .project_starter import init_project_config
 from .config import (
     default_project_config_text,
@@ -545,6 +546,7 @@ __all__ = [
     "create_state_backup",
     "compile_python_impact_index",
     "init_project_config",
+    "instructions_api",
     "load_project_config",
     "load_project_state",
     "memory_entries_to_context",

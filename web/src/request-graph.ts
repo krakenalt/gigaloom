@@ -1,6 +1,7 @@
 export * from "./api/queryCache";
 export * from "./api/queryKeys";
 export * from "./api/queries/inbox";
+export * from "./api/queries/instructions";
 export * from "./api/queries/operator";
 export * from "./api/queries/providers";
 export * from "./api/queries/runs";

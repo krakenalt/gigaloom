@@ -162,6 +162,12 @@ def create_router(
                 effective_payload["mode"] = mode
                 effective_payload["workspace"] = workspace_execution.request_workspace
                 extra = _metadata_mapping(payload.get("extra"))
+                if identity_provider_id == "codex-cli":
+                    personalization = services.personalization_store.load()
+                    extra["developer_instructions"] = (
+                        personalization.developer_instructions
+                    )
+                    extra["personalization_revision"] = personalization.revision
                 extra["native_source_workspace"] = source_workspace
                 extra["workspace_execution"] = workspace_execution.to_metadata()
                 effective_payload["extra"] = extra

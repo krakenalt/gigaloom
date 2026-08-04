@@ -8,12 +8,20 @@ from threading import RLock
 from typing import Any, Callable
 
 from gigaloom.config import HarnessConfig
+from gigaloom.contracts.codex_instructions import (
+    ASYNC_AGENT_RULES_VERSION,
+    MAX_DEVELOPER_INSTRUCTIONS_CHARACTERS,
+)
 from gigaloom.projects.api import (
     load_project_config,
     load_project_state,
     resolve_project,
 )
-from gigaloom.settings import HarnessDefaultsSnapshot, HarnessSettingsStore
+from gigaloom.settings import (
+    HarnessDefaultsSnapshot,
+    HarnessSettingsStore,
+    PersonalizationSettingsStore,
+)
 from gigaloom.tools.mcp.api import MCPProbeHistoryStore, build_mcp_inventory
 
 from .settings_projections import (
@@ -44,6 +52,7 @@ class SettingsSnapshotService:
         *,
         config: HarnessConfig,
         settings_store: HarnessSettingsStore,
+        personalization_store: PersonalizationSettingsStore | None = None,
         provider_settings_service: Any,
         registry: Any,
         async_diagnostics: Any,
@@ -53,6 +62,9 @@ class SettingsSnapshotService:
             raise ValueError("Settings cache_entries is outside the accepted bound")
         self._config = config
         self._settings_store = settings_store
+        self._personalization_store = personalization_store or (
+            PersonalizationSettingsStore(settings_store.path.parent.parent)
+        )
         self._provider_settings_service = provider_settings_service
         self._registry = registry
         self._async_diagnostics = async_diagnostics
@@ -63,10 +75,12 @@ class SettingsSnapshotService:
     def summary(self, workspace: str | None) -> dict[str, Any]:
         """Return lightweight source revisions without project or process probes."""
         snapshot = self._settings_store.load()
+        personalization = self._personalization_store.load()
         providers = self._provider_settings_service.list()
         revisions = {
             "runtime": self._runtime_revision(),
             "defaults": self._defaults_revision(snapshot),
+            "personalization": personalization.revision,
             "workspace": self._workspace_revision(workspace),
             "mcp": self._mcp_revision(workspace),
             "diagnostics": "live",
@@ -140,6 +154,27 @@ class SettingsSnapshotService:
                 "revision": revision,
                 "settings_revision": snapshot.revision,
                 **_defaults_projection(snapshot, harnesses),
+            },
+        )
+
+    def personalization(self) -> dict[str, Any]:
+        """Return user-authored Codex instructions and built-in rule provenance."""
+        snapshot = self._personalization_store.load()
+        return self._cached(
+            "personalization",
+            snapshot.revision,
+            lambda: {
+                "schema_version": SETTINGS_SECTION_SCHEMA_VERSION,
+                "revision": snapshot.revision,
+                "developer_instructions": snapshot.developer_instructions,
+                "limits": {
+                    "max_characters": MAX_DEVELOPER_INSTRUCTIONS_CHARACTERS,
+                },
+                "compatibility": {
+                    "async_agent_rules_version": ASYNC_AGENT_RULES_VERSION,
+                    "capability_guarded": True,
+                },
+                "change_effect": "fork_or_new_codex_session_required",
             },
         )
 

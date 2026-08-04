@@ -20,6 +20,8 @@ def render_root_help() -> str:
     return """usage: giga [--help] [--version]
        giga <core-command> [arguments...]
        giga <agent-id-or-alias> [provider arguments...]
+       giga --route <route-id> <agent-id> [provider arguments...]
+       giga --with <gateway> --model <alias> <agent-id> [provider arguments...]
 
 GigaLoom native-agent launcher and Web control plane.
 
@@ -37,6 +39,8 @@ Main commands:
   giga run ...             Start an explicit structured run
   giga capsule ...         Export or verify content-free Run Capsules
   giga session ...         Inspect or mutate sessions as plain CLI
+  giga gateway ...         Inspect reviewed gateway profiles
+  giga schema ...          Export editor-facing .giga schemas
   giga completion <shell>  Generate shell completion
 
 Run 'giga --non-interactive --help' for the complete admin command inventory.

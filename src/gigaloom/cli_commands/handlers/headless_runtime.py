@@ -163,6 +163,11 @@ class ManagedAcpHeadlessBackend:
                     permission_profile_id=request.invocation.permission_profile,
                     network_profile=request.invocation.network_profile,
                     timeout_seconds=request.invocation.timeout_seconds,
+                    session_model_config_id=(
+                        "model"
+                        if request.invocation.model_id != "provider-default"
+                        else None
+                    ),
                 ),
                 cancel_event=cancel_event,
                 permission_sink=lambda pending: event_sink.emit(

@@ -1,6 +1,6 @@
 [project]
 name = "gigaloom"
-version = "0.8.1"
+version = "0.9.0"
 description = "GigaLoom local, provider-neutral control plane for coding agents"
 authors = [{ name = "Ruslan Yakupov", email = "rusyak1999@gmail.com" }]
 requires-python = ">=3.11,<3.15"
@@ -54,7 +54,7 @@ git = "gigaloom.environments:git_environment_provider_plugin"
 
 [project.optional-dependencies]
 gpt2giga = [
-    "gpt2giga>=0.2.6,<0.3.0",
+    "gpt2giga>=0.3.0,<0.4.0",
 ]
 claude-sdk = [
     "claude-agent-sdk>=0.2.122,<0.3",

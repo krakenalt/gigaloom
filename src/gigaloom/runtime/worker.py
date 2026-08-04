@@ -14,11 +14,8 @@ from uuid import uuid4
 from gigaloom.attachments import FilesystemAttachmentStore
 from gigaloom.config import HarnessConfig
 from gigaloom.project_memory import FilesystemProjectMemoryStore
-from gigaloom.registry import HarnessRegistry, create_default_registry
-from gigaloom.runtime.fingerprint import (
-    build_submission_fingerprint,
-    build_worker_fingerprint,
-)
+from gigaloom.registry import HarnessRegistry
+from gigaloom.runtime.fingerprint import build_submission_fingerprint
 from gigaloom.runtime.models import (
     JobAttemptStatus,
     RuntimeJob,
@@ -53,6 +50,7 @@ from gigaloom.runtime.workers.scheduler import (
     adaptive_idle_delay as _adaptive_idle_delay,
 )
 from gigaloom.runtime.workers.status import worker_status as worker_status
+from gigaloom.runtime.worker_registry import WorkerRegistryBinding
 from gigaloom.session_runner import HarnessSessionRunner, QueuedHarnessRun
 from gigaloom.sessions import (
     FilesystemHarnessSessionStore,
@@ -70,6 +68,7 @@ DEFAULT_HEARTBEAT_SECONDS = 2.0
 DEFAULT_POLL_SECONDS = 0.25
 DEFAULT_MAX_IDLE_SECONDS = 1.0
 DEFAULT_RETRY_BACKOFF_SECONDS = 1.0
+DEFAULT_FINGERPRINT_REFRESH_SECONDS = 5.0
 RECOVERY_MARKER_IDENTITY_FIELD = "_runtime_recovery_marker_sha256"
 MAX_SIDE_EFFECT_TOKEN_CHARS = 4096
 
@@ -327,9 +326,16 @@ class DurableJobWorker:
         worker_id: str | None = None,
         lease_seconds: float = DEFAULT_LEASE_SECONDS,
         heartbeat_seconds: float = DEFAULT_HEARTBEAT_SECONDS,
+        fingerprint_refresh_seconds: float = DEFAULT_FINGERPRINT_REFRESH_SECONDS,
     ) -> None:
         self.config = config.with_overrides(auto_start_proxy=False)
-        self.registry = registry or create_default_registry()
+        self._registry_binding = WorkerRegistryBinding(
+            self.config,
+            registry=registry,
+            refresh_seconds=fingerprint_refresh_seconds,
+        )
+        self.registry = self._registry_binding.registry
+        self._agent_runtime = self._registry_binding.agent_runtime
         self.worker_id = (
             worker_id
             or f"worker_{socket.gethostname()}_{os.getpid()}_{uuid4().hex[:8]}"
@@ -346,8 +352,7 @@ class DurableJobWorker:
             attachment_store=FilesystemAttachmentStore(self.config.data_dir),
             memory_store=FilesystemProjectMemoryStore(),
         )
-        self.fingerprint = build_worker_fingerprint(self.registry)
-        self._registered = False
+        self.fingerprint = self._registry_binding.fingerprint
         self._maintenance = WorkerMaintenanceScheduler(
             heartbeat_seconds=self.heartbeat_seconds
         )
@@ -564,19 +569,14 @@ class DurableJobWorker:
                     self._maintenance.request(SCHEDULES, RETRIES, RECOVERY)
         finally:
             receiver.close()
-            if self._registered:
+            if self._registry_binding.registered:
                 self.runtime_store.stop_worker(self.worker_id)
 
     def _register(self) -> None:
-        if self._registered:
-            return
-        self.runtime_store.register_worker(
+        self.fingerprint = self._registry_binding.advertise(
+            self.runtime_store,
             worker_id=self.worker_id,
-            process_id=os.getpid(),
-            hostname=socket.gethostname(),
-            capability_fingerprint=self.fingerprint,
         )
-        self._registered = True
 
     def _monitor_attempt(
         self,

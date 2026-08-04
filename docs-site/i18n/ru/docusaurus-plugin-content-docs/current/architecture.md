@@ -1,38 +1,50 @@
-# Архитектура
+# Архитектура GigaLoom
 
-GigaLoom — самостоятельный Python-дистрибутив с двумя локальными поверхностями:
+GigaLoom поставляется как самостоятельный Python-пакет и предоставляет два
+локальных интерфейса:
 
-1. команда `giga` запускает provider-native команды и административные операции;
-2. FastAPI control plane раздаёт упакованный browser Workbench через loopback.
+1. команда `giga` запускает нативные CLI агентов и административные операции;
+2. сервер FastAPI обслуживает локальный веб-интерфейс Workbench.
 
-Coding Agents — это нативные coding CLI, установленные из registry ACP agents
-или пользовательские structured routes. Automation Agents остаются
-создаваемыми в проекте переиспользуемыми workflow agents в существующем
-namespace `/api/agents`. Запись registry является только discovery evidence и
-никогда не даёт authority на установку или выполнение.
+В продукте Coding Agents — это нативные CLI и пользовательские
+структурированные маршруты. Automation Agents — переиспользуемые агенты
+автоматизации, созданные внутри проекта; они доступны через `/api/agents`.
+Запись в каталоге ACP содержит только сведения для поиска и проверки. Сама по
+себе она не разрешает установку или запуск кода.
 
-## Основные границы
+## Границы подсистем
 
-- `gigaloom.harnesses` владеет встроенными adapters.
-- `runtime` и `sessions` владеют jobs, leases, events, policy и persistence.
+- `gigaloom.harnesses` содержит встроенные адаптеры агентов.
+- `runtime` и `sessions` управляют заданиями, арендами, событиями, политиками и
+  постоянным состоянием.
 - `project`, `workspace` и `worktrees` ограничивают файловые изменения.
-- `ui` проецирует redacted state и не становится вторым источником authority.
-- Нативные provider CLI владеют аутентификацией и выполнением у провайдера.
-- Gateway подключается через установленный дистрибутив, а не source dependency.
+- `ui` показывает отредактированное состояние и не принимает решения о
+  полномочиях.
+- Нативные CLI самостоятельно выполняют вход и обращаются к своему провайдеру.
+- Шлюз подключается как установленный пакет и не требует исходного кода
+  соседнего проекта.
 
-Approval связывается с проверенными scope и preview. Перед dispatch связь
-проверяется снова; drift, cancellation, lease loss или отсутствие authority
-приводят к fail-closed. Чувствительные значения редактируются до сохранения и
-сериализации.
+Подтверждение операции всегда связано с конкретной областью доступа и
+предварительным просмотром. Перед выполнением эта связь проверяется повторно.
+Если состояние изменилось, операция отменена, аренда потеряна или полномочий
+недостаточно, выполнение блокируется. Чувствительные значения удаляются до
+сохранения и передачи в API.
 
 ## Подробные решения
 
-- [Архитектура компонентов](architecture/harness.md)
-- [Структура пакета по bounded contexts](architecture/package-layout.md)
-- [Контракты durability, recovery и производительности](architecture/durability-performance-contracts.md)
-- [Схема authority и approval](architecture/authority-approval-schema-adr.md)
-- [Ограниченный сетевой доступ](architecture/scoped-network-access-adr.md)
-- [GitHub capability grants](architecture/github-capability-grants-adr.md)
-- [Матрица аутентификации](architecture/provider-authentication-capability-matrix.md)
-- [Сборка frontend assets](architecture/frontend-asset-build-architecture-adr.md)
-- [Операционное доверие, headless execution и release identity](architecture/2026-08-01-operational-trust-headless-release-identity-adr.md)
+- [Архитектура Unified Harness](architecture/harness.md)
+- [Структура пакета и границы модулей](architecture/package-structure.md)
+- [Надёжность, восстановление и производительность](architecture/reliability-and-performance.md)
+- [Хранение состояния сессий и запусков](architecture/session-storage.md)
+- [Термины и возможности продукта](architecture/capability-admission.md)
+- [Полномочия и подтверждение операций](architecture/authority-and-approvals.md)
+- [Контролируемый сетевой доступ](architecture/network-access.md)
+- [Ограниченные полномочия для GitHub](architecture/github-permissions.md)
+- [Аутентификация провайдеров](architecture/provider-authentication.md)
+- [Удалённая идентификация пользователей](architecture/remote-user-identity.md)
+- [Сборка ресурсов веб-интерфейса](architecture/frontend-assets.md)
+- [Операционные гарантии](architecture/operational-guarantees.md)
+- [Рабочий процесс и потоки](architecture/work-and-thread-relay.md)
+- [Маршруты шлюза](architecture/gateway-routes.md)
+- [Действующие инструкции](architecture/effective-instructions.md)
+- [Локальные метрики](architecture/local-product-metrics.md)

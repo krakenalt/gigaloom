@@ -43,12 +43,50 @@ export default function OperatorInboxDrawer({
 }) {
   const { preferences } = usePreferences();
   const locale = preferences.locale;
+  return (
+    <div className="drawer-backdrop" role="presentation" onClick={onClose}>
+      <aside
+        aria-label={message(locale, "actionInbox")}
+        aria-modal="true"
+        className="inbox-drawer operator-inbox-drawer"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <div className="drawer-heading">
+          <div>
+            <p className="section-kicker">{message(locale, "globalInbox")}</p>
+            <h2>{message(locale, "actionInbox")}</h2>
+          </div>
+          <button
+            aria-label={message(locale, "close")}
+            onClick={onClose}
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+        <OperatorInboxPanel onNavigate={onClose} workspaceId={workspaceId} />
+      </aside>
+    </div>
+  );
+}
+
+export function OperatorInboxPanel({
+  onNavigate,
+  workspaceId,
+}: {
+  onNavigate?: () => void;
+  workspaceId: string;
+}) {
+  const { preferences } = usePreferences();
+  const locale = preferences.locale;
   const queryClient = useQueryClient();
   const [kind, setKind] = useState<ActionInboxKind | "all">("all");
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const query = useInfiniteQuery(
-    operatorInboxOptions(workspaceId, kind === "all" ? [] : [kind]),
-  );
+  const query = useInfiniteQuery({
+    ...operatorInboxOptions(workspaceId, kind === "all" ? [] : [kind]),
+    enabled: workspaceId !== "",
+  });
   const items = useMemo(
     () => flattenActionInboxPages(query.data?.pages ?? []),
     [query.data?.pages],
@@ -91,46 +129,30 @@ export default function OperatorInboxDrawer({
   });
 
   return (
-    <div className="drawer-backdrop" role="presentation" onClick={onClose}>
-      <aside
-        aria-label={message(locale, "actionInbox")}
-        aria-modal="true"
-        className="inbox-drawer operator-inbox-drawer"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <div className="drawer-heading">
-          <div>
-            <p className="section-kicker">{message(locale, "globalInbox")}</p>
-            <h2>{message(locale, "actionInbox")}</h2>
-          </div>
-          <button
-            aria-label={message(locale, "close")}
-            onClick={onClose}
-            type="button"
-          >
-            ×
-          </button>
-        </div>
-        <p className="operator-inbox-detail">
-          {message(locale, "actionInboxDetail")}
-        </p>
-        <label className="field-control operator-inbox-filter">
-          <span>{message(locale, "actionKind")}</span>
-          <select
-            onChange={(event) =>
-              setKind(event.target.value as ActionInboxKind | "all")
-            }
-            value={kind}
-          >
-            <option value="all">{message(locale, "allActions")}</option>
-            {inboxKinds.map((item) => (
-              <option key={item} value={item}>{humanizeAction(item)}</option>
-            ))}
-          </select>
-        </label>
-        <div className="inbox-list operator-inbox-list">
-          {query.isPending ? (
+    <section aria-label={message(locale, "actionInbox")} className="operator-inbox-panel">
+      <p className="operator-inbox-detail">
+        {message(locale, "actionInboxDetail")}
+      </p>
+      <label className="field-control operator-inbox-filter">
+        <span>{message(locale, "actionKind")}</span>
+        <select
+          disabled={workspaceId === ""}
+          onChange={(event) =>
+            setKind(event.target.value as ActionInboxKind | "all")
+          }
+          value={kind}
+        >
+          <option value="all">{message(locale, "allActions")}</option>
+          {inboxKinds.map((item) => (
+            <option key={item} value={item}>{humanizeAction(item)}</option>
+          ))}
+        </select>
+      </label>
+      <div className="inbox-list operator-inbox-list">
+          {workspaceId === "" ? (
+            <div className="empty-state">{message(locale, "operatorInboxUnavailable")}</div>
+          ) : null}
+          {workspaceId !== "" && query.isPending ? (
             <div className="skeleton-block" aria-label={message(locale, "loading")} />
           ) : null}
           {query.isError ? (
@@ -167,7 +189,7 @@ export default function OperatorInboxDrawer({
               onAnswer={(answer) =>
                 setAnswers((current) => ({ ...current, [item.item_id]: answer }))
               }
-              onClose={onClose}
+              onNavigate={onNavigate}
             />
           ))}
           {query.hasNextPage ? (
@@ -182,9 +204,8 @@ export default function OperatorInboxDrawer({
               )}
             </button>
           ) : null}
-        </div>
-      </aside>
-    </div>
+      </div>
+    </section>
   );
 }
 
@@ -196,7 +217,7 @@ function OperatorInboxItemCard({
   mutationPending,
   onAction,
   onAnswer,
-  onClose,
+  onNavigate,
 }: {
   answer: string;
   item: ActionInboxItem;
@@ -205,7 +226,7 @@ function OperatorInboxItemCard({
   mutationPending: boolean;
   onAction: (action: ActionInboxCommand) => void;
   onAnswer: (answer: string) => void;
-  onClose: () => void;
+  onNavigate?: () => void;
 }) {
   return (
     <article className="inbox-item operator-inbox-item">
@@ -245,7 +266,7 @@ function OperatorInboxItemCard({
       <div className="operator-inbox-links">
         {item.run_id === null ? null : (
           <Link
-            onClick={onClose}
+            onClick={onNavigate}
             params={{ runId: item.run_id }}
             to="/web/runs/$runId"
           >

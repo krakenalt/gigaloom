@@ -18,6 +18,9 @@ const LocalAccessSection = lazy(
 const RuntimeSection = lazy(
   () => import("../features/settings/RuntimeSection"),
 );
+const PersonalizationSection = lazy(
+  () => import("../features/settings/PersonalizationSection"),
+);
 const ProviderAccountsSection = lazy(
   () => import("../features/settings/ProviderAccountsSection"),
 );
@@ -45,6 +48,7 @@ const DiagnosticsSection = lazy(
 
 const categories = [
   "appearance",
+  "personalization",
   "localAccess",
   "runtime",
   "providerAccounts",
@@ -125,6 +129,17 @@ export function SettingsSurface() {
             </div>
             <Boundary source="browser" effect="live" />
           </SettingsSection>
+
+          <DeferredSettingsSection
+            description={message(locale, "personalizationHint")}
+            id="personalization"
+            locale={locale}
+            title={message(locale, "personalization")}
+          >
+            <PersonalizationSection
+              revision={sectionRevision(summaryData, "personalization")}
+            />
+          </DeferredSettingsSection>
 
           <DeferredSettingsSection
             description={message(locale, "localAccessHint")}
@@ -245,7 +260,7 @@ function sectionRevision(
  * message(locale, "chatModel"); message(locale, "titleModel")
  * mutateCockpit<ProviderMutationResponse>("/api/providers"; /test`; /discover`
  * fork_or_new_session_required; providerFieldErrors(saveProvider.error)
- * /api/provider-accounts/; ProviderAccountCard; isolated_home_only
+ * /api/provider-accounts/; ProviderAccountCard; isolated_provider_account_home
  * /auth/status; /auth/local/rotate; /auth/logout; os_local_private_store
  * fetchCockpit<DoctorReport>("/api/doctor"); DoctorResult; downloadDoctorReport
  * gigaloom-doctor.json; message(locale, "backendOnly"); reference_name

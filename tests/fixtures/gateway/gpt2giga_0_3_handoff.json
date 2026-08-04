@@ -1,0 +1,43 @@
+{
+  "schema_version": "gigaloom.gpt2giga-handoff.v1",
+  "artifact": {
+    "distribution": "gpt2giga",
+    "version": "0.3.0",
+    "git_sha": "197ef424f65f5165967d325deb075988a1bed141",
+    "wheel": "gpt2giga-0.3.0-py3-none-any.whl",
+    "wheel_sha256": "8156aa7b624d619fb657bb1c6530e9e65e74da31324291ff6f156112b325483f",
+    "sdist": "gpt2giga-0.3.0.tar.gz",
+    "sdist_sha256": "b43a7240ca70e59d25fa98d4e094ef54e3f5846fdd81c3ec5181e4b6ba20093e",
+    "requires_python": "<3.15,<4,>=3.10",
+    "entry_point": "gpt2giga:run"
+  },
+  "contracts": {
+    "inspect_schema": "gpt2giga.inspect.v1",
+    "provider_profile_schema": "gpt2giga.provider-profiles.v2",
+    "default_config_revision": "sha256:01332070f29b6b30b799ccfe65d9435d137984467cd9607b0ce83a373c5ecd1f",
+    "default_profile_revision": "sha256:a0302b8dd74d66558ff52ce8005f0c434520eddb80539e6363ce4582af12291f",
+    "readiness_schema": "gpt2giga.readiness.v1",
+    "route_support_matrix_schema": "gpt2giga.route-support-matrix.v1",
+    "loss_matrix_revision": "sha256:3cad19e6f7b531e50a0eb4c88af308aee5be81f3a4c085f89ebc2e06f92ffa69",
+    "effective_capabilities_schema": "gpt2giga.effective-capabilities.v1",
+    "hermetic_capability_revision": "sha256:16fc5d3cf3d39e782372d3f29c9ef3ea4e0f23e29ff3c9d21be63f4031992df1"
+  },
+  "codex_responses_gigachat": {
+    "public_protocol": "openai_responses",
+    "upstream_provider": "gigachat",
+    "support_status": "technical_preview",
+    "reason_ids": [
+      "normalized_responses_parity_incomplete"
+    ],
+    "evidence_ids": [
+      "COR-01-CODEX-RESPONSES-2026-08-03"
+    ],
+    "client_version_window": "codex-cli==0.146.0;openai-python==2.50.0",
+    "provider_version_window": "gigachat-python>=0.2.3,<0.3.0"
+  },
+  "known_blocked_openai_responses_upstreams": [
+    "anthropic",
+    "gemini",
+    "openai_compatible"
+  ]
+}

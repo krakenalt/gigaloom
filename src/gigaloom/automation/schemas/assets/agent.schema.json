@@ -1,0 +1,226 @@
+{
+  "$id": "https://schemas.gigaloom.dev/automation/v1/agent.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Strict editor contract for .giga/agents YAML parsed by parse_agent_profile().",
+  "properties": {
+    "allowed_tools": {
+      "default": [],
+      "items": {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 0,
+      "type": "array"
+    },
+    "api_mode": {
+      "default": "v2",
+      "enum": [
+        "v1",
+        "v2"
+      ],
+      "type": "string"
+    },
+    "budgets": {
+      "additionalProperties": true,
+      "default": {
+        "max_attempts": 1,
+        "max_concurrency": 1
+      },
+      "description": "Execution limits; secret-bearing extension keys or values remain forbidden.",
+      "properties": {
+        "max_attempts": {
+          "default": 1,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_concurrency": {
+          "default": 1,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_tokens": {
+          "default": null,
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "timeout_seconds": {
+          "default": null,
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "context_selectors": {
+      "default": [],
+      "description": "Project-relative paths only; absolute, home, and parent traversal paths are rejected.",
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 0,
+      "type": "array"
+    },
+    "description": {
+      "default": "",
+      "type": "string"
+    },
+    "disallowed_tools": {
+      "default": [],
+      "items": {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 0,
+      "type": "array"
+    },
+    "expected_artifact": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "harness_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "id": {
+      "description": "Stable profile id; the filename stem must match this value.",
+      "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+      "type": "string"
+    },
+    "instructions": {
+      "description": "Role instructions. Secret-looking literal values are rejected by the runtime parser.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "invocation_mode": {
+      "default": "headless",
+      "enum": [
+        "headless",
+        "native"
+      ],
+      "type": "string"
+    },
+    "memory_selectors": {
+      "default": [],
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 0,
+      "type": "array"
+    },
+    "mode": {
+      "default": "plan",
+      "enum": [
+        "edit",
+        "plan",
+        "read"
+      ],
+      "type": "string"
+    },
+    "model": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "permission_profile": {
+      "default": "interactive",
+      "enum": [
+        "interactive",
+        "review_every_action",
+        "unattended"
+      ],
+      "type": "string"
+    },
+    "prompt_files": {
+      "default": [],
+      "description": "Project-relative paths only; absolute, home, and parent traversal paths are rejected.",
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 0,
+      "type": "array"
+    },
+    "provenance": {
+      "additionalProperties": true,
+      "default": {},
+      "description": "Redaction-safe provenance only; secret literals and secret-looking keys are rejected.",
+      "type": "object"
+    },
+    "reasoning_effort": {
+      "default": null,
+      "enum": [
+        null,
+        "none",
+        "low",
+        "medium",
+        "high"
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
+    "skills": {
+      "default": [],
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 0,
+      "type": "array"
+    },
+    "title": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "tool_ids": {
+      "default": [],
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 0,
+      "type": "array"
+    },
+    "workspace_policy": {
+      "default": "auto",
+      "enum": [
+        "auto",
+        "current",
+        "temp_copy",
+        "worktree"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "harness_id",
+    "instructions"
+  ],
+  "title": "GigaLoom Agent Profile v1",
+  "type": "object",
+  "x-gigaloom-schema-version": 1
+}

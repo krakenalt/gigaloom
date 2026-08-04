@@ -294,8 +294,8 @@ assert not any(
 )
 assert any(
     requirement.startswith("gpt2giga")
-    and ">=0.2.6" in requirement
-    and "<0.3.0" in requirement
+    and ">=0.3.0" in requirement
+    and "<0.4.0" in requirement
     and "extra ==" in requirement
     for requirement in requirements
 )

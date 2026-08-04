@@ -63,24 +63,24 @@ _DOCUMENTATION = (
     },
     {
         "id": "provider-authentication-en",
-        "path": "docs/architecture/provider-authentication-capability-matrix.md",
+        "path": "docs/architecture/provider-authentication.md",
     },
     {
         "id": "provider-authentication-ru",
         "path": (
             "docs-site/i18n/ru/docusaurus-plugin-content-docs/current/"
-            "architecture/provider-authentication-capability-matrix.md"
+            "architecture/provider-authentication.md"
         ),
     },
     {
         "id": "product-capability-admission-en",
-        "path": "docs/architecture/product-capability-admission-adr.md",
+        "path": "docs/architecture/capability-admission.md",
     },
     {
         "id": "product-capability-admission-ru",
         "path": (
             "docs-site/i18n/ru/docusaurus-plugin-content-docs/current/"
-            "architecture/product-capability-admission-adr.md"
+            "architecture/capability-admission.md"
         ),
     },
 )

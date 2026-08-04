@@ -137,6 +137,10 @@ export function AttachmentGallery({
                 <span>
                   <strong>{attachment.filename}</strong>
                   <small>{formatBytes(attachment.size_bytes)}</small>
+                  <AttachmentEncodingEvidence
+                    evidence={attachment.charset_evidence}
+                    locale={locale}
+                  />
                 </span>
               </button>
             ) : (
@@ -149,6 +153,10 @@ export function AttachmentGallery({
                       : attachment.filename}
                   </strong>
                   <small>{formatBytes(attachment.size_bytes)}</small>
+                  <AttachmentEncodingEvidence
+                    evidence={attachment.charset_evidence}
+                    locale={locale}
+                  />
                 </span>
               </span>
             )}
@@ -209,6 +217,35 @@ export function AttachmentGallery({
           )
         : null}
     </>
+  );
+}
+
+export function AttachmentEncodingEvidence({
+  evidence,
+  locale,
+}: {
+  evidence: AttachmentSummary["charset_evidence"];
+  locale: LocalePreference;
+}) {
+  if (evidence === undefined) return null;
+  const rejected =
+    evidence.failure_reason !== null && evidence.failure_reason !== undefined;
+  const replacements = evidence.replacement_count ?? 0;
+  const invalid = rejected || replacements > 0;
+  return (
+    <small
+      className={`attachment-encoding-evidence${invalid ? " rejected" : ""}`}
+      data-decode-state={invalid ? "rejected" : "accepted"}
+      role={invalid ? "alert" : undefined}
+      title={evidence.source_digest}
+    >
+      {invalid
+        ? `${message(locale, "attachmentDecodeRejected")} · ${evidence.failure_reason ?? `${replacements} replacements`}`
+        : `${evidence.charset ?? "unknown"} · ${evidence.confidence_class ?? "unknown"} · ${message(locale, "attachmentEncodingReplacementFree")}`}
+      {evidence.truncated
+        ? ` · ${message(locale, "attachmentEncodingTruncated")}`
+        : ""}
+    </small>
   );
 }
 

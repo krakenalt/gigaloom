@@ -11,6 +11,7 @@ from gigaloom.preflight import (
 )
 from gigaloom.readiness import build_execution_readiness
 from gigaloom.registry import HarnessRegistry
+from gigaloom.runtime.store import RuntimeCoordinationStore
 from gigaloom.types import (
     Availability,
     GigaChatApiMode,
@@ -299,6 +300,84 @@ def test_native_structured_readiness_blocks_with_actionable_driver_reason(
     assert structured["remediation"][0]["command"] == (
         "giga harness inspect codex-cli --json"
     )
+
+
+def test_durable_readiness_requires_a_worker_for_the_selected_harness(tmp_path):
+    registry = HarnessRegistry()
+    registry.register(_EchoHarness())
+    config = HarnessConfig(data_dir=str(tmp_path / "state"))
+    runtime = RuntimeCoordinationStore(config.data_dir)
+    waiting = build_execution_readiness(
+        config,
+        registry,
+        harness_id="echo",
+        invocation_mode=HarnessInvocationMode.HEADLESS,
+        api_mode=GigaChatApiMode.V2,
+        model=None,
+        mode="read",
+        workspace=str(tmp_path),
+        workspace_policy=WorkspacePolicy.CURRENT,
+        durable=True,
+    )
+    runtime.register_worker(
+        worker_id="worker_fixture",
+        process_id=1,
+        hostname="fixture",
+        capability_fingerprint={
+            "harnesses": {"other": {"available": True}},
+        },
+    )
+
+    blocked = build_execution_readiness(
+        config,
+        registry,
+        harness_id="echo",
+        invocation_mode=HarnessInvocationMode.HEADLESS,
+        api_mode=GigaChatApiMode.V2,
+        model=None,
+        mode="read",
+        workspace=str(tmp_path),
+        workspace_policy=WorkspacePolicy.CURRENT,
+        durable=True,
+    )
+    runtime.register_worker(
+        worker_id="worker_fixture",
+        process_id=1,
+        hostname="fixture",
+        capability_fingerprint={
+            "harnesses": {"echo": {"available": True}},
+        },
+    )
+    ready = build_execution_readiness(
+        config,
+        registry,
+        harness_id="echo",
+        invocation_mode=HarnessInvocationMode.HEADLESS,
+        api_mode=GigaChatApiMode.V2,
+        model=None,
+        mode="read",
+        workspace=str(tmp_path),
+        workspace_policy=WorkspacePolicy.CURRENT,
+        durable=True,
+    )
+
+    blocked_worker = next(
+        item for item in blocked["findings"] if item["id"] == "durable-worker"
+    )
+    ready_worker = next(
+        item for item in ready["findings"] if item["id"] == "durable-worker"
+    )
+    waiting_worker = next(
+        item for item in waiting["findings"] if item["id"] == "durable-worker"
+    )
+    assert waiting["blocked"] is False
+    assert waiting_worker["status"] == "degraded"
+    assert blocked["blocked"] is True
+    assert blocked_worker["status"] == "blocked"
+    assert blocked_worker["evidence"]["selected_harness_capable"] == 0
+    assert ready["blocked"] is False
+    assert ready_worker["status"] == "ready"
+    assert ready_worker["evidence"]["selected_harness_capable"] == 1
 
 
 def test_preflight_combines_readiness_block_with_content_safety_report():

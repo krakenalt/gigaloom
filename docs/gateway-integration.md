@@ -9,12 +9,69 @@ Install the optional released integration only when using Direct Chat or the
 legacy local-gateway preset:
 
 ```sh
-uv tool install 'gigaloom[gpt2giga]==0.8.1'
+uv tool install 'gigaloom[gpt2giga]==0.9.0'
 ```
 
-This extra admits stable `gpt2giga>=0.2.6,<0.3.0`; the committed lock resolves
+This extra admits stable `gpt2giga>=0.3.0,<0.4.0`; the committed lock resolves
 the exact reviewed public artifact. Release testing never creates an editable
 sibling dependency.
+
+## Select one exact route
+
+The canonical form names the immutable route before the agent token. The
+convenience form must resolve to exactly one route or fail before process spawn:
+
+```sh
+giga --route codex-gpt2giga-gigachat-2-max codex --help
+giga --with gpt2giga --model GigaChat-2-Max codex
+```
+
+Global GigaLoom options end at the agent token. In
+`giga --model GigaChat-2-Max codex`, `--model` selects the gateway route; in
+`giga codex --model o3`, the suffix is passed unchanged to Codex. Use a
+content-free dry-run to inspect resolution without starting a gateway, agent,
+or provider request:
+
+```sh
+giga --with gpt2giga --model GigaChat-2-Max --dry-run --json codex
+```
+
+An unknown, stale, ambiguous, unsupported, or version-drifted route is a visible
+failure. GigaLoom does not switch protocol, gateway, provider, model, or agent
+as a fallback.
+
+## GigaLoom 0.9 compatibility matrix
+
+The release corpus pins `gpt2giga 0.3.0` and the exact wheel digest. Admission
+also requires complete startup, readiness, models, capability, and loss-matrix
+revisions.
+
+| Agent route | Reviewed client window | Wire path | Effective status | Required action |
+| --- | --- | --- | --- | --- |
+| Codex → GigaChat | Codex CLI `==0.146.0`; OpenAI Python `==2.50.0` | OpenAI Responses | `technical_preview` | Responses parity is incomplete; review the route evidence. |
+| Claude → GigaChat | Claude Code `>=2.1.0,<2.2.0` (reviewed `2.1.212`) | Anthropic Messages | `vendor_unsupported` | Explicitly acknowledge the vendor-unsupported route. |
+| Managed ACP → GigaChat | ACP SDK `==0.11.1`; protocol `1` | ACP model selector | `technical_preview` | Agent must advertise the required session/config capabilities. |
+| Gemini → custom gateway | Gemini CLI `>=0.46.0,<0.47.0` (reviewed `0.46.0`) | Gemini native protocol | `blocked` | No process is spawned; custom endpoint injection is unsupported. |
+
+The separate [agent capability matrix](agent-capability-matrix.md) describes
+general Harness surfaces. This table is narrower: it records the reviewed 0.9
+agent-to-gateway launch windows. Missing executable, malformed probe output,
+missing required capability, or a version outside the window fails closed.
+
+## Managed and external profiles
+
+An `external` profile checks an already-running gateway. A `managed` profile
+uses the existing GigaLoom process lease, starts the exact installed artifact
+when necessary, waits for readiness, and reuses a healthy warm lease. Generated
+configuration and secret references live only in the GigaLoom managed root;
+launch and cleanup do not modify `~/.codex`, `~/.claude`, `~/.gemini`, or global
+provider configuration.
+
+If readiness or identity changes, stop admitting new launches, inspect the
+preflight reason, and restart only the owned managed lease. Removing the
+`gpt2giga 0.3` artifact disables these routes explicitly; it does not reinstate
+the legacy local-gateway preset. Existing sessions, runs, and immutable launch
+receipts remain readable.
 
 ## Canonical gateway contracts
 
@@ -28,3 +85,6 @@ The separate gateway project owns the following compatibility references:
 These are current canonical gateway links, not GigaLoom development links.
 GigaLoom issues and changes belong in
 [`krakenalt/gigaloom`](https://github.com/krakenalt/gigaloom).
+
+See [Work, threads, and context](work-threads-and-context.md) for the complete
+0.9 work-first journey and [Operations](operations.md) for rollback.

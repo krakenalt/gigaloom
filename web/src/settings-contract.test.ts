@@ -7,10 +7,15 @@ describe("backend-owned Settings contract", () => {
     fileURLToPath(new URL("./surfaces/settings.tsx", import.meta.url)),
     "utf8",
   );
+  const personalizationSource = readFileSync(
+    fileURLToPath(new URL("./features/settings/PersonalizationSection.tsx", import.meta.url)),
+    "utf8",
+  );
 
   it("renders all accepted categories with Appearance as the local boundary", () => {
     for (const category of [
       "appearance",
+      "personalization",
       "localAccess",
       "runtime",
       "providerAccounts",
@@ -38,7 +43,7 @@ describe("backend-owned Settings contract", () => {
     expect(source).toContain("providerFieldErrors(saveProvider.error)");
     expect(source).toContain("/api/provider-accounts/");
     expect(source).toContain("ProviderAccountCard");
-    expect(source).toContain("isolated_home_only");
+    expect(source).toContain("isolated_provider_account_home");
     expect(source).toContain("/auth/status");
     expect(source).toContain("/auth/local/rotate");
     expect(source).toContain("/auth/logout");
@@ -47,6 +52,15 @@ describe("backend-owned Settings contract", () => {
     expect(source).toContain("DoctorResult");
     expect(source).toContain("downloadDoctorReport");
     expect(source).toContain("gigaloom-doctor.json");
+  });
+
+  it("stores additional instructions through a versioned backend section", () => {
+    expect(personalizationSource).toContain('"/api/settings/personalization"');
+    expect(personalizationSource).toContain("expected_revision");
+    expect(personalizationSource).toContain("developer_instructions");
+    expect(personalizationSource).toContain("fork_or_new_codex_session_required");
+    expect(personalizationSource).not.toContain("localStorage");
+    expect(personalizationSource).not.toContain("AGENTS.md");
   });
 
   it("never creates browser fields for credentials, tokens, or certificates", () => {

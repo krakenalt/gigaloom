@@ -126,6 +126,33 @@ def test_private_tmux_launch_uses_digest_targets_and_bounded_config(
     assert launch.env["SAFE"] == "value"
 
 
+def test_private_tmux_launch_retries_transient_liveness(
+    tmp_path,
+    short_socket_root,
+):
+    spec = _spec(tmp_path)
+    record = _record(spec)
+    runner = FakeTmuxRunner(
+        liveness_sequence=(
+            b"not-ready\n",
+            b"1\t\t4242\n",
+            b"1\t7\t4242\n",
+        ),
+        create_socket=True,
+    )
+    kernel = TmuxTerminalKernel(
+        tmp_path,
+        _capability(),
+        runner=runner,
+        socket_root=short_socket_root,
+    )
+
+    state = kernel.launch(record, spec)
+
+    assert state is TerminalState.EXITED
+    assert sum("list-panes" in call.argv for call in runner.calls) == 3
+
+
 def test_liveness_distinguishes_dead_pane_from_missing_server(
     tmp_path,
     short_socket_root,
@@ -358,10 +385,10 @@ def test_real_private_tmux_retains_immediate_exit_and_closes(
     state = kernel.launch(record, spec)
     observed = kernel.liveness(record.id)
     clients = kernel.client_count(record.id)
-    for _ in range(100):
-        if observed.kind is TerminalLivenessKind.EXITED:
+    deadline = time.monotonic() + 1.0
+    while time.monotonic() < deadline:
+        if observed.kind is TerminalLivenessKind.EXITED and observed.exit_status == 7:
             break
-        time.sleep(0.01)
         observed = kernel.liveness(record.id)
     kernel.close(record)
 
@@ -383,10 +410,12 @@ class FakeTmuxRunner:
         *,
         responses=(),
         liveness=b"0\t\t4242\n",
+        liveness_sequence=(),
         create_socket=False,
     ):
         self.responses = list(responses)
         self.liveness = liveness
+        self.liveness_sequence = list(liveness_sequence)
         self.create_socket = create_socket
         self.calls = []
 
@@ -408,7 +437,12 @@ class FakeTmuxRunner:
             socket_path.touch()
             return TmuxCommandResult(0)
         if "list-panes" in argv:
-            return TmuxCommandResult(0, stdout=self.liveness)
+            stdout = (
+                self.liveness_sequence.pop(0)
+                if self.liveness_sequence
+                else self.liveness
+            )
+            return TmuxCommandResult(0, stdout=stdout)
         if "kill-server" in argv:
             socket_path = Path(argv[argv.index("-S") + 1])
             socket_path.unlink(missing_ok=True)

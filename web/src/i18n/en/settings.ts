@@ -10,6 +10,15 @@ export const enSettings = {
   titleModel: "Default title model",
   useChatModel: "Use chat model",
   appearanceHint: "Local language and theme preferences apply immediately in this browser.",
+  personalization: "Personalization",
+  personalizationHint: "Versioned instructions added to new Codex sessions from an isolated managed config.",
+  additionalInstructions: "Additional instructions",
+  additionalInstructionsPlaceholder: "How should Codex work with you across new sessions?",
+  asyncAgentCompatibility: "Async agent compatibility",
+  asyncAgentCompatibilityHint:
+        "Built-in guarded rules apply only when collaboration tools are visible to the model. They are versioned separately from your text.",
+  savePersonalization: "Save instructions",
+  personalizationSaved: "Additional instructions saved and read back from the backend.",
   localAccessHint:
         "An OS-local one-time bootstrap creates an expiring server-side browser session without a URL or stored browser token.",
   accessMode: "Access mode",
@@ -76,7 +85,7 @@ export const enSettings = {
   modelsFound: "models found",
   noMcpServers: "No project MCP descriptors are configured.",
   providerAccountsHint:
-        "Provider-owned login status from isolated homes. An installed CLI alone never means the account is ready.",
+        "Sign-in and status use a separate provider account home. Credentials are not transferred to Workbench native project homes.",
   providerHint: "Configuration presence is visible; credential values never cross the backend boundary.",
   providerTemplate: "Provider template",
   chooseProviderTemplate: "Choose a reviewed template…",

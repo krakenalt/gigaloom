@@ -67,6 +67,27 @@ An interrupted invocation is resumed with the same backup path. If recovery is
 required, keep GigaLoom stopped, verify the archive, then use
 `giga state restore <archive> --replace --json` before reinstalling 0.6.
 
+## Upgrade from 0.8.1 to 0.9
+
+Stop GigaLoom owners and create a verified backup before changing the package.
+The 0.9 data is additive: existing sessions are not rewritten into Thread Relay
+records, old attachment records remain readable without charset evidence, old
+Context Lens clients may ignore new fields, and `.giga` parsers remain the
+runtime source of truth. Route overlays are never made default automatically,
+and provider-native homes are not migrated.
+
+After upgrade, run `giga doctor`, open an existing project/session, preview an
+old attachment, inspect Effective Instructions, and use gateway `--dry-run`
+before starting a managed sidecar. Keep the pre-upgrade archive until these
+checks and the required work journey succeed.
+
+For rollback, stop GigaLoom and its owned managed sidecar lease, disable the 0.9
+gateway profiles, reinstall 0.8.1, and restore the verified archive only through
+the existing state restore owner. The older executable may ignore or quarantine
+unknown additive records; do not delete immutable launch/delivery receipts or
+manually rewrite SQLite/JSON state. Removing `gpt2giga 0.3` disables new routes
+explicitly and must not remap them to a legacy gateway.
+
 ## Troubleshooting
 
 - Missing provider: install its native CLI and use its native login/status
@@ -79,6 +100,8 @@ required, keep GigaLoom stopped, verify the archive, then use
   should rebuild the frontend before syncing Python dependencies.
 - Optional gateway unavailable: verify the `gpt2giga` extra is installed; no
   gateway source checkout is expected.
+- Gateway route blocked: inspect the exact compatibility/preflight reason;
+  never force a different protocol, provider, model, or agent as fallback.
 
 ## Quality baseline
 

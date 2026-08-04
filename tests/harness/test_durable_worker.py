@@ -9,6 +9,7 @@ import pytest
 
 from gigaloom import cli
 import gigaloom.runtime.worker as worker_module
+import gigaloom.runtime.worker_registry as worker_registry_module
 from gigaloom.arena import FilesystemHarnessArenaStore, queue_arena
 from gigaloom.config import HarnessConfig
 from gigaloom.harnesses.base import BaseHarness
@@ -95,6 +96,63 @@ def test_dispatcher_defers_and_reuses_submitter_fingerprint(tmp_path, monkeypatc
         fingerprint,
         fingerprint,
     ]
+
+
+def test_default_worker_composes_active_managed_acp_harnesses(tmp_path, monkeypatch):
+    runtime = object()
+    monkeypatch.setattr(
+        worker_registry_module,
+        "create_agent_runtime_service",
+        lambda *_args, **_kwargs: runtime,
+    )
+    monkeypatch.setattr(
+        worker_registry_module,
+        "acp_harnesses",
+        lambda observed: (
+            (_NamedEchoHarness("opencode"),) if observed is runtime else ()
+        ),
+    )
+
+    worker = DurableJobWorker(HarnessConfig(data_dir=str(tmp_path)))
+
+    assert worker._agent_runtime is runtime
+    assert "opencode" in worker.registry.ids()
+    assert worker.fingerprint["harnesses"]["opencode"]["available"] is True
+    session = worker.runner.create_session(default_harness_id="opencode")
+    submission = DurableJobDispatcher(
+        runtime_store=worker.runtime_store,
+        payload_store=worker.payload_store,
+        runner=worker.runner,
+    ).submit(
+        session.id,
+        {"harness_id": "opencode", "prompt": "continue after title", "mode": "read"},
+        idempotency_key="managed-opencode-worker",
+    )
+
+    assert worker.run_once() is True
+    assert worker.runtime_store.get_job(submission.job.id).status is JobStatus.SUCCEEDED
+
+
+def test_worker_refreshes_fingerprint_after_dynamic_activation(tmp_path):
+    registry = create_default_registry(include_entry_points=False)
+    active = []
+    registry.bind_dynamic_provider(lambda: tuple(active))
+    worker = DurableJobWorker(
+        HarnessConfig(data_dir=str(tmp_path)),
+        registry=registry,
+        worker_id="worker_dynamic",
+        fingerprint_refresh_seconds=0,
+    )
+
+    assert worker.run_once() is False
+    assert "opencode" not in worker.fingerprint["harnesses"]
+
+    active.append(_NamedEchoHarness("opencode"))
+    assert worker.run_once() is False
+
+    stored = RuntimeCoordinationStore(tmp_path).list_workers()[0]
+    assert worker.fingerprint["harnesses"]["opencode"]["available"] is True
+    assert stored.capability_fingerprint["harnesses"]["opencode"]["available"] is True
 
 
 def test_durable_dispatcher_worker_executes_once_and_preserves_logical_message(

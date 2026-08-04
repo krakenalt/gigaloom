@@ -202,6 +202,19 @@ def parse_timestamp(value: object, *, field_name: str) -> datetime:
     return validate_timestamp(parsed, field_name=field_name)
 
 
+def timestamps_match(left: object, right: object) -> bool:
+    """Compare equal revision values or valid ISO timestamps by instant."""
+    if left == right:
+        return True
+    try:
+        return parse_timestamp(left, field_name="left timestamp") == parse_timestamp(
+            right,
+            field_name="right timestamp",
+        )
+    except ValueError:
+        return False
+
+
 def validate_time_range(
     started_at: datetime,
     finished_at: datetime,

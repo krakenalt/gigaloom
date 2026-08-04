@@ -38,12 +38,14 @@ from gigaloom.native.snapshots import (
     NativeExecutionSnapshotStore,
     validate_resume_snapshot,
 )
-from gigaloom.managed_mcp import write_startup_config
+from gigaloom.native.codex_config import (
+    write_codex_config as _write_codex_config,
+    write_codex_config_values as _write_codex_config_values,
+)
 from gigaloom.project import project_id_for_root
 from gigaloom.types import GigaChatApiMode, HarnessContext, HarnessRequest
 
 CODEX_HARNESS_ID = "codex-cli"
-CODEX_PROVIDER_NAME = "gigaloom"
 MODE_TO_SANDBOX = {
     "plan": "read-only",
     "read": "read-only",
@@ -218,6 +220,7 @@ class CodexNativeHistoryConnector(NativeHistoryConnector):
             native_home,
             model=snapshot.model or context.default_model or "GigaChat",
             base_url=context.api_base_url(api_mode),
+            preserve_existing_instructions=True,
         )
         env = _codex_env(context, api_mode=api_mode, native_home=native_home)
         sandbox = MODE_TO_SANDBOX.get(
@@ -598,40 +601,6 @@ def _codex_env(
             "GIGALOOM_API_MODE": api_mode.value,
         },
     )
-
-
-def _write_codex_config(
-    codex_home: Path,
-    request: HarnessRequest,
-    context: HarnessContext,
-) -> str:
-    model = request.model or context.default_model or "GigaChat"
-    base_url = context.api_base_url(request.api_mode)
-    return _write_codex_config_values(codex_home, model=model, base_url=base_url)
-
-
-def _write_codex_config_values(
-    codex_home: Path,
-    *,
-    model: str,
-    base_url: str,
-) -> str:
-    config = (
-        f'model = "{_toml_escape(model)}"\n'
-        f'model_provider = "{CODEX_PROVIDER_NAME}"\n'
-        'model_reasoning_effort = "none"\n\n'
-        f"[model_providers.{CODEX_PROVIDER_NAME}]\n"
-        f'name = "{CODEX_PROVIDER_NAME}"\n'
-        f'base_url = "{_toml_escape(base_url)}"\n'
-        'env_key = "GPT2GIGA_API_KEY"\n'
-        'wire_api = "responses"\n'
-        "supports_websockets = false\n"
-    )
-    return write_startup_config("codex-cli", codex_home, config)
-
-
-def _toml_escape(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _mtime_timestamp(path: Path) -> str:

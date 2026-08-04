@@ -797,7 +797,7 @@ wheels = [
 
 [[package]]
 name = "gigaloom"
-version = "0.8.1"
+version = "0.9.0"
 source = { editable = "." }
 dependencies = [
     { name = "agent-client-protocol" },
@@ -846,7 +846,7 @@ requires-dist = [
     { name = "claude-agent-sdk", marker = "extra == 'claude-sdk'", specifier = ">=0.2.122,<0.3" },
     { name = "cryptography", specifier = ">=46,<50" },
     { name = "fastapi", specifier = ">=0.133.0,<1" },
-    { name = "gpt2giga", marker = "extra == 'gpt2giga'", specifier = ">=0.2.6,<0.3.0" },
+    { name = "gpt2giga", marker = "extra == 'gpt2giga'", specifier = ">=0.3.0,<0.4.0" },
     { name = "pydantic", specifier = ">=2.12.0,<3" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.12.0,<3" },
     { name = "python-dateutil", specifier = ">=2.9.0,<3" },
@@ -916,7 +916,7 @@ wheels = [
 
 [[package]]
 name = "gpt2giga"
-version = "0.2.6"
+version = "0.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -931,14 +931,15 @@ dependencies = [
     { name = "pillow" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
+    { name = "pyyaml" },
     { name = "sse-starlette" },
     { name = "starlette" },
     { name = "tiktoken" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7d/a0/6cae3119503071db5c748dfc0a36c238aaa88667808c6893898e4333133b/gpt2giga-0.2.6.tar.gz", hash = "sha256:06b469585dd73623d7b0273cb9ad37a165cd648e71f441d4da958382b106641b", size = 266507, upload-time = "2026-07-31T18:51:22.575Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/02/54/2ce3fd364b60e236c16e21c5ddaf8ea3def36e5d2b51f92e2ecafcdd1390/gpt2giga-0.3.0.tar.gz", hash = "sha256:b43a7240ca70e59d25fa98d4e094ef54e3f5846fdd81c3ec5181e4b6ba20093e", size = 343500, upload-time = "2026-08-03T20:46:26.231Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d8/ac/f9a43bac68ded08396e22a30f93bacefaedcc2356d33b04bfb3638ac02a6/gpt2giga-0.2.6-py3-none-any.whl", hash = "sha256:19fd10853f63b2ae0885caa79b23275192268301c92705ad1c3c3c4aee0ef87d", size = 305436, upload-time = "2026-07-31T18:51:21.134Z" },
+    { url = "https://files.pythonhosted.org/packages/d6/85/858c48fc1d40ba5a5bd630cc6c5e942c7260e5ed8a89297e4cf5c1866f99/gpt2giga-0.3.0-py3-none-any.whl", hash = "sha256:8156aa7b624d619fb657bb1c6530e9e65e74da31324291ff6f156112b325483f", size = 397856, upload-time = "2026-08-03T20:46:24.848Z" },
 ]
 
 [[package]]

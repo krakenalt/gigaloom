@@ -9,7 +9,9 @@ import {
 
 const mentions: SkillMention[] = [
   {
+    description: "Review a change.",
     id: "skill-one",
+    kind: "skill",
     label: "Review helper",
     mention: "@review-helper",
     nativeName: "review-helper",
@@ -17,7 +19,9 @@ const mentions: SkillMention[] = [
     targetIds: ["codex-root"],
   },
   {
+    description: "Work with issues.",
     id: "plugin-one",
+    kind: "plugin",
     label: "Issue plugin",
     mention: "@issue-plugin",
     nativeName: "issue-plugin",

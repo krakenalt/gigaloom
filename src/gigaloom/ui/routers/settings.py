@@ -111,6 +111,15 @@ def settings_defaults(request: Request) -> Response:
     )
 
 
+@router.fs_read.get("/api/settings/personalization")
+def settings_personalization(request: Request) -> Response:
+    """Return versioned user instructions and built-in compatibility provenance."""
+    return _settings_section_response(
+        request,
+        lambda: _settings_service(request).personalization(),
+    )
+
+
 @router.fs_read.get("/api/settings/workspace")
 def settings_workspace(
     request: Request,
@@ -309,6 +318,37 @@ def update_settings_defaults(
     return _saved_defaults(saved)
 
 
+@router.fs_atomic.patch("/api/settings/personalization")
+def update_settings_personalization(
+    request: Request,
+    payload: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Persist user-authored Codex developer instructions with conflict detection."""
+    unknown = sorted(set(payload) - {"developer_instructions", "expected_revision"})
+    if unknown:
+        raise _field_error({field: "unknown setting" for field in unknown})
+    value = payload.get("developer_instructions")
+    if not isinstance(value, str):
+        raise _field_error({"developer_instructions": "expected a string"})
+    try:
+        saved = request.app.state.harness_personalization_store.save(
+            value,
+            expected_revision=_optional_text(payload.get("expected_revision")),
+        )
+    except SettingsConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "revision_conflict", "message": str(exc)},
+        ) from exc
+    except (TypeError, ValueError) as exc:
+        raise _field_error({"developer_instructions": str(exc)}) from exc
+    return {
+        "saved": True,
+        **_settings_service(request).personalization(),
+        "revision": saved.revision,
+    }
+
+
 def _validate_defaults(request: Request, values: Mapping[str, Any]) -> dict[str, str]:
     errors: dict[str, str] = {}
     harness_id = _optional_text(values.get("default_harness_id"))
@@ -477,6 +517,7 @@ def _settings_service(request: Request) -> SettingsSnapshotService:
         service = SettingsSnapshotService(
             config=request.app.state.harness_config,
             settings_store=request.app.state.harness_settings_store,
+            personalization_store=(request.app.state.harness_personalization_store),
             provider_settings_service=(
                 request.app.state.harness_provider_settings_service
             ),

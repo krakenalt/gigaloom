@@ -1,0 +1,19 @@
+{
+  "label": "en02_full_unicode_scan",
+  "schema_version": "gigaloom.attachment-utf8-benchmark.v1",
+  "source_revision": "6a47e2aa2487f27683392aaa7a96eda7c3699a12",
+  "source_dirty": false,
+  "lock_sha256": "73a51d9b0df4c7a20881e52cc48965556c97603dd6a37a3e58456a9c868eaf85",
+  "python": "3.13.8",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "workload": {
+    "bytes": 300000,
+    "sha256": "1a9718d89e57a42693b1b0472236d241751277941c35b79da5964984e78fd846",
+    "warmup_calls": 50,
+    "batches": 40,
+    "calls_per_batch": 20
+  },
+  "p50_ms": 13.317439550883137,
+  "p95_ms": 14.477393749984913
+}

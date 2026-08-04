@@ -9,6 +9,7 @@ from gigaloom.config import HarnessConfig
 from gigaloom.diagnostics.compatibility.guardian import (
     compatibility_readiness_check,
 )
+from gigaloom.diagnostics.doctor.extensions import _read_worker_state
 from gigaloom.execution import ExecutionTransport
 from gigaloom.diagnostics.doctor.report import (
     _gigachat_check,
@@ -16,7 +17,6 @@ from gigaloom.diagnostics.doctor.report import (
     _managed_homes_check,
     _proxy_checks,
     _sanitize_report,
-    _worker_check,
     _workspace_checks,
 )
 from gigaloom.native.models import HarnessInvocationMode
@@ -133,7 +133,7 @@ def build_execution_readiness(
             _structured_transport_check(harness, harness_id=harness_id),
         )
     if durable:
-        checks.append(_required_check(_worker_check(config)))
+        checks.append(_selected_worker_check(config, harness_id=harness_id))
 
     checks = _deduplicate_checks(checks)
     if dry_run:
@@ -350,6 +350,76 @@ def _structured_transport_check(harness: Any, *, harness_id: str) -> dict[str, A
             "protocol": capabilities.protocol,
             "protocol_version": capabilities.protocol_version,
             "capability_snapshot_hash": capabilities.snapshot_hash,
+        },
+    }
+
+
+def _selected_worker_check(
+    config: HarnessConfig,
+    *,
+    harness_id: str,
+) -> dict[str, Any]:
+    """Require an online worker that can claim the selected harness."""
+    state = _read_worker_state(config.data_dir, harness_id=harness_id)
+    if not state.get("readable", True):
+        return _check(
+            "durable-worker",
+            "blocked",
+            "Durable worker capability state is unreadable.",
+            remediation=(
+                {
+                    "message": "Inspect the runtime coordination store.",
+                    "command": "giga runtime inspect --json",
+                },
+            ),
+        )
+    online = int(state["online"])
+    capable = int(state.get("selected_harness_capable") or 0)
+    if capable:
+        return {
+            **_check(
+                "durable-worker",
+                "ready",
+                f"Durable worker can execute {harness_id}.",
+            ),
+            "evidence": {
+                "online": online,
+                "selected_harness_capable": capable,
+            },
+        }
+    if online == 0:
+        return {
+            **_check(
+                "durable-worker",
+                "degraded",
+                "No durable worker is online yet; the job may wait in the queue.",
+                remediation=(
+                    {
+                        "message": "Start a durable Harness worker.",
+                        "command": "giga worker start",
+                    },
+                ),
+            ),
+            "evidence": {
+                "online": 0,
+                "selected_harness_capable": 0,
+            },
+        }
+    return {
+        **_check(
+            "durable-worker",
+            "blocked",
+            f"No online durable worker can execute {harness_id}.",
+            remediation=(
+                {
+                    "message": "Start or restart a worker with the selected harness.",
+                    "command": "giga worker start",
+                },
+            ),
+        ),
+        "evidence": {
+            "online": online,
+            "selected_harness_capable": 0,
         },
     }
 

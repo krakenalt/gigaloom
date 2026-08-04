@@ -25,20 +25,20 @@ def _snapshot(*, version: str, supported: bool = True, app_server: bool = True):
 
 
 def test_codex_pack_admits_only_reviewed_app_server_window():
-    assert admit_codex_workbench(_snapshot(version="0.144.5")).admitted is True
-    assert admit_codex_workbench(_snapshot(version="0.145.0")).admitted is False
+    assert admit_codex_workbench(_snapshot(version="0.146.0")).admitted is True
+    assert admit_codex_workbench(_snapshot(version="0.147.0")).admitted is False
     assert (
-        admit_codex_workbench(_snapshot(version="0.144.5", app_server=False)).admitted
+        admit_codex_workbench(_snapshot(version="0.146.0", app_server=False)).admitted
         is False
     )
 
 
 def test_codex_capabilities_are_contextual_and_fail_closed_on_policy():
     admitted = codex_contextual_capabilities(
-        _snapshot(version="0.144.5"), session_generation=1, policy_allows=True
+        _snapshot(version="0.146.0"), session_generation=1, policy_allows=True
     )
     denied = codex_contextual_capabilities(
-        _snapshot(version="0.144.5"), session_generation=1, policy_allows=False
+        _snapshot(version="0.146.0"), session_generation=1, policy_allows=False
     )
 
     assert {item.capability_id for item in admitted} >= {

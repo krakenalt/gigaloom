@@ -10,6 +10,22 @@ OpenAI-, Anthropic-, or Gemini-compatible gateway contract. Routes described on
 this page are served by `giga ui` on `127.0.0.1:8091` by default; model-compatible
 routes are served separately by `gpt2giga` on port `8090`.
 
+## 0.9 composition boundaries
+
+The Work surface projects the existing owners into
+`Project -> Thread -> Run -> Evidence -> Action`; Inbox, Automations, Library,
+and More remain navigation over the same stores. Thread Relay adds bounded
+actor/project-scoped read and delivery projections for GigaLoom, pinned Codex
+app-server, and ACP threads. It does not own a second transcript, hidden-state
+transfer, or autonomous agent network.
+
+Effective Instructions is a read-only Context Manifest/Lens projection.
+Attachment decoding adds content-free charset evidence without rewriting source
+bytes. Gateway launch overlays bind one immutable route and managed temporary
+home to the existing process owner. Local beta reports derive only from
+existing durable evidence. These additions are independently disableable and
+do not rewrite 0.8.1 sessions or provider-native homes.
+
 ## System context
 
 ```mermaid
@@ -59,6 +75,8 @@ permission decisions made inside an opaque third-party terminal UI.
 | `runtime/` | Durable jobs, attempts, leases, workers, retries, cancellation, approvals | Separates a submitted task from the browser request that created it. |
 | `native/` | Native history discovery plus owned PTY process lifecycle | Supports continuity with native CLI sessions without mutating vendor-owned homes. |
 | `attachments/`, `generated_files.py` | Uploaded, workspace-referenced, and generated files | Gives adapters bounded, typed file inputs and safe previews. |
+| `execution/thread_relay/` | Actor/project-bound thread projections, previews, and delivery | Adds bounded cross-thread action without duplicating transcript ownership. |
+| `cli_commands/gateway_*`, `native/launch/` | Exact route resolution, compatibility admission, managed overlay | Launches reviewed gateway routes through the existing process and native-home boundaries. |
 | `project.py`, `project_memory.py`, `workspace.py` | Project identity, `.giga/` configuration, memory, bounded file reads | Keeps reusable project definitions separate from machine-local runtime history. |
 | `worktrees.py`, `pr_artifacts.py`, `promotions.py` | Isolated edits, patch/branch artifacts, reviewed promotion to project YAML | Makes mutations reviewable and fail-closed. |
 | `tools/`, `mcp.py`, `managed_mcp.py` | Tool profiles, secret resolution, MCP discovery, managed CLI config | Connects tools without writing secrets into public records or vendor homes. |
@@ -169,7 +187,7 @@ rotation, recovery, same-origin checks, and CSRF marker preserve an opaque
 server-side browser-session boundary without a local `.env` token.
 `/healthz` is intentionally minimal and unauthenticated. Remote binding admits
 only the implemented
-[single-issuer OIDC/BFF contract](remote-ui-identity-adr.md) with complete
+[single-issuer OIDC/BFF contract](remote-user-identity.md) with complete
 static configuration and explicit CLI opt-in. The legacy bootstrap token, Host
 allowlist, and retired bearer exchange do not authenticate remote users.
 Secrets and hidden reasoning are removed before persistence and again before

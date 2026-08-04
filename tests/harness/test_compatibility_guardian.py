@@ -66,7 +66,7 @@ def test_guardian_blocks_unreviewed_cli_version_without_leaking_probe_detail():
             "codex-cli",
             _snapshot(
                 "codex-cli",
-                version="0.145.0",
+                version="0.147.0",
                 status="degraded",
                 version_window_status="above_window",
                 warning=f"token={secret}",
@@ -257,7 +257,7 @@ class _GuardianHarness(BaseHarness):
 def _guardian_registry() -> HarnessRegistry:
     registry = HarnessRegistry()
     for harness_id, version in (
-        ("codex-cli", "0.144.5"),
+        ("codex-cli", "0.146.0"),
         ("claude-code", "2.1.9"),
         ("gemini-cli", "0.46.2"),
     ):
@@ -275,8 +275,8 @@ def _snapshot(
 ) -> CliCapabilitySnapshot:
     contracts = {
         "codex-cli": {
-            "minimum": "0.144.0",
-            "maximum": "0.145.0",
+            "minimum": "0.146.0",
+            "maximum": "0.147.0",
             "event": "codex-exec-jsonl-v1",
             "history": "codex-session-jsonl-v1",
             "capabilities": ("--json", "--sandbox", "--ephemeral", "app-server"),

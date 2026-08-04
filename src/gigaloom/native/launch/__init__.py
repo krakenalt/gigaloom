@@ -1,5 +1,24 @@
 """Public native-agent launch contracts."""
 
+from __future__ import annotations
+
+from importlib import import_module
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from gigaloom.native.launch.gateway_sidecar import (
+        DEFAULT_GATEWAY_STARTUP_POLL_SECONDS,
+        DEFAULT_GATEWAY_STARTUP_TIMEOUT_SECONDS,
+        GatewayArtifactEvidenceV1,
+        GatewayProcessLeaseOwner,
+        GatewaySidecarReason,
+        GatewaySidecarStatus,
+        GatewayStartupReadinessProbe,
+        ManagedGatewayLeaseV1,
+        ManagedGatewaySidecarService,
+        UrlLibGatewayStartupReadinessProbe,
+    )
+
 from gigaloom.native.launch.contracts import (
     AgentResolutionKind,
     AgentResolutionReason,
@@ -20,6 +39,44 @@ from gigaloom.native.launch.executable import (
     resolve_profile_executable,
     revalidate_executable_identity,
 )
+from gigaloom.native.launch.gateway_codec import (
+    bridge_route_from_dict,
+    bridge_route_to_dict,
+    gateway_contract_digest,
+    gateway_preflight_receipt_from_dict,
+    gateway_preflight_receipt_to_dict,
+    gateway_profile_from_dict,
+    gateway_profile_to_dict,
+    launch_overlay_from_dict,
+    launch_overlay_to_dict,
+)
+from gigaloom.native.launch.gateway_contracts import (
+    GATEWAY_LAUNCH_SCHEMA_VERSION,
+    BridgeRouteV1,
+    GatewayMode,
+    GatewayPreflightReceiptV1,
+    GatewayPreflightStatus,
+    GatewayProfileV1,
+    GatewaySupportStatus,
+    LaunchOverlayV1,
+)
+from gigaloom.native.launch.gateway_discovery import (
+    DEFAULT_GATEWAY_DISCOVERY_TTL_SECONDS,
+    GatewayDiscoveryError,
+    GatewayDiscoveryReason,
+    GatewayDiscoveryResult,
+    GatewayDiscoveryStatus,
+    GatewayMachineTransport,
+    GatewayRouteCatalogV1,
+    GatewayRouteDiscovery,
+    UrlLibGatewayMachineTransport,
+)
+from gigaloom.native.launch.gateway_injection import (
+    GatewayAgentInjectionV1,
+    GatewayInjectionReason,
+    GatewayInjectionStatus,
+    build_gateway_agent_injection,
+)
 from gigaloom.native.launch.launcher import (
     PreparedRegisteredNativeLaunch,
     RegisteredNativeLaunchExecution,
@@ -31,10 +88,54 @@ from gigaloom.native.launch.launcher import (
 )
 from gigaloom.native.launch.planner import NativeLaunchPlan, plan_native_launch
 
+
+_GATEWAY_SIDECAR_EXPORTS = frozenset(
+    {
+        "DEFAULT_GATEWAY_STARTUP_POLL_SECONDS",
+        "DEFAULT_GATEWAY_STARTUP_TIMEOUT_SECONDS",
+        "GatewayArtifactEvidenceV1",
+        "GatewayProcessLeaseOwner",
+        "GatewaySidecarReason",
+        "GatewaySidecarStatus",
+        "GatewayStartupReadinessProbe",
+        "ManagedGatewayLeaseV1",
+        "ManagedGatewaySidecarService",
+        "UrlLibGatewayStartupReadinessProbe",
+    }
+)
+
 __all__ = [
     "AgentResolutionKind",
     "AgentResolutionReason",
     "AgentResolutionResult",
+    "BridgeRouteV1",
+    "DEFAULT_GATEWAY_DISCOVERY_TTL_SECONDS",
+    "DEFAULT_GATEWAY_STARTUP_POLL_SECONDS",
+    "DEFAULT_GATEWAY_STARTUP_TIMEOUT_SECONDS",
+    "GATEWAY_LAUNCH_SCHEMA_VERSION",
+    "GatewayMode",
+    "GatewayArtifactEvidenceV1",
+    "GatewayAgentInjectionV1",
+    "GatewayDiscoveryError",
+    "GatewayDiscoveryReason",
+    "GatewayDiscoveryResult",
+    "GatewayDiscoveryStatus",
+    "GatewayMachineTransport",
+    "GatewayInjectionReason",
+    "GatewayInjectionStatus",
+    "GatewayPreflightReceiptV1",
+    "GatewayPreflightStatus",
+    "GatewayProcessLeaseOwner",
+    "GatewayProfileV1",
+    "GatewayRouteCatalogV1",
+    "GatewayRouteDiscovery",
+    "GatewaySidecarReason",
+    "GatewaySidecarStatus",
+    "GatewayStartupReadinessProbe",
+    "GatewaySupportStatus",
+    "LaunchOverlayV1",
+    "ManagedGatewayLeaseV1",
+    "ManagedGatewaySidecarService",
     "NativeAgentLaunchSpec",
     "NativeExecutableIdentity",
     "NativeExecutableKind",
@@ -51,10 +152,31 @@ __all__ = [
     "RegisteredNativeLaunchFailure",
     "RegisteredNativeLaunchStatus",
     "TerminalContext",
+    "UrlLibGatewayMachineTransport",
+    "UrlLibGatewayStartupReadinessProbe",
+    "bridge_route_from_dict",
+    "bridge_route_to_dict",
+    "build_gateway_agent_injection",
     "execute_prepared_native_launch",
+    "gateway_contract_digest",
+    "gateway_preflight_receipt_from_dict",
+    "gateway_preflight_receipt_to_dict",
+    "gateway_profile_from_dict",
+    "gateway_profile_to_dict",
     "launch_registered_native_agent",
+    "launch_overlay_from_dict",
+    "launch_overlay_to_dict",
     "plan_native_launch",
     "prepare_registered_native_launch",
     "resolve_profile_executable",
     "revalidate_executable_identity",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve process-owning gateway services only when explicitly requested."""
+    if name not in _GATEWAY_SIDECAR_EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module("gigaloom.native.launch.gateway_sidecar"), name)
+    globals()[name] = value
+    return value

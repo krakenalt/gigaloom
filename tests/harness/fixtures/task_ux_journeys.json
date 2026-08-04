@@ -28,7 +28,7 @@
     {
       "id": "make-isolated-change",
       "web_route": "/web/runs/{run_id}",
-      "web_surface": "runs",
+      "web_surface": "more",
       "api_routes": [
         "POST /api/sessions/run",
         "GET /api/runs/{run_id}/diff",
@@ -48,7 +48,7 @@
     {
       "id": "connect-or-disable-mcp",
       "web_route": "/web/plugins/mcp",
-      "web_surface": "integrations",
+      "web_surface": "more",
       "api_routes": [
         "POST /api/integrations/preview",
         "POST /api/integrations/flows/{flow_id}/apply",
@@ -65,7 +65,7 @@
     {
       "id": "run-or-author-automation",
       "web_route": "/web/automation/workflows",
-      "web_surface": "automation",
+      "web_surface": "automations",
       "api_routes": [
         "POST /api/workflows/{workflow_id}/draft",
         "POST /api/workflows/{workflow_id}/apply",
@@ -105,7 +105,7 @@
     {
       "id": "recover-disconnect",
       "web_route": "/web/runs/{run_id}",
-      "web_surface": "runs",
+      "web_surface": "more",
       "api_routes": [
         "POST /api/workflows/{workflow_id}/run",
         "GET /api/runs/{run_id}/events/stream"

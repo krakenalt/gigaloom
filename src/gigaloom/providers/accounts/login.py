@@ -18,6 +18,7 @@ from gigaloom.executables import ExecutableResolution
 from gigaloom.providers.authentication.capabilities import (
     ProviderAuthenticationEvidence,
     load_provider_authentication_evidence,
+    provider_authentication_surface_proven,
 )
 from gigaloom.sessions.contracts import exclusive_file_lock
 
@@ -43,6 +44,8 @@ from .broker import (
     _utc_now,
     provider_account_snapshot_to_dict,
 )
+from .gemini_acp import GeminiAcpAuthenticationRunner
+from .homes import ensure_provider_config_home
 
 
 class NativeLoginBroker:
@@ -56,6 +59,7 @@ class NativeLoginBroker:
         capability_provider: Callable[[str], CliCapabilitySnapshot],
         evidence: ProviderAuthenticationEvidence | None = None,
         runner: AuthenticationCommandRunner | None = None,
+        gemini_acp_runner: GeminiAcpAuthenticationRunner | None = None,
         login_timeout_seconds: float = AUTH_COMMAND_TIMEOUT_SECONDS,
         status_timeout_seconds: float = AUTH_STATUS_TIMEOUT_SECONDS,
     ) -> None:
@@ -64,6 +68,7 @@ class NativeLoginBroker:
         self.capability_provider = capability_provider
         self.evidence = evidence or load_provider_authentication_evidence()
         self.runner = runner or BoundedAuthenticationCommandRunner()
+        self.gemini_acp_runner = gemini_acp_runner or GeminiAcpAuthenticationRunner()
         self.login_timeout_seconds = max(float(login_timeout_seconds), 0.05)
         self.status_timeout_seconds = max(float(status_timeout_seconds), 0.05)
         self._contracts = {
@@ -285,14 +290,23 @@ class NativeLoginBroker:
         resolution: ExecutableResolution,
         command: tuple[str, ...],
     ) -> None:
-        result = self.runner.run(
-            (*resolution.command, *command),
-            environment=self._isolated_environment(attempt.provider_id),
-            cwd=self._home(attempt.provider_id),
-            timeout_seconds=self.login_timeout_seconds,
-            cancel_event=attempt.cancel_event,
-            capture_output=False,
-        )
+        if attempt.provider_id == "gemini-cli":
+            result = self.gemini_acp_runner.run(
+                (*resolution.command, *command),
+                environment=self._isolated_environment(attempt.provider_id),
+                cwd=self._home(attempt.provider_id),
+                timeout_seconds=self.login_timeout_seconds,
+                cancel_event=attempt.cancel_event,
+            )
+        else:
+            result = self.runner.run(
+                (*resolution.command, *command),
+                environment=self._isolated_environment(attempt.provider_id),
+                cwd=self._home(attempt.provider_id),
+                timeout_seconds=self.login_timeout_seconds,
+                cancel_event=attempt.cancel_event,
+                capture_output=False,
+            )
         contract = self._contract(attempt.provider_id)
         if result.cancelled or attempt.cancel_event.is_set():
             final = _finished_attempt(
@@ -315,6 +329,15 @@ class NativeLoginBroker:
                 reason_code="provider_login_failed",
                 recovery=tuple(contract["recovery"]),
             )
+        elif attempt.provider_id == "gemini-cli":
+            final = _finished_attempt(
+                attempt.snapshot,
+                status=ProviderAccountStatus.READY,
+                reason_code="provider_ready",
+                recovery=tuple(contract["recovery"]),
+            )
+            final = replace(final, authentication_method="google_account")
+            self._binding_generation(attempt.provider_id, rotate=True)
         else:
             final = self._observe_status(contract, ignore_pending=True)
             if final.status is ProviderAccountStatus.UNKNOWN:
@@ -390,10 +413,8 @@ class NativeLoginBroker:
         provider_id = str(contract["harness_id"])
         resolution = self.resolution_provider(provider_id)
         capability = self.capability_provider(provider_id)
-        exact_pin = (
-            resolution.available
-            and capability.compatible
-            and capability.parsed_version == contract["pinned_cli_version"]
+        exact_pin = resolution.available and provider_authentication_surface_proven(
+            contract, capability
         )
         if exact_pin:
             return resolution, capability, None
@@ -429,10 +450,7 @@ class NativeLoginBroker:
         attempt_id: str | None = None,
     ) -> ProviderAccountSnapshot:
         provider_id = str(contract["harness_id"])
-        exact_pin = (
-            capability.compatible
-            and capability.parsed_version == contract["pinned_cli_version"]
-        )
+        exact_pin = provider_authentication_surface_proven(contract, capability)
         start_supported = (
             exact_pin and _operation_command(provider_id, "start") is not None
         )
@@ -500,11 +518,17 @@ class NativeLoginBroker:
             }
         )
         if provider_id == "codex-cli":
-            environment["CODEX_HOME"] = os.fspath(home / ".codex")
+            environment["CODEX_HOME"] = os.fspath(
+                ensure_provider_config_home(home, ".codex")
+            )
         elif provider_id == "claude-code":
-            environment["CLAUDE_CONFIG_DIR"] = os.fspath(home / ".claude")
+            environment["CLAUDE_CONFIG_DIR"] = os.fspath(
+                ensure_provider_config_home(home, ".claude")
+            )
         elif provider_id == "gemini-cli":
-            environment["GEMINI_CLI_HOME"] = os.fspath(home / ".gemini")
+            environment["GEMINI_CLI_HOME"] = os.fspath(
+                ensure_provider_config_home(home, ".gemini")
+            )
             environment["GEMINI_TELEMETRY_ENABLED"] = "false"
         return environment
 

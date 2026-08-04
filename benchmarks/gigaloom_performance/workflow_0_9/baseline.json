@@ -1,0 +1,321 @@
+{
+  "label": "i2-baseline",
+  "schema_version": "gigaloom.workflow-0.9-performance.v1",
+  "source_revision": "7143d9bf421765f0207beda7c8abe9a33c4d478b",
+  "source_dirty": false,
+  "lock_sha256": "73a51d9b0df4c7a20881e52cc48965556c97603dd6a37a3e58456a9c868eaf85",
+  "environment": {
+    "implementation": "CPython",
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "python": "3.13.8"
+  },
+  "samples_per_workload": 20,
+  "privacy": {
+    "content_free": true,
+    "external_network_accessed": false,
+    "native_homes_accessed": false,
+    "provider_traffic": false,
+    "temporary_state_only": true
+  },
+  "results": [
+    {
+      "id": "work.initial_load_request_graph",
+      "fixture": {
+        "route": "/web/work",
+        "bounded_route_summary": true
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 4.57575,
+        "p95": 4.929065
+      },
+      "counters": {
+        "api_requests": {
+          "samples": 20,
+          "p50": 6.0,
+          "p95": 6.0
+        },
+        "response_bytes": {
+          "samples": 20,
+          "p50": 9523.0,
+          "p95": 9529.0
+        }
+      }
+    },
+    {
+      "id": "work.run_narrative_update_isolation",
+      "fixture": {
+        "retained_events": 240,
+        "trace_limit": 200
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 1.027604,
+        "p95": 1.062964
+      },
+      "counters": {
+        "api_requests": {
+          "samples": 20,
+          "p50": 1.0,
+          "p95": 1.0
+        },
+        "projected_nodes": {
+          "samples": 20,
+          "p50": 200.0,
+          "p95": 200.0
+        }
+      }
+    },
+    {
+      "id": "thread.list_page",
+      "fixture": {
+        "retained_threads": 120,
+        "page_limit": 50
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 253.82325,
+        "p95": 262.644775
+      },
+      "counters": {
+        "has_more": {
+          "samples": 20,
+          "p50": 1.0,
+          "p95": 1.0
+        },
+        "items": {
+          "samples": 20,
+          "p50": 50.0,
+          "p95": 50.0
+        }
+      }
+    },
+    {
+      "id": "thread.read_page",
+      "fixture": {
+        "retained_messages": 160,
+        "page_limit": 50
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 11.059646,
+        "p95": 12.191199
+      },
+      "counters": {
+        "has_more": {
+          "samples": 20,
+          "p50": 1.0,
+          "p95": 1.0
+        },
+        "messages": {
+          "samples": 20,
+          "p50": 50.0,
+          "p95": 50.0
+        }
+      }
+    },
+    {
+      "id": "attachments.valid_utf8_decode",
+      "fixture": {
+        "bytes": 300000,
+        "sha256": "1a9718d89e57a42693b1b0472236d241751277941c35b79da5964984e78fd846"
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 0.174396,
+        "p95": 0.194807
+      },
+      "counters": {
+        "replacement_count": {
+          "samples": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        },
+        "truncated": {
+          "samples": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        }
+      }
+    },
+    {
+      "id": "instructions.discovery_small",
+      "fixture": {
+        "git_visible_paths": 36,
+        "instruction_sources": 4
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 34.966229,
+        "p95": 35.692375
+      },
+      "counters": {
+        "scanned_paths": {
+          "samples": 20,
+          "p50": 36.0,
+          "p95": 36.0
+        },
+        "sources": {
+          "samples": 20,
+          "p50": 4.0,
+          "p95": 4.0
+        },
+        "truncated": {
+          "samples": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        }
+      }
+    },
+    {
+      "id": "instructions.discovery_large",
+      "fixture": {
+        "git_visible_paths": 2128,
+        "instruction_sources": 128
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 57.940875,
+        "p95": 64.035598
+      },
+      "counters": {
+        "scanned_paths": {
+          "samples": 20,
+          "p50": 2128.0,
+          "p95": 2128.0
+        },
+        "sources": {
+          "samples": 20,
+          "p50": 128.0,
+          "p95": 128.0
+        },
+        "truncated": {
+          "samples": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        }
+      }
+    },
+    {
+      "id": "gateway.preflight",
+      "fixture": {
+        "routes": 1,
+        "force_refresh": true
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 0.009813,
+        "p95": 0.012425
+      },
+      "counters": {
+        "discovery_calls": {
+          "samples": 20,
+          "p50": 1.0,
+          "p95": 1.0
+        },
+        "ready": {
+          "samples": 20,
+          "p50": 1.0,
+          "p95": 1.0
+        }
+      }
+    },
+    {
+      "id": "gateway.route_model_discovery",
+      "fixture": {
+        "models": 1,
+        "capability_cells": 1
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 0.020583,
+        "p95": 0.024361
+      },
+      "counters": {
+        "routes": {
+          "samples": 20,
+          "p50": 1.0,
+          "p95": 1.0
+        },
+        "transport_calls": {
+          "samples": 20,
+          "p50": 3.0,
+          "p95": 3.0
+        }
+      }
+    },
+    {
+      "id": "gateway.sidecar_cold_start",
+      "fixture": {
+        "verified_artifact": true,
+        "readiness_checks": 1
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 0.223375,
+        "p95": 0.31541
+      },
+      "counters": {
+        "process_spawns": {
+          "samples": 20,
+          "p50": 1.0,
+          "p95": 1.0
+        },
+        "started": {
+          "samples": 20,
+          "p50": 1.0,
+          "p95": 1.0
+        }
+      }
+    },
+    {
+      "id": "gateway.sidecar_warm_attach",
+      "fixture": {
+        "verified_artifact": true,
+        "existing_lease": true
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 0.031729,
+        "p95": 0.05372
+      },
+      "counters": {
+        "process_spawns": {
+          "samples": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        },
+        "reused": {
+          "samples": 20,
+          "p50": 1.0,
+          "p95": 1.0
+        }
+      }
+    },
+    {
+      "id": "evidence.local_export",
+      "fixture": {
+        "sessions": 0,
+        "network_sinks": 0
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 0.071084,
+        "p95": 0.077888
+      },
+      "counters": {
+        "bytes": {
+          "samples": 20,
+          "p50": 4090.0,
+          "p95": 4090.0
+        },
+        "network_calls": {
+          "samples": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        }
+      }
+    }
+  ]
+}

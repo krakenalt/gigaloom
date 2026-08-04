@@ -1,8 +1,4 @@
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { Fragment, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
@@ -17,12 +13,18 @@ import {
   withQuery,
 } from "../api";
 import { composerAttachments } from "../attachment-model";
+import { promptWithChatMentions } from "../chat-mentions";
 import {
   AttachmentGallery,
-  formatBytes,
   useAttachmentActions,
 } from "../features/workbench/attachment-actions";
 import { useComposerController } from "../features/workbench/composer-controller";
+import { ChatRelayFeedback, useChatMentionController } from "../features/workbench/chat-mention-controller";
+import {
+  gatewayRouteAgentForHarness,
+  useReviewedRouteBinding,
+} from "../features/work-first/ReviewedRouteControls";
+import { EffectiveInstructionsForWorkspace } from "../features/work-first/EffectiveInstructionsSummary";
 import {
   CompletionNotices,
   isActiveRunStatus,
@@ -30,9 +32,11 @@ import {
 } from "../features/workbench/completion-notifications";
 import {
   EnvironmentCard,
+  MobileEnvironmentDisclosure,
   useEnvironmentActions,
 } from "../features/workbench/environment-actions";
 import { useDeferredWorkbenchProjection } from "../features/workbench/lazy-projections";
+import { ComposerSelectionChips, MentionPicker } from "../features/workbench/MentionPicker";
 import { useWorkbenchSessionEntry } from "../features/workbench/session-entry";
 import {
   GeneratedFilePreview,
@@ -137,12 +141,10 @@ import {
   type WorkbenchKind,
 } from "../workbench-execution";
 import { permissionSimulationRows } from "../approval-ux";
-
 const layoutKey = "gpt2giga.web.workbench-layout.v1";
 type StartResult =
   | { kind: "preview"; report: RunPreflightResponse["preflight"] }
   | { kind: "run"; run: RunStartResponse["run"] };
-
 const builtinToolLabels: Record<string, string> = {
   code_interpreter: "Code interpreter",
   image_generate: "Image generation",
@@ -158,7 +160,6 @@ const toolCategoryMessageKeys: Record<ComposerToolCategory, MessageKey> = {
   skill: "toolCategorySkill",
 };
 const emptyStringList: readonly string[] = [];
-
 type ProviderHandoffPreview = {
   handoff: {
     command: string[];
@@ -166,7 +167,6 @@ type ProviderHandoffPreview = {
     status: string;
   };
 };
-
 export function WorkbenchSurface() {
   const params = useParams({ strict: false });
   const routeSearch = useSearch({ strict: false });
@@ -189,6 +189,7 @@ export function WorkbenchSurface() {
     modelMenuOpen,
     plusMenuOpen,
     prompt,
+    selectedChats,
     selectedSkills,
     setAtSelection,
     setBuiltinTools,
@@ -197,6 +198,7 @@ export function WorkbenchSurface() {
     setModelMenuOpen,
     setPlusMenuOpen,
     setPrompt,
+    setSelectedChats,
     setSelectedSkills,
     setToolPickerOpen,
     setToolSearch,
@@ -265,6 +267,13 @@ export function WorkbenchSurface() {
     sessionId,
   });
   const harnesses = useQuery(harnessesOptions());
+  const selectedHarness = harnesses.data?.harnesses.find(
+    (harness) => harness.spec.id === runConfig.harnessId,
+  );
+  const reviewedRoute = useReviewedRouteBinding(
+    gatewayRouteAgentForHarness(selectedHarness),
+    sessionId,
+  );
   const models = useQuery(modelsOptions(runConfig.apiMode));
   const settings = useQuery(settingsOptions());
   const integrationsEnabled = useDeferredWorkbenchProjection(
@@ -304,11 +313,34 @@ export function WorkbenchSurface() {
     ...workspaceFilesOptions(sessionId ?? "pending", deferredAtQuery),
     enabled: sessionId !== undefined && atQuery !== null,
   });
+  const currentProjectId = overview.data?.session.project_id ?? null;
   const availableSkillMentions = skillMentionOptions(
     integrations.data,
     runConfig.harnessId,
     deferredAtQuery,
   ).filter((skill) => !selectedSkills.some((selected) => selected.id === skill.id));
+  const availableSkills = availableSkillMentions.filter(
+    (item) => item.kind === "skill",
+  );
+  const availablePlugins = availableSkillMentions.filter(
+    (item) => item.kind === "plugin",
+  );
+  const chatMentions = useChatMentionController({
+    atQuery,
+    composerRef,
+    currentProjectId,
+    currentRevision: overview.data?.snapshot_revision ?? null,
+    currentTitle: overview.data?.session.title ?? "Current chat",
+    deferredQuery: deferredAtQuery,
+    locale,
+    prompt,
+    selectedChats,
+    sessionId,
+    setAtSelection,
+    setComposerCaret,
+    setPrompt,
+    setSelectedChats,
+  });
   const events = useQuery({
     ...sessionEventsOptions(sessionId ?? "pending"),
     enabled: eventsEnabled,
@@ -469,6 +501,7 @@ export function WorkbenchSurface() {
       ),
     onSuccess: ({ session }) => {
       setPrompt("");
+      setSelectedChats([]);
       setSelectedSkills([]);
       setBuiltinTools([]);
       void navigate({
@@ -516,10 +549,13 @@ export function WorkbenchSurface() {
         harness_id: runConfig.harnessId,
         model: runConfig.model.trim() || null,
         permission_profile: advancedConfig.permissionProfile,
-        prompt: promptWithSkillMentions(
-          prompt,
-          selectedSkills,
-          runConfig.harnessId,
+        prompt: promptWithChatMentions(
+          promptWithSkillMentions(
+            prompt,
+            selectedSkills,
+            runConfig.harnessId,
+          ),
+          selectedChats,
         ),
         session_id: sessionId,
         task_intent: productSelection.intent,
@@ -527,16 +563,17 @@ export function WorkbenchSurface() {
         workspace: session.workspace_bound ? undefined : ".",
         workspace_policy: advancedConfig.workspacePolicy,
       };
+      const submissionPayload = reviewedRoute.bindPayload(payload);
       if (advancedConfig.dryRun) {
         const response = await mutateCockpit<RunPreflightResponse>("/api/preflight/run", {
-          ...payload,
+          ...submissionPayload,
           dry_run: true,
         });
         return { kind: "preview", report: response.preflight };
       }
       const response = await mutateCockpit<RunStartResponse>(
         `/api/sessions/${encodeURIComponent(sessionId)}/run/start`,
-        payload,
+        submissionPayload,
       );
       return { kind: "run", run: response.run };
     },
@@ -552,6 +589,7 @@ export function WorkbenchSurface() {
       await refreshSessionAfterRunStart(queryClient, run.session_id);
       setEditingMessageId(undefined);
       setPrompt("");
+      setSelectedChats([]);
       setSelectedSkills([]);
     },
   });
@@ -636,9 +674,6 @@ export function WorkbenchSurface() {
   const environmentView = environment.data === undefined
     ? undefined
     : projectEnvironment(environment.data, { failedRefresh: environment.isError });
-  const selectedHarness = harnesses.data?.harnesses.find(
-    (harness) => harness.spec.id === runConfig.harnessId,
-  );
   const selectableHarnesses = harnessesForWorkbenchKind(
     harnesses.data?.harnesses ?? [],
     productSelection.kind,
@@ -865,7 +900,9 @@ export function WorkbenchSurface() {
   };
   const workspaceFileCandidates = workspaceFiles.data?.files ?? [];
   const atCandidates = [
-    ...availableSkillMentions.map((skill) => ({ kind: "skill" as const, skill })),
+    ...availableSkills.map((skill) => ({ kind: "skill" as const, skill })),
+    ...availablePlugins.map((skill) => ({ kind: "skill" as const, skill })),
+    ...chatMentions.availableChats.map((chat) => ({ kind: "chat" as const, chat })),
     ...workspaceFileCandidates.map((file) => ({ kind: "file" as const, file })),
   ];
   const chooseWorkspaceFile = (path: string) => {
@@ -884,6 +921,7 @@ export function WorkbenchSurface() {
   const chooseAtCandidate = (index: number) => {
     const candidate = atCandidates[index];
     if (candidate?.kind === "skill") chooseSkill(candidate.skill);
+    if (candidate?.kind === "chat") chatMentions.chooseChat(candidate.chat);
     if (candidate?.kind === "file") chooseWorkspaceFile(candidate.file.path);
   };
   const toggleComposerTool = (option: ComposerToolOption) => {
@@ -1127,15 +1165,10 @@ export function WorkbenchSurface() {
                 </button>
               </div>
             </header>
-            <EnvironmentCard
-              className="mobile-environment"
-              commitAction={environmentActions.commitAction}
-              pushAction={environmentActions.pushAction}
-              pullRequestAction={environmentActions.pullRequestAction}
+            <MobileEnvironmentDisclosure
+              actions={environmentActions}
               environment={environmentView}
-              error={environment.isError}
-              locale={locale}
-              pending={environment.isPending}
+              error={environment.isError} locale={locale} pending={environment.isPending}
             />
             <section
               className="message-region"
@@ -1352,34 +1385,18 @@ export function WorkbenchSurface() {
                   )}
                 </div>
               )}
-              {selectedSkills.length > 0 || admittedBuiltinTools.length > 0 ? (
-                <div className="attachment-chips" aria-label={message(locale, "selectedTools")}>
-                  {admittedBuiltinTools.map((tool) => (
-                    <span className="attachment-chip tool-selection-chip" key={tool}>
-                      <span aria-hidden="true">⌁</span>
-                      <span>{builtinToolLabels[tool] ?? tool}</span>
-                      <small>GigaChat</small>
-                      <button
-                        aria-label={`${message(locale, "removeTool")} ${builtinToolLabels[tool] ?? tool}`}
-                        onClick={() => setBuiltinTools((current) => current.filter((item) => item !== tool))}
-                        type="button"
-                      >×</button>
-                    </span>
-                  ))}
-                  {selectedSkills.map((skill) => (
-                    <span className="attachment-chip skill-mention-chip" key={skill.id}>
-                      <span aria-hidden="true">✦</span>
-                      <span title={`${skill.source} · ${skill.nativeName}`}>{skill.mention}</span>
-                      <small>{skill.source}</small>
-                      <button
-                        aria-label={`${message(locale, "removeTool")} ${skill.mention}`}
-                        onClick={() => setSelectedSkills((current) => current.filter((item) => item.id !== skill.id))}
-                        type="button"
-                      >×</button>
-                    </span>
-                  ))}
-                </div>
-              ) : null}
+              <ComposerSelectionChips
+                builtinLabels={builtinToolLabels}
+                builtinTools={admittedBuiltinTools}
+                chats={selectedChats}
+                label={message(locale, "selectedTools")}
+                onRemoveBuiltin={(id) => setBuiltinTools((current) => current.filter((item) => item !== id))}
+                onRemoveChat={(id) => setSelectedChats((current) => current.filter((item) => item.id !== id))}
+                onRemoveSkill={(id) => setSelectedSkills((current) => current.filter((item) => item.id !== id))}
+                removeLabel={message(locale, "removeTool")}
+                skills={selectedSkills}
+              />
+              <ChatRelayFeedback controller={chatMentions} locale={locale} />
               {draftAttachments.length > 0 ? (
                 <AttachmentGallery
                   attachments={draftAttachments}
@@ -1457,7 +1474,7 @@ export function WorkbenchSurface() {
               ) : null}
               <textarea
                 aria-label={message(locale, "composerPlaceholder")}
-                aria-controls={atQuery === null ? undefined : "workspace-file-picker"}
+                aria-controls={atQuery === null ? undefined : "composer-mention-picker"}
                 aria-expanded={atQuery !== null}
                 disabled={startRun.isPending}
                 onChange={(event) => {
@@ -1504,50 +1521,28 @@ export function WorkbenchSurface() {
                 value={prompt}
               />
               {atQuery === null ? null : (
-                <div className="workspace-file-picker" id="workspace-file-picker" role="listbox">
-                  <div>
-                    <strong>{locale === "ru" ? "Skills, плагины и файлы" : "Skills, plugins, and files"}</strong>
-                    <small>
-                      {locale === "ru"
-                        ? "OpenAI bundled capabilities доступны здесь через @; для Codex Harness передаст нативный $-вызов."
-                        : "OpenAI bundled capabilities are selectable with @; Harness sends Codex the native $ invocation."}
-                    </small>
-                  </div>
-                  {availableSkillMentions.map((skill, index) => (
-                    <button
-                      aria-selected={index === atSelection}
-                      className={index === atSelection ? "selected" : ""}
-                      key={skill.id}
-                      onClick={() => chooseSkill(skill)}
-                      onMouseDown={(event) => event.preventDefault()}
-                      role="option"
-                      type="button"
-                    >
-                      <span>{skill.mention}</span>
-                      <small>{skill.source} · Skill</small>
-                    </button>
-                  ))}
-                  {workspaceFiles.isPending && workspaceFileCandidates.length === 0 ? (
-                    <span className="muted-copy">{message(locale, "loading")}</span>
-                  ) : workspaceFiles.isError ? (
-                    <span className="error-state" role="alert">{String(workspaceFiles.error)}</span>
-                  ) : workspaceFileCandidates.length === 0 && availableSkillMentions.length === 0 ? (
-                    <span className="muted-copy">{message(locale, "noWorkspaceFiles")}</span>
-                  ) : workspaceFileCandidates.map((file, index) => (
-                    <button
-                      aria-selected={index + availableSkillMentions.length === atSelection}
-                      className={index + availableSkillMentions.length === atSelection ? "selected" : ""}
-                      key={file.path}
-                      onClick={() => chooseWorkspaceFile(file.path)}
-                      onMouseDown={(event) => event.preventDefault()}
-                      role="option"
-                      type="button"
-                    >
-                      <span>@{file.path}</span>
-                      <small>{file.kind} · {formatBytes(file.size_bytes)}</small>
-                    </button>
-                  ))}
-                </div>
+                <MentionPicker
+                  chats={chatMentions.availableChats}
+                  chatStatus={chatMentions.chatStatus}
+                  files={workspaceFileCandidates}
+                  fileStatus={workspaceFiles.isPending
+                    ? "loading"
+                    : workspaceFiles.isError
+                      ? "error"
+                      : "ready"}
+                  inspectedChat={chatMentions.inspectedChat}
+                  locale={locale}
+                  onChooseChat={chatMentions.chooseChat}
+                  onChooseFile={chooseWorkspaceFile}
+                  onChooseSkill={chooseSkill}
+                  onReadChat={chatMentions.setInspectedChat}
+                  onSendChat={chatMentions.prepareRelay}
+                  plugins={availablePlugins}
+                  selectedIndex={atSelection}
+                  sendEnabled={Boolean(chatMentions.relayDraftText)}
+                  sendPendingChatId={chatMentions.previewPendingChatId}
+                  skills={availableSkills}
+                />
               )}
               {modelMenuOpen && modelSuggestions.length > 0 ? (
                 <div
@@ -1638,6 +1633,12 @@ export function WorkbenchSurface() {
                   <p className="runtime-owned-copy">{message(locale, "streamRuntimeOwned")}</p>
                 </section>
               ) : null}
+              <EffectiveInstructionsForWorkspace
+                locale={locale}
+                pending={environment.isPending}
+                workspace={environment.data?.environment.worktree_root}
+              />
+              {reviewedRoute.controls}
               <div className="composer-footer">
                 <div className="composer-footer-left">
                   <div className="composer-controls" aria-label={message(locale, "runConfiguration")}>
@@ -1804,7 +1805,7 @@ export function WorkbenchSurface() {
                     {message(locale, "cancelRun")}
                   </button>
                 ) : (
-                  <button className="primary-button" disabled={!prompt.trim() || startRun.isPending} type="submit">
+                  <button className="primary-button" disabled={!prompt.trim() || startRun.isPending || reviewedRoute.pending} type="submit">
                     {message(locale, advancedConfig.dryRun ? "previewExecution" : "runTask")}
                   </button>
                 )}

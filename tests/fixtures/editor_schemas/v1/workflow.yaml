@@ -1,0 +1,31 @@
+id: schema-fixture
+title: Schema Fixture
+description: Exercises workflow fields and compatible extensions.
+schema_version: 1
+version: 1.0.0
+inputs:
+  prompt: Review the fixture.
+provenance:
+  fixture: editor-schema-v1
+budgets:
+  max_concurrency: 2
+  max_steps: 3
+  timeout_seconds: 600
+steps:
+  - id: review
+    kind: agent
+    title: Review
+    agent_id: schema-fixture
+    prompt: "${prompt}"
+    condition: on_success
+    artifact_types: [review_findings]
+    retries: 1
+    timeout_seconds: 300
+    max_fan_out: 1
+    inputs:
+      bounded: true
+    output: review
+  - id: evidence
+    kind: join
+    depends_on: [review]
+    condition: always

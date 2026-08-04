@@ -5,13 +5,18 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from gigaloom.execution.api import NativeCodexContextProjection
-from gigaloom.projects.api import StalePythonImpactIndexError
+from gigaloom.projects.api import StalePythonImpactIndexError, instructions_api
 from gigaloom.ui.async_execution import ContractAPIRouter
 from gigaloom.ui.container import AppServices
+from gigaloom.ui.services.context_impact import (
+    StaleEffectiveInstructionsProjectionError,
+)
 from gigaloom.ui.services.operator_workspace import operator_scope
 
 
 MAX_IMPACT_CHANGED_PATHS = 256
+MAX_INSTRUCTION_PAGE_SIZE = 100
+MAX_INSTRUCTION_REVISION_BINDINGS = 32
 
 
 def create_router(services: AppServices) -> APIRouter:
@@ -112,6 +117,97 @@ def create_router(services: AppServices) -> APIRouter:
             "cache_hit": outcome.cache_hit,
         }
 
+    @router.proc.get("/api/project/effective-instructions")
+    def effective_instructions_summary(
+        workspace: str = Query(..., min_length=1, max_length=4096),
+        target_path: str = Query(default="", max_length=256),
+        materialization_owner: list[str] | None = Query(default=None),
+        selected_source_id: list[str] | None = Query(default=None),
+        materialization_revision: list[str] | None = Query(default=None),
+        expected_materialization_revision: list[str] | None = Query(default=None),
+        cursor: int = Query(default=0, ge=0, le=10_000),
+        limit: int = Query(default=50, ge=1, le=MAX_INSTRUCTION_PAGE_SIZE),
+    ) -> dict[str, object]:
+        projection = _effective_instructions(
+            services,
+            workspace=workspace,
+            target_path=target_path,
+            materialization_owners=materialization_owner,
+            selected_source_ids=selected_source_id,
+            materialization_revisions=materialization_revision,
+            expected_materialization_revisions=expected_materialization_revision,
+        )
+        if cursor > len(projection.sources):
+            raise HTTPException(
+                status_code=422,
+                detail=_detail(
+                    "invalid_instruction_cursor",
+                    "Instruction cursor exceeds the current source count",
+                ),
+            )
+        end = min(cursor + limit, len(projection.sources))
+        return {
+            "effective_instructions": _instruction_projection_summary(projection),
+            "sources": [item.to_dict() for item in projection.sources[cursor:end]],
+            "cursor": cursor,
+            "next_cursor": end if end < len(projection.sources) else None,
+        }
+
+    @router.proc.get("/api/project/effective-instructions/{source_id}")
+    def effective_instruction_detail(
+        source_id: str,
+        workspace: str = Query(..., min_length=1, max_length=4096),
+        discovery_digest: str = Query(
+            ...,
+            min_length=64,
+            max_length=64,
+            pattern="[0-9a-f]{64}",
+        ),
+        target_path: str = Query(default="", max_length=256),
+        materialization_owner: list[str] | None = Query(default=None),
+        selected_source_id: list[str] | None = Query(default=None),
+        materialization_revision: list[str] | None = Query(default=None),
+        expected_materialization_revision: list[str] | None = Query(default=None),
+    ) -> dict[str, object]:
+        projection = _effective_instructions(
+            services,
+            workspace=workspace,
+            target_path=target_path,
+            materialization_owners=materialization_owner,
+            selected_source_ids=selected_source_id,
+            materialization_revisions=materialization_revision,
+            expected_materialization_revisions=expected_materialization_revision,
+            expected_discovery_digest=discovery_digest,
+        )
+        source = next(
+            (item for item in projection.sources if item.source_id == source_id),
+            None,
+        )
+        if source is None:
+            raise HTTPException(
+                status_code=404,
+                detail=_detail(
+                    "instruction_source_not_found",
+                    "Instruction source was not found",
+                ),
+            )
+        related_conflicts = tuple(
+            item for item in projection.conflicts if source_id in item.source_ids
+        )
+        related_uncertainties = tuple(
+            item
+            for item in projection.uncertainties
+            if item.source_id in {None, source_id}
+            and item.materialization_owner
+            in {None, source.materialization_owner, source.selector_id}
+        )
+        return {
+            "effective_instructions": _instruction_projection_summary(projection),
+            "source": source.to_dict(),
+            "conflicts": [item.to_dict() for item in related_conflicts],
+            "uncertainties": [item.to_dict() for item in related_uncertainties],
+        }
+
     return router
 
 
@@ -125,8 +221,104 @@ def _scope(request: Request, workspace_id: object) -> tuple[str, str]:
         ) from exc
 
 
+def _effective_instructions(
+    services: AppServices,
+    *,
+    workspace: str,
+    target_path: str,
+    materialization_owners: list[str] | None,
+    selected_source_ids: list[str] | None,
+    materialization_revisions: list[str] | None,
+    expected_materialization_revisions: list[str] | None,
+    expected_discovery_digest: str | None = None,
+) -> instructions_api.EffectiveInstructionsProjectionV1:
+    try:
+        return services.impact_projection_service.effective_instructions(
+            workspace=workspace,
+            target_path=target_path,
+            selected_materialization_owners=materialization_owners,
+            selected_source_ids=selected_source_ids or (),
+            materialization_revisions=_revision_bindings(
+                materialization_revisions,
+                field_name="materialization_revision",
+            ),
+            expected_materialization_revisions=_revision_bindings(
+                expected_materialization_revisions,
+                field_name="expected_materialization_revision",
+            ),
+            expected_discovery_digest=expected_discovery_digest,
+        )
+    except StaleEffectiveInstructionsProjectionError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=_detail("resnapshot_required", str(exc)),
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=_detail("invalid_instruction_request", str(exc)),
+        ) from exc
+
+
+def _revision_bindings(
+    values: list[str] | None,
+    *,
+    field_name: str,
+) -> dict[str, str]:
+    if values is None:
+        return {}
+    if len(values) > MAX_INSTRUCTION_REVISION_BINDINGS:
+        raise ValueError(
+            f"{field_name} exceeds {MAX_INSTRUCTION_REVISION_BINDINGS} items"
+        )
+    revisions: dict[str, str] = {}
+    for value in values:
+        owner, separator, revision = value.partition("=")
+        if (
+            separator != "="
+            or not owner
+            or not revision
+            or len(owner) > 256
+            or len(revision) > 256
+            or owner in revisions
+        ):
+            raise ValueError(f"{field_name} must contain unique owner=revision items")
+        revisions[owner] = revision
+    return revisions
+
+
+def _instruction_projection_summary(
+    projection: instructions_api.EffectiveInstructionsProjectionV1,
+) -> dict[str, object]:
+    included_count = sum(
+        item.disposition.value == "include" for item in projection.sources
+    )
+    return {
+        "format": projection.format,
+        "source_revision": projection.source_revision,
+        "discovery_digest": projection.discovery_digest,
+        "config_digest": projection.config_digest,
+        "target_path": projection.target_path,
+        "source_count": len(projection.sources),
+        "included_count": included_count,
+        "omitted_count": len(projection.sources) - included_count,
+        "conflict_count": len(projection.conflicts),
+        "uncertainty_count": len(projection.uncertainties),
+        "token_summary": projection.lens.token_summary.to_dict(),
+        "is_partial": projection.lens.is_partial,
+        "launch_ready": projection.launch_ready,
+        "read_only": projection.read_only,
+        "auto_materialized": projection.auto_materialized,
+    }
+
+
 def _detail(code: str, message: str) -> dict[str, str]:
     return {"code": code, "message": message}
 
 
-__all__ = ["MAX_IMPACT_CHANGED_PATHS", "create_router"]
+__all__ = [
+    "MAX_IMPACT_CHANGED_PATHS",
+    "MAX_INSTRUCTION_PAGE_SIZE",
+    "MAX_INSTRUCTION_REVISION_BINDINGS",
+    "create_router",
+]

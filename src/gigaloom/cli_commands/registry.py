@@ -105,6 +105,25 @@ _RELIABILITY_HANDLERS = frozenset(
 )
 _UPGRADE_RADAR_HANDLERS = frozenset({"_handle_agent_upgrade_check"})
 _VISUAL_EVAL_HANDLERS = frozenset({"_handle_eval_visual"})
+_THREAD_RELAY_HANDLERS = frozenset(
+    {
+        "_handle_thread_list",
+        "_handle_thread_read",
+        "_handle_thread_send",
+        "_handle_thread_status",
+    }
+)
+_GATEWAY_HANDLERS = frozenset(
+    {
+        "_handle_gateway_list",
+        "_handle_gateway_inspect",
+        "_handle_gateway_doctor",
+        "_handle_gateway_start",
+        "_handle_gateway_stop",
+    }
+)
+_SCHEMA_HANDLERS = frozenset({"_handle_schema_list", "_handle_schema_export"})
+_PRODUCT_EVIDENCE_HANDLERS = frozenset({"_handle_product_beta_evidence"})
 
 
 def resolve_handler(name: str) -> CommandHandler:
@@ -140,6 +159,14 @@ def resolve_handler(name: str) -> CommandHandler:
         module_name = "gigaloom.cli_commands.handlers.upgrade_radar"
     elif name in _VISUAL_EVAL_HANDLERS:
         module_name = "gigaloom.cli_commands.handlers.visual_eval"
+    elif name in _THREAD_RELAY_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.thread_relay"
+    elif name in _GATEWAY_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.gateway"
+    elif name in _SCHEMA_HANDLERS:
+        module_name = "gigaloom.automation.schemas.cli"
+    elif name in _PRODUCT_EVIDENCE_HANDLERS:
+        module_name = "gigaloom.cli_commands.handlers.product_evidence"
     elif name == "_handle_run_command":
         module_name = "gigaloom.cli_commands.handlers.runs"
     else:

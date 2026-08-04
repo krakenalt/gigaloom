@@ -11,8 +11,13 @@ claude_code_custom_headers: Any
 cli_args_from_attachments: Any
 gemini_cli_custom_headers: Any
 prompt_with_attachments: Any
+AgentIdentityInventory: Any
 AgentProfileV1: Any
 AcpCapabilitySnapshotV1: Any
+AcpClient: Any
+AcpPromptHandle: Any
+AcpSessionBindingV1: Any
+AcpSessionPageV1: Any
 CapabilityCatalogFactState: Any
 CapabilityCatalogFactV1: Any
 CapabilityCatalogRouteV1: Any
@@ -24,17 +29,27 @@ bind_structured_route_descriptors: Any
 build_capability_catalog: Any
 load_agent_profile_registry: Any
 load_builtin_agent_profiles: Any
+create_agent_runtime_service: Any
 project_acp_capability_snapshot: Any
 acp_harnesses: Any
+begin_prompt: Any
+list_sessions: Any
+load_session: Any
 
 __all__ = [
     "attachment_raw_metadata",
     "acp_harnesses",
     "AcpCapabilitySnapshotV1",
+    "AcpClient",
+    "AcpPromptHandle",
+    "AcpSessionBindingV1",
+    "AcpSessionPageV1",
+    "AgentIdentityInventory",
     "AgentProfileV1",
     "build_safe_env",
     "bind_structured_route_descriptors",
     "build_capability_catalog",
+    "begin_prompt",
     "CapabilityCatalogFactState",
     "CapabilityCatalogFactV1",
     "CapabilityCatalogRouteV1",
@@ -42,9 +57,12 @@ __all__ = [
     "CapabilitySnapshotState",
     "claude_code_custom_headers",
     "cli_args_from_attachments",
+    "create_agent_runtime_service",
     "gemini_cli_custom_headers",
     "load_agent_profile_registry",
     "load_builtin_agent_profiles",
+    "list_sessions",
+    "load_session",
     "prompt_with_attachments",
     "project_acp_capability_snapshot",
     "RouteCapabilitySnapshotV1",
@@ -84,10 +102,29 @@ _LAZY_EXPORTS = {
         "gigaloom.harnesses.acp.api",
         "AcpCapabilitySnapshotV1",
     ),
+    **{
+        name: ("gigaloom.harnesses.acp.api", name)
+        for name in (
+            "AcpClient",
+            "AcpPromptHandle",
+            "AcpSessionBindingV1",
+            "AcpSessionPageV1",
+            "begin_prompt",
+            "list_sessions",
+            "load_session",
+        )
+    },
     "AgentProfileV1": (
         "gigaloom.harnesses.agent_profiles.api",
         "AgentProfileV1",
     ),
+    **{
+        name: ("gigaloom.harnesses.agent_profiles.installations", name)
+        for name in (
+            "AgentIdentityInventory",
+            "create_agent_runtime_service",
+        )
+    },
     "load_agent_profile_registry": (
         "gigaloom.harnesses.agent_profiles.api",
         "load_agent_profile_registry",

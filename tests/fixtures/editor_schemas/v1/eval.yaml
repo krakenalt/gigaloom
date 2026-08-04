@@ -1,0 +1,19 @@
+name: schema-fixture
+description: Exercises every public evaluation field.
+harnesses: [echo]
+model: GigaChat-2-Max
+api_mode: v2
+mode: read
+workspace_policy: current
+metadata:
+  fixture: editor-schema-v1
+cases:
+  - id: marker
+    prompt: Return SCHEMA_FIXTURE_OK.
+    harnesses: [echo]
+    required_capability: chat_completions
+    checks:
+      - name: marker
+        type: contains
+        value: SCHEMA_FIXTURE_OK
+        case_sensitive: true

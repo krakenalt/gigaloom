@@ -10,6 +10,9 @@ from typing import Any, Mapping
 AGENT_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{1,63}$")
 
 
+AGENT_SCHEMA_VERSION = 1
+
+
 AGENT_DIRECTORY = Path(".giga") / "agents"
 
 

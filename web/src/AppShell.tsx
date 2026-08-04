@@ -46,15 +46,6 @@ function AttentionIcon() {
   );
 }
 
-function ActionInboxIcon() {
-  return (
-    <svg className="action-icon" aria-hidden="true" viewBox="0 0 24 24">
-      <path d="M5 5h14v14H5z" />
-      <path d="M8 9h8M8 13h5M16.5 15.5l1.2 1.2 2.3-2.5" />
-    </svg>
-  );
-}
-
 function SettingsIcon() {
   return (
     <svg className="action-icon" aria-hidden="true" viewBox="0 0 24 24">
@@ -145,38 +136,25 @@ export function AppShell() {
           {primarySurfaces.map((surface) => (
             <Link
               activeOptions={{ exact: false }}
-              className="rail-link"
+              aria-current={activeSurface === surface.id ? "page" : undefined}
+              className={activeSurface === surface.id ? "rail-link active" : "rail-link"}
               key={surface.id}
               to={surface.path}
             >
               <span className="rail-symbol" aria-hidden="true">
                 <PrimaryRailIcon surface={surface.id} />
+                {surface.id === "inbox" && operatorPendingCount > 0 ? (
+                  <span className="count-badge attention">
+                    {operatorPendingCount}
+                    {operatorInbox.hasNextPage ? "+" : ""}
+                  </span>
+                ) : null}
               </span>
               <span>{message(preferences.locale, surface.messageKey)}</span>
             </Link>
           ))}
         </nav>
         <div className="rail-utility-actions" aria-label={message(preferences.locale, "workspaceUtilities")}>
-          <button
-            aria-label={message(preferences.locale, "actionInbox")}
-            className="rail-utility-control"
-            disabled={workspaceId === ""}
-            type="button"
-            onClick={() => setInbox("operator")}
-          >
-            <span className="rail-utility-symbol">
-              <ActionInboxIcon />
-              {operatorPendingCount > 0 ? (
-                <span className="count-badge attention">
-                  {operatorPendingCount}
-                  {operatorInbox.hasNextPage ? "+" : ""}
-                </span>
-              ) : null}
-            </span>
-            <span className="rail-utility-label">
-              {message(preferences.locale, "actionInbox")}
-            </span>
-          </button>
           <button
             aria-label={message(preferences.locale, "approvals")}
             className="rail-utility-control"

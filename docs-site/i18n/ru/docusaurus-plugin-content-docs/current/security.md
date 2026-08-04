@@ -18,6 +18,28 @@ GigaLoom разделяет локальное выполнение, evidence, c
 Не коммитьте credentials, tokens, `.env`, certificates, raw traffic или
 fixtures с секретами.
 
+## Проверки границ 0.9
+
+- Thread Relay связывает actor, project, target revision, TTL, idempotency key и
+  optional active turn до delivery. Допускается только user-role message;
+  agent-proposed content требует явного user approval.
+- Relay reads ограничены и маскируются. Receipts хранят content digests, а не
+  текст сообщения; failed delivery не переписывает target history.
+- Декодирование attachments не использует replacement characters, ограничено
+  по размеру и распознаёт binary. Charset evidence содержит только факты и
+  digest, но не source content.
+- Effective Instructions — project-root-confined read-only projection. Она не
+  сканирует private provider homes и не объединяет или инъецирует rules.
+- Gateway launch принимает только reviewed route/profile identities, bounded
+  API-key headers, pinned compatibility evidence и managed overlays GigaLoom.
+  Arbitrary URL/header injection, запись native-home и hidden fallback
+  запрещаются до provider traffic.
+- Product beta evidence включается явно, остаётся local, project-scoped,
+  content-free и bounded. Экспорт не выдаёт upload или outreach authority.
+
+Unknown, stale, malformed или mismatched evidence остаётся blocker. Не обходите
+его выбором другого route или копированием credentials в arguments.
+
 ## Сообщение об уязвимостях
 
 Не раскрывайте предполагаемые уязвимости в публичном issue, discussion или pull

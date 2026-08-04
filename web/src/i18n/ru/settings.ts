@@ -12,6 +12,15 @@ export const ruSettings = {
   titleModel: "Модель заголовков по умолчанию",
   useChatModel: "Использовать модель чатов",
   appearanceHint: "Локальные язык и тема применяются сразу в этом браузере.",
+  personalization: "Персонализация",
+  personalizationHint: "Версионированные инструкции добавляются в новые сессии Codex через изолированный managed config.",
+  additionalInstructions: "Дополнительные инструкции",
+  additionalInstructionsPlaceholder: "Как Codex должен работать с вами в новых сессиях?",
+  asyncAgentCompatibility: "Совместимость async agents",
+  asyncAgentCompatibilityHint:
+        "Встроенные guarded-правила применяются только когда модель видит collaboration tools. Они версионируются отдельно от вашего текста.",
+  savePersonalization: "Сохранить инструкции",
+  personalizationSaved: "Дополнительные инструкции сохранены и перечитаны с бэкенда.",
   localAccessHint:
         "Одноразовый OS-local bootstrap создаёт серверную сессию браузера со сроком действия без токена в URL или browser storage.",
   accessMode: "Режим доступа",
@@ -78,7 +87,7 @@ export const ruSettings = {
   modelsFound: "моделей найдено",
   noMcpServers: "В проекте не настроены MCP-серверы.",
   providerAccountsHint:
-        "Статус provider-owned login из изолированных homes. Наличие CLI само по себе не означает готовый аккаунт.",
+        "Для входа и проверки статуса используется отдельный домашний каталог аккаунта провайдера. Учётные данные не переносятся в каталоги нативных проектов Workbench.",
   providerHint: "Видно наличие настройки, но значения учётных данных не покидают бэкенд.",
   providerTemplate: "Шаблон провайдера",
   chooseProviderTemplate: "Выберите проверенный шаблон…",

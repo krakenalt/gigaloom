@@ -468,6 +468,39 @@ export function EnvironmentCard({
   );
 }
 
+export function MobileEnvironmentDisclosure({
+  actions,
+  environment,
+  error,
+  locale,
+  pending,
+}: {
+  actions: ReturnType<typeof useEnvironmentActions>;
+  environment: EnvironmentView | undefined;
+  error: boolean;
+  locale: LocalePreference;
+  pending: boolean;
+}) {
+  return (
+    <details className="mobile-environment">
+      <summary>
+        <strong>{message(locale, "environment")}</strong>
+        <span>{environment?.status ?? "unavailable"}</span>
+      </summary>
+      <EnvironmentCard
+        className="mobile-environment-card"
+        commitAction={actions.commitAction}
+        environment={environment}
+        error={error}
+        locale={locale}
+        pending={pending}
+        pullRequestAction={actions.pullRequestAction}
+        pushAction={actions.pushAction}
+      />
+    </details>
+  );
+}
+
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }

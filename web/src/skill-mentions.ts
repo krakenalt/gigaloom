@@ -1,7 +1,9 @@
 import type { IntegrationFlowInventory } from "./remaining-request-graph";
 
 export interface SkillMention {
+  description: string;
   id: string;
+  kind: "plugin" | "skill";
   label: string;
   mention: string;
   nativeName: string;
@@ -26,7 +28,9 @@ export function skillMentionOptions(
   const candidates: SkillMention[] = [];
   for (const skill of inventory.root_skills ?? []) {
     candidates.push({
+      description: skill.description,
       id: skill.id,
+      kind: "skill",
       label: skill.name,
       mention: `@${skill.name}`,
       nativeName: skill.name,
@@ -39,7 +43,9 @@ export function skillMentionOptions(
       (skillName) => skillName.toLocaleLowerCase() === plugin.name.toLocaleLowerCase(),
     ) ?? plugin.bundled_skills[0] ?? plugin.name;
     candidates.push({
+      description: plugin.description,
       id: plugin.id,
+      kind: "plugin",
       label: plugin.title,
       mention: plugin.invocation,
       nativeName,
@@ -67,7 +73,7 @@ export function skillMentionOptions(
   }
   return [...deduplicated.values()]
     .sort((left, right) => left.label.localeCompare(right.label))
-    .slice(0, 12);
+    .slice(0, 24);
 }
 
 export function promptWithSkillMentions(

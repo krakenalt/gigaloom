@@ -6,6 +6,9 @@ import argparse
 
 from gigaloom.cli_commands.commands.route_advisor import add_run_binding_arguments
 from gigaloom.cli_commands.commands.headless import add_headless_run_arguments
+from gigaloom.cli_commands.commands.thread_relay import (
+    register as register_thread_relay,
+)
 from gigaloom.runtime.policy import ApprovalDecision
 from gigaloom.types import HarnessCapability
 
@@ -101,6 +104,8 @@ def register(
     session_approve.add_argument("--expires-in-seconds", type=float, default=None)
     session_approve.add_argument("--json", action="store_true")
     session_approve.set_defaults(handler="_handle_session_approve")
+
+    register_thread_relay(session_subparsers, common)
 
     runtime = subparsers.add_parser("runtime")
     runtime_subparsers = runtime.add_subparsers(dest="runtime_command")

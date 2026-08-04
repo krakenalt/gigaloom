@@ -67,6 +67,27 @@ ordered receipt. Прерванный запуск возобновляется 
 recovery остановите GigaLoom, проверьте archive и выполните
 `giga state restore <archive> --replace --json` до переустановки 0.6.
 
+## Обновление 0.8.1 до 0.9
+
+Остановите владельцев GigaLoom и создайте проверенный backup до изменения
+пакета. Данные 0.9 добавочны: существующие sessions не переписываются в Thread
+Relay records, старые attachment records читаются без charset evidence, старые
+клиенты Context Lens могут игнорировать новые поля, а `.giga` parsers остаются
+runtime source of truth. Route overlays не становятся default автоматически,
+provider-native homes не мигрируют.
+
+После обновления запустите `giga doctor`, откройте существующий project/session,
+проверьте preview старого attachment и Effective Instructions, затем выполните
+gateway `--dry-run` до managed sidecar. Храните pre-upgrade archive, пока эти
+проверки и required work journey не завершатся успешно.
+
+Для отката остановите GigaLoom и owned managed sidecar lease, отключите gateway
+profiles 0.9, установите 0.8.1 и восстанавливайте verified archive только через
+существующего state restore owner. Старый executable может игнорировать или
+карантинировать unknown additive records; не удаляйте immutable launch/delivery
+receipts и не переписывайте вручную SQLite/JSON state. Удаление `gpt2giga 0.3`
+явно отключает новые routes и не должно переназначать их на legacy gateway.
+
 ## Диагностика
 
 - Нет провайдера: установите нативный CLI и используйте его login/status.
@@ -75,6 +96,8 @@ recovery остановите GigaLoom, проверьте archive и выпол
 - Действие отклонено: проверьте scope; не обходите policy или approval.
 - Устарели browser assets: переустановите релизный пакет.
 - Нет optional gateway: проверьте extra `gpt2giga`; checkout исходников не нужен.
+- Gateway route заблокирован: проверьте точный compatibility/preflight reason;
+  не форсируйте другой protocol, provider, model или agent как fallback.
 
 ## Базовая линия качества
 

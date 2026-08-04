@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import sys
 from typing import TYPE_CHECKING, Any
 
@@ -40,6 +41,13 @@ def main(
             end="",
         )
         return 0
+    gateway_result = _run_gateway_selector(
+        arguments,
+        context=context,
+        registry=registry,
+    )
+    if gateway_result is not None:
+        return gateway_result
     if arguments[0].startswith("-"):
         return _run_core_command(arguments)
 
@@ -105,6 +113,65 @@ def _run_core_command(arguments: list[str]) -> int:
     from gigaloom.cli_commands.main import main as cli_main
 
     return cli_main(arguments)
+
+
+def _run_gateway_selector(
+    arguments: list[str],
+    *,
+    context: TerminalContext | None,
+    registry: AgentProfileRegistry | None,
+) -> int | None:
+    if not _has_gateway_selector(arguments):
+        return None
+    from gigaloom.cli_commands.gateway_launch import (
+        GatewayLaunchParseError,
+        parse_gateway_launch_argv,
+    )
+
+    try:
+        request = parse_gateway_launch_argv(arguments)
+    except GatewayLaunchParseError as error:
+        print(f"giga: gateway launch: {error.code.value}", file=sys.stderr)
+        return 2
+    if request is None:
+        return None
+
+    from gigaloom.config import HarnessConfig
+    from gigaloom.native.api import TerminalContext
+    from gigaloom.cli_commands.gateway_application import (
+        build_gateway_launch_application,
+    )
+    from gigaloom.native_cli_process import run_native_l1_handoff
+
+    profiles = registry or _default_registry()
+    terminal = context or TerminalContext.capture()
+
+    def launch(argv: tuple[str, ...], environment: Mapping[str, str]) -> int:
+        result = run_native_namespace(
+            argv,
+            registry=profiles,
+            environment=environment,
+            facade_executable=sys.argv[0],
+            runner=run_native_l1_handoff,
+            managed_runner=run_native_l1_handoff,
+            context=terminal,
+        )
+        return 2 if result is None else result
+
+    return build_gateway_launch_application(HarnessConfig.from_env()).run(
+        request,
+        native_launcher=launch,
+    )
+
+
+def _has_gateway_selector(arguments: list[str]) -> bool:
+    selectors = {"--route", "--with", "--model"}
+    for argument in arguments:
+        if not argument.startswith("-"):
+            return False
+        if argument.partition("=")[0] in selectors:
+            return True
+    return False
 
 
 def run_native_namespace(*args: Any, **kwargs: Any) -> Any:

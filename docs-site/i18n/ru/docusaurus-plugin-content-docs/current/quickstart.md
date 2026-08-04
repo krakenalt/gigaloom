@@ -42,9 +42,48 @@ loopback. В cockpit:
 Для provider-native terminal workflow используйте `giga <agent>`, а для
 governed browser Workbench — `giga ui`.
 
+## Путь work-first в 0.9
+
+Откройте `/web/work` и следуйте пути
+`Project -> Thread -> Run -> Evidence -> Action`. До отправки проверьте
+route/model support, workspace, read-only сводку Effective Instructions,
+authority mode и blockers. После отправки разберите причинную историю run и
+элементы Inbox, требующие действия.
+
+Проверьте ограниченную доставку Thread Relay без изменения цели и provider
+call:
+
+```sh
+giga session send THREAD_ID --text "review failing tests" --dry-run --json
+```
+
+Экспортируйте editor schema или локальный beta report с явным согласием:
+
+```sh
+giga schema agent
+giga evidence product-beta --project PROJECT_ID --output report.json
+```
+
+## Запуск через gpt2giga
+
+Установите optional extra и выберите reviewed route по удобному имени или
+immutable id:
+
+```sh
+uv tool install 'gigaloom[gpt2giga]==0.9.0'
+giga --with gpt2giga --model GigaChat-2-Max codex
+giga --route codex-gpt2giga-gigachat-2-max codex --help
+```
+
+Route Codex/GigaChat имеет статус technical preview. Unknown, stale, ambiguous
+или version-drifted evidence приводит к отказу до gateway/provider traffic и не
+переключает запуск на другой route.
+
 ## Дальше
 
 - [Справочник Harness](harness.md)
+- [Work, потоки и контекст](work-threads-and-context.md)
+- [Интеграция с gateway](gateway-integration.md)
 - [Agents и multi-agent поведение](agents-and-multi-agent.md)
 - [Операции](operations.md)
 - [Безопасность](security.md)

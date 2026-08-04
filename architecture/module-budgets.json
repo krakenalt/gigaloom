@@ -368,7 +368,7 @@
       },
       {
         "path": "native/codex.py",
-        "max_lines": 638,
+        "max_lines": 607,
         "owner": "providers-harnesses/architecture",
         "removal_gate": "native-hard-limit-fission",
         "reason": "Pre-existing executable module above the 600-line hard limit; growth is forbidden and reduction requires a focused structural slice."

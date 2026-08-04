@@ -141,12 +141,19 @@ def test_codex_cli_applies_fixed_agent_reasoning_config(tmp_path):
         home,
         HarnessRequest(
             prompt="inspect",
-            extra={"agent_adapter_options": {"reasoning_effort": "high"}},
+            extra={
+                "agent_adapter_options": {"reasoning_effort": "high"},
+                "developer_instructions": "Prefer concise Russian updates.",
+            },
         ),
         HarnessContext(proxy_url="http://127.0.0.1:8090"),
     )
 
-    assert 'model_reasoning_effort = "high"' in (home / "config.toml").read_text()
+    config = (home / "config.toml").read_text()
+    assert 'model_reasoning_effort = "high"' in config
+    assert 'developer_instructions = "Prefer concise Russian updates.\\n\\n' in config
+    assert '<async_agent_rules version=\\"1\\">' in config
+    assert "model_instructions_file" not in config
 
 
 def test_codex_cli_config_sends_uploaded_file_ids_as_provider_header(tmp_path):

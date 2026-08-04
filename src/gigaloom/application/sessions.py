@@ -21,7 +21,10 @@ from gigaloom.sessions.models import (
     HarnessStoredEvent,
 )
 from gigaloom.sessions.store import new_id, title_from_prompt, utc_now
-from gigaloom.settings import HarnessSettingsStore
+from gigaloom.settings import (
+    HarnessSettingsStore,
+    PersonalizationSettingsStore,
+)
 from gigaloom.workbench_execution import admit_workbench_execution
 
 
@@ -46,12 +49,16 @@ class SessionApplicationService:
         *,
         runner: HarnessSessionRunner,
         settings_store: HarnessSettingsStore,
+        personalization_store: PersonalizationSettingsStore | None = None,
         runtime_store: RuntimeCoordinationStore | None = None,
         dispatcher: DurableJobDispatcher | None = None,
     ) -> None:
         self.runner = runner
         self.store = runner.store
         self.settings_store = settings_store
+        self.personalization_store = personalization_store or (
+            PersonalizationSettingsStore(settings_store.path.parent.parent)
+        )
         self.runtime_store = runtime_store
         self.dispatcher = dispatcher
 
@@ -159,6 +166,10 @@ class SessionApplicationService:
             effective_payload.setdefault("invocation_mode", admission.invocation_mode)
         effective_payload["execution_transport"] = admission.transport.value
         extra = _mapping(payload.get("extra"))
+        if harness_id == "codex-cli":
+            personalization = self.personalization_store.load()
+            extra["developer_instructions"] = personalization.developer_instructions
+            extra["personalization_revision"] = personalization.revision
         extra["workbench_admission"] = admission.to_dict()
         if (
             bool(extra.get("generate_session_title"))

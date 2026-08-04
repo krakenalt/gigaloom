@@ -62,6 +62,7 @@ def test_session_application_service_completes_approval_and_event_vertical(tmp_p
     assert legacy_payload["invocation_mode"] == "provider-owned"
     assert legacy_payload["execution_transport"] == "one_shot"
     assert legacy_payload["stream"] is False
+    service.personalization_store.save("Prefer concise progress updates.")
 
     product_payload = service.prepare_turn_payload(
         {
@@ -73,6 +74,10 @@ def test_session_application_service_completes_approval_and_event_vertical(tmp_p
         }
     )
     assert product_payload["stream"] is True
+    assert product_payload["extra"]["developer_instructions"] == (
+        "Prefer concise progress updates."
+    )
+    assert len(product_payload["extra"]["personalization_revision"]) == 64
 
     session = service.create_session(
         {
@@ -142,8 +147,8 @@ class _StructuredNativeHarness(BaseHarness):
         return CliCapabilitySnapshot(
             harness_id="codex-cli",
             status="supported",
-            version="0.144.5",
-            parsed_version="0.144.5",
+            version="0.146.0",
+            parsed_version="0.146.0",
             command=("codex",),
             capabilities={
                 "--json": True,
@@ -154,8 +159,8 @@ class _StructuredNativeHarness(BaseHarness):
             event_schema="codex-exec-jsonl-v1",
             history_schema="codex-session-jsonl-v1",
             version_window_status="in_window",
-            minimum_version="0.144.0",
-            maximum_version_exclusive="0.145.0",
+            minimum_version="0.146.0",
+            maximum_version_exclusive="0.147.0",
         )
 
     def availability(self) -> Availability:
@@ -164,7 +169,7 @@ class _StructuredNativeHarness(BaseHarness):
     def durable_structured_capabilities(self) -> AdapterCapabilitySnapshot:
         return AdapterCapabilitySnapshot(
             adapter_id="codex-cli",
-            adapter_version="0.144.5",
+            adapter_version="0.146.0",
             protocol="codex-app-server-json-rpc-v2",
             protocol_version="2",
             structured_events=True,

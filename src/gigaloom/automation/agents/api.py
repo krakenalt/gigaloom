@@ -2,6 +2,7 @@
 
 from .constants import AGENT_DIRECTORY as AGENT_DIRECTORY
 from .constants import AGENT_ID_PATTERN as AGENT_ID_PATTERN
+from .constants import AGENT_SCHEMA_VERSION as AGENT_SCHEMA_VERSION
 from .constants import ALLOWED_MODES as ALLOWED_MODES
 from .constants import ALLOWED_WORKSPACE_POLICIES as ALLOWED_WORKSPACE_POLICIES
 from .models import AgentBudgets as AgentBudgets
@@ -27,6 +28,7 @@ from .profiles import render_starter_agent as render_starter_agent
 __all__ = [
     "AGENT_DIRECTORY",
     "AGENT_ID_PATTERN",
+    "AGENT_SCHEMA_VERSION",
     "ALLOWED_MODES",
     "ALLOWED_WORKSPACE_POLICIES",
     "AgentBudgets",

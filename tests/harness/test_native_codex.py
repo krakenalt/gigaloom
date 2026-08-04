@@ -218,6 +218,7 @@ def test_codex_native_start_command_uses_managed_home_and_redacts_key(
         capability=HarnessCapability.AGENT_CLI,
         mode="edit",
         workspace=str(workspace),
+        extra={"developer_instructions": "Use Russian for progress updates."},
     )
     context = HarnessContext(
         proxy_url="http://127.0.0.1:8090",
@@ -248,6 +249,10 @@ def test_codex_native_start_command_uses_managed_home_and_redacts_key(
     assert plan.env["GPT2GIGA_API_KEY"] == secret
     assert plan.env["CODEX_HOME"] == plan.native_home
     assert 'base_url = "http://127.0.0.1:8090/v2"' in config_text
+    assert 'developer_instructions = "Use Russian for progress updates.\\n\\n' in (
+        config_text
+    )
+    assert '<async_agent_rules version=\\"1\\">' in config_text
     assert "sk-native" not in config_text
     assert secret not in str(payload)
     assert REDACTED in str(payload)

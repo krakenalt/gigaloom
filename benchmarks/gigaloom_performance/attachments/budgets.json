@@ -1,0 +1,6 @@
+{
+  "schema_version": "gigaloom.attachment-utf8-budget.v1",
+  "workload_sha256": "1a9718d89e57a42693b1b0472236d241751277941c35b79da5964984e78fd846",
+  "maximum_live_p95_ms": 5.0,
+  "maximum_p95_regression_pct": 10.0
+}

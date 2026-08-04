@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -16,17 +16,14 @@ from gigaloom.attachments import FilesystemAttachmentStore
 from gigaloom.config import HarnessConfig
 from gigaloom.diagnostics.api import RecoveryReceiptService
 from gigaloom.environment_actions import (
-    EnvironmentCommitError,
     EnvironmentCommitService,
     GovernedEnvironmentCommitService,
 )
 from gigaloom.environment_pull_requests import (
-    EnvironmentPullRequestError,
     EnvironmentPullRequestService,
     GovernedEnvironmentPullRequestService,
 )
 from gigaloom.environment_push import (
-    EnvironmentPushError,
     EnvironmentPushService,
     GovernedEnvironmentPushService,
 )
@@ -85,7 +82,7 @@ from gigaloom.sessions import (
     HarnessSessionStore,
 )
 from gigaloom.sessions.event_stream import RunEventBroker
-from gigaloom.settings import HarnessSettingsStore
+from gigaloom.settings import HarnessSettingsStore, PersonalizationSettingsStore
 from gigaloom.skill_library import SkillLibraryService
 from gigaloom.trace_replay import TraceReplayService
 from gigaloom.ui.async_execution import AsyncExecutionDiagnostics
@@ -102,6 +99,12 @@ from gigaloom.ui.services.context_impact import (
     ImpactProjectionService,
 )
 from gigaloom.ui.services.credentials import CredentialOperatorService
+from gigaloom.ui.services.environment_actions import (
+    optional_commit_service,
+    optional_pull_request_service,
+    optional_push_service,
+)
+from gigaloom.ui.services.gateway_routes import GatewayRouteWebService
 from gigaloom.ui.services.legacy_bundles import (
     LegacyFullBundleCompatibility,
 )
@@ -111,6 +114,7 @@ from gigaloom.ui.services.operator_arena import ReviewedArenaOwner
 from gigaloom.ui.services.operator_terminal import TerminalBrowserOwner
 from gigaloom.ui.services.project_catalog import ProjectCatalogWebService
 from gigaloom.ui.services.route_advisor import RouteAdvisorWebService
+from gigaloom.ui.services.thread_relay import ThreadRelayComposition
 from gigaloom.ui.services.run_capsules import (
     OperatorEvidenceObservedInputsProvider,
     RunCapsuleEvidenceQuery,
@@ -168,6 +172,7 @@ class AppServices:
     workbench_backbone: WorkbenchBackbone
     workbench_resources: WorkbenchResourceService
     settings_store: HarnessSettingsStore
+    personalization_store: PersonalizationSettingsStore
     provider_settings_service: ProviderSettingsService
     native_login_broker: NativeLoginBroker
     integration_flow_service: IntegrationFlowService
@@ -192,6 +197,8 @@ class AppServices:
     agent_runtimes: AgentRuntimeWebBundle
     project_catalog_service: ProjectCatalogWebService
     route_advisor_service: RouteAdvisorWebService
+    gateway_route_service: GatewayRouteWebService
+    thread_relay: ThreadRelayComposition
     mcp_app_host_service: MCPAppHostService
     run_capsule_evidence_query: RunCapsuleEvidenceQuery
     reviewed_arena_owner: ReviewedArenaOwner | None = None
@@ -229,6 +236,7 @@ class AppServices:
             "harness_workbench_backbone": self.workbench_backbone,
             "harness_workbench_resources": self.workbench_resources,
             "harness_settings_store": self.settings_store,
+            "harness_personalization_store": self.personalization_store,
             "harness_provider_settings_service": self.provider_settings_service,
             "harness_native_login_broker": self.native_login_broker,
             "harness_integration_flow_service": self.integration_flow_service,
@@ -309,11 +317,18 @@ def build_app_services(
         session_store=session_store,
         runtime_store=runtime_store,
     )
+    gateway_route_service = GatewayRouteWebService.from_config(
+        config,
+        process_owner=native_process_manager,
+    )
+    if config.api_key is None and gateway_route_service.gateway_api_key is not None:
+        config = replace(config, api_key=gateway_route_service.gateway_api_key)
     attachment_store = FilesystemAttachmentStore(config.data_dir)
     arena_store = FilesystemHarnessArenaStore(config.data_dir)
     eval_store = FilesystemHarnessEvalStore(config.data_dir)
     memory_store = FilesystemProjectMemoryStore()
     settings_store = HarnessSettingsStore(config.data_dir, config)
+    personalization_store = PersonalizationSettingsStore(config.data_dir)
     provider_settings_service = provider_settings_service or ProviderSettingsService(
         config.data_dir
     )
@@ -335,13 +350,11 @@ def build_app_services(
     github_environment_service = (
         github_environment_service or GitHubEnvironmentService()
     )
-    environment_commit_service = _environment_commit_service(
+    environment_commit_service = optional_commit_service(
         config, environment_commit_service
     )
-    environment_push_service = _environment_push_service(
-        config, environment_push_service
-    )
-    environment_pull_request_service = _environment_pull_request_service(
+    environment_push_service = optional_push_service(config, environment_push_service)
+    environment_pull_request_service = optional_pull_request_service(
         config, environment_pull_request_service
     )
     grouped_integration_service = (
@@ -406,6 +419,7 @@ def build_app_services(
     session_service = SessionApplicationService(
         runner=runner,
         settings_store=settings_store,
+        personalization_store=personalization_store,
         runtime_store=runtime_store,
         dispatcher=dispatcher,
     )
@@ -450,6 +464,12 @@ def build_app_services(
     )
     visual_evidence_root = Path(config.data_dir) / "automation" / "visual-qa-v1"
     credential_broker = InMemoryCredentialBroker("gigaloom-fake-broker-v1")
+    thread_relay = ThreadRelayComposition(
+        session_store=session_store,
+        data_dir=str(config.data_dir),
+        turn_submitter=session_service,
+        runtime_store=runtime_store,
+    )
     return AppServices(
         config=config,
         ui_security=HarnessUISecurity(config, oidc_client=remote_oidc_client),
@@ -498,6 +518,7 @@ def build_app_services(
         workbench_backbone=workbench_backbone,
         workbench_resources=workbench_resources,
         settings_store=settings_store,
+        personalization_store=personalization_store,
         provider_settings_service=provider_settings_service,
         native_login_broker=native_login_broker,
         integration_flow_service=integration_flow_service,
@@ -557,44 +578,10 @@ def build_app_services(
         agent_runtimes=agent_runtimes,
         project_catalog_service=project_catalog_service,
         route_advisor_service=route_advisor_service,
+        gateway_route_service=gateway_route_service,
+        thread_relay=thread_relay,
         mcp_app_host_service=MCPAppHostService(),
         run_capsule_evidence_query=capsule_evidence_query,
         reviewed_arena_owner=reviewed_arena_owner,
         terminal_browser_owner=terminal_browser_owner,
     )
-
-
-def _environment_commit_service(
-    config: HarnessConfig,
-    service: EnvironmentCommitService | None,
-) -> EnvironmentCommitService | None:
-    if service is not None:
-        return service
-    try:
-        return EnvironmentCommitService(config.data_dir)
-    except EnvironmentCommitError:
-        return None
-
-
-def _environment_push_service(
-    config: HarnessConfig,
-    service: EnvironmentPushService | None,
-) -> EnvironmentPushService | None:
-    if service is not None:
-        return service
-    try:
-        return EnvironmentPushService(config.data_dir)
-    except EnvironmentPushError:
-        return None
-
-
-def _environment_pull_request_service(
-    config: HarnessConfig,
-    service: EnvironmentPullRequestService | None,
-) -> EnvironmentPullRequestService | None:
-    if service is not None:
-        return service
-    try:
-        return EnvironmentPullRequestService(config.data_dir)
-    except EnvironmentPullRequestError:
-        return None

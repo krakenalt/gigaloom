@@ -1,0 +1,201 @@
+{
+  "schema_version": "gigaloom.security-authority-matrix.v1",
+  "matrix_id": "gigaloom-0.9-wave-c",
+  "content_free": true,
+  "cases": [
+    {
+      "case_id": "attachments.binary_masquerade",
+      "expected": "deny",
+      "test_nodes": [
+        "tests/harness/test_attachment_encoding.py::test_rejects_binary_or_malformed_payload_without_replacement",
+        "tests/harness/test_attachment_encoding.py::test_rejects_image_archive_executable_and_nul_heavy_binaries"
+      ]
+    },
+    {
+      "case_id": "attachments.encoding_and_size_bounds",
+      "expected": "bound",
+      "test_nodes": [
+        "tests/harness/test_attachment_encoding.py::test_heuristics_are_bounded_to_the_declared_sample",
+        "tests/harness/test_attachments_store.py::test_upload_enforces_file_and_total_size_limits"
+      ]
+    },
+    {
+      "case_id": "gateway.alias_and_provider_model_binding",
+      "expected": "no_fallback",
+      "test_nodes": [
+        "tests/harness/test_gateway_route_discovery.py::test_alias_collision_and_provider_model_mismatch_fail_without_fallback"
+      ]
+    },
+    {
+      "case_id": "gateway.client_and_artifact_drift",
+      "expected": "fail_closed",
+      "test_nodes": [
+        "tests/harness/test_gateway_managed_sidecar.py::test_unverified_or_drifted_artifact_never_spawns",
+        "tests/harness/test_agent_gateway_launch_corpus.py::test_agent_pins_match_the_reviewed_native_contracts"
+      ]
+    },
+    {
+      "case_id": "gateway.credential_redaction",
+      "expected": "redact",
+      "test_nodes": [
+        "tests/harness/test_gateway_launch_contracts.py::test_launch_overlay_never_projects_plaintext_secret_like_values",
+        "tests/harness/test_gateway_managed_sidecar.py::test_exact_artifact_starts_on_existing_process_owner_and_writes_safe_config"
+      ]
+    },
+    {
+      "case_id": "gateway.external_identity_contract",
+      "expected": "fail_closed",
+      "test_nodes": [
+        "tests/harness/test_gateway_route_discovery.py::test_unknown_capability_schema_fails_closed_without_routes"
+      ]
+    },
+    {
+      "case_id": "gateway.hidden_fallback",
+      "expected": "no_fallback",
+      "test_nodes": [
+        "tests/harness/test_gateway_route_discovery.py::test_alias_collision_and_provider_model_mismatch_fail_without_fallback",
+        "tests/harness/test_agent_gateway_route_conformance.py::test_blocked_anthropic_upstream_stops_before_provider_traffic"
+      ]
+    },
+    {
+      "case_id": "gateway.sidecar_loss_and_restart",
+      "expected": "recover",
+      "test_nodes": [
+        "tests/harness/test_gateway_managed_sidecar.py::test_process_loss_is_visible_and_next_ensure_recovers_with_new_lease"
+      ]
+    },
+    {
+      "case_id": "gateway.stale_contract_digests",
+      "expected": "fail_closed",
+      "test_nodes": [
+        "tests/harness/test_gateway_agent_injection.py::test_stale_or_mismatched_preflight_never_materializes_overlay"
+      ]
+    },
+    {
+      "case_id": "gateway.transport_injection",
+      "expected": "deny",
+      "test_nodes": [
+        "tests/harness/test_gateway_launch_contracts.py::test_gateway_profile_rejects_secret_bearing_or_unbound_identity",
+        "tests/harness/test_gateway_route_discovery.py::test_machine_transport_rejects_header_key_injection"
+      ]
+    },
+    {
+      "case_id": "gateway.unsupported_semantics_before_network",
+      "expected": "deny",
+      "test_nodes": [
+        "tests/harness/test_agent_gateway_route_conformance.py::test_blocked_anthropic_upstream_stops_before_provider_traffic"
+      ]
+    },
+    {
+      "case_id": "gateway.vendor_home_isolation",
+      "expected": "deny",
+      "test_nodes": [
+        "tests/harness/test_gateway_agent_injection.py::test_codex_overlay_uses_responses_provider_in_isolated_codex_home",
+        "tests/harness/test_gateway_agent_injection.py::test_gemini_native_has_visible_blocked_reason_and_writes_nothing"
+      ]
+    },
+    {
+      "case_id": "instructions.no_cross_provider_injection",
+      "expected": "deny",
+      "test_nodes": [
+        "tests/harness/test_effective_instructions.py::test_cross_owner_overlap_is_visible_and_never_auto_merged"
+      ]
+    },
+    {
+      "case_id": "instructions.private_home_and_symlink_escape",
+      "expected": "deny",
+      "test_nodes": [
+        "tests/harness/test_project_instruction_discovery.py::test_rejects_symlinks_and_applies_file_and_source_bounds"
+      ]
+    },
+    {
+      "case_id": "instructions.stale_digest_uncertainty",
+      "expected": "fail_closed",
+      "test_nodes": [
+        "tests/harness/test_effective_instructions.py::test_stale_adapter_revision_fails_closed_with_visible_uncertainty"
+      ]
+    },
+    {
+      "case_id": "relay.attachment_omission_and_redaction",
+      "expected": "omit",
+      "test_nodes": [
+        "tests/harness/thread_relay/test_application_actions.py::test_actions_list_preview_deliver_and_report_without_content_echo"
+      ]
+    },
+    {
+      "case_id": "relay.cross_actor_and_project",
+      "expected": "deny",
+      "test_nodes": [
+        "tests/harness/thread_relay/test_contracts.py::test_envelope_denies_cross_scope_non_user_unbounded_and_ambiguous_actions",
+        "tests/harness/thread_relay/test_thread_relay_structured_sessions.py::test_delivery_rechecks_target_revision_and_scope_before_persistence"
+      ]
+    },
+    {
+      "case_id": "relay.depth_and_outstanding_children",
+      "expected": "bound",
+      "test_nodes": [
+        "tests/harness/thread_relay/test_contracts.py::test_envelope_denies_cross_scope_non_user_unbounded_and_ambiguous_actions",
+        "tests/harness/thread_relay/test_repository.py::test_reservation_checks_revision_ttl_and_outstanding_child_bound"
+      ]
+    },
+    {
+      "case_id": "relay.expired_envelope",
+      "expected": "deny",
+      "test_nodes": [
+        "tests/harness/thread_relay/test_repository.py::test_reservation_checks_revision_ttl_and_outstanding_child_bound"
+      ]
+    },
+    {
+      "case_id": "relay.failed_delivery_does_not_rewrite_target",
+      "expected": "fail_closed",
+      "test_nodes": [
+        "tests/harness/thread_relay/test_thread_relay_structured_sessions.py::test_steer_requires_exact_active_turn_and_records_provenance"
+      ]
+    },
+    {
+      "case_id": "relay.hidden_reasoning_and_raw_records",
+      "expected": "deny",
+      "test_nodes": [
+        "tests/harness/thread_relay/test_tools.py::test_surface_exposes_only_four_bounded_tools_without_scope_or_admin_inputs",
+        "tests/harness/thread_relay/test_thread_relay_structured_sessions.py::test_list_and_read_are_actor_project_bound_and_message_bounded"
+      ]
+    },
+    {
+      "case_id": "relay.idempotency_binding",
+      "expected": "fail_closed",
+      "test_nodes": [
+        "tests/harness/thread_relay/test_repository.py::test_reservation_is_restart_durable_and_idempotency_bound"
+      ]
+    },
+    {
+      "case_id": "relay.role_injection",
+      "expected": "deny",
+      "test_nodes": [
+        "tests/harness/thread_relay/test_contracts.py::test_envelope_denies_cross_scope_non_user_unbounded_and_ambiguous_actions",
+        "tests/harness/thread_relay/test_contracts.py::test_read_projection_bounds_content_cursor_order_and_redaction_facts"
+      ]
+    },
+    {
+      "case_id": "relay.stale_target_revision",
+      "expected": "deny",
+      "test_nodes": [
+        "tests/harness/thread_relay/test_thread_relay_structured_sessions.py::test_delivery_rechecks_target_revision_and_scope_before_persistence"
+      ]
+    },
+    {
+      "case_id": "relay.target_deleted_archived_or_cancelled",
+      "expected": "deny",
+      "test_nodes": [
+        "tests/harness/thread_relay/test_thread_relay_structured_sessions.py::test_archived_or_deleted_target_is_denied_before_delivery_persistence",
+        "tests/harness/thread_relay/test_thread_relay_structured_sessions.py::test_pending_cancellation_and_expiry_are_scope_bound"
+      ]
+    },
+    {
+      "case_id": "relay.wrong_active_turn",
+      "expected": "deny",
+      "test_nodes": [
+        "tests/harness/thread_relay/test_thread_relay_structured_sessions.py::test_steer_requires_exact_active_turn_and_records_provenance"
+      ]
+    }
+  ]
+}

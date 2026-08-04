@@ -6,6 +6,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Mapping
 
+from gigaloom.attachments.encoding import (
+    AttachmentCharsetEvidence,
+    charset_evidence_from_dict,
+    charset_evidence_to_dict,
+)
+
 
 class AttachmentKind(str, Enum):
     """Attachment categories understood by harness renderers."""
@@ -36,6 +42,7 @@ class HarnessAttachment:
     extracted_text_path: str | None = None
     created_at: str = ""
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    charset_evidence: AttachmentCharsetEvidence | None = None
 
 
 @dataclass(frozen=True)
@@ -52,7 +59,7 @@ class AttachmentRenderPlan:
 
 def attachment_to_dict(attachment: HarnessAttachment) -> dict[str, Any]:
     """Serialize an attachment for JSONL storage and API responses."""
-    return {
+    payload = {
         "id": attachment.id,
         "session_id": attachment.session_id,
         "project_id": attachment.project_id,
@@ -69,6 +76,11 @@ def attachment_to_dict(attachment: HarnessAttachment) -> dict[str, Any]:
         "created_at": attachment.created_at,
         "metadata": dict(attachment.metadata),
     }
+    if attachment.charset_evidence is not None:
+        payload["charset_evidence"] = charset_evidence_to_dict(
+            attachment.charset_evidence
+        )
+    return payload
 
 
 def attachment_from_dict(data: Mapping[str, Any]) -> HarnessAttachment:
@@ -89,6 +101,7 @@ def attachment_from_dict(data: Mapping[str, Any]) -> HarnessAttachment:
         extracted_text_path=_optional_text(data.get("extracted_text_path")),
         created_at=str(data.get("created_at") or ""),
         metadata=_mapping(data.get("metadata")),
+        charset_evidence=charset_evidence_from_dict(data.get("charset_evidence")),
     )
 
 

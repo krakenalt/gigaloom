@@ -5,7 +5,40 @@ All notable changes to GigaLoom are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.1] - Unreleased
+## [0.9.0] - Unreleased
+
+### Added
+
+- A work-first `Project -> Thread -> Run -> Evidence -> Action` browser journey
+  with Work, Inbox, Automations, Library, and responsive Environment surfaces.
+- Bounded Thread Relay list/read/preview/send/status contracts for GigaLoom,
+  pinned Codex app-server, and ACP threads, including CLI, HTTP, restricted tool,
+  UI, receipt, and local evidence surfaces.
+- Exact agent-to-`gpt2giga 0.3.0` route selection, managed/external sidecar
+  lifecycle, temporary launch overlays, and fail-closed Codex, Claude, Gemini,
+  and ACP compatibility admission.
+- Packaged `.giga` editor schemas, deterministic replacement-free attachment
+  decoding for Unicode and reviewed Russian legacy charsets, read-only Effective
+  Instructions, and explicit local content-free product beta reports.
+
+### Changed
+
+- Version identity is aligned at `0.9.0` across Python, npm, packaged Web assets,
+  release manifests, installation guidance, and product inventory.
+- Upgrade from 0.8.1 is additive: existing sessions are not rewritten, old
+  attachments remain readable, provider-native homes are untouched, and no
+  gateway route becomes the default automatically.
+
+### Security
+
+- Thread delivery now binds actor/project scope, target and active-turn
+  revisions, TTL, idempotency, depth, approval, and attachment omissions before
+  mutation; receipts remain content-digest-only.
+- Gateway launch rejects arbitrary URL/header/key injection, alias collisions,
+  stale or malformed compatibility evidence, version drift, native-home writes,
+  and hidden fallback before provider traffic.
+
+## [0.8.1] - 2026-08-03
 
 ### Fixed
 
@@ -15,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Direct navigation and reloads of `/web/coding-agents` are now admitted by the
   server-side SPA allowlist.
 
-## [0.8.0] - Unreleased
+## [0.8.0] - 2026-08-01
 
 ### Changed
 
@@ -345,6 +378,8 @@ considered stable.
 - **Diagnostics and documentation**: added `giga doctor`, inspect/config/session/native commands, an alpha quickstart, a migration guide, and documented first-release limitations.
 
 ---
+
+[0.9.0]: https://github.com/krakenalt/gigaloom/compare/v0.8.1...v0.9.0
 
 [0.8.1]: https://github.com/krakenalt/gigaloom/compare/v0.8.0...v0.8.1
 

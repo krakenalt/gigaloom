@@ -1,5 +1,17 @@
 """Attachment models and storage for the Unified Harness cockpit."""
 
+from gigaloom.attachments.encoding import (
+    AttachmentCharsetEvidence,
+    DecodedAttachmentText,
+    TextAttachmentDecodeError,
+    charset_evidence_for,
+    charset_evidence_from_dict,
+    charset_evidence_to_dict,
+    decode_attachment_text,
+    decode_attachment_text_prefix,
+    failed_charset_evidence,
+    truncate_utf8_text,
+)
 from gigaloom.attachments.limits import (
     AttachmentLimits,
     AttachmentValidationError,
@@ -30,15 +42,24 @@ from gigaloom.attachments.store import (
 
 __all__ = [
     "AttachmentKind",
+    "AttachmentCharsetEvidence",
     "AttachmentLimits",
     "AttachmentNotFoundError",
     "AttachmentRenderPlan",
     "AttachmentSessionNotFoundError",
     "AttachmentValidationError",
+    "DecodedAttachmentText",
     "FilesystemAttachmentStore",
     "HarnessAttachment",
+    "TextAttachmentDecodeError",
     "attachment_from_dict",
     "attachment_to_dict",
+    "charset_evidence_for",
+    "charset_evidence_from_dict",
+    "charset_evidence_to_dict",
+    "decode_attachment_text",
+    "decode_attachment_text_prefix",
+    "failed_charset_evidence",
     "limits_from_project_settings",
     "render_attachments_for_harness",
     "render_for_claude_code",
@@ -48,4 +69,5 @@ __all__ = [
     "render_for_gemini_cli",
     "render_plan_from_dict",
     "render_plan_to_dict",
+    "truncate_utf8_text",
 ]

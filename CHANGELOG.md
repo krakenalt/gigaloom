@@ -5,7 +5,41 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 и проект придерживается [Семантического версионирования](https://semver.org/lang/ru/).
 
-## [0.8.1] - Unreleased
+## [0.9.0] - Unreleased
+
+### Добавлено
+
+- Browser journey work-first `Project -> Thread -> Run -> Evidence -> Action` с
+  поверхностями Work, Inbox, Automations, Library и адаптивным Environment.
+- Ограниченные контракты Thread Relay list/read/preview/send/status для потоков
+  GigaLoom, pinned Codex app-server и ACP, включая CLI, HTTP, restricted tool,
+  UI, receipts и local evidence.
+- Точный выбор agent-to-`gpt2giga 0.3.0` route, managed/external sidecar
+  lifecycle, временные launch overlays и fail-closed admission совместимости
+  Codex, Claude, Gemini и ACP.
+- Packaged editor schemas `.giga`, детерминированное replacement-free
+  декодирование attachments для Unicode и проверенных русских legacy charsets,
+  read-only Effective Instructions и явные локальные content-free Product Beta
+  reports.
+
+### Изменено
+
+- Version identity выровнена на `0.9.0` в Python, npm, packaged Web assets,
+  release manifests, installation guidance и product inventory.
+- Обновление с 0.8.1 добавочно: существующие sessions не переписываются, старые
+  attachments остаются читаемыми, provider-native homes не изменяются и ни один
+  gateway route не становится default автоматически.
+
+### Безопасность
+
+- Thread delivery до mutation связывает actor/project scope, revisions цели и
+  active turn, TTL, idempotency, depth, approval и attachment omissions;
+  receipts содержат только content digest.
+- Gateway launch отклоняет arbitrary URL/header/key injection, alias collisions,
+  stale или malformed compatibility evidence, version drift, native-home writes
+  и hidden fallback до provider traffic.
+
+## [0.8.1] - 2026-08-03
 
 ### Исправлено
 
@@ -15,7 +49,7 @@
 - Прямое открытие и перезагрузка `/web/coding-agents` больше не отклоняются
   серверным allowlist SPA.
 
-## [0.8.0] - Unreleased
+## [0.8.0] - 2026-08-01
 
 ### Изменено
 
@@ -348,6 +382,8 @@
 - **Tools, MCP и policy**: добавлены общие tool/secret contracts, discovery и dry-run синхронизация MCP profiles, managed MCP configuration, preflight diagnostics и approval-gated действия.
 - **Диагностика и документация**: добавлены `giga doctor`, inspect/config/session/native команды, alpha quickstart, migration guide и описание ограничений первого релиза.
 ---
+
+[0.9.0]: https://github.com/krakenalt/gigaloom/compare/v0.8.1...v0.9.0
 
 [0.8.1]: https://github.com/krakenalt/gigaloom/compare/v0.8.0...v0.8.1
 

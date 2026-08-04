@@ -90,8 +90,8 @@ def test_content_free_inventory_matches_split_contracts_and_capture_digests():
 
 
 ROUTE_INPUTS = {
-    "codex-root-admitted": ("codex", (), "0.144.5", True, True),
-    "codex-resume-drift": ("codex", ("resume", "--last"), "0.145.0", True, True),
+    "codex-root-admitted": ("codex", (), "0.146.0", True, True),
+    "codex-resume-drift": ("codex", ("resume", "--last"), "0.147.0", True, True),
     "codex-unknown-absent": ("codex", ("--future-mode",), None, True, True),
     "codex-headless-unparsed": (
         "codex",
@@ -214,7 +214,7 @@ def test_frozen_route_evidence_is_deterministic_and_content_free():
 def test_every_managed_pattern_is_affirmative_and_deterministic(
     namespace, suffix, pattern_id, level
 ):
-    versions = {"codex": "0.144.5", "claude": "2.1.212", "gemini": "0.46.0"}
+    versions = {"codex": "0.146.0", "claude": "2.1.212", "gemini": "0.46.0"}
 
     first = classify_native_route(namespace, suffix, version=versions[namespace])
     second = classify_native_route(namespace, suffix, version=versions[namespace])
@@ -224,7 +224,7 @@ def test_every_managed_pattern_is_affirmative_and_deterministic(
     assert first.level is level
 
 
-@pytest.mark.parametrize("version", [None, "nightly", "0.143.9", "0.145.0"])
+@pytest.mark.parametrize("version", [None, "nightly", "0.145.9", "0.147.0"])
 def test_l0_machine_and_unknown_routes_do_not_require_version_admission(version):
     headless = classify_native_route(
         "codex", ("exec", "--json", "fixture-input"), version=version
@@ -243,9 +243,9 @@ def test_l0_machine_and_unknown_routes_do_not_require_version_admission(version)
     [
         (None, VersionEvidenceStatus.ABSENT),
         ("nightly", VersionEvidenceStatus.UNPARSED),
-        ("0.143.9", VersionEvidenceStatus.BELOW_WINDOW),
-        ("0.144.5", VersionEvidenceStatus.IN_WINDOW),
-        ("0.145.0", VersionEvidenceStatus.ABOVE_WINDOW),
+        ("0.145.9", VersionEvidenceStatus.BELOW_WINDOW),
+        ("0.146.0", VersionEvidenceStatus.IN_WINDOW),
+        ("0.147.0", VersionEvidenceStatus.ABOVE_WINDOW),
     ],
 )
 def test_version_window_gates_only_structured_workbench(version, expected):
@@ -267,14 +267,14 @@ def test_unknown_namespace_nul_and_lossy_human_shapes_fail_safe_to_l0():
         classify_native_route("codex", ("bad\x00token",))
 
     lossy = classify_native_route(
-        "codex", ("resume", "--last", "--future-mode"), version="0.144.5"
+        "codex", ("resume", "--last", "--future-mode"), version="0.146.0"
     )
     assert lossy.level is CapabilityLevel.NATIVE_PASSTHROUGH
     assert lossy.command_class is NativeCommandClass.UNKNOWN_NATIVE
 
 
 def test_existing_adapter_windows_are_reused_without_coupling_l0():
-    fixture_versions = {"codex": "0.144", "claude": "2.1", "gemini": "0.46"}
+    fixture_versions = {"codex": "0.146", "claude": "2.1", "gemini": "0.46"}
 
     for namespace, integration in WORKBENCH_INTEGRATION_SPECS.items():
         legacy = CLI_PROBE_CONTRACTS[integration.harness_id]
@@ -340,7 +340,7 @@ def test_contextual_capabilities_require_all_context_axes():
     integration = WORKBENCH_INTEGRATION_SPECS["codex"]
     capability = integration.capabilities[0]
     admitted = CapabilityContext(
-        version="0.144.5",
+        version="0.146.0",
         transport="app-server",
         process_owner="harness",
         session_generation=1,
@@ -351,14 +351,14 @@ def test_contextual_capabilities_require_all_context_axes():
         CapabilityState.READY
     )
     drifted = CapabilityContext(
-        version="0.145.0",
+        version="0.147.0",
         transport="app-server",
         process_owner="harness",
         session_generation=1,
         policy_allows=True,
     )
     denied = CapabilityContext(
-        version="0.144.5",
+        version="0.146.0",
         transport="app-server",
         process_owner="harness",
         session_generation=1,

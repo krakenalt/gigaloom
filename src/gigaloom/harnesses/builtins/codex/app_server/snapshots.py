@@ -47,6 +47,7 @@ def build_execution_snapshot(
         "managed_home_id": managed_home_id,
         "tool_snapshot_id": managed_mcp.get("snapshot_id"),
         "tool_snapshot_hash": managed_mcp.get("snapshot_hash"),
+        "personalization_revision": request.extra.get("personalization_revision"),
     }
     return {**content, "snapshot_hash": _json_hash(content)}
 

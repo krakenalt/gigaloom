@@ -1,0 +1,22 @@
+id: schema-fixture
+title: Schema Fixture
+target:
+  kind: agent
+  id: schema-fixture
+cadence:
+  kind: once
+  timezone: UTC
+  start_at: "2030-01-01T00:00:00"
+prompt: Run the schema fixture.
+inputs:
+  bounded: true
+destination: new_task
+workspace_policy: worktree
+timeout_seconds: 300
+max_attempts: 2
+overlap_policy: skip
+max_concurrency: 1
+misfire_policy: skip
+misfire_grace_seconds: 60
+notifications:
+  desktop: false

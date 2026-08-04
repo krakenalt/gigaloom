@@ -20,12 +20,15 @@ export const requestKeys = {
   models: (apiMode: string) => [...rootKey, "models", apiMode] as const,
   settings: () => [...rootKey, "settings"] as const,
   providers: () => [...rootKey, "providers"] as const,
+  gatewayRoutes: () => [...rootKey, "gateway-routes"] as const,
   providerAccounts: () => [...rootKey, "provider-accounts"] as const,
   runsCenter: () => [...rootKey, "runs-center"] as const,
   approvals: () => [...rootKey, "approvals"] as const,
   attention: () => [...rootKey, "attention"] as const,
   environment: (sessionId: string) =>
     [...requestKeys.sessionScope(sessionId), "environment"] as const,
+  effectiveInstructions: (workspace: string) =>
+    [...rootKey, "effective-instructions", workspace] as const,
   runScope: (runId: string) => [...rootKey, "run", runId] as const,
   runOverview: (runId: string) =>
     [...requestKeys.runScope(runId), "overview"] as const,
@@ -43,6 +46,49 @@ export const requestKeys = {
     [...rootKey, "operator-inbox", workspaceId] as const,
   operatorInbox: (workspaceId: string, kindFilter: string) =>
     [...requestKeys.operatorInboxScope(workspaceId), kindFilter] as const,
+  threadLibraryScope: (projectId: string) =>
+    [...rootKey, "thread-library", projectId] as const,
+  threadLibrary: (projectId: string, source: string, revision: string) =>
+    [
+      ...requestKeys.threadLibraryScope(projectId),
+      "threads",
+      source,
+      revision,
+    ] as const,
+  threadRead: (
+    projectId: string,
+    source: string,
+    threadId: string,
+    revision: string,
+  ) =>
+    [
+      ...requestKeys.threadLibraryScope(projectId),
+      "thread",
+      source,
+      threadId,
+      revision,
+    ] as const,
+  threadDelivery: (projectId: string, deliveryId: string) =>
+    [
+      ...requestKeys.threadLibraryScope(projectId),
+      "delivery",
+      deliveryId,
+    ] as const,
+  threadDeliveries: (
+    projectId: string,
+    source: string,
+    threadId: string,
+    direction: string,
+    revision: string,
+  ) =>
+    [
+      ...requestKeys.threadLibraryScope(projectId),
+      "deliveries",
+      source,
+      threadId,
+      direction,
+      revision,
+    ] as const,
   operatorTerminal: (
     terminalId: string,
     workspaceId: string,

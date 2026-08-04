@@ -3,7 +3,7 @@ import pytest
 from gigaloom.execution import ExecutionTransport
 from gigaloom.product_capabilities import ProductCapabilityError
 from gigaloom.structured_sessions import AdapterCapabilitySnapshot
-from gigaloom.types import HarnessCapability, HarnessSpec
+from gigaloom.types import Availability, HarnessCapability, HarnessSpec
 from gigaloom.workbench_execution import (
     admit_workbench_execution,
     default_workbench_transport,
@@ -71,6 +71,11 @@ class _StructuredHarness(_Harness):
 
     def run_durable_structured(self, request, context):
         raise AssertionError("projection must not execute the driver")
+
+
+class _UnavailableHarness(_Harness):
+    def availability(self) -> Availability:
+        return Availability.missing("fixture executable is unavailable")
 
 
 def test_provider_agents_default_structured_without_silent_fallback():
@@ -209,6 +214,27 @@ def test_product_request_exposes_one_shot_fallback_and_read_only_limit():
         "change_intent_limited_by_read_only_authority",
         "admitted_provider_path:claude_provider_owned_one_shot",
     }
+
+
+def test_product_request_blocks_when_structured_and_one_shot_are_unavailable():
+    harness = _UnavailableHarness("codex-cli")
+
+    projection = workbench_transport_projection(harness)
+    one_shot = next(item for item in projection["options"] if item["id"] == "one_shot")
+    admission = admit_workbench_execution(
+        harness,
+        {
+            "workbench_kind": "coding_agent",
+            "task_intent": "change",
+            "authority": "workspace_write",
+        },
+    )
+
+    assert one_shot["status"] == "blocked"
+    assert one_shot["blocker"] == "harness_unavailable"
+    assert admission.status.value == "blocked"
+    assert admission.to_dict()["diagnostics"]["fallback"] is None
+    assert "harness_unavailable" in admission.why
 
 
 def test_direct_chat_rejects_impossible_transport_and_projects_product_mode():

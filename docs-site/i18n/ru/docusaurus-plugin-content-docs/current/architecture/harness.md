@@ -11,6 +11,22 @@ OpenAI-, Anthropic- или Gemini-совместимый контракт шлю
 маршруты по умолчанию обслуживает `giga ui` на `127.0.0.1:8091`, а совместимые
 с модельными API маршруты отдельно обслуживает `gpt2giga` на порту `8090`.
 
+## Границы композиции 0.9
+
+Work проецирует существующих владельцев в
+`Project -> Thread -> Run -> Evidence -> Action`; Inbox, Automations, Library и
+More остаются навигацией по тем же stores. Thread Relay добавляет bounded,
+actor/project-scoped чтение и доставку для потоков GigaLoom, pinned Codex
+app-server и ACP. Он не владеет вторым transcript, переносом hidden state или
+автономной сетью агентов.
+
+Effective Instructions — read-only projection Context Manifest/Lens. Декодер
+attachments добавляет content-free charset evidence без перезаписи source
+bytes. Gateway launch overlay связывает один immutable route и managed
+temporary home с существующим process owner. Локальные beta reports выводятся
+только из существующего durable evidence. Эти дополнения можно отключить
+независимо; они не переписывают sessions 0.8.1 или provider-native homes.
+
 ## Системный контекст
 
 ```mermaid
@@ -60,6 +76,8 @@ flowchart LR
 | `runtime/` | Durable jobs, attempts, leases, workers, retries, cancellation, approvals | Отделяет отправленную задачу от HTTP-запроса браузера, который её создал. |
 | `native/` | Обнаружение native history и жизненный цикл принадлежащих Harness PTY-процессов | Сохраняет продолжение native CLI-сессий, не изменяя пользовательские vendor homes. |
 | `attachments/`, `generated_files.py` | Загруженные файлы, ссылки на workspace и сгенерированные файлы | Передаёт адаптерам ограниченные типизированные файлы и безопасные preview. |
+| `execution/thread_relay/` | Actor/project-bound thread projections, previews и delivery | Добавляет ограниченное cross-thread действие без дублирования transcript ownership. |
+| `cli_commands/gateway_*`, `native/launch/` | Exact route resolution, compatibility admission, managed overlay | Запускает reviewed gateway routes через существующие process и native-home boundaries. |
 | `project.py`, `project_memory.py`, `workspace.py` | Идентичность проекта, конфигурация `.giga/`, memory, ограниченное чтение файлов | Отделяет переиспользуемые определения проекта от локальной runtime-истории машины. |
 | `worktrees.py`, `pr_artifacts.py`, `promotions.py` | Изолированные изменения, patch/branch-артефакты, перенос результата в project YAML | Делает изменения проверяемыми и останавливает их при неполных проверках. |
 | `tools/`, `mcp.py`, `managed_mcp.py` | Tool profiles, разрешение секретов, MCP discovery, managed CLI config | Подключает инструменты без записи секретов в публичные записи или vendor homes. |
@@ -167,7 +185,7 @@ UI по умолчанию слушает только loopback. Первый OS
 rotation, recovery, same-origin checks и CSRF marker сохраняют opaque
 server-side browser-session boundary без локального `.env` token. `/healthz`
 намеренно минимален и не требует аутентификации. Remote bind допускает только
-реализованный [single-issuer OIDC/BFF контракт](remote-ui-identity-adr.md) с
+реализованный [контракт OIDC/BFF с одним издателем](remote-user-identity.md) с
 полной статической конфигурацией и явным CLI opt-in. Legacy bootstrap token,
 Host allowlist и retired bearer exchange не аутентифицируют remote users.
 Секреты и скрытые reasoning-данные удаляются до сохранения и повторно перед
