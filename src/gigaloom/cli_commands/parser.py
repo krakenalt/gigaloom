@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 
 from gigaloom import __version__
+from gigaloom.cli_commands.core_commands import CORE_COMMANDS
 from gigaloom.cli_commands.commands import (
     automation,
     agent_runtimes,
@@ -72,4 +73,7 @@ def build_parser() -> argparse.ArgumentParser:
     route_advisor.register(subparsers, common)
     capsules.register(subparsers)
     product_evidence.register(subparsers, common)
+    registered = tuple(subparsers.choices)
+    if registered != CORE_COMMANDS:
+        raise RuntimeError("root CLI parser does not match the core command registry")
     return parser
