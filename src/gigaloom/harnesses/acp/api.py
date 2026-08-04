@@ -26,6 +26,15 @@ from gigaloom.harnesses.acp.permissions import (
     respond_permission,
 )
 from gigaloom.harnesses.acp.process import pin_acp_process
+from gigaloom.harnesses.acp.provider_bridge import (
+    AcpProviderAdapterSpec,
+    AcpProviderBridgeResolution,
+    AcpProviderBridgeStatus,
+    AcpProviderBridgeStrategy,
+    AcpProviderLaunchOverlay,
+    build_provider_launch_overlay,
+    resolve_provider_bridge,
+)
 from gigaloom.harnesses.acp.providers import (
     AcpProviderV1,
     configure_provider,
@@ -57,6 +66,11 @@ __all__ = [
     "AcpClientInfo",
     "AcpLimits",
     "AcpProcessSpec",
+    "AcpProviderAdapterSpec",
+    "AcpProviderBridgeResolution",
+    "AcpProviderBridgeStatus",
+    "AcpProviderBridgeStrategy",
+    "AcpProviderLaunchOverlay",
     "AcpProviderV1",
     "AcpProbeReceiptV1",
     "AcpPromptHandle",
@@ -68,6 +82,7 @@ __all__ = [
     "AcpPermissionRequestV1",
     "authenticate",
     "begin_prompt",
+    "build_provider_launch_overlay",
     "cancel_session",
     "close_session",
     "configure_provider",
@@ -82,6 +97,7 @@ __all__ = [
     "next_permission",
     "pin_acp_process",
     "respond_permission",
+    "resolve_provider_bridge",
     "resume_session",
     "run_non_persisting_probe",
     "set_session_config",
