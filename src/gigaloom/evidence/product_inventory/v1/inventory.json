@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "db43252e768b9d35b131a3fefd0b75305b089cb8ca6a86cd04b95d61d1935814",
+  "content_sha256": "9166b8f762f6db1b4e8a6c6d09dd9fb2f90daa49e0816ecb3030e8423db485df",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -868,19 +868,19 @@
     },
     {
       "id": "provider-authentication-en",
-      "path": "docs/architecture/provider-authentication-capability-matrix.md"
+      "path": "docs/architecture/provider-authentication.md"
     },
     {
       "id": "provider-authentication-ru",
-      "path": "docs-site/i18n/ru/docusaurus-plugin-content-docs/current/architecture/provider-authentication-capability-matrix.md"
+      "path": "docs-site/i18n/ru/docusaurus-plugin-content-docs/current/architecture/provider-authentication.md"
     },
     {
       "id": "product-capability-admission-en",
-      "path": "docs/architecture/product-capability-admission-adr.md"
+      "path": "docs/architecture/capability-admission.md"
     },
     {
       "id": "product-capability-admission-ru",
-      "path": "docs-site/i18n/ru/docusaurus-plugin-content-docs/current/architecture/product-capability-admission-adr.md"
+      "path": "docs-site/i18n/ru/docusaurus-plugin-content-docs/current/architecture/capability-admission.md"
     }
   ],
   "entry_points": [

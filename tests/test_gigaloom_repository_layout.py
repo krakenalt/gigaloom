@@ -1,6 +1,7 @@
 """Standalone repository layout contracts owned by krakenalt/gigaloom."""
 
 from pathlib import Path
+import subprocess
 import tomllib
 
 REPOSITORY_OWNER = "krakenalt/gigaloom"
@@ -17,6 +18,20 @@ def test_gigaloom_is_a_root_level_project():
     assert (REPOSITORY_ROOT / "src/gigaloom").is_dir()
     assert (REPOSITORY_ROOT / "web").is_dir()
     assert not (REPOSITORY_ROOT / "packages/gpt2giga").exists()
+
+
+def test_internal_coordination_documents_are_ignored_and_untracked():
+    ignored = (REPOSITORY_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    tracked = subprocess.run(
+        ("git", "ls-files", "--", "docs/internal"),
+        cwd=REPOSITORY_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "docs/internal/" in ignored
+    assert tracked.stdout == ""
 
 
 def test_standalone_metadata_has_stable_gateway_range_and_committed_lock():

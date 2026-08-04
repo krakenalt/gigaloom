@@ -162,10 +162,7 @@ def test_provider_authentication_markdown_matches_published_architecture_doc():
     assert "embedded login broker" in rendered
     assert "Gemini CLI OAuth may not be harvested" in rendered
     assert (
-        REPOSITORY_ROOT
-        / "docs"
-        / "architecture"
-        / "provider-authentication-capability-matrix.md"
+        REPOSITORY_ROOT / "docs" / "architecture" / "provider-authentication.md"
     ).read_text(encoding="utf-8") == rendered
 
 

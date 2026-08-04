@@ -19,6 +19,9 @@ import pytest
 from gigaloom.cli_commands.gateway_application import (
     build_gateway_launch_application,
 )
+from gigaloom.cli_commands.gateway_compatibility import (
+    GatewayAgentCompatibilityDecisionV1,
+)
 from gigaloom.cli_commands.gateway_launch import parse_gateway_launch_argv
 from gigaloom.config import HarnessConfig
 
@@ -30,6 +33,20 @@ HANDOFF = json.loads(
     )
 )
 MODEL = "GigaChat-2-Max"
+
+
+def _ready_codex_compatibility(
+    agent_id: str,
+) -> GatewayAgentCompatibilityDecisionV1:
+    assert agent_id == "codex"
+    return GatewayAgentCompatibilityDecisionV1(
+        agent_id=agent_id,
+        harness_id="codex-cli",
+        status="ready",
+        reason_id="gateway_agent_compatibility_admitted",
+        expected_version_window="==0.146.0",
+        observed_version="0.146.0",
+    )
 
 
 def test_locked_registry_artifact_matches_the_0_3_handoff() -> None:
@@ -340,6 +357,9 @@ def test_gigaloom_one_command_composes_public_gateway_to_native_handoff(
     # The exact startup contract is covered above. This fake upstream changes
     # the otherwise-frozen profile revision solely to keep the E2E hermetic.
     application.startup_inspector = None
+    # Installed-agent admission has separate contract tests. Keep this
+    # composition test independent of the host runner's Codex installation.
+    application.compatibility_resolver = _ready_codex_compatibility
     request = parse_gateway_launch_argv(
         ["--with", "gpt2giga", "--model", MODEL, "codex", "--help"]
     )

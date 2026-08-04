@@ -80,7 +80,7 @@ See [Installation](./docs/installation.md) and
 | Product overview | [Documentation home](./docs/index.md) |
 | Installation, upgrades, and first run | [Installation](./docs/installation.md) · [Quickstart](./docs/quickstart.md) |
 | Work, Thread Relay, schemas, and context | [Work, threads, and context](./docs/work-threads-and-context.md) |
-| Architecture and safety boundaries | [Architecture](./docs/architecture.md) · [Durability and performance](./docs/architecture/durability-performance-contracts.md) · [Security](./docs/security.md) |
+| Architecture and safety boundaries | [Architecture](./docs/architecture.md) · [Reliability and performance](./docs/architecture/reliability-and-performance.md) · [Security](./docs/security.md) |
 | Runtime, backup, and troubleshooting | [Operations](./docs/operations.md) |
 | Optional gpt2giga gateway | [Gateway integration](./docs/gateway-integration.md) |
 | npm Web assets | [Web package](./web/README.md) |

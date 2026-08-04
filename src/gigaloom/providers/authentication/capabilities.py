@@ -132,12 +132,9 @@ def render_provider_authentication_capability_matrix_markdown(
     """Render the reviewed matrix as a stable public architecture document."""
     providers = list(matrix.get("providers", ()))
     lines = [
-        "# Provider-owned authentication capability matrix",
+        "# Provider authentication capabilities",
         "",
-        (
-            "Status: accepted as the GigaLoom provider authentication matrix on "
-            f"{matrix.get('reviewed_at', 'unknown')}."
-        ),
+        f"Status: accepted on {matrix.get('reviewed_at', 'unknown')}.",
         "",
         (
             "> Generated from packaged schema-v1 primary-source evidence. "

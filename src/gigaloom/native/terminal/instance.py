@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import stat
 import subprocess
+import time
 from typing import TYPE_CHECKING
 
 from gigaloom.native.terminal.contracts import (
@@ -46,6 +47,8 @@ DEFAULT_CAPTURE_LINES = 1000
 MAX_CAPTURE_LINES = 2000
 MAX_CAPTURE_BYTES = 1024 * 1024
 MAX_ATTACHED_CLIENTS = 1000
+MAX_LAUNCH_OBSERVATION_ATTEMPTS = 32
+MAX_LAUNCH_OBSERVATION_SECONDS = 0.5
 _LIVENESS_PATTERN = re.compile(rb"([01])\t(-?[0-9]*)\t([0-9]+)\n?")
 _SCREEN_PATTERN = re.compile(rb"([01])\t([0-9]+)\t([0-9]+)\t([0-9]+)\t([0-9]+)\n?")
 
@@ -210,7 +213,7 @@ class TmuxTerminalKernel:
         if result.returncode != 0:
             self._best_effort_close(paths)
             raise TmuxInstanceError("private tmux launch failed")
-        observed = self.liveness(record.id)
+        observed = self._observe_launch_liveness(record.id)
         if observed.kind not in {
             TerminalLivenessKind.LIVE,
             TerminalLivenessKind.EXITED,
@@ -218,6 +221,26 @@ class TmuxTerminalKernel:
             self._best_effort_close(paths)
             raise TmuxInstanceError("private tmux launch is not observable")
         return observed.terminal_state
+
+    def _observe_launch_liveness(self, terminal_id: str) -> TerminalLiveness:
+        deadline = time.monotonic() + min(
+            self.timeout_seconds,
+            MAX_LAUNCH_OBSERVATION_SECONDS,
+        )
+        observed = self.liveness(terminal_id)
+        for _ in range(MAX_LAUNCH_OBSERVATION_ATTEMPTS - 1):
+            settled = observed.kind is TerminalLivenessKind.LIVE or (
+                observed.kind is TerminalLivenessKind.EXITED
+                and observed.exit_status is not None
+            )
+            if settled:
+                break
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(0.01, remaining))
+            observed = self.liveness(terminal_id)
+        return observed
 
     def liveness(self, terminal_id: str) -> TerminalLiveness:
         """Inspect the retained pane and distinguish live, dead, and missing."""
