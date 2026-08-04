@@ -1,0 +1,161 @@
+{
+  "schema_version": "gigaloom.agent-gateway-launch-corpus.v1",
+  "corpus_id": "gpt2giga-0.3.0-agent-gateway-launch",
+  "content_free": true,
+  "artifact": {
+    "distribution": "gpt2giga",
+    "version": "0.3.0",
+    "git_sha": "197ef424f65f5165967d325deb075988a1bed141",
+    "wheel": "gpt2giga-0.3.0-py3-none-any.whl",
+    "wheel_sha256": "8156aa7b624d619fb657bb1c6530e9e65e74da31324291ff6f156112b325483f",
+    "sdist": "gpt2giga-0.3.0.tar.gz",
+    "sdist_sha256": "b43a7240ca70e59d25fa98d4e094ef54e3f5846fdd81c3ec5181e4b6ba20093e",
+    "requires_python": "<3.15,<4,>=3.10",
+    "version_window": ">=0.3.0,<0.4.0",
+    "entry_point": "gpt2giga:run"
+  },
+  "contracts": {
+    "inspect_schema": "gpt2giga.inspect.v1",
+    "provider_profile_schema": "gpt2giga.provider-profiles.v2",
+    "startup_config_revision": "sha256:01332070f29b6b30b799ccfe65d9435d137984467cd9607b0ce83a373c5ecd1f",
+    "readiness_schema": "gpt2giga.readiness.v1",
+    "models_schema": "openai.models.v1",
+    "route_support_matrix_schema": "gpt2giga.route-support-matrix.v1",
+    "loss_matrix_revision": "sha256:3cad19e6f7b531e50a0eb4c88af308aee5be81f3a4c085f89ebc2e06f92ffa69",
+    "effective_capabilities_schema": "gpt2giga.effective-capabilities.v1",
+    "hermetic_capability_revision": "sha256:16fc5d3cf3d39e782372d3f29c9ef3ea4e0f23e29ff3c9d21be63f4031992df1"
+  },
+  "cases": [
+    {
+      "case_id": "codex-responses-gigachat",
+      "agent_id": "codex",
+      "harness_id": "codex-cli",
+      "agent_version_window": "==0.146.0",
+      "gateway_client_version_window": "codex-cli==0.146.0;openai-python==2.50.0",
+      "selection": [
+        "--with",
+        "gpt2giga",
+        "--model",
+        "GigaChat-2-Max",
+        "codex"
+      ],
+      "route_id": "codex-gpt2giga-gigachat-2-max",
+      "client_protocol": "openai_responses",
+      "public_model_alias": "GigaChat-2-Max",
+      "upstream_provider": "gigachat",
+      "gateway_support_status": "technical_preview",
+      "effective_support_status": "technical_preview",
+      "reason_ids": [
+        "normalized_responses_parity_incomplete"
+      ],
+      "evidence_ids": [
+        "COR-01-CODEX-RESPONSES-2026-08-03"
+      ],
+      "expected_adapter": {
+        "wire_api": "responses",
+        "base_path": "/v2",
+        "environment_names": [
+          "CODEX_HOME",
+          "GPT2GIGA_API_KEY"
+        ],
+        "mutates_native_home": false
+      }
+    },
+    {
+      "case_id": "claude-anthropic-gigachat",
+      "agent_id": "claude",
+      "harness_id": "claude-code",
+      "agent_version_window": ">=2.1.0,<2.2.0",
+      "pinned_agent_version": "2.1.212",
+      "selection": [
+        "--with",
+        "gpt2giga",
+        "--model",
+        "GigaChat-2-Max",
+        "claude"
+      ],
+      "route_id": "claude-gpt2giga-gigachat-2-max",
+      "client_protocol": "anthropic_messages",
+      "public_model_alias": "GigaChat-2-Max",
+      "upstream_provider": "gigachat",
+      "gateway_support_status": "technical_preview",
+      "effective_support_status": "vendor_unsupported",
+      "required_acknowledgement": "acknowledge_vendor_unsupported",
+      "expected_adapter": {
+        "base_path": "/v1",
+        "environment_names": [
+          "ANTHROPIC_AUTH_TOKEN",
+          "ANTHROPIC_BASE_URL",
+          "CLAUDE_CONFIG_DIR"
+        ],
+        "native_arguments": [
+          "--model",
+          "GigaChat-2-Max"
+        ],
+        "mutates_native_home": false
+      }
+    },
+    {
+      "case_id": "managed-acp-model-selector",
+      "agent_id": "managed-acp-agent",
+      "harness_id": "acp",
+      "protocol_version": "1",
+      "selection": [
+        "--with",
+        "gpt2giga",
+        "--model",
+        "GigaChat-2-Max",
+        "managed-acp-agent"
+      ],
+      "route_id": "managed-acp-agent-gpt2giga-gigachat-2-max",
+      "client_protocol": "acp",
+      "public_model_alias": "GigaChat-2-Max",
+      "upstream_provider": "gigachat",
+      "gateway_support_status": "technical_preview",
+      "effective_support_status": "technical_preview",
+      "expected_adapter": {
+        "advertised_selector_categories": [
+          "model",
+          "model_config",
+          "thought_level"
+        ],
+        "selected_config_id": "model",
+        "session_actions": [
+          "session/new",
+          "session/set_config_option",
+          "session/prompt",
+          "session/list"
+        ],
+        "mutates_native_home": false
+      }
+    },
+    {
+      "case_id": "gemini-native-custom-endpoint-blocked",
+      "agent_id": "gemini",
+      "harness_id": "gemini-cli",
+      "agent_version_window": ">=0.46.0,<0.47.0",
+      "pinned_agent_version": "0.46.0",
+      "selection": [
+        "--with",
+        "gpt2giga",
+        "--model",
+        "GigaChat-2-Max",
+        "gemini"
+      ],
+      "route_id": "gemini-gpt2giga-gigachat-2-max",
+      "client_protocol": "gemini_protocol",
+      "public_model_alias": "GigaChat-2-Max",
+      "upstream_provider": "gigachat",
+      "gateway_support_status": "blocked",
+      "effective_support_status": "blocked",
+      "reason_ids": [
+        "gemini_custom_endpoint_unsupported"
+      ],
+      "expected_adapter": {
+        "process_spawn": false,
+        "provider_traffic": false,
+        "mutates_native_home": false
+      }
+    }
+  ]
+}
