@@ -155,14 +155,13 @@ test -n "$GIGACHAT_ACCESS_TOKEN" || \
 test -n "$GIGACHAT_USER"
 ```
 
-## Постоянный gpt2giga для терминала и браузерного UI
+## gpt2giga и Codex в одном терминале
 
 Этот сценарий нужен для `GigaChat-3-Ultra`, браузерного UI и долгоживущих
-запусков. Gateway постоянно работает в отдельном терминале. Durable worker
-намеренно не запускает временный proxy: иначе после перезапуска UI он потерял
-бы локальный API-ключ и выполняющиеся задания остались бы без gateway.
+запусков через внешний gateway. `gpt2giga` работает в фоне того же терминала,
+а после выхода из Codex или UI автоматически останавливается.
 
-### Терминал 1: запустите gpt2giga
+### 1. Подготовьте `.env`
 
 Если команда `gpt2giga` не появилась в `PATH` после установки интеграции,
 установите публичный gateway CLI отдельно:
@@ -171,59 +170,89 @@ test -n "$GIGACHAT_USER"
 uv tool install 'gpt2giga==0.3.0'
 ```
 
-Затем задайте GigaChat credentials и локальный ключ, известный только gateway и
-GigaLoom:
+Создайте локальный конфиг и замените в нём значения `REPLACE_WITH_...`:
 
 ```sh
-export GIGACHAT_CREDENTIALS='<ваши-credentials>'
-export GIGACHAT_SCOPE='GIGACHAT_API_PERS'
-export GIGACHAT_MODEL='GigaChat-3-Ultra'
-
-export GPT2GIGA_API_KEY='<длинный-случайный-локальный-ключ>'
-export GPT2GIGA_ENABLE_API_KEY_AUTH='True'
-export GPT2GIGA_PASS_MODEL='True'
-export GPT2GIGA_HOST='127.0.0.1'
-export GPT2GIGA_PORT='8090'
-export GPT2GIGA_MODE='DEV'
-export GPT2GIGA_GIGACHAT_API_MODE='v2'
-export GPT2GIGA_NORMALIZATION_MODE='on'
-export GPT2GIGA_LEGACY_CHAT_FALLBACK='False'
-
-gpt2giga
+cp .env.example .env
+$EDITOR .env
 ```
 
-Не закрывайте этот терминал. В другом окне можно проверить gateway и список
-доступных моделей:
+`gpt2giga` сам читает `.env`, но `giga` этого не делает: GigaLoom читает только
+переменные текущего процесса. Поэтому перед `giga` файл нужно экспортировать
+через `source`. В `.env.example` значение `GIGALOOM_API_KEY` берётся из
+`GPT2GIGA_API_KEY`; не заменяйте его на `0`.
+
+Если gateway уже запущен, исправление для текущего терминала выглядит так:
 
 ```sh
-curl -fsS http://127.0.0.1:8090/health
-curl -fsS \
-  -H "x-api-key: $GPT2GIGA_API_KEY" \
-  http://127.0.0.1:8090/models
-```
+set -a
+source .env
+set +a
 
-### Терминал 2: запустите GigaLoom UI
-
-Укажите **тот же** локальный API-ключ, который задан в первом терминале:
-
-```sh
-export GIGALOOM_PROXY_URL='http://127.0.0.1:8090'
-export GIGALOOM_API_KEY='<тот-же-длинный-случайный-локальный-ключ>'
-export GIGALOOM_DEFAULT_MODEL='GigaChat-3-Ultra'
-export GIGALOOM_AUTO_START_PROXY='false'
-```
-
-Теперь из этого терминала можно запустить Codex через уже работающий gateway:
-
-```sh
+test "$GIGALOOM_API_KEY" = "$GPT2GIGA_API_KEY"
 giga --with gpt2giga --model GigaChat-3-Ultra codex
 ```
 
-Или открыть UI:
+### 2. Запустите gateway и Codex одной вставкой
+
+Следующий блок загружает `.env`, запускает `gpt2giga` в фоне, ждёт
+авторизованный `/models`, запускает Codex и гарантированно останавливает gateway
+при выходе. Перед выполнением остановите ранее запущенный процесс на порту
+`8090`, иначе новый gateway не сможет занять порт:
+
+```zsh
+(
+  set -a
+  source .env
+  set +a
+
+  if [[ -z "$GPT2GIGA_API_KEY" || "$GIGALOOM_API_KEY" != "$GPT2GIGA_API_KEY" ]]; then
+    echo "GIGALOOM_API_KEY должен совпадать с GPT2GIGA_API_KEY и не быть пустым" >&2
+    exit 2
+  fi
+
+  gpt2giga --env-path .env >/tmp/gpt2giga-gigaloom.log 2>&1 &
+  gpt2giga_pid=$!
+  cleanup_gpt2giga() {
+    kill "$gpt2giga_pid" 2>/dev/null || true
+    wait "$gpt2giga_pid" 2>/dev/null || true
+  }
+  trap cleanup_gpt2giga EXIT
+  trap 'exit 130' INT TERM
+
+  gateway_ready=false
+  for gateway_attempt in {1..50}; do
+    if curl -fsS \
+      -H "x-api-key: $GIGALOOM_API_KEY" \
+      "$GIGALOOM_PROXY_URL/models" >/dev/null; then
+      gateway_ready=true
+      break
+    fi
+    kill -0 "$gpt2giga_pid" 2>/dev/null || break
+    sleep 0.2
+  done
+
+  if [[ "$gateway_ready" != true ]]; then
+    tail -n 50 /tmp/gpt2giga-gigaloom.log
+    exit 1
+  fi
+
+  giga --with gpt2giga --model GigaChat-3-Ultra codex
+)
+```
+
+Для одноразовой задачи замените последнюю команду внутри блока на:
 
 ```sh
-giga ui --no-start-proxy
+giga --with gpt2giga --model GigaChat-3-Ultra \
+  codex exec --json "проверь падающие тесты"
 ```
+
+### 3. Запустите gateway и UI в одном терминале
+
+Используйте тот же блок, но замените последнюю команду на
+`giga ui --no-start-proxy`. Пока UI открыт, gateway работает в фоне; после
+`Ctrl+C` оба процесса завершаются.
 
 Откройте <http://127.0.0.1:8091/web/work> и выполните следующие шаги:
 
@@ -240,7 +269,9 @@ giga ui --no-start-proxy
 
 Если список моделей или маршрутов пуст, сначала проверьте `/health`, `/models`,
 совпадение `GPT2GIGA_API_KEY` и `GIGALOOM_API_KEY`, а также то, что UI запущен с
-`--no-start-proxy` и правильным `--proxy-url`/`GIGALOOM_PROXY_URL`.
+`--no-start-proxy` и правильным `--proxy-url`/`GIGALOOM_PROXY_URL`. Значение
+`GIGALOOM_API_KEY=0` отключает auth-заголовок и приводит к `401 Unauthorized`,
+который GigaLoom отображает как `models_unavailable`.
 
 ## Документация
 
