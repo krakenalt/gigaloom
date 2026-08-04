@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "9166b8f762f6db1b4e8a6c6d09dd9fb2f90daa49e0816ecb3030e8423db485df",
+  "content_sha256": "e5fadd3a455b7281267df0cea9c2d2b8fe9e986ee698e2c5b3a68c390b0c304a",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -3021,8 +3021,8 @@
           "provider_owned_account_status"
         ],
         "harness_id": "codex-cli",
-        "maximum_version_exclusive": "0.145.0",
-        "minimum_version": "0.144.0",
+        "maximum_version_exclusive": "0.147.0",
+        "minimum_version": "0.146.0",
         "required_tokens": [
           "--json",
           "--sandbox",

@@ -45,6 +45,7 @@ from .broker import (
     provider_account_snapshot_to_dict,
 )
 from .gemini_acp import GeminiAcpAuthenticationRunner
+from .homes import ensure_provider_config_home
 
 
 class NativeLoginBroker:
@@ -517,11 +518,17 @@ class NativeLoginBroker:
             }
         )
         if provider_id == "codex-cli":
-            environment["CODEX_HOME"] = os.fspath(home / ".codex")
+            environment["CODEX_HOME"] = os.fspath(
+                ensure_provider_config_home(home, ".codex")
+            )
         elif provider_id == "claude-code":
-            environment["CLAUDE_CONFIG_DIR"] = os.fspath(home / ".claude")
+            environment["CLAUDE_CONFIG_DIR"] = os.fspath(
+                ensure_provider_config_home(home, ".claude")
+            )
         elif provider_id == "gemini-cli":
-            environment["GEMINI_CLI_HOME"] = os.fspath(home / ".gemini")
+            environment["GEMINI_CLI_HOME"] = os.fspath(
+                ensure_provider_config_home(home, ".gemini")
+            )
             environment["GEMINI_TELEMETRY_ENABLED"] = "false"
         return environment
 

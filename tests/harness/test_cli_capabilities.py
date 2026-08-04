@@ -40,10 +40,10 @@ def clear_probe_cache():
     (
         (
             "codex-cli",
-            "codex-cli 0.144.3",
+            "codex-cli 0.146.0",
             "exec --json --sandbox --ephemeral --image --config --strict-config",
             "codex-exec-jsonl-v1",
-            ("0.144.0", "0.145.0"),
+            ("0.146.0", "0.147.0"),
             7,
         ),
         (
@@ -279,7 +279,7 @@ def test_claude_remote_control_auth_gate_proves_command_without_login(monkeypatc
 @pytest.mark.parametrize(
     ("fixture", "parser", "expected"),
     (
-        ("codex/0.144/exec.jsonl", _CodexStreamParser, "Codex fixture"),
+        ("codex/0.146/exec.jsonl", _CodexStreamParser, "Codex fixture"),
         ("claude/2.1/stream.jsonl", _ClaudeStreamParser, "Claude fixture"),
         ("gemini/0.46/stream.jsonl", _GeminiStreamParser, "Gemini fixture"),
     ),
@@ -302,7 +302,7 @@ def test_versioned_headless_fixtures_allow_unknown_additive_fields(
 
 def test_versioned_native_history_fixtures_remain_parseable():
     codex_messages = tuple(
-        codex._iter_messages(FIXTURES / "codex/0.144/history.jsonl", max_messages=None)
+        codex._iter_messages(FIXTURES / "codex/0.146/history.jsonl", max_messages=None)
     )
     claude_messages = tuple(
         claude._iter_session_messages(

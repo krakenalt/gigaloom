@@ -1,6 +1,6 @@
 # Аутентификация провайдеров
 
-Статус: принято 26 июля 2026 года.
+Статус: принято 4 августа 2026 года.
 
 Матрица построена из пакетированных подтверждений схемы v1 и описывает только
 принадлежащие провайдерам поверхности. Она не разрешает запуск login, чтение
@@ -10,7 +10,7 @@
 
 | Провайдер | Версия CLI | Начало | Статус | Выход | Отзыв |
 | --- | --- | --- | --- | --- | --- |
-| Codex CLI | `0.144.3` | `codex login`, `account/login/start` в app-server | `account/read`, `account/updated` | `codex logout`, `account/logout` | В интерфейсе аккаунта или workspace провайдера |
+| Codex CLI | `0.146.0` | `codex login`, `account/login/start` в app-server | `account/read`, `account/updated` | `codex logout`, `account/logout` | В интерфейсе аккаунта или workspace провайдера |
 | Claude Code | `2.1.212` | `claude auth login`, `/login` | `claude auth status`, `/status` | `claude auth logout`, `/logout` | В аккаунте, организации или выбранном cloud-провайдере |
 | Gemini CLI | `0.46.0` | Интерактивный выбор аутентификации, `/auth` | Документированной машинной команды нет | Только интерактивный сброс у провайдера | В Google Account, API key или Google Cloud |
 

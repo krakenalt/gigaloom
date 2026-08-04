@@ -317,15 +317,15 @@ WORKBENCH_INTEGRATION_SPECS: Mapping[str, WorkbenchIntegrationSpec] = MappingPro
         "codex": WorkbenchIntegrationSpec(
             namespace="codex",
             harness_id="codex-cli",
-            version_window=IntegrationVersionWindow("0.144.0", "0.145.0"),
+            version_window=IntegrationVersionWindow("0.146.0", "0.147.0"),
             evidence=UpstreamEvidence(
                 repository="openai/codex",
-                release_tag="rust-v0.144.5",
+                release_tag="rust-v0.146.0",
                 release_url=(
-                    "https://github.com/openai/codex/releases/tag/rust-v0.144.5"
+                    "https://github.com/openai/codex/releases/tag/rust-v0.146.0"
                 ),
-                reviewed_on="2026-07-21",
-                commit="87db9bc18ba5bc82c1cb4e4381b44f693ee35623",
+                reviewed_on="2026-08-04",
+                commit="e363b08c9175ac1cbe5893615dd2cb9ddf95043b",
             ),
             intent_patterns=(
                 _pattern(
@@ -361,7 +361,7 @@ WORKBENCH_INTEGRATION_SPECS: Mapping[str, WorkbenchIntegrationSpec] = MappingPro
                     ("app-server",),
                     ("harness",),
                     "resume",
-                    "codex-0.144-app-server",
+                    "codex-0.146-app-server",
                 ),
                 _capability(
                     "session.fork.native",
@@ -371,7 +371,7 @@ WORKBENCH_INTEGRATION_SPECS: Mapping[str, WorkbenchIntegrationSpec] = MappingPro
                     ("app-server",),
                     ("harness",),
                     "fork",
-                    "codex-0.144-app-server",
+                    "codex-0.146-app-server",
                 ),
                 _capability(
                     "turn.steer",
@@ -381,7 +381,7 @@ WORKBENCH_INTEGRATION_SPECS: Mapping[str, WorkbenchIntegrationSpec] = MappingPro
                     ("app-server",),
                     ("harness",),
                     "steer",
-                    "codex-0.144-app-server",
+                    "codex-0.146-app-server",
                 ),
                 _capability(
                     "turn.cancel",
@@ -391,7 +391,7 @@ WORKBENCH_INTEGRATION_SPECS: Mapping[str, WorkbenchIntegrationSpec] = MappingPro
                     ("app-server",),
                     ("harness",),
                     "interrupt",
-                    "codex-0.144-app-server",
+                    "codex-0.146-app-server",
                 ),
                 _capability(
                     "approval.decide",
@@ -401,7 +401,7 @@ WORKBENCH_INTEGRATION_SPECS: Mapping[str, WorkbenchIntegrationSpec] = MappingPro
                     ("app-server",),
                     ("harness",),
                     "approval policy",
-                    "codex-0.144-app-server",
+                    "codex-0.146-app-server",
                 ),
             ),
         ),

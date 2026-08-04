@@ -70,7 +70,7 @@ precedence = 20
 
 [[compatibility_profiles]]
 compatibility_profile_id = "codex.app-server.v1"
-revision = "0.144.x"
+revision = "0.146.x"
 evidence_digest = "c0088f2282929e7cde079c32c083ffc6fb022a0880fadea6d57deb01953d54cb"
 
 [[structured_routes]]
@@ -80,4 +80,4 @@ transport_kind = "codex_app_server_v1"
 compatibility_profile_id = "codex.app-server.v1"
 command_ref = { executable_name = "codex", arguments = ["app-server"] }
 capability_requirements = ["structured_prompt"]
-version_policy = { kind = "reviewed_range", minimum = "0.144.0", maximum_exclusive = "0.145.0" }
+version_policy = { kind = "reviewed_range", minimum = "0.146.0", maximum_exclusive = "0.147.0" }

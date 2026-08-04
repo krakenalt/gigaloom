@@ -71,9 +71,9 @@ class _CompatibilityHarness(BaseHarness):
     def capability_probe(self) -> CliCapabilitySnapshot:
         contract = {
             "codex-cli": {
-                "version": "0.144.5",
-                "minimum": "0.144.0",
-                "maximum": "0.145.0",
+                "version": "0.146.0",
+                "minimum": "0.146.0",
+                "maximum": "0.147.0",
                 "event": "codex-exec-jsonl-v1",
                 "history": "codex-session-jsonl-v1",
                 "capabilities": ("--json", "--sandbox", "--ephemeral", "app-server"),
@@ -264,7 +264,7 @@ def test_nightly_guardian_runs_headless_and_surfaces_only_regression_attention(
     assert baseline_run.status == "passed"
     baseline = eval_store.pin_baseline(project, baseline_run)
     assert [item["binary_version"] for item in baseline["adapter_dimensions"]] == [
-        "0.144.5",
+        "0.146.0",
         "2.1.9",
         "0.46.2",
     ]

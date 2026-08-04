@@ -366,7 +366,7 @@ def test_old_supported_automation_state_recovers_through_cockpit_contracts(tmp_p
 
 def test_provider_login_journey_stays_native_owned_and_non_authoritative():
     for namespace, suffix, version in (
-        ("codex", ("login",), "0.144.3"),
+        ("codex", ("login",), "0.146.0"),
         ("claude", ("auth",), "2.1.197"),
     ):
         decision = classify_native_route(namespace, suffix, version=version)

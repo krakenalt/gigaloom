@@ -99,10 +99,6 @@ def run_managed_acp_turn(
     """Run one active, digest-bound ACP turn without persisting provider content."""
     if record.profile.agent_id != request.agent_id or not record.active:
         raise ManagedAcpStateChanged("managed ACP revision is not active")
-    if record.probe.auth_methods:
-        raise ManagedAcpAuthenticationRequired(
-            "managed ACP provider authentication is required"
-        )
     if request.timeout_seconds <= 0:
         raise ValueError("managed ACP timeout must be positive")
     artifact = record.artifact

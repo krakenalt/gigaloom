@@ -1800,7 +1800,7 @@ native-history fixtures:
 
 | Adapter | Supported version window |
 |---|---|
-| Codex CLI | `>=0.144.0,<0.145.0` |
+| Codex CLI | `>=0.146.0,<0.147.0` |
 | Claude Code | `>=2.1.0,<2.2.0` |
 | Gemini CLI | `>=0.46.0,<0.47.0` |
 

@@ -113,6 +113,39 @@ def test_broker_projects_only_typed_status_from_isolated_homes(
     assert all(call.cwd == Path(call.environment["HOME"]) for call in runner.calls)
 
 
+def test_broker_creates_private_provider_config_homes_before_invocation(tmp_path):
+    broker = _broker(tmp_path, _Runner())
+
+    for provider_id, variable, directory_name in (
+        ("codex-cli", "CODEX_HOME", ".codex"),
+        ("claude-code", "CLAUDE_CONFIG_DIR", ".claude"),
+        ("gemini-cli", "GEMINI_CLI_HOME", ".gemini"),
+    ):
+        environment = broker._isolated_environment(provider_id)
+        config_home = Path(environment[variable])
+
+        assert config_home == Path(environment["HOME"]) / directory_name
+        assert config_home.is_dir()
+        assert config_home.stat().st_mode & 0o777 == 0o700
+
+
+def test_broker_rejects_symlinked_provider_config_home(tmp_path):
+    broker = _broker(tmp_path, _Runner())
+    home = broker._home("codex-cli")
+    outside = tmp_path / "outside-codex-home"
+    outside.mkdir()
+    try:
+        (home / ".codex").symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlink creation is unavailable")
+
+    with pytest.raises(
+        ProviderAuthenticationOperationError,
+        match="provider_config_home_invalid",
+    ):
+        broker._isolated_environment("codex-cli")
+
+
 def test_broker_builds_stable_opaque_session_bindings(tmp_path):
     runner = _Runner(
         results={

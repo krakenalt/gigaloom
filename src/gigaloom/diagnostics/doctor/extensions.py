@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import closing
 from datetime import datetime, timezone
+import json
 import os
 from pathlib import Path
 import shutil
@@ -357,16 +358,23 @@ def _support_export_check() -> dict[str, Any]:
     )
 
 
-def _read_worker_state(data_dir: str | Path) -> dict[str, Any]:
+def _read_worker_state(
+    data_dir: str | Path,
+    *,
+    harness_id: str | None = None,
+) -> dict[str, Any]:
     path = Path(data_dir).expanduser() / RUNTIME_DB_NAME
     if not path.is_file():
-        return {"initialized": False, "online": 0, "offline": 0, "total": 0}
+        state = {"initialized": False, "online": 0, "offline": 0, "total": 0}
+        if harness_id is not None:
+            state["selected_harness_capable"] = 0
+        return state
     try:
         with closing(
             sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
         ) as connection:
             rows = connection.execute(
-                "SELECT status, heartbeat_at FROM workers"
+                "SELECT status, heartbeat_at, capability_fingerprint_json FROM workers"
             ).fetchall()
     except (OSError, sqlite3.Error):
         return {
@@ -378,20 +386,45 @@ def _read_worker_state(data_dir: str | Path) -> dict[str, Any]:
         }
     now = datetime.now(timezone.utc).timestamp()
     online = 0
-    for status, heartbeat_at in rows:
+    selected_harness_capable = 0
+    for status, heartbeat_at, fingerprint_json in rows:
         try:
             heartbeat = datetime.fromisoformat(str(heartbeat_at)).timestamp()
         except ValueError:
             heartbeat = 0.0
-        if status == "online" and now - heartbeat <= _WORKER_STALE_AFTER_SECONDS:
-            online += 1
-    return {
+        is_online = (
+            status == "online" and now - heartbeat <= _WORKER_STALE_AFTER_SECONDS
+        )
+        if not is_online:
+            continue
+        online += 1
+        if harness_id is not None and _fingerprint_has_harness(
+            fingerprint_json,
+            harness_id,
+        ):
+            selected_harness_capable += 1
+    state = {
         "initialized": True,
         "readable": True,
         "online": online,
         "offline": len(rows) - online,
         "total": len(rows),
     }
+    if harness_id is not None:
+        state["selected_harness_capable"] = selected_harness_capable
+    return state
+
+
+def _fingerprint_has_harness(raw: object, harness_id: str) -> bool:
+    try:
+        fingerprint = json.loads(str(raw))
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(fingerprint, Mapping):
+        return False
+    harnesses = fingerprint.get("harnesses")
+    selected = harnesses.get(harness_id) if isinstance(harnesses, Mapping) else None
+    return isinstance(selected, Mapping) and bool(selected.get("available"))
 
 
 def _path_can_be_created(path: Path) -> bool:

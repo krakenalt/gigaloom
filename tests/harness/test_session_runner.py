@@ -799,10 +799,10 @@ def test_session_runner_passes_previous_messages_to_chat_harness():
     ]
 
 
-def test_queued_turn_waits_for_preceding_assistant_in_request_history():
+def test_queued_turn_waits_for_preceding_assistant_in_request_history(tmp_path):
     store = InMemoryHarnessSessionStore()
     harness = _CaptureHarness()
-    runner = _runner(harness, store=store)
+    runner = _runner(harness, store=store, data_dir=tmp_path)
     session = runner.create_session(default_harness_id="capture")
     first_run = store.create_run(
         session_id=session.id,
@@ -902,9 +902,9 @@ def test_durable_worker_reuses_submission_readiness_for_retry_without_second_pro
     assert runner.store.get_run(retry_run_id).status.value == "succeeded"
 
 
-def test_durable_runtime_identity_reaches_provider_driver_request():
+def test_durable_runtime_identity_reaches_provider_driver_request(tmp_path):
     harness = _CaptureHarness()
-    runner = _runner(harness)
+    runner = _runner(harness, data_dir=tmp_path)
     session = runner.create_session(default_harness_id="capture")
 
     runner.run_in_session(
@@ -1330,8 +1330,8 @@ class _AccountProvider:
             status=self.account_status,
             source="test",
             checked_at="2026-07-26T00:00:00Z",
-            pinned_cli_version="0.144.3",
-            detected_cli_version="0.144.3",
+            pinned_cli_version="0.146.0",
+            detected_cli_version="0.146.0",
             version_status="reviewed_pin",
             identity_label=None,
             authentication_method="chatgpt",

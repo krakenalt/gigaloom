@@ -48,7 +48,7 @@ from gigaloom.harnesses.agent_profiles.onboarding import (
     generate_managed_agent_profile,
 )
 from gigaloom.harnesses.agent_profiles.models import VersionPolicyKind
-from gigaloom.harnesses.managed_acp import ManagedAcpHarness
+from gigaloom.harnesses.managed_acp import ManagedAcpHarness, ManagedAcpTurnResult
 from gigaloom.types import (
     HarnessCapability,
     HarnessContext,
@@ -263,7 +263,10 @@ def test_ready_probe_activates_and_retains_content_free_receipts(tmp_path):
     assert str(tmp_path) not in record_text
 
 
-def test_auth_required_candidate_activates_degraded_without_authentication(tmp_path):
+def test_advertised_auth_method_does_not_preempt_a_managed_acp_turn(
+    tmp_path,
+    monkeypatch,
+):
     plan, entry, artifact = _candidate(tmp_path)
     result = ManagedAgentOnboardingService(
         str(tmp_path),
@@ -283,6 +286,22 @@ def test_auth_required_candidate_activates_degraded_without_authentication(tmp_p
     assert result.probe.auth_methods == ("provider-login",)
     runtime = cast(AgentRuntimeService, _ActiveRuntimeProjection(result))
     harness = ManagedAcpHarness(runtime, result)
+    calls = []
+
+    def run_turn(record, request, **_kwargs):  # noqa: ANN001, ANN202
+        calls.append((record, request))
+        return ManagedAcpTurnResult(
+            stop_reason="end_turn",
+            text="fixture completed",
+            usage=None,
+            events=(),
+            capability_snapshot_digest=record.probe.capability_snapshot_digest,
+        )
+
+    monkeypatch.setattr(
+        "gigaloom.harnesses.managed_acp.run_managed_acp_turn",
+        run_turn,
+    )
 
     attempted = harness.run(
         HarnessRequest(
@@ -294,8 +313,9 @@ def test_auth_required_candidate_activates_degraded_without_authentication(tmp_p
     )
 
     assert harness.availability().status.value == "available"
-    assert attempted.ok is False
-    assert "Provider authentication is required" in str(attempted.error)
+    assert attempted.ok is True
+    assert attempted.text == "fixture completed"
+    assert len(calls) == 1
 
 
 def test_incompatible_update_remains_inactive_and_preserves_older_pointer(tmp_path):

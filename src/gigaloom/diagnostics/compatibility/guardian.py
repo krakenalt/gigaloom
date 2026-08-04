@@ -72,8 +72,8 @@ _EXPECTED_MARKETPLACE_CONTRACTS = {
 }
 _EXPECTED_CLI_CONTRACTS: dict[str, dict[str, Any]] = {
     "codex-cli": {
-        "minimum": "0.144.0",
-        "maximum_exclusive": "0.145.0",
+        "minimum": "0.146.0",
+        "maximum_exclusive": "0.147.0",
         "event_schema": "codex-exec-jsonl-v1",
         "history_schema": "codex-session-jsonl-v1",
         "native_event_schema": "raw-terminal-v1",

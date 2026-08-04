@@ -21,7 +21,7 @@ from gigaloom.runtime.structured import (
     requested_execution_transport,
 )
 from gigaloom.structured_sessions import capability_snapshot_to_dict
-from gigaloom.types import HarnessCapability
+from gigaloom.types import AvailabilityStatus, HarnessCapability
 
 
 WORKBENCH_ADMISSION_SCHEMA_VERSION = 1
@@ -197,7 +197,10 @@ def workbench_transport_options(harness: Any) -> tuple[WorkbenchTransportOption,
         durable=False,
         provider_native_continuity=False,
     )
-    return structured, terminal, one_shot
+    return tuple(
+        _block_unavailable_transport(harness, option)
+        for option in (structured, terminal, one_shot)
+    )
 
 
 def workbench_transport_projection(harness: Any) -> dict[str, Any]:
@@ -309,6 +312,11 @@ def _admit_product_request(
     if kind is WorkbenchKind.DIRECT_CHAT:
         transport = ExecutionTransport.ONE_SHOT
         provider_path = "direct_chat"
+        one_shot = options[transport]
+        if one_shot.status != "ready":
+            status = AdmissionStatus.BLOCKED
+            reasons.append(one_shot.blocker or "execution_route_unavailable")
+            recovery.append(one_shot.remediation or "inspect_harness_capabilities")
     else:
         structured = options[ExecutionTransport.NATIVE_STRUCTURED]
         if structured.status == "ready":
@@ -317,10 +325,16 @@ def _admit_product_request(
         else:
             transport = ExecutionTransport.ONE_SHOT
             provider_path = _one_shot_provider_path(harness)
-            status = AdmissionStatus.DEGRADED
-            fallback = "native_structured_to_one_shot"
             reasons.append("provider_native_continuity_unavailable")
             recovery.append(structured.remediation or "inspect_harness_capabilities")
+            one_shot = options[transport]
+            if one_shot.status == "ready":
+                status = AdmissionStatus.DEGRADED
+                fallback = "native_structured_to_one_shot"
+            else:
+                status = AdmissionStatus.BLOCKED
+                reasons.append(one_shot.blocker or "execution_route_unavailable")
+                recovery.append(one_shot.remediation or "inspect_harness_capabilities")
 
     explicit_transport = requested_execution_transport(payload)
     if explicit_transport is not None:
@@ -352,7 +366,8 @@ def _admit_product_request(
 
     mode, mode_reason = _mode_for_product_request(intent, authority)
     if mode_reason is not None:
-        status = AdmissionStatus.DEGRADED
+        if status is not AdmissionStatus.BLOCKED:
+            status = AdmissionStatus.DEGRADED
         reasons.append(mode_reason)
         recovery.append("choose_workspace_write_for_change")
     reasons.append(f"admitted_provider_path:{provider_path}")
@@ -385,6 +400,32 @@ def _admit_product_request(
             else "product"
         ),
         mode=mode,
+    )
+
+
+def _block_unavailable_transport(
+    harness: Any,
+    option: WorkbenchTransportOption,
+) -> WorkbenchTransportOption:
+    """Fail closed when the selected harness cannot execute any transport."""
+    availability_provider = getattr(harness, "availability", None)
+    if not callable(availability_provider):
+        return option
+    try:
+        available = availability_provider().status is AvailabilityStatus.AVAILABLE
+    except Exception:
+        available = False
+    if available or option.status == "blocked":
+        return option
+    harness_id = harness.spec().id
+    return WorkbenchTransportOption(
+        transport=option.transport,
+        status="blocked",
+        detail="The selected harness is unavailable for execution.",
+        blocker="harness_unavailable",
+        remediation=f"giga harness inspect {harness_id} --json",
+        durable=option.durable,
+        provider_native_continuity=False,
     )
 
 
