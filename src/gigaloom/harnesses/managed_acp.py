@@ -13,17 +13,11 @@ from typing import Any, Mapping
 from gigaloom.harnesses.acp import (
     AcpLimits,
     AcpPermissionRequestV1,
-    AcpProviderBridgeStatus,
-    AcpProviderBridgeStrategy,
     AcpRouteIdentity,
     begin_prompt,
-    build_provider_launch_overlay,
-    configure_provider,
     create_acp_client,
     new_session,
     next_permission,
-    pin_acp_process,
-    resolve_provider_bridge,
     set_session_config,
 )
 from gigaloom.harnesses.acp.errors import (
@@ -33,6 +27,15 @@ from gigaloom.harnesses.acp.errors import (
     AcpRequestTimeout,
 )
 from gigaloom.harnesses.acp.usage import AcpTokenUsageV1, usage_payload
+from gigaloom.harnesses.acp.provider_bridge import (
+    AcpGatewayRouteRequired,
+    AcpProviderBridgeUnavailable,
+    apply_provider_bridge_configuration,
+    decode_resolved_gateway_route,
+    pin_provider_bridge_process,
+    require_provider_bridge_route,
+    resolve_available_provider_bridge,
+)
 from gigaloom.harnesses.agent_profiles.installations import AgentRuntimeService
 from gigaloom.harnesses.agent_profiles.onboarding import ManagedAgentOnboardingResult
 from gigaloom.harnesses.base import BaseHarness
@@ -63,18 +66,6 @@ from gigaloom.types import (
 
 class ManagedAcpStateChanged(RuntimeError):
     """Raised when current runtime evidence no longer matches the active revision."""
-
-
-class ManagedAcpGatewayRouteRequired(ValueError):
-    """Raised when gateway selection lacks one resolved route binding."""
-
-
-class ManagedAcpProviderBridgeUnavailable(ValueError):
-    """Raised when an explicit gateway route has no verified ACP bridge."""
-
-    def __init__(self, reason_id: str) -> None:
-        super().__init__(reason_id)
-        self.reason_id = reason_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,20 +129,13 @@ def run_managed_acp_turn(
     )
     if route is None:
         raise ManagedAcpStateChanged("managed ACP route is unavailable")
-
     gateway_route = request.gateway_route
-    resolution = None
-    if gateway_route is not None:
-        providers_advertised = "provider_configuration" in record.probe.capabilities
-        resolution = resolve_provider_bridge(
-            registry_id=artifact.registry_id,
-            version=artifact.version,
-            providers_advertised=providers_advertised,
-            advertised_provider_protocols=(gateway_route.provider_protocol,),
-        )
-        if resolution.status is not AcpProviderBridgeStatus.READY:
-            raise ManagedAcpProviderBridgeUnavailable(resolution.reason_ids[0])
-
+    resolution = resolve_available_provider_bridge(
+        registry_id=artifact.registry_id,
+        version=artifact.version,
+        providers_advertised="provider_configuration" in record.probe.capabilities,
+        route=gateway_route,
+    )
     with tempfile.TemporaryDirectory(prefix="gigaloom-managed-acp-") as root:
         native_home = Path(root) / "home"
         native_home.mkdir(mode=0o700)
@@ -162,36 +146,14 @@ def run_managed_acp_turn(
             "TMPDIR": root,
             **dict(artifact.environment),
         }
-        overlay = (
-            build_provider_launch_overlay(
-                resolution,
-                gateway_route,
-                api_key=request.gateway_api_key,
-                isolated_root=Path(root),
-            )
-            if resolution is not None and gateway_route is not None
-            else None
-        )
-        if overlay is not None:
-            environment.update(dict(overlay.environment))
-            codex_home = dict(overlay.environment).get("CODEX_HOME")
-            if codex_home is not None:
-                Path(codex_home).mkdir(mode=0o700)
-        approved_secrets = frozenset(
-            name
-            for name, _ in (() if overlay is None else overlay.environment)
-            if name == "GPT2GIGA_API_KEY"
-        )
-        process = pin_acp_process(
-            (
-                str(executable),
-                *artifact.arguments,
-                *(() if overlay is None else overlay.arguments),
-            ),
+        process, overlay = pin_provider_bridge_process(
+            (str(executable), *artifact.arguments),
             cwd=workspace.as_posix(),
             environment=environment,
-            allowed_environment=frozenset(environment),
-            approved_secret_names=approved_secrets,
+            resolution=resolution,
+            route=gateway_route,
+            api_key=request.gateway_api_key,
+            isolated_root=Path(root),
         )
         client = create_acp_client(
             process,
@@ -215,28 +177,19 @@ def run_managed_acp_turn(
             model_config_id = request.session_model_config_id
             model_value = request.model_id
             if gateway_route is not None and resolution is not None:
-                if any(
-                    item.feature == "provider_configuration"
-                    for item in snapshot.negotiated_features
-                ):
-                    configure_provider(
+                model_config_id, capability_matches = (
+                    apply_provider_bridge_configuration(
                         client,
-                        api_type=_provider_api_type(gateway_route.provider_protocol),
-                        base_url=gateway_route.credential_free_base_url,
-                        headers={
-                            "Authorization": (
-                                f"Bearer {request.gateway_api_key or '0'}"
-                            )
-                        },
+                        snapshot,
+                        gateway_route,
+                        resolution,
+                        overlay,
+                        api_key=request.gateway_api_key,
                     )
-                    model_config_id = "model"
-                elif resolution.strategy is AcpProviderBridgeStrategy.ACP_PROVIDERS:
+                )
+                if not capability_matches:
                     raise ManagedAcpStateChanged(
                         "managed ACP provider capability evidence changed"
-                    )
-                else:
-                    model_config_id = (
-                        None if overlay is None else overlay.session_model_config_id
                     )
                 model_value = gateway_route.public_model_alias
             binding = new_session(client, workspace=workspace)
@@ -322,8 +275,19 @@ class ManagedAcpHarness(BaseHarness):
         retained_events: list[HarnessEvent] = []
         try:
             record = self._active_record()
-            route = _managed_route(record)
-            command = _managed_command(record)
+            routes = tuple(
+                route
+                for route in record.profile.structured_routes
+                if route.transport_kind == "acp_stdio_v1"
+            )
+            if len(routes) != 1:
+                raise ManagedAcpStateChanged("managed ACP route is unavailable")
+            route = routes[0]
+            artifact = record.artifact
+            command = (
+                str(Path(artifact.managed_root) / artifact.executable_relative_path),
+                *artifact.arguments,
+            )
             if request.extra.get("dry_run"):
                 return HarnessResult(
                     ok=True,
@@ -340,10 +304,18 @@ class ManagedAcpHarness(BaseHarness):
             workspace = str(request.workspace or "").strip()
             if not workspace:
                 raise ValueError("managed ACP run requires a workspace")
-            gateway = _resolved_gateway_route(
+            gateway = decode_resolved_gateway_route(
                 request.extra.get("gateway_route_binding")
             )
-            _require_gateway_route(record, requested_model=request.model, route=gateway)
+            require_provider_bridge_route(
+                registry_id=record.artifact.registry_id,
+                version=record.artifact.version,
+                providers_advertised=(
+                    "provider_configuration" in record.probe.capabilities
+                ),
+                requested_model=request.model,
+                route=gateway,
+            )
 
             def forward(event: NormalizedStructuredEvent) -> None:
                 projected = _project_event(event)
@@ -419,7 +391,7 @@ class ManagedAcpHarness(BaseHarness):
                 events=tuple(retained_events),
                 command=command,
             )
-        except ManagedAcpGatewayRouteRequired:
+        except AcpGatewayRouteRequired:
             return _managed_failure(
                 self._agent_id,
                 retained_events,
@@ -428,7 +400,7 @@ class ManagedAcpHarness(BaseHarness):
                 "provider default was not used.",
                 reason_id="managed_acp_gateway_route_required",
             )
-        except ManagedAcpProviderBridgeUnavailable as exc:
+        except AcpProviderBridgeUnavailable as exc:
             return _managed_failure(
                 self._agent_id,
                 retained_events,
@@ -516,97 +488,6 @@ def _managed_spec(record: ManagedAgentOnboardingResult) -> HarnessSpec:
         },
         headless_continuation=HeadlessContinuationStrategy.ONE_SHOT,
     )
-
-
-def _managed_route(record: ManagedAgentOnboardingResult):  # noqa: ANN202
-    routes = tuple(
-        route
-        for route in record.profile.structured_routes
-        if route.transport_kind == "acp_stdio_v1"
-    )
-    if len(routes) != 1:
-        raise ManagedAcpStateChanged("managed ACP route is unavailable")
-    return routes[0]
-
-
-def _managed_command(record: ManagedAgentOnboardingResult) -> tuple[str, ...]:
-    executable = (
-        Path(record.artifact.managed_root) / record.artifact.executable_relative_path
-    )
-    return (str(executable), *record.artifact.arguments)
-
-
-def _resolved_gateway_route(value: object) -> ResolvedGatewayRoute | None:
-    if value is None:
-        return None
-    if isinstance(value, ResolvedGatewayRoute):
-        route = value
-    elif isinstance(value, Mapping):
-        document = _mapping(value)
-        required = {
-            "route_id",
-            "gateway_id",
-            "provider_protocol",
-            "credential_free_base_url",
-            "public_model_alias",
-            "support_status",
-            "capability_digest",
-            "reason_ids",
-        }
-        keys = set(document)
-        if keys != required and keys != required | {"schema_version"}:
-            raise ValueError("managed ACP resolved gateway route is invalid")
-        if "schema_version" in document and document["schema_version"] != 1:
-            raise ValueError("managed ACP resolved gateway route is incompatible")
-        reasons = document["reason_ids"]
-        if not isinstance(reasons, (list, tuple)):
-            raise ValueError("managed ACP resolved gateway reasons are invalid")
-        route = ResolvedGatewayRoute(
-            route_id=_text(document["route_id"]),
-            gateway_id=_text(document["gateway_id"]),
-            provider_protocol=_text(document["provider_protocol"]),
-            credential_free_base_url=_text(document["credential_free_base_url"]),
-            public_model_alias=_text(document["public_model_alias"]),
-            support_status=_text(document["support_status"]),
-            capability_digest=_text(document["capability_digest"]),
-            reason_ids=tuple(_text(item) for item in reasons),
-        )
-    else:
-        raise ValueError("managed ACP resolved gateway route is invalid")
-    if route.gateway_id != "gpt2giga" or route.support_status == "blocked":
-        raise ValueError("managed ACP resolved gateway route is unavailable")
-    return route
-
-
-def _require_gateway_route(
-    record: ManagedAgentOnboardingResult,
-    *,
-    requested_model: str | None,
-    route: ResolvedGatewayRoute | None,
-) -> None:
-    model = (requested_model or "").strip()
-    if not model or model == "provider-default" or route is not None:
-        return
-    bridge = resolve_provider_bridge(
-        registry_id=record.artifact.registry_id,
-        version=record.artifact.version,
-        providers_advertised="provider_configuration" in record.probe.capabilities,
-    )
-    if bridge.status is not AcpProviderBridgeStatus.READY:
-        raise ManagedAcpProviderBridgeUnavailable(bridge.reason_ids[0])
-    raise ManagedAcpGatewayRouteRequired(
-        "managed ACP gateway model requires a resolved route binding"
-    )
-
-
-def _provider_api_type(provider_protocol: str) -> str:
-    if provider_protocol in {"openai_chat_completions", "openai_responses"}:
-        return "openai"
-    if provider_protocol == "anthropic_messages":
-        return "anthropic"
-    if provider_protocol == "gemini_generate_content":
-        return "gemini"
-    raise ValueError("managed ACP provider protocol is unsupported")
 
 
 def _consume_event(
@@ -706,12 +587,6 @@ def _managed_failure(
 
 def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
-
-
-def _text(value: object) -> str:
-    if not isinstance(value, str):
-        raise ValueError("managed ACP resolved gateway route field is invalid")
-    return value
 
 
 __all__ = [

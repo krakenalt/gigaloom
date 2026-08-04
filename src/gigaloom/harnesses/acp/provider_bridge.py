@@ -2,16 +2,36 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 from packaging.version import InvalidVersion, Version
 
 from gigaloom.harnesses.agent_profiles import VersionPolicy, VersionPolicyKind
+from gigaloom.harnesses.acp.process import AcpProcessSpec, pin_acp_process
+from gigaloom.harnesses.acp.providers import configure_provider
 from gigaloom.native.api import ResolvedGatewayRoute
+
+if TYPE_CHECKING:
+    from gigaloom.harnesses.acp.client import AcpClient
+    from gigaloom.harnesses.acp.contracts import AcpCapabilitySnapshotV1
+
+
+class AcpGatewayRouteRequired(ValueError):
+    """Raised when gateway selection lacks one resolved route binding."""
+
+
+class AcpProviderBridgeUnavailable(ValueError):
+    """Raised when an explicit gateway route has no verified ACP bridge."""
+
+    def __init__(self, reason_id: str) -> None:
+        super().__init__(reason_id)
+        self.reason_id = reason_id
 
 
 class AcpProviderBridgeStrategy(str, Enum):
@@ -240,6 +260,164 @@ def build_provider_launch_overlay(
     raise ValueError("ACP provider bridge adapter is not implemented")
 
 
+def pin_provider_bridge_process(
+    command: tuple[str, ...],
+    *,
+    cwd: str,
+    environment: Mapping[str, str],
+    resolution: AcpProviderBridgeResolution | None,
+    route: ResolvedGatewayRoute | None,
+    api_key: str | None,
+    isolated_root: Path,
+) -> tuple[AcpProcessSpec, AcpProviderLaunchOverlay | None]:
+    """Apply one transient bridge overlay and pin the resulting ACP process."""
+    if (resolution is None) != (route is None):
+        raise ValueError("ACP provider bridge resolution is incomplete")
+    overlay = (
+        build_provider_launch_overlay(
+            resolution,
+            route,
+            api_key=api_key,
+            isolated_root=isolated_root,
+        )
+        if resolution is not None and route is not None
+        else None
+    )
+    runtime_environment = dict(environment)
+    if overlay is not None:
+        runtime_environment.update(overlay.environment)
+        codex_home = dict(overlay.environment).get("CODEX_HOME")
+        if codex_home is not None:
+            Path(codex_home).mkdir(mode=0o700)
+    approved_secrets = frozenset(
+        name
+        for name, _ in (() if overlay is None else overlay.environment)
+        if name == "GPT2GIGA_API_KEY"
+    )
+    process = pin_acp_process(
+        (*command, *(() if overlay is None else overlay.arguments)),
+        cwd=cwd,
+        environment=runtime_environment,
+        allowed_environment=frozenset(runtime_environment),
+        approved_secret_names=approved_secrets,
+    )
+    return process, overlay
+
+
+def apply_provider_bridge_configuration(
+    client: AcpClient,
+    snapshot: AcpCapabilitySnapshotV1,
+    route: ResolvedGatewayRoute,
+    resolution: AcpProviderBridgeResolution,
+    overlay: AcpProviderLaunchOverlay | None,
+    *,
+    api_key: str | None,
+) -> tuple[str | None, bool]:
+    """Configure an advertised provider or return the adapter model selector."""
+    if any(
+        item.feature == "provider_configuration"
+        for item in snapshot.negotiated_features
+    ):
+        configure_provider(
+            client,
+            api_type=_provider_api_type(route.provider_protocol),
+            base_url=route.credential_free_base_url,
+            headers={"Authorization": f"Bearer {api_key or '0'}"},
+        )
+        return "model", True
+    if resolution.strategy is AcpProviderBridgeStrategy.ACP_PROVIDERS:
+        return None, False
+    return (None if overlay is None else overlay.session_model_config_id), True
+
+
+def decode_resolved_gateway_route(value: object) -> ResolvedGatewayRoute | None:
+    """Decode the strict content-free route binding accepted by managed ACP."""
+    if value is None:
+        return None
+    if isinstance(value, ResolvedGatewayRoute):
+        route = value
+    elif isinstance(value, Mapping):
+        document = dict(value)
+        required = {
+            "route_id",
+            "gateway_id",
+            "provider_protocol",
+            "credential_free_base_url",
+            "public_model_alias",
+            "support_status",
+            "capability_digest",
+            "reason_ids",
+        }
+        keys = set(document)
+        if keys != required and keys != required | {"schema_version"}:
+            raise ValueError("managed ACP resolved gateway route is invalid")
+        if document.get("schema_version", 1) != 1:
+            raise ValueError("managed ACP resolved gateway route is incompatible")
+        reasons = document["reason_ids"]
+        if not isinstance(reasons, (list, tuple)):
+            raise ValueError("managed ACP resolved gateway reasons are invalid")
+        route = ResolvedGatewayRoute(
+            route_id=_text(document["route_id"]),
+            gateway_id=_text(document["gateway_id"]),
+            provider_protocol=_text(document["provider_protocol"]),
+            credential_free_base_url=_text(document["credential_free_base_url"]),
+            public_model_alias=_text(document["public_model_alias"]),
+            support_status=_text(document["support_status"]),
+            capability_digest=_text(document["capability_digest"]),
+            reason_ids=tuple(_text(item) for item in reasons),
+        )
+    else:
+        raise ValueError("managed ACP resolved gateway route is invalid")
+    if route.gateway_id != "gpt2giga" or route.support_status == "blocked":
+        raise ValueError("managed ACP resolved gateway route is unavailable")
+    return route
+
+
+def require_provider_bridge_route(
+    *,
+    registry_id: str,
+    version: str,
+    providers_advertised: bool,
+    requested_model: str | None,
+    route: ResolvedGatewayRoute | None,
+) -> None:
+    """Fail closed when an explicit gateway model lacks a verified route."""
+    model = (requested_model or "").strip()
+    if not model or model == "provider-default" or route is not None:
+        return
+    bridge = resolve_provider_bridge(
+        registry_id=registry_id,
+        version=version,
+        providers_advertised=providers_advertised,
+    )
+    if bridge.status is not AcpProviderBridgeStatus.READY:
+        raise AcpProviderBridgeUnavailable(bridge.reason_ids[0])
+    raise AcpGatewayRouteRequired(
+        "managed ACP gateway model requires a resolved route binding"
+    )
+
+
+def resolve_available_provider_bridge(
+    *,
+    registry_id: str,
+    version: str,
+    providers_advertised: bool,
+    route: ResolvedGatewayRoute | None,
+) -> AcpProviderBridgeResolution | None:
+    """Resolve an explicit route and reject any native-only bridge."""
+    if route is None:
+        return None
+    resolution = resolve_provider_bridge(
+        registry_id=registry_id,
+        version=version,
+        providers_advertised=providers_advertised,
+        advertised_provider_protocols=(route.provider_protocol,),
+    )
+    if resolution.status is not AcpProviderBridgeStatus.READY:
+        raise AcpProviderBridgeUnavailable(resolution.reason_ids[0])
+    return resolution
+
+
 def _matches(version: str, policy: VersionPolicy) -> bool:
     if policy.kind is not VersionPolicyKind.REVIEWED_RANGE:
         return False
@@ -273,3 +451,19 @@ def _gateway_url(value: str) -> str:
     ):
         raise ValueError("ACP provider bridge base URL is invalid")
     return value.rstrip("/")
+
+
+def _provider_api_type(provider_protocol: str) -> str:
+    if provider_protocol in {"openai_chat_completions", "openai_responses"}:
+        return "openai"
+    if provider_protocol == "anthropic_messages":
+        return "anthropic"
+    if provider_protocol == "gemini_generate_content":
+        return "gemini"
+    raise ValueError("managed ACP provider protocol is unsupported")
+
+
+def _text(value: Any) -> str:
+    if not isinstance(value, str):
+        raise ValueError("managed ACP resolved gateway route field is invalid")
+    return value
