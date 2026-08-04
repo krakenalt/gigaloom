@@ -43,6 +43,34 @@ export const requestKeys = {
     [...rootKey, "operator-inbox", workspaceId] as const,
   operatorInbox: (workspaceId: string, kindFilter: string) =>
     [...requestKeys.operatorInboxScope(workspaceId), kindFilter] as const,
+  threadLibraryScope: (projectId: string) =>
+    [...rootKey, "thread-library", projectId] as const,
+  threadLibrary: (projectId: string, source: string, revision: string) =>
+    [
+      ...requestKeys.threadLibraryScope(projectId),
+      "threads",
+      source,
+      revision,
+    ] as const,
+  threadRead: (
+    projectId: string,
+    source: string,
+    threadId: string,
+    revision: string,
+  ) =>
+    [
+      ...requestKeys.threadLibraryScope(projectId),
+      "thread",
+      source,
+      threadId,
+      revision,
+    ] as const,
+  threadDelivery: (projectId: string, deliveryId: string) =>
+    [
+      ...requestKeys.threadLibraryScope(projectId),
+      "delivery",
+      deliveryId,
+    ] as const,
   operatorTerminal: (
     terminalId: string,
     workspaceId: string,
