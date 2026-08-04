@@ -87,6 +87,11 @@ class _NoopSubmitter:
 
 
 class _StaticGatewayCatalog:
+    gateway_api_key = None
+
+    def close(self) -> None:
+        """Match the application-owned gateway service lifecycle."""
+
     def catalog(self, *, refresh: bool = False) -> dict[str, object]:
         del refresh
         return {

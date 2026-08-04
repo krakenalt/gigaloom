@@ -1,0 +1,33 @@
+{
+  "schema_version": "gigaloom.production-loc-baseline.v1",
+  "source_revision": "bfd1a936510a0f965a9e23758d1d27b97be42f83",
+  "method": "physical lines in tracked Python files matched by the release scope",
+  "scope": [
+    "src/gigaloom/native/launch/gateway_*.py",
+    "src/gigaloom/cli_commands/gateway_*.py",
+    "src/gigaloom/harnesses/managed_acp*.py",
+    "src/gigaloom/harnesses/acp/*.py"
+  ],
+  "areas": {
+    "cli_gateway": {
+      "files": 5,
+      "lines": 1322
+    },
+    "managed_acp": {
+      "files": 3,
+      "lines": 977
+    },
+    "acp_package": {
+      "files": 19,
+      "lines": 2124
+    },
+    "native_gateway": {
+      "files": 7,
+      "lines": 2289
+    }
+  },
+  "totals": {
+    "files": 34,
+    "lines": 6712
+  }
+}
