@@ -146,7 +146,7 @@
       "client_protocol": "gemini_protocol",
       "public_model_alias": "GigaChat-2-Max",
       "upstream_provider": "gigachat",
-      "gateway_support_status": "blocked",
+      "gateway_support_status": "technical_preview",
       "effective_support_status": "blocked",
       "reason_ids": [
         "gemini_custom_endpoint_unsupported"

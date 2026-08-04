@@ -47,7 +47,7 @@ class GatewayInjectionReason(str, Enum):
     SUPPORT_BLOCKED = "support_blocked"
     ACKNOWLEDGEMENT_REQUIRED = "acknowledgement_required"
     AGENT_PROTOCOL_UNSUPPORTED = "agent_protocol_unsupported"
-    GEMINI_NATIVE_GATEWAY_UNSUPPORTED = "gemini_native_gateway_unsupported"
+    GEMINI_NATIVE_GATEWAY_UNSUPPORTED = "gemini_custom_endpoint_unsupported"
     ACP_MODEL_SELECTOR_REQUIRED = "acp_model_selector_required"
     MANAGED_ROOT_INVALID = "managed_root_invalid"
     OVERLAY_WRITE_FAILED = "overlay_write_failed"
