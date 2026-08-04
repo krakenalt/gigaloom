@@ -10,6 +10,7 @@ import { RouteModelPicker } from "./RouteModelPicker";
 import { RouteSupportNotice } from "./RouteSupportNotice";
 import { ThreadNavigation } from "./ThreadNavigation";
 import { WorkDestination } from "./WorkDestination";
+import { WorkRouteSubmissionHeader } from "./WorkRouteSubmission";
 
 const featureCss = source("./work-first.css");
 const globalLayoutCss = source("../../shared/styles/layout.css");
@@ -27,6 +28,7 @@ const requestFreeComponents = [
   "./RunNarrative.tsx",
   "./ThreadNavigation.tsx",
   "./WorkDestination.tsx",
+  "./WorkRouteSubmission.tsx",
 ] as const;
 
 describe("work-first responsive and accessibility contract", () => {
@@ -151,6 +153,31 @@ describe("work-first responsive and accessibility contract", () => {
     expect(markup).toContain("type=\"checkbox\"");
     expect(markup).toContain("Vendor unsupported");
     expect(markup).toContain("data-route-gate=\"acknowledgement_required\"");
+  });
+
+  it("labels the reviewed route header before Work submission", () => {
+    const markup = renderToStaticMarkup(
+      <WorkRouteSubmissionHeader binding={{
+        acknowledgement_id: null,
+        agent_id: "codex",
+        artifact_sha256: "artifact-sha256",
+        capability_profile_revision: "capability-v1",
+        gateway_profile_id: "gpt2giga",
+        loss_matrix_revision: "loss-v1",
+        models_revision: "models-v1",
+        preflight_checked_at: "2026-08-04T12:00:00Z",
+        preflight_receipt_id: "preflight-01",
+        profile_digest: "profile-sha256",
+        public_model_alias: "GigaChat-2-Max",
+        route_id: "codex-gpt2giga-gigachat-max",
+        schema_version: 1,
+        support_status: "technical_preview",
+      }} />,
+    );
+
+    expect(markup).toContain("aria-label=\"Reviewed route before send\"");
+    expect(markup).toContain("data-route-id=\"codex-gpt2giga-gigachat-max\"");
+    expect(markup).toContain("<dl>");
   });
 
   it("freezes mobile, safe-area, focus, and reduced-motion safeguards", () => {

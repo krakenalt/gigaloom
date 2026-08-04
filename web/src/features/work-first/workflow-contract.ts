@@ -56,6 +56,39 @@ export interface BridgeRouteCatalogProjectionV1 {
   status: GatewayCatalogStatus;
 }
 
+export interface GatewayPreflightReceiptProjectionV1 {
+  artifact_sha256: string;
+  capability_revision: string;
+  checked_at: string;
+  gateway_id: string;
+  loss_matrix_revision: string;
+  models_revision: string;
+  profile_digest: string;
+  reason_ids: readonly string[];
+  receipt_id: string;
+  route_id: string;
+  schema_version: 1;
+  status: "blocked" | "ready";
+  support_status: BridgeSupportStatus;
+}
+
+export interface ReviewedRouteBindingV1 {
+  acknowledgement_id: string | null;
+  agent_id: string;
+  artifact_sha256: string;
+  capability_profile_revision: string;
+  gateway_profile_id: string;
+  loss_matrix_revision: string;
+  models_revision: string;
+  preflight_checked_at: string;
+  preflight_receipt_id: string;
+  profile_digest: string;
+  public_model_alias: string;
+  route_id: string;
+  schema_version: 1;
+  support_status: BridgeSupportStatus;
+}
+
 export interface RelayPreviewFacts {
   action: "send" | "steer";
   blockedReasons?: readonly string[];
