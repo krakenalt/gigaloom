@@ -5,6 +5,31 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 и проект придерживается [Семантического версионирования](https://semver.org/lang/ru/).
 
+## [0.9.1] - Unreleased
+
+### Добавлено
+
+- ACP provider bridge проверяет способ настройки провайдера модели у
+  установленного агента, показывает в `inspect`/`probe` состояния `ready`,
+  `native_only`, `unknown_until_reprobe` и `blocked` и применяет временную
+  launch-конфигурацию только для подтверждённого маршрута. `native_only`
+  означает рабочий нативный запуск без безопасной смены провайдера, а не ошибку
+  установки.
+
+### Изменено
+
+- CLI, Web и ACP используют один resolved gateway route; optional extra
+  допускает публичные версии `gpt2giga>=0.3.0,<0.4.0`, а готовый managed
+  sidecar переиспользуется на тёплом пути без нового процесса и повторного
+  discovery.
+- Thread list больше не выполняет N+1 чтения последних runs: один batch read
+  заменил 100 отдельных чтений. На сопоставимом 20-sample capture p50 снизился
+  с `276.327250` до `3.480980` мс, p95 — с `298.759850` до `3.728379` мс
+  (`98.752%` быстрее); p95 чтения одного thread улучшился на `17.025%`.
+- Документация перестроена вокруг короткого пути install -> agent -> gateway:
+  README сокращён с 338 до 135 строк, а английские и русские quickstart,
+  support matrix и troubleshooting согласованы.
+
 ## [0.9.0] - Unreleased
 
 ### Добавлено
@@ -382,6 +407,8 @@
 - **Tools, MCP и policy**: добавлены общие tool/secret contracts, discovery и dry-run синхронизация MCP profiles, managed MCP configuration, preflight diagnostics и approval-gated действия.
 - **Диагностика и документация**: добавлены `giga doctor`, inspect/config/session/native команды, alpha quickstart, migration guide и описание ограничений первого релиза.
 ---
+
+[0.9.1]: https://github.com/krakenalt/gigaloom/compare/v0.9.0...v0.9.1
 
 [0.9.0]: https://github.com/krakenalt/gigaloom/compare/v0.8.1...v0.9.0
 

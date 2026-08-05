@@ -13,7 +13,7 @@ from acp.schema import (
 )
 
 from gigaloom.harnesses.acp.compatibility import require_feature, require_snapshot
-from gigaloom.harnesses.acp.errors import AcpCapabilityError, AcpProtocolError
+from gigaloom.harnesses.acp.errors import AcpCapabilityError
 
 if TYPE_CHECKING:
     from gigaloom.harnesses.acp.client import AcpClient
@@ -41,13 +41,12 @@ def authenticate(
         raise AcpCapabilityError(
             "ACP terminal authentication requires a native or managed terminal"
         )
-    request = AuthenticateRequest(method_id=method_id)
-    raw = client.supervisor.request(
+    client.request(
         "authenticate",
-        request.model_dump(mode="json", by_alias=True, exclude_none=True),
-        timeout=client.limits.request_timeout_seconds,
+        AuthenticateRequest(method_id=method_id),
+        AuthenticateResponse,
+        error="ACP authentication response failed schema validation",
     )
-    _validate(AuthenticateResponse, raw)
     return AcpAuthenticationReceiptV1(method_id, kind, "authenticated")
 
 
@@ -56,13 +55,12 @@ def logout(client: AcpClient, *, explicit: bool) -> AcpAuthenticationReceiptV1:
     snapshot = require_snapshot(client.capability_snapshot)
     if not explicit or snapshot.auth_capabilities.get("logout") is not True:
         raise AcpCapabilityError("ACP logout is unavailable or was not explicit")
-    request = LogoutRequest()
-    raw = client.supervisor.request(
+    client.request(
         "logout",
-        request.model_dump(mode="json", by_alias=True, exclude_none=True),
-        timeout=client.limits.request_timeout_seconds,
+        LogoutRequest(),
+        LogoutResponse,
+        error="ACP authentication response failed schema validation",
     )
-    _validate(LogoutResponse, raw)
     return AcpAuthenticationReceiptV1("logout", "provider", "logged_out")
 
 
@@ -74,12 +72,3 @@ def _auth_method(
         if isinstance(item, Mapping) and item.get("id") == method_id:
             return item
     raise AcpCapabilityError("ACP authentication method was not negotiated")
-
-
-def _validate(model, raw) -> None:
-    try:
-        model.model_validate(raw)
-    except Exception as exc:
-        raise AcpProtocolError(
-            "ACP authentication response failed schema validation"
-        ) from exc

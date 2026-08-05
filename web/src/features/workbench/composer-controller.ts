@@ -45,3 +45,7 @@ export function useComposerController() {
     toolSearch,
   };
 }
+
+export function composerCommand(prompt: string): "compact" | null {
+  return prompt.trim().toLowerCase() === "/compact" ? "compact" : null;
+}

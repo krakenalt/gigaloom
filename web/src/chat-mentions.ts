@@ -8,6 +8,8 @@ import type {
 const maxMentionedChats = 4;
 const maxMessagesPerChat = 6;
 const maxMessageCharacters = 480;
+const mentionEnvelopeOpen = "<gigaloom_chat_mention>\n";
+const mentionEnvelopeClose = "\n</gigaloom_chat_mention>";
 
 export interface ChatMention {
   id: string;
@@ -20,6 +22,12 @@ export interface ChatMention {
   title: string;
   updatedAt: string;
   visibleMessages: readonly ThreadVisibleMessage[];
+}
+
+export interface ChatMentionDisplayProjection {
+  contextTruncated: boolean;
+  references: readonly Readonly<{ title: string; uri: string }>[];
+  text: string;
 }
 
 export function chatMentionOptions(
@@ -98,6 +106,35 @@ export function promptWithChatMentions(
   return `${context.join("\n\n")}\n\n${prompt.trim()}`.trim();
 }
 
+export function displayChatMentionPrompt(
+  source: string,
+): ChatMentionDisplayProjection {
+  let remaining = source;
+  const references: Array<Readonly<{ title: string; uri: string }>> = [];
+  while (remaining.startsWith(mentionEnvelopeOpen)) {
+    const envelopeEnd = remaining.indexOf(
+      mentionEnvelopeClose,
+      mentionEnvelopeOpen.length,
+    );
+    if (envelopeEnd < 0) {
+      return { contextTruncated: true, references, text: "" };
+    }
+    const payload = parseDisplayPayload(
+      remaining.slice(mentionEnvelopeOpen.length, envelopeEnd),
+    );
+    if (payload === null) {
+      return references.length === 0
+        ? { contextTruncated: false, references: [], text: source }
+        : { contextTruncated: true, references, text: "" };
+    }
+    references.push(payload);
+    remaining = remaining.slice(envelopeEnd + mentionEnvelopeClose.length);
+    if (remaining.startsWith("\n\n")) remaining = remaining.slice(2);
+    else if (remaining.startsWith("\n")) remaining = remaining.slice(1);
+  }
+  return { contextTruncated: false, references, text: remaining };
+}
+
 export function buildChatDeliveryRequest({
   currentProjectId,
   currentThreadId,
@@ -146,4 +183,30 @@ function safeEmbeddedJson(value: object): string {
     .replaceAll("<", "\\u003c")
     .replaceAll(">", "\\u003e")
     .replaceAll("&", "\\u0026");
+}
+
+function parseDisplayPayload(
+  source: string,
+): Readonly<{ title: string; uri: string }> | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(source);
+  } catch {
+    return null;
+  }
+  if (!isRecord(value)) return null;
+  const reference = value.reference;
+  if (
+    value.schema_version !== 1
+    || value.kind !== "gigaloom_chat_mention"
+    || !isRecord(reference)
+    || typeof reference.title !== "string"
+    || typeof reference.uri !== "string"
+    || !reference.uri.startsWith("thread://")
+  ) return null;
+  return { title: reference.title, uri: reference.uri };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

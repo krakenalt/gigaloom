@@ -9,10 +9,12 @@ from typing import TYPE_CHECKING, Any, Mapping
 from gigaloom.harnesses.ports import (
     ApprovalStatus,
     EnforcementLevel,
+    PermissionAction,
     PolicyContext,
     PolicyDecision,
     PolicyResolution,
 )
+from gigaloom.tools import THREAD_RELAY_APPROVAL_OWNER
 from gigaloom.types import HarnessContext, HarnessEvent, HarnessRequest
 
 from gigaloom.harnesses.builtins.codex.app_server.contracts import (
@@ -47,8 +49,35 @@ def await_durable_approval(
     method = str(provider_request.get("method") or "")
     params = _mapping(provider_request.get("params"))
     request_id = provider_request.get("id")
-    action, reason, preview = _approval_contract(method, params)
-    approval_binding = _provider_approval_binding(method, request_id, params)
+    thread_relay = _mapping(provider_request.get("thread_relay_approval"))
+    if method == "item/tool/call" and thread_relay:
+        action = PermissionAction.MCP_TOOL_CALL
+        reason = "Agent proposes sending a message to another project chat."
+        preview = _mapping(thread_relay.get("preview"))
+        approval_binding = str(thread_relay.get("approval_binding") or "")
+        project_id = _optional_text(thread_relay.get("project_id"))
+        if (
+            thread_relay.get("enforcement_owner") != THREAD_RELAY_APPROVAL_OWNER
+            or len(approval_binding) != 64
+            or any(
+                character not in "0123456789abcdef" for character in approval_binding
+            )
+            or project_id is None
+        ):
+            raise ValueError("Thread Relay approval contract is invalid")
+        policy_source = "thread_relay:agent_send"
+        enforcement_owner = THREAD_RELAY_APPROVAL_OWNER
+        run_id = None
+        job_id = None
+    else:
+        action, reason, preview = _approval_contract(method, params)
+        approval_binding = _provider_approval_binding(method, request_id, params)
+        policy_source = "codex_app_server:on_request"
+        enforcement_owner = APP_SERVER_APPROVAL_OWNER
+        project_id = _optional_text(request.extra.get("project_id"))
+        run_id = request.run_id
+        runtime = _mapping(request.extra.get("runtime"))
+        job_id = _optional_text(runtime.get("job_id"))
     existing = supervisor.runtime_store.find_approval_request_by_binding(
         approval_binding
     )
@@ -60,7 +89,6 @@ def await_durable_approval(
         0.1,
     )
     if existing is None:
-        runtime = _mapping(request.extra.get("runtime"))
         expires_at = (
             datetime.now(timezone.utc) + timedelta(seconds=timeout_seconds)
         ).isoformat()
@@ -69,17 +97,17 @@ def await_durable_approval(
                 action=action,
                 decision=PolicyDecision.ASK,
                 enforcement=EnforcementLevel.ENFORCED_BY_HARNESS,
-                policy_source="codex_app_server:on_request",
+                policy_source=policy_source,
             ),
             PolicyContext(
-                project_id=_optional_text(request.extra.get("project_id")),
+                project_id=project_id,
                 session_id=request.session_id,
-                run_id=request.run_id,
-                job_id=_optional_text(runtime.get("job_id")),
+                run_id=run_id,
+                job_id=job_id,
                 reason=reason,
                 preview=preview,
                 approval_binding=approval_binding,
-                enforcement_owner=APP_SERVER_APPROVAL_OWNER,
+                enforcement_owner=enforcement_owner,
             ),
             expires_at=expires_at,
         )

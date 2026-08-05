@@ -218,6 +218,63 @@ def test_list_and_read_are_actor_project_bound_and_message_bounded(tmp_path) -> 
         service.read_thread(_locator(target.id, actor_scope="actor-2"))
 
 
+def test_list_batches_latest_runs_without_changing_read_projection(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    service, store, _, _, _, _ = _service(tmp_path)
+    idle = _session(store, "Idle")
+    active = _session(store, "Active")
+    store.create_run(
+        session_id=active.id,
+        harness_id="echo",
+        prompt="active",
+        model="RunModel",
+        api_mode=GigaChatApiMode.V2,
+        capability=HarnessCapability.AGENT_CLI,
+        mode="plan",
+        workspace=None,
+        status=RunStatus.RUNNING,
+        started_at=utc_now(),
+        metadata={"active_turn_id": "turn-active-1", "route_id": "route-1"},
+    )
+    batch_calls: list[tuple[str, ...]] = []
+    run_page_calls: list[str] = []
+    original_latest_runs = store.latest_runs
+    original_list_runs_page = store.list_runs_page
+
+    def counted_latest_runs(session_ids: tuple[str, ...]):
+        batch_calls.append(session_ids)
+        return original_latest_runs(session_ids)
+
+    def counted_list_runs_page(session_id: str, **kwargs):
+        run_page_calls.append(session_id)
+        return original_list_runs_page(session_id, **kwargs)
+
+    monkeypatch.setattr(store, "latest_runs", counted_latest_runs)
+    monkeypatch.setattr(store, "list_runs_page", counted_list_runs_page)
+
+    listed = service.list_threads(limit=10)
+
+    assert batch_calls == [(active.id, idle.id)]
+    assert run_page_calls == []
+    assert [
+        (item.title, item.status, item.model, item.route) for item in listed.items
+    ] == [
+        ("Active", "running", "RunModel", "route-1"),
+        ("Idle", "idle", "TestModel", None),
+    ]
+
+    read = service.read_thread(_locator(active.id))
+
+    assert run_page_calls == [active.id]
+    assert (read.status, read.model, read.route) == (
+        listed.items[0].status,
+        listed.items[0].model,
+        listed.items[0].route,
+    )
+
+
 def test_follow_up_enqueues_existing_turn_owner_with_content_free_provenance(
     tmp_path,
 ) -> None:

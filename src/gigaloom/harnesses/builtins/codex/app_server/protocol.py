@@ -429,6 +429,15 @@ def _tool_arguments(item: Mapping[str, Any]) -> Any:
             "prompt": item.get("prompt"),
             "subagents": item.get("subagents") or _collab_agent_states(item),
         }
+    if item_type == "dynamicToolCall":
+        arguments = _mapping(item.get("arguments"))
+        return {
+            "argument_keys": sorted(str(key) for key in arguments),
+            "content_redacted": any(
+                str(key).lower() in {"content", "message", "prompt", "text"}
+                for key in arguments
+            ),
+        }
     return item.get("arguments") or {}
 
 

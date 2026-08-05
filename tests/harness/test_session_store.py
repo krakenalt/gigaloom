@@ -2,7 +2,10 @@ from dataclasses import replace
 import json
 
 import gigaloom.sessions.storage.filesystem.runs as filesystem_runs
-from gigaloom.sessions import FilesystemHarnessSessionStore
+from gigaloom.sessions import (
+    FilesystemHarnessSessionStore,
+    InMemoryHarnessSessionStore,
+)
 from gigaloom.native import HarnessInvocationMode, NativeSessionStatus
 from gigaloom.sessions.models import (
     HarnessMessage,
@@ -113,6 +116,44 @@ def test_filesystem_store_persists_invocation_mode_on_runs(tmp_path):
         ]
         == "native"
     )
+
+
+def test_session_stores_batch_latest_runs_with_missing_sessions(tmp_path):
+    stores = (
+        InMemoryHarnessSessionStore(),
+        FilesystemHarnessSessionStore(tmp_path / "filesystem"),
+    )
+    for store in stores:
+        first = store.create_session(title="first")
+        empty = store.create_session(title="empty")
+        older = store.create_run(
+            session_id=first.id,
+            harness_id="echo",
+            prompt="older",
+            model=None,
+            api_mode=GigaChatApiMode.V2,
+            capability=HarnessCapability.CHAT_COMPLETIONS,
+            mode="read",
+            workspace=None,
+        )
+        latest = store.create_run(
+            session_id=first.id,
+            harness_id="echo",
+            prompt="latest",
+            model=None,
+            api_mode=GigaChatApiMode.V2,
+            capability=HarnessCapability.CHAT_COMPLETIONS,
+            mode="read",
+            workspace=None,
+        )
+
+        assert older.id != latest.id
+        assert store.latest_runs((first.id, empty.id, "missing")) == {
+            first.id: latest,
+            empty.id: None,
+            "missing": None,
+        }
+        assert store.latest_runs(()) == {}
 
 
 def test_filesystem_store_updates_run_with_one_authoritative_record_read(

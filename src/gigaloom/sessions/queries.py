@@ -19,6 +19,7 @@ from gigaloom.sessions.api import (
 from gigaloom.sessions.models import (
     HarnessMessage,
     HarnessRawRecord,
+    HarnessRun,
     HarnessStoredEvent,
 )
 
@@ -117,7 +118,7 @@ class InMemorySessionQueryMixin:
 
     _query_index: InMemoryQueryIndex
     _messages: dict[str, list[HarnessMessage]]
-    _runs: dict[str, list[Any]]
+    _runs: dict[str, list[HarnessRun]]
     _run_generation: int
 
     def get_session(self, session_id: str) -> Any:
@@ -181,6 +182,20 @@ class InMemorySessionQueryMixin:
             else None
         )
         return RunPage(items, next_cursor, has_more, self._run_generation)
+
+    def latest_runs(
+        self,
+        session_ids: tuple[str, ...],
+    ) -> dict[str, HarnessRun | None]:
+        """Return newest runs with direct dictionary lookups."""
+        if len(session_ids) > MAX_RECORD_QUERY_LIMIT:
+            raise ValueError(
+                f"session_ids must contain at most {MAX_RECORD_QUERY_LIMIT} items"
+            )
+        return {
+            session_id: runs[-1] if (runs := self._runs.get(session_id)) else None
+            for session_id in session_ids
+        }
 
     def list_events_page(
         self,
@@ -279,6 +294,14 @@ class FilesystemSessionQueryMixin:
             cursor=cursor,
             limit=limit,
         )
+
+    def latest_runs(
+        self,
+        session_ids: tuple[str, ...],
+    ) -> dict[str, HarnessRun | None]:
+        """Return newest runs through one derived-index read."""
+        self._ensure_read_index()
+        return self._session_read_index().latest_runs(session_ids)
 
     def list_events_page(
         self,

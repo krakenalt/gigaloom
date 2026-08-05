@@ -1,3 +1,5 @@
+import type { MouseEvent } from "react";
+
 import type { WorkspaceFileCandidate } from "../../api";
 import type { ChatMention } from "../../chat-mentions";
 import type { SkillMention } from "../../skill-mentions";
@@ -5,50 +7,40 @@ import { formatBytes } from "./attachment-actions";
 
 type MentionKind = "chat" | "file" | "plugin" | "skill";
 
+export type MentionCandidate =
+  | { kind: "chat"; chat: ChatMention }
+  | { kind: "file"; file: WorkspaceFileCandidate }
+  | { kind: "plugin" | "skill"; skill: SkillMention };
+
+export function compactMentionCandidates(
+  groups: readonly (readonly MentionCandidate[])[],
+  limit = 6,
+): MentionCandidate[] {
+  const firstOfEachKind = groups.flatMap((group) => group.slice(0, 1));
+  const remaining = groups.flatMap((group) => group.slice(1));
+  return [...firstOfEachKind, ...remaining].slice(0, limit);
+}
+
 const copy = {
   en: {
-    chats: "Chats",
-    chatsHint: "Read bounded history, add it as context, or send this draft.",
-    files: "Repository files",
-    filesHint: "Attach a safe file from the current repository.",
-    filesUnavailable: "Repository files are unavailable.",
-    hint: "Type @ to add context or a capability. Nothing runs until you send.",
-    mention: "Mention",
-    noChats: "No other chats in this project match.",
-    noFiles: "No safe repository files match.",
-    omitted: "earlier messages omitted",
-    plugins: "Plugins",
-    pluginsHint: "Capability bundles that expose one or more skills.",
-    projectRequired: "Bind this session to a project to mention its chats.",
-    read: "Read",
-    readTitle: "Bounded chat preview",
-    send: "Send",
-    sendHint: "Preview and send the current draft to this chat.",
-    skills: "Skills",
-    skillsHint: "Reusable instructions invoked natively by the selected agent.",
-    title: "Mention something",
+    chat: "Chat context",
+    empty: "No matching skills, chats, or files.",
+    file: "Repository file",
+    hint: "Keep typing to filter. Enter adds the selected item.",
+    loading: "Looking for matches…",
+    plugin: "Plugin",
+    skill: "Skill",
+    title: "Add context or a capability",
   },
   ru: {
-    chats: "Чаты",
-    chatsHint: "Прочитать ограниченную историю, добавить контекст или отправить черновик.",
-    files: "Файлы репозитория",
-    filesHint: "Прикрепить безопасный файл из текущего репозитория.",
-    filesUnavailable: "Файлы репозитория сейчас недоступны.",
-    hint: "Введите @, чтобы добавить контекст или возможность. Ничего не запустится до отправки.",
-    mention: "Упомянуть",
-    noChats: "В этом проекте нет других подходящих чатов.",
-    noFiles: "Подходящие безопасные файлы не найдены.",
-    omitted: "более ранних сообщений скрыто",
-    plugins: "Плагины",
-    pluginsHint: "Наборы возможностей, внутри которых есть один или несколько skills.",
-    projectRequired: "Привяжите сессию к проекту, чтобы упоминать его чаты.",
-    read: "Читать",
-    readTitle: "Ограниченный preview чата",
-    send: "Отправить",
-    sendHint: "Показать preview и отправить текущий черновик в этот чат.",
-    skills: "Скиллы",
-    skillsHint: "Переиспользуемые инструкции, которые агент вызывает нативно.",
-    title: "Добавить через @",
+    chat: "Контекст из чата",
+    empty: "Подходящих навыков, чатов или файлов нет.",
+    file: "Файл репозитория",
+    hint: "Продолжайте вводить текст для поиска. Enter добавит выбранный пункт.",
+    loading: "Ищем подходящие варианты…",
+    plugin: "Плагин",
+    skill: "Навык",
+    title: "Добавить контекст или возможность",
   },
 } as const;
 
@@ -73,7 +65,9 @@ export function ComposerSelectionChips({
   removeLabel: string;
   skills: readonly SkillMention[];
 }) {
-  if (builtinTools.length === 0 && chats.length === 0 && skills.length === 0) return null;
+  if (builtinTools.length === 0 && chats.length === 0 && skills.length === 0) {
+    return null;
+  }
   return (
     <div className="attachment-chips" aria-label={label}>
       {builtinTools.map((tool) => (
@@ -117,45 +111,22 @@ export function ComposerSelectionChips({
 }
 
 export function MentionPicker({
-  chats,
+  candidates,
   chatStatus,
-  files,
   fileStatus,
-  inspectedChat,
   locale,
-  onChooseChat,
-  onChooseFile,
-  onChooseSkill,
-  onReadChat,
-  onSendChat,
-  plugins,
+  onChoose,
   selectedIndex,
-  sendEnabled,
-  sendPendingChatId,
-  skills,
 }: {
-  chats: readonly ChatMention[];
+  candidates: readonly MentionCandidate[];
   chatStatus: "error" | "loading" | "project_required" | "ready";
-  files: readonly WorkspaceFileCandidate[];
   fileStatus: "error" | "loading" | "ready";
-  inspectedChat: ChatMention | null;
   locale: "en" | "ru";
-  onChooseChat: (chat: ChatMention) => void;
-  onChooseFile: (path: string) => void;
-  onChooseSkill: (skill: SkillMention) => void;
-  onReadChat: (chat: ChatMention) => void;
-  onSendChat: (chat: ChatMention) => void;
-  plugins: readonly SkillMention[];
+  onChoose: (candidate: MentionCandidate) => void;
   selectedIndex: number;
-  sendEnabled: boolean;
-  sendPendingChatId: string | null;
-  skills: readonly SkillMention[];
 }) {
   const labels = copy[locale];
-  const pluginOffset = skills.length;
-  const chatOffset = pluginOffset + plugins.length;
-  const fileOffset = chatOffset + chats.length;
-
+  const loading = chatStatus === "loading" || fileStatus === "loading";
   return (
     <section className="mention-picker" id="composer-mention-picker">
       <header className="mention-picker-header">
@@ -166,171 +137,57 @@ export function MentionPicker({
         </span>
       </header>
       <div className="mention-picker-scroll" role="listbox">
-        <MentionGroup heading={labels.skills} hint={labels.skillsHint} kind="skill">
-          {skills.map((skill, index) => (
-            <MentionOption
-              detail={`${skill.source} · ${skill.description}`}
-              index={index}
-              key={skill.id}
-              kind="skill"
-              label={skill.mention}
-              onChoose={() => onChooseSkill(skill)}
-              selectedIndex={selectedIndex}
-            />
-          ))}
-        </MentionGroup>
-        <MentionGroup heading={labels.plugins} hint={labels.pluginsHint} kind="plugin">
-          {plugins.map((plugin, index) => (
-            <MentionOption
-              detail={`${plugin.source} · ${plugin.description}`}
-              index={pluginOffset + index}
-              key={plugin.id}
-              kind="plugin"
-              label={plugin.mention}
-              onChoose={() => onChooseSkill(plugin)}
-              selectedIndex={selectedIndex}
-            />
-          ))}
-        </MentionGroup>
-        <MentionGroup heading={labels.chats} hint={labels.chatsHint} kind="chat">
-          {chatStatus === "project_required" ? (
-            <p className="mention-empty">{labels.projectRequired}</p>
-          ) : chatStatus === "loading" ? (
-            <p className="mention-empty">…</p>
-          ) : chatStatus === "error" ? (
-            <p className="mention-empty error-state" role="alert">Thread Relay unavailable</p>
-          ) : chats.length === 0 ? (
-            <p className="mention-empty">{labels.noChats}</p>
-          ) : chats.map((chat, index) => {
-            const candidateIndex = chatOffset + index;
-            return (
-              <div className="mention-chat-row" key={chat.id}>
-                <MentionOption
-                  detail={`${chat.status} · ${chat.source}`}
-                  index={candidateIndex}
-                  kind="chat"
-                  label={chat.mention}
-                  onChoose={() => onChooseChat(chat)}
-                  selectedIndex={selectedIndex}
-                />
-                <div className="mention-chat-actions">
-                  <button
-                    onClick={() => onReadChat(chat)}
-                    onMouseDown={keepComposerFocus}
-                    type="button"
-                  >{labels.read}</button>
-                  <button
-                    aria-label={`${labels.mention} ${chat.title}`}
-                    onClick={() => onChooseChat(chat)}
-                    onMouseDown={keepComposerFocus}
-                    type="button"
-                  >{labels.mention}</button>
-                  <button
-                    disabled={!sendEnabled || sendPendingChatId !== null}
-                    onClick={() => onSendChat(chat)}
-                    onMouseDown={keepComposerFocus}
-                    title={labels.sendHint}
-                    type="button"
-                  >{sendPendingChatId === chat.id ? "…" : labels.send}</button>
-                </div>
-              </div>
-            );
-          })}
-          {inspectedChat === null ? null : (
-            <article className="mention-chat-preview">
-              <header>
-                <strong>{labels.readTitle}</strong>
-                <span>{inspectedChat.title}</span>
-              </header>
-              {inspectedChat.visibleMessages.slice(-4).map((item) => (
-                <p key={item.message_id}>
-                  <strong>{item.role}</strong>
-                  <span>{item.content}</span>
-                </p>
-              ))}
-              {inspectedChat.omittedCount > 0 ? (
-                <small>{inspectedChat.omittedCount} {labels.omitted}</small>
-              ) : null}
-            </article>
-          )}
-        </MentionGroup>
-        <MentionGroup heading={labels.files} hint={labels.filesHint} kind="file">
-          {fileStatus === "loading" ? (
-            <p className="mention-empty">…</p>
-          ) : fileStatus === "error" ? (
-            <p className="mention-empty error-state" role="alert">
-              {labels.filesUnavailable}
-            </p>
-          ) : files.length === 0 ? (
-            <p className="mention-empty">{labels.noFiles}</p>
-          ) : files.map((file, index) => (
-            <MentionOption
-              detail={`${file.kind} · ${formatBytes(file.size_bytes)}`}
-              index={fileOffset + index}
-              key={file.path}
-              kind="file"
-              label={`@${file.path}`}
-              onChoose={() => onChooseFile(file.path)}
-              selectedIndex={selectedIndex}
-            />
-          ))}
-        </MentionGroup>
+        {candidates.length === 0 ? (
+          <p className="mention-empty">{loading ? labels.loading : labels.empty}</p>
+        ) : candidates.map((candidate, index) => {
+          const presentation = presentCandidate(candidate, labels);
+          return (
+            <button
+              aria-selected={index === selectedIndex}
+              className={`mention-option ${index === selectedIndex ? "selected" : ""}`}
+              data-kind={candidate.kind}
+              key={presentation.key}
+              onClick={() => onChoose(candidate)}
+              onMouseDown={keepComposerFocus}
+              role="option"
+              type="button"
+            >
+              <MentionKindIcon kind={candidate.kind} />
+              <span>
+                <strong>{presentation.label}</strong>
+                <small>{presentation.detail}</small>
+              </span>
+            </button>
+          );
+        })}
       </div>
     </section>
   );
 }
 
-function MentionGroup({
-  children,
-  heading,
-  hint,
-  kind,
-}: {
-  children: ReactNode;
-  heading: string;
-  hint: string;
-  kind: MentionKind;
-}) {
-  return (
-    <section className="mention-group" data-kind={kind}>
-      <header>
-        <MentionKindIcon kind={kind} />
-        <span><strong>{heading}</strong><small>{hint}</small></span>
-      </header>
-      <div className="mention-group-options">{children}</div>
-    </section>
-  );
-}
-
-function MentionOption({
-  detail,
-  index,
-  kind,
-  label,
-  onChoose,
-  selectedIndex,
-}: {
-  detail: string;
-  index: number;
-  kind: MentionKind;
-  label: string;
-  onChoose: () => void;
-  selectedIndex: number;
-}) {
-  return (
-    <button
-      aria-selected={index === selectedIndex}
-      className={`mention-option ${index === selectedIndex ? "selected" : ""}`}
-      data-kind={kind}
-      onClick={onChoose}
-      onMouseDown={keepComposerFocus}
-      role="option"
-      type="button"
-    >
-      <MentionKindIcon kind={kind} />
-      <span><strong>{label}</strong><small>{detail}</small></span>
-    </button>
-  );
+function presentCandidate(
+  candidate: MentionCandidate,
+  labels: typeof copy.en | typeof copy.ru,
+): { detail: string; key: string; label: string } {
+  if (candidate.kind === "chat") {
+    return {
+      detail: `${labels.chat} · ${candidate.chat.status}`,
+      key: candidate.chat.id,
+      label: candidate.chat.mention,
+    };
+  }
+  if (candidate.kind === "file") {
+    return {
+      detail: `${labels.file} · ${formatBytes(candidate.file.size_bytes)}`,
+      key: candidate.file.path,
+      label: `@${candidate.file.path}`,
+    };
+  }
+  return {
+    detail: `${labels[candidate.kind]} · ${candidate.skill.description}`,
+    key: candidate.skill.id,
+    label: candidate.skill.mention,
+  };
 }
 
 export function MentionKindIcon({ kind }: { kind: MentionKind }) {
@@ -354,4 +211,3 @@ export function MentionKindIcon({ kind }: { kind: MentionKind }) {
 function keepComposerFocus(event: MouseEvent<HTMLButtonElement>) {
   event.preventDefault();
 }
-import type { MouseEvent, ReactNode } from "react";

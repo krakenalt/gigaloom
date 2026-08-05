@@ -41,6 +41,10 @@ from gigaloom.native.launch.gateway_profile import (
     GPT2GIGA_WHEEL_SHA256,
     reviewed_gpt2giga_profile,
 )
+from gigaloom.native.launch.gateway_discovery import (
+    GatewayRouteRefusal,
+    GatewayRouteResolver,
+)
 
 
 NOW = datetime(2026, 8, 4, 10, 0, tzinfo=timezone.utc)
@@ -79,7 +83,9 @@ def _route(case_id: str) -> BridgeRouteV1:
     case = _case(case_id)
     return BridgeRouteV1(
         route_id=case["route_id"],
-        agent_id=case["agent_id"],
+        agent_id=(
+            "acp" if case_id == "managed-acp-model-selector" else case["agent_id"]
+        ),
         client_protocol=case["client_protocol"],
         gateway_profile_id="gpt2giga",
         public_model_alias=case["public_model_alias"],
@@ -148,14 +154,22 @@ def _inject(
     root: Path,
     **kwargs: object,
 ):
-    return build_gateway_agent_injection(
-        route,
+    discovery = _discovery(route)
+    agent_id = "managed-acp-agent" if route.agent_id == "acp" else route.agent_id
+    resolved = GatewayRouteResolver(discovery).resolve(
         _profile(),
-        _discovery(route),
+        requested_agent_kind=agent_id,
+        requested_model_alias=route.public_model_alias,
+        route_id=route.route_id,
+    )
+    assert not isinstance(resolved, GatewayRouteRefusal)
+    return build_gateway_agent_injection(
+        resolved,
+        agent_id,
+        _profile(),
         _preflight(route),
         managed_root=root,
         process_lease_ref="native-process:gateway-conformance",
-        clock=lambda: NOW,
         **kwargs,
     )
 
@@ -169,6 +183,7 @@ def test_canonical_codex_command_resolves_one_pinned_responses_route() -> None:
     result = resolve_gateway_launch_request(
         request,
         _discovery(route),
+        profile=_profile(),
         interactive=False,
     )
 
@@ -193,12 +208,7 @@ def test_cross_family_adapters_preserve_support_truth_and_exact_selectors(
         acknowledged=True,
     )
     acp_route = _route("managed-acp-model-selector")
-    acp_missing = _inject(acp_route, tmp_path / "acp")
-    acp_ready = _inject(
-        acp_route,
-        tmp_path / "acp",
-        acp_model_selector_id="model",
-    )
+    acp = _inject(acp_route, tmp_path / "acp")
     gemini_root = tmp_path / "gemini"
     gemini = _inject(
         _route("gemini-native-custom-endpoint-blocked"),
@@ -218,11 +228,8 @@ def test_cross_family_adapters_preserve_support_truth_and_exact_selectors(
     )
     assert claude_ready.command_args == ("--model", "GigaChat-2-Max")
 
-    assert acp_missing.reason_ids == (
-        GatewayInjectionReason.ACP_MODEL_SELECTOR_REQUIRED.value,
-    )
-    assert acp_ready.status is GatewayInjectionStatus.READY
-    assert acp_ready.acp_config_selector == ("model", "GigaChat-2-Max")
+    assert acp.status is GatewayInjectionStatus.BLOCKED
+    assert acp.reason_ids == (GatewayInjectionReason.AGENT_PROTOCOL_UNSUPPORTED.value,)
 
     assert gemini.status is GatewayInjectionStatus.BLOCKED
     assert gemini.effective_support_status is GatewaySupportStatus.BLOCKED
@@ -255,6 +262,7 @@ def test_blocked_anthropic_upstream_stops_before_provider_traffic() -> None:
     result = resolve_gateway_launch_request(
         request,
         _discovery(blocked),
+        profile=_profile(),
         interactive=False,
     )
     if result.ready:  # pragma: no cover - the provider must remain unreachable
@@ -271,7 +279,7 @@ class _Discovery:
         self.calls = 0
 
     def discover(self, _profile: object, *, force_refresh: bool = False):
-        assert force_refresh is True
+        assert force_refresh is False
         self.calls += 1
         return self.result
 
@@ -280,6 +288,7 @@ class _Sidecar:
     def __init__(self) -> None:
         self.ensure_calls = 0
         self.stop_calls = 0
+        self.observed_artifact_sha256: str | None = None
 
     def ensure_started(
         self,
@@ -290,10 +299,10 @@ class _Sidecar:
         session_id: str,
         run_id: str,
     ) -> ManagedGatewayLeaseV1:
-        del artifact
         assert environment["GIGACHAT_ACCESS_TOKEN"] == "fixture-token"
         assert (session_id, run_id) == ("gateway-launch", "gateway-gpt2giga")
         self.ensure_calls += 1
+        self.observed_artifact_sha256 = cast(Any, artifact).artifact_sha256
         return ManagedGatewayLeaseV1(
             gateway_id=cast(Any, profile).gateway_id,
             profile_digest=cast(Any, profile).profile_digest,
@@ -302,6 +311,18 @@ class _Sidecar:
             managed_root="/managed/gateway",
             startup_config_ref="managed-config:startup.json",
             readiness_confirmed=True,
+            observed_artifact_sha256=self.observed_artifact_sha256,
+        )
+
+    def status(self, profile: object) -> ManagedGatewayLeaseV1:
+        return ManagedGatewayLeaseV1(
+            gateway_id=cast(Any, profile).gateway_id,
+            profile_digest=cast(Any, profile).profile_digest,
+            status=GatewaySidecarStatus.BLOCKED,
+            process_lease_ref=None,
+            managed_root=None,
+            startup_config_ref=None,
+            readiness_confirmed=False,
         )
 
     def stop(self, profile: object) -> ManagedGatewayLeaseV1:
@@ -314,6 +335,7 @@ class _Sidecar:
             managed_root="/managed/gateway",
             startup_config_ref="managed-config:startup.json",
             readiness_confirmed=False,
+            observed_artifact_sha256=self.observed_artifact_sha256,
         )
 
 

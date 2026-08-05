@@ -10,7 +10,13 @@ import { message } from "../../messages";
 import type { LocalePreference } from "../../preferences";
 import { usePreferences } from "../../preferences-context";
 import { invalidateSettingsProviderAccounts } from "./invalidation";
-import { Boundary, Fact, SectionError, SectionPending } from "./shared";
+import {
+  Boundary,
+  Fact,
+  localizedSettingValue,
+  SectionError,
+  SectionPending,
+} from "./shared";
 
 type ProviderAccountAction = "cancel" | "login" | "logout" | "refresh";
 
@@ -84,7 +90,7 @@ export function ProviderAccountCard({
           <small>{account.provider_id}</small>
         </div>
         <span className={`status-label ${account.status === "ready" ? "success" : ""}`}>
-          {account.status}
+          {localizedSettingValue(locale, account.status)}
         </span>
       </header>
       <dl className="settings-facts">
@@ -107,7 +113,12 @@ export function ProviderAccountCard({
       </dl>
       <p className="provider-account-recovery">
         <strong>{message(locale, "accountRecovery")}</strong>
-        <span>{account.recovery[0] ?? account.reason_code}</span>
+        <span>
+          {localizedSettingValue(
+            locale,
+            account.recovery[0] ?? account.reason_code,
+          )}
+        </span>
       </p>
       {pending ? (
         <p className="settings-action-result" role="status">

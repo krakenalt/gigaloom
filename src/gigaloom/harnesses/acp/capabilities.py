@@ -19,12 +19,7 @@ from gigaloom.harnesses.acp.contracts import (
 )
 
 
-_OPTIONAL_SESSION_FEATURES = {
-    "session_list": "list",
-    "session_delete": "delete",
-    "session_resume": "resume",
-    "session_close": "close",
-}
+_OPTIONAL_SESSION_FIELDS = "list delete resume close".split()
 
 
 def build_capability_snapshot(
@@ -49,17 +44,12 @@ def build_capability_snapshot(
         agent_capabilities, session_capabilities, auth_capabilities
     )
     client = AcpImplementationInfo(
-        name=client_info.name,
-        title=client_info.title,
-        version=client_info.version,
+        client_info.name, client_info.title, client_info.version
     )
+    agent_info = response.agent_info
     agent = (
-        AcpImplementationInfo(
-            name=response.agent_info.name,
-            title=response.agent_info.title,
-            version=response.agent_info.version,
-        )
-        if response.agent_info is not None
+        AcpImplementationInfo(agent_info.name, agent_info.title, agent_info.version)
+        if agent_info
         else None
     )
     digest_payload = {
@@ -116,23 +106,21 @@ def _feature_matrix(
         NegotiatedFeature("cancellation"),
     ]
     unsupported: list[CapabilityLoss] = []
-    if agent.get("loadSession") is True:
-        negotiated.append(NegotiatedFeature("session_load"))
-    else:
-        unsupported.append(
-            CapabilityLoss("session_load", "unsupported", "not_advertised")
-        )
-    for feature, field_name in _OPTIONAL_SESSION_FEATURES.items():
-        if isinstance(sessions.get(field_name), Mapping):
-            negotiated.append(NegotiatedFeature(feature))
+    advertised = [
+        ("session_load", agent.get("loadSession") is True),
+        *(
+            (f"session_{field_name}", isinstance(sessions.get(field_name), Mapping))
+            for field_name in _OPTIONAL_SESSION_FIELDS
+        ),
+        ("authentication", bool(auth.get("methods"))),
+        ("provider_configuration", isinstance(agent.get("providers"), Mapping)),
+    ]
+    for feature, ready in advertised:
+        if ready:
+            state = "provider_owned" if feature == "authentication" else "ready"
+            negotiated.append(NegotiatedFeature(feature, state))
         else:
             unsupported.append(CapabilityLoss(feature, "unsupported", "not_advertised"))
-    if auth.get("methods"):
-        negotiated.append(NegotiatedFeature("authentication", "provider_owned"))
-    else:
-        unsupported.append(
-            CapabilityLoss("authentication", "unsupported", "not_advertised")
-        )
     return tuple(negotiated), tuple(unsupported)
 
 
@@ -142,16 +130,14 @@ def _auth_projection(
     methods: list[JsonValue] = []
     for raw in payload.get("authMethods", []):
         item = _mapping(raw)
-        projection: dict[str, JsonValue] = {
-            "id": str(item.get("id", "")),
-            "kind": (
-                "env_var"
-                if "vars" in item
-                else "terminal"
-                if "args" in item or "env" in item
-                else "agent"
-            ),
-        }
+        kind = (
+            "env_var"
+            if "vars" in item
+            else "terminal"
+            if {"args", "env"} & item.keys()
+            else "agent"
+        )
+        projection: dict[str, JsonValue] = {"id": str(item.get("id", "")), "kind": kind}
         if "vars" in item:
             projection["environment_variables"] = tuple(
                 str(variable.get("name", ""))
@@ -170,7 +156,7 @@ def _stable_capabilities(value: Mapping[str, Any]) -> dict[str, JsonValue]:
     return {
         str(key): _stable_json(item)
         for key, item in sorted(value.items())
-        if key not in {"_meta", "nes", "positionEncoding", "providers"}
+        if key not in {"_meta", "nes", "positionEncoding"}
     }
 
 

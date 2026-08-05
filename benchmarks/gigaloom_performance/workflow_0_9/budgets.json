@@ -1,5 +1,5 @@
 {
-  "schema_version": "gigaloom.workflow-0.9-performance-budgets.v1",
+  "schema_version": "gigaloom.workflow-0.9-performance-budgets.v2",
   "deterministic": {
     "attachment_max_replacement_count": 0,
     "attachment_max_truncated": 0,
@@ -9,6 +9,7 @@
     "gateway_preflight_required_ready": 1,
     "gateway_route_discovery_max_transport_calls": 3,
     "gateway_route_discovery_required_routes": 1,
+    "gateway_http_discovery_max_requests": 3,
     "gateway_warm_max_process_spawns": 0,
     "gateway_warm_required_reused": 1,
     "instruction_max_scanned_paths": 20000,
@@ -17,10 +18,19 @@
     "narrative_update_max_projected_nodes": 200,
     "narrative_update_max_requests": 1,
     "thread_list_max_items": 50,
+    "thread_list_max_latest_run_batch_reads": 1,
+    "thread_list_max_latest_run_sessions": 50,
+    "thread_list_max_run_page_reads": 0,
+    "thread_list_max_session_page_reads": 1,
+    "thread_read_max_message_page_reads": 1,
     "thread_read_max_messages": 50,
+    "thread_read_max_run_page_reads": 1,
     "work_initial_max_requests": 6
   },
   "relative": {
+    "thread_list_p95_max_ms": 90.0,
+    "thread_list_p95_min_improvement_pct": 60.0,
+    "thread_read_p95_max_regression_pct": 10.0,
     "utf8_p95_max_regression_pct": 10.0,
     "work_initial_p95_max_fraction_of_i2": 1.0
   }

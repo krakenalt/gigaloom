@@ -15,6 +15,11 @@ MAX_GATEWAY_TEXT_CHARS = 4096
 _DIGEST_RE = re.compile(r"[0-9a-f]{64}\Z")
 _ENV_NAME_RE = re.compile(r"[A-Z_][A-Z0-9_]{0,127}\Z")
 _IDENTITY_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+~-]{0,255}\Z")
+_SEMVER_RE = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
+_SEMVER_WINDOW_RE = re.compile(
+    r">=((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)),"
+    r"<((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))\Z"
+)
 _SECRET_ENV_PARTS = ("KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL")
 
 
@@ -39,6 +44,52 @@ class GatewayPreflightStatus(str, Enum):
 
     READY = "ready"
     BLOCKED = "blocked"
+
+
+def gateway_version_admitted(version: str, version_window: str) -> bool:
+    """Return whether a stable semantic version is inside a bounded window."""
+    observed = _semantic_version(version)
+    match = _SEMVER_WINDOW_RE.fullmatch(version_window)
+    if observed is None or match is None:
+        return False
+    minimum = _semantic_version(match.group(1))
+    maximum = _semantic_version(match.group(2))
+    assert minimum is not None and maximum is not None
+    return minimum <= observed < maximum
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedGatewayRoute:
+    """Credential-free route facts shared by every launch consumer."""
+
+    route_id: str
+    gateway_id: str
+    provider_protocol: str
+    credential_free_base_url: str
+    public_model_alias: str
+    support_status: str
+    capability_digest: str
+    reason_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        for value, field_name in (
+            (self.route_id, "resolved route id"),
+            (self.gateway_id, "resolved route gateway id"),
+            (self.provider_protocol, "resolved route provider protocol"),
+            (self.public_model_alias, "resolved route public model alias"),
+        ):
+            _validate_identity(value, field_name=field_name)
+        _validate_http_url(self.credential_free_base_url)
+        if self.support_status not in {status.value for status in GatewaySupportStatus}:
+            raise ValueError("resolved route support status is invalid")
+        _validate_digest(
+            self.capability_digest,
+            field_name="resolved route capability digest",
+        )
+        _validate_identity_tuple(
+            self.reason_ids,
+            field_name="resolved route reason ids",
+        )
 
 
 @dataclass(frozen=True)
@@ -232,6 +283,14 @@ class GatewayPreflightReceiptV1:
 def _validate_schema(value: object) -> None:
     if value != GATEWAY_LAUNCH_SCHEMA_VERSION:
         raise ValueError("unsupported gateway launch schema_version")
+
+
+def _semantic_version(value: str) -> tuple[int, int, int] | None:
+    match = _SEMVER_RE.fullmatch(value)
+    if match is None:
+        return None
+    major, minor, patch = match.groups()
+    return int(major), int(minor), int(patch)
 
 
 def _validate_identity(value: object, *, field_name: str) -> None:

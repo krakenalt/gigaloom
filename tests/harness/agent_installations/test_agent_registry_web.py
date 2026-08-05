@@ -22,6 +22,7 @@ from gigaloom.harnesses.agent_profiles.installations import (
 )
 from gigaloom.harnesses.agent_profiles.onboarding import (
     ManagedAcpProbeReceipt,
+    ManagedAcpProviderBridgeProjection,
     ManagedProbeState,
 )
 from gigaloom.harnesses.agent_profiles.registry import decode_registry_document
@@ -82,6 +83,16 @@ class ReadyProbe:
             native_home_isolated=True,
             network_policy="enforced_deny",
             receipt_digest=_digest("probe-receipt"),
+            provider_bridge=ManagedAcpProviderBridgeProjection(
+                status="ready",
+                strategy="openai_env",
+                protocols=("openai_chat_completions",),
+                provider_ids=(),
+                adapter_id="codex-acp",
+                adapter_revision="codex-acp-v1",
+                model_selection="config_override",
+                reason_ids=(),
+            ),
         )
 
 
@@ -111,6 +122,7 @@ def _catalog(version: str = "1.0.0"):
                     "description": "Generic Web marketplace fixture",
                     "license": "MIT",
                     "repository": "https://example.test/marketplace",
+                    "icon": "https://cdn.agentclientprotocol.com/marketplace.svg",
                     "distribution": {
                         "binary": {
                             "darwin-aarch64": {
@@ -190,6 +202,10 @@ def test_inventory_is_revision_bound_filtered_and_explicitly_refreshed(tmp_path)
     refreshed = inventory.inventory(refresh=True)
 
     assert initial.snapshot_digest == filtered.snapshot_digest
+    assert (
+        initial.registry_entries[0].icon_ref
+        == "https://cdn.agentclientprotocol.com/marketplace.svg"
+    )
     assert [item.registry_id for item in filtered.registry_entries] == [
         "marketplace-agent"
     ]
@@ -228,6 +244,7 @@ def test_background_operation_emits_content_free_progress_and_deep_link(tmp_path
     ]
     assert len(transport.requests) == 1
     assert inventory.inventory().installed[0].auth_required is True
+    assert inventory.inventory().installed[0].readiness.status == "ready"
     local_agent_id, href = operations.use_in_new_run("marketplace-agent")
     assert (local_agent_id, href) == (
         "marketplace-agent",
@@ -491,6 +508,19 @@ def test_bounded_http_routers_expose_preview_operation_and_sse(
     assert activation["install_id"] == install_id
     assert activation["active"] is True and activation["atomic"] is True
     assert activation["probe"]["content_free"] is True
+    assert activation["probe"]["readiness"]["status"] == "ready"
+    refreshed_inventory = client.get("/api/agent-runtimes/inventory").json()
+    assert refreshed_inventory["installed"][0]["readiness"] == {
+        "schema_version": 1,
+        "status": "ready",
+        "acp_transport": "ready",
+        "provider_bridge": "ready",
+        "protocols": ["openai_chat_completions"],
+        "gateway_availability": "available",
+        "native_launch_available": True,
+        "reason_ids": [],
+        "action": "select_gateway_route",
+    }
     assert runtime.inspect("marketplace-agent").active is True
     with client.stream(
         "GET",

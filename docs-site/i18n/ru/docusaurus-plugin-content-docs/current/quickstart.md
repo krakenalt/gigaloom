@@ -1,89 +1,86 @@
 # Быстрый старт
 
-Установите GigaLoom и проверьте локальное окружение:
+Установите GigaLoom и проверьте окружение:
 
 ```sh
+uv tool install gigaloom
 giga doctor
 giga --version
 ```
 
-Аутентификация остаётся provider-owned. Войдите через нативный CLI Codex,
-Claude или Gemini до запуска через GigaLoom.
+GigaLoom не заменяет авторизацию агента. Если вы используете Codex, Claude или
+Gemini, сначала войдите через его нативный CLI.
 
-## Префикс нативной команды
+## Сценарий A: нативный Codex, Claude или Gemini
 
-GigaLoom добавляет один префикс и сохраняет остальную команду:
+Добавьте `giga` перед привычной командой. Всё после имени агента передаётся его
+CLI без изменений:
 
 ```sh
-giga codex exec --json "кратко опиши репозиторий"
-giga claude -p "кратко опиши репозиторий"
-giga gemini -p "кратко опиши репозиторий"
+giga codex exec --json "проверь этот репозиторий"
+giga claude -p "проверь этот репозиторий"
+giga gemini -p "проверь этот репозиторий"
 ```
 
-Help, version, stdin/stdout, JSON/JSONL и exit status остаются нативными. Если
-CLI отсутствует или его контракт изменился, dispatch завершается fail-closed
-до запуска provider session.
-
-## Браузерный cockpit
+Для браузерного интерфейса выполните:
 
 ```sh
 giga ui
 ```
 
-Откройте `http://127.0.0.1:8091/`. По умолчанию listener доступен только через
-loopback. В cockpit:
+Откройте `http://127.0.0.1:8091/`, выберите проект и создайте запуск. По
+умолчанию интерфейс доступен только с локального компьютера.
 
-1. выберите или зарегистрируйте локальный проект;
-2. выберите provider adapter;
-3. просмотрите execution preview и требуемый authority;
-4. подтвердите только точное действие, которое хотите выполнить;
-5. изучите события, diff и evidence.
+## Сценарий B: ACP-агент через gpt2giga
 
-Для provider-native terminal workflow используйте `giga <agent>`, а для
-governed browser Workbench — `giga ui`.
-
-## Путь work-first в 0.9
-
-Откройте `/web/work` и следуйте пути
-`Project -> Thread -> Run -> Evidence -> Action`. До отправки проверьте
-route/model support, workspace, read-only сводку Effective Instructions,
-authority mode и blockers. После отправки разберите причинную историю run и
-элементы Inbox, требующие действия.
-
-Проверьте ограниченную доставку Thread Relay без изменения цели и provider
-call:
+Установите GigaLoom вместе со шлюзом (gateway) `gpt2giga`:
 
 ```sh
-giga session send THREAD_ID --text "review failing tests" --dry-run --json
+uv tool install --force \
+  --with 'gpt2giga>=0.3.0,<0.4.0' \
+  'gigaloom[gpt2giga]'
 ```
 
-Экспортируйте editor schema или локальный beta report с явным согласием:
+Найдите OpenCode в ACP Registry, посмотрите план установки и подтвердите его:
 
 ```sh
-giga schema agent
-giga evidence product-beta --project PROJECT_ID --output report.json
+giga agent search opencode --refresh --json
+giga agent add opencode --dry-run --json
+giga agent add opencode --yes --json
+giga agent inspect opencode --json
 ```
 
-## Запуск через gpt2giga
-
-Установите optional extra и выберите reviewed route по удобному имени или
-immutable id:
+Проверка должна показать, что агент готов использовать выбранный шлюз. После
+этого запустите его с моделью, которую вернул endpoint `/models`:
 
 ```sh
-uv tool install 'gigaloom[gpt2giga]==0.9.0'
-giga --with gpt2giga --model GigaChat-2-Max codex
-giga --route codex-gpt2giga-gigachat-2-max codex --help
+giga --with gpt2giga --model GigaChat-2-Max opencode
 ```
 
-Route Codex/GigaChat имеет статус technical preview. Unknown, stale, ambiguous
-или version-drifted evidence приводит к отказу до gateway/provider traffic и не
-переключает запуск на другой route.
+GigaLoom создаёт временную конфигурацию только для этого запуска. Он не меняет
+`~/.opencode` и не выбирает другого провайдера модели, если маршрут недоступен.
+Если агент поддерживает только своего нативного провайдера, запустите его без
+`--with` и `--model`.
+
+## Если запуск остановлен
+
+Сначала повторите безопасную проверку без запуска агента:
+
+```sh
+giga --with gpt2giga --model GigaChat-2-Max --dry-run --json opencode
+```
+
+Не подменяйте модель или адрес шлюза наугад. Найдите `reason_ids` в JSON и
+сверьте их с [таблицей диагностики](troubleshooting.md). Подробности об
+установке агентов есть в [руководстве по агентам](agent-runtimes.md), а о
+маршрутах и моделях — в [руководстве по шлюзу](gateway-integration.md).
 
 ## Дальше
 
-- [Справочник Harness](harness.md)
-- [Work, потоки и контекст](work-threads-and-context.md)
-- [Интеграция с gateway](gateway-integration.md)
-- [Agents и multi-agent поведение](agents-and-multi-agent.md)
-- [Операции](operations.md)
-- [Безопасность](security.md)
+- [Агенты](agent-runtimes.md): поиск, установка, проверка, обновление и удаление.
+- [Интеграция со шлюзом](gateway-integration.md): модели, маршруты и режимы
+  запуска.
+- [Работа, треды и контекст](work-threads-and-context.md): повседневная работа
+  в браузерном интерфейсе.
+- [Эксплуатация](operations.md): резервные копии и локальный сервис.
+- [Безопасность](security.md): доступ, сеть и хранение секретов.

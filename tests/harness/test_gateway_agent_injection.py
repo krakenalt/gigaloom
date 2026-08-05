@@ -21,6 +21,10 @@ from gigaloom.native.api import (
     GatewaySupportStatus,
     build_gateway_agent_injection,
 )
+from gigaloom.native.launch.gateway_discovery import (
+    GatewayRouteRefusal,
+    GatewayRouteResolver,
+)
 
 
 NOW = datetime(2026, 8, 4, 10, 0, tzinfo=timezone.utc)
@@ -110,14 +114,21 @@ def _preflight(route: BridgeRouteV1) -> GatewayPreflightReceiptV1:
 
 
 def _call(route: BridgeRouteV1, root: Path, **kwargs):
-    return build_gateway_agent_injection(
-        route,
+    discovery = _discovery(route)
+    resolved = GatewayRouteResolver(discovery).resolve(
         _profile(),
-        _discovery(route),
+        requested_agent_kind=route.agent_id,
+        requested_model_alias=route.public_model_alias,
+        route_id=route.route_id,
+    )
+    assert not isinstance(resolved, GatewayRouteRefusal)
+    return build_gateway_agent_injection(
+        resolved,
+        route.agent_id,
+        _profile(),
         _preflight(route),
         managed_root=root,
         process_lease_ref="native-process:gateway-01",
-        clock=lambda: NOW,
         **kwargs,
     )
 
@@ -177,24 +188,18 @@ def test_claude_route_is_downgraded_to_vendor_unsupported_until_acknowledged(
     assert sentinel.read_text(encoding="utf-8") == "{}\n"
 
 
-def test_managed_acp_uses_advertised_model_selector(tmp_path: Path) -> None:
-    route = _route("managed-agent", "acp")
+def test_generic_native_injection_does_not_generate_an_acp_selector(
+    tmp_path: Path,
+) -> None:
+    route = _route("managed-agent", "openai_chat_completions")
 
-    blocked = _call(route, tmp_path / "managed")
-    ready = _call(
-        route,
-        tmp_path / "managed",
-        acp_model_selector_id="model",
-    )
+    result = _call(route, tmp_path / "managed")
 
-    assert blocked.reason_ids == (
-        GatewayInjectionReason.ACP_MODEL_SELECTOR_REQUIRED.value,
+    assert result.status is GatewayInjectionStatus.BLOCKED
+    assert result.reason_ids == (
+        GatewayInjectionReason.AGENT_PROTOCOL_UNSUPPORTED.value,
     )
-    assert ready.status is GatewayInjectionStatus.READY
-    assert ready.acp_config_selector == ("model", "GigaChat-2-Max")
-    assert ready.overlay is not None
-    selector = Path(ready.overlay.managed_home) / "selector.json"
-    assert "GigaChat-2-Max" in selector.read_text(encoding="utf-8")
+    assert not (tmp_path / "managed").exists()
 
 
 def test_gemini_native_has_visible_blocked_reason_and_writes_nothing(
@@ -218,35 +223,40 @@ def test_stale_or_mismatched_preflight_never_materializes_overlay(
 ) -> None:
     route = _route()
     discovery = _discovery(route)
-    assert discovery.catalog is not None
     stale = GatewayDiscoveryResult(
         GatewayDiscoveryStatus.STALE,
         discovery.catalog,
         (),
     )
-    root = tmp_path / "managed"
-
-    stale_result = build_gateway_agent_injection(
-        route,
+    stale_resolution = GatewayRouteResolver(stale).resolve(
         _profile(),
-        stale,
-        _preflight(route),
-        managed_root=root,
-        process_lease_ref="native-process:gateway-01",
-        clock=lambda: NOW,
+        requested_agent_kind=route.agent_id,
+        requested_model_alias=route.public_model_alias,
     )
+    root = tmp_path / "managed"
     mismatch = build_gateway_agent_injection(
-        route,
+        _resolved(route),
+        route.agent_id,
         _profile(),
-        discovery,
         replace(_preflight(route), models_revision="sha256:" + "9" * 64),
         managed_root=root,
         process_lease_ref="native-process:gateway-01",
-        clock=lambda: NOW,
     )
 
-    assert stale_result.reason_ids == (GatewayInjectionReason.CAPABILITY_STALE.value,)
+    assert isinstance(stale_resolution, GatewayRouteRefusal)
+    assert stale_resolution.status == "capability_stale"
     assert mismatch.reason_ids == (
         GatewayInjectionReason.PREFLIGHT_BINDING_MISMATCH.value,
     )
     assert not root.exists()
+
+
+def _resolved(route: BridgeRouteV1):
+    result = GatewayRouteResolver(_discovery(route)).resolve(
+        _profile(),
+        requested_agent_kind=route.agent_id,
+        requested_model_alias=route.public_model_alias,
+        route_id=route.route_id,
+    )
+    assert not isinstance(result, GatewayRouteRefusal)
+    return result

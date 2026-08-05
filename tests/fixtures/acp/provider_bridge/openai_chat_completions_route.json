@@ -1,0 +1,22 @@
+{
+  "schema_version": "gigaloom.acp-provider-route-mismatch.v1",
+  "transport_kind": "acp_stdio_v1",
+  "requested_agent_kind": "managed_acp",
+  "discovered_route": {
+    "route_id": "acp-gpt2giga-gigachat-2-max",
+    "gateway_id": "gpt2giga",
+    "provider_protocol": "openai_chat_completions",
+    "credential_free_base_url": "http://127.0.0.1:8090/v1",
+    "public_model_alias": "GigaChat-2-Max",
+    "support_status": "stable",
+    "capability_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "reason_ids": [
+      "baseline_gigachat_chat_conformance"
+    ]
+  },
+  "expected_resolution": {
+    "accepted": true,
+    "provider_protocol_is_transport": false,
+    "provider_default_allowed": false
+  }
+}

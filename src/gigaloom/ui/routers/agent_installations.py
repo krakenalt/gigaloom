@@ -197,7 +197,10 @@ def create_router(service: AgentInstallationWebService) -> APIRouter:
             raise HTTPException(
                 status_code=409, detail="managed agent probe was rejected"
             ) from error
-        return _probe_response(value)
+        return _probe_response(
+            value,
+            readiness=service.readiness(local_agent_id, probe=value),
+        )
 
     @router.fs_atomic.post(
         "/api/agent-runtimes/{local_agent_id}/activate",
@@ -227,7 +230,10 @@ def create_router(service: AgentInstallationWebService) -> APIRouter:
             active=result.active,
             activation_status=result.activation.status.value,
             compatibility_status=result.compatibility.status.value,
-            probe=_probe_response(result.probe),
+            probe=_probe_response(
+                result.probe,
+                readiness=service.readiness(local_agent_id, probe=result.probe),
+            ),
             omissions=list(result.receipt.omissions),
             atomic=result.activation.atomic,
             content_free=True,
@@ -344,7 +350,11 @@ def _operation_response(
     )
 
 
-def _probe_response(value: ManagedAcpProbeReceipt) -> AgentProbeResponse:
+def _probe_response(
+    value: ManagedAcpProbeReceipt,
+    *,
+    readiness,
+) -> AgentProbeResponse:  # noqa: ANN001
     return AgentProbeResponse(
         state=value.state.value,
         protocol_state=value.protocol_state,
@@ -355,6 +365,7 @@ def _probe_response(value: ManagedAcpProbeReceipt) -> AgentProbeResponse:
         warnings=list(value.warnings),
         native_home_isolated=value.native_home_isolated,
         network_policy=value.network_policy,
+        readiness=asdict(readiness),
         content_free=True,
     )
 

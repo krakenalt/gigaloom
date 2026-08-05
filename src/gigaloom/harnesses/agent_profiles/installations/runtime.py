@@ -32,6 +32,10 @@ from gigaloom.harnesses.agent_profiles.installations.binary import (
 from gigaloom.harnesses.agent_profiles.installations.planner import (
     AgentIdentityInventory,
 )
+from gigaloom.harnesses.agent_profiles.installations.readiness import (
+    AgentRuntimeReadiness,
+    project_agent_runtime_readiness,
+)
 from gigaloom.harnesses.agent_profiles.installations.models import (
     InstallPlanningResult,
 )
@@ -132,6 +136,7 @@ class AgentRuntimeSummary:
     activation_status: str
     probe_state: str
     auth_required: bool
+    readiness: AgentRuntimeReadiness
 
 
 class AgentRuntimeService:
@@ -548,6 +553,7 @@ def _summary(
         activation_status=status,
         probe_state=record.probe.state.value,
         auth_required=bool(record.probe.auth_methods),
+        readiness=project_agent_runtime_readiness(record.probe, active=active),
     )
 
 

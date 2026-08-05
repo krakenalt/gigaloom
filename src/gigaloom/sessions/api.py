@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Mapping, Protocol
 
 from gigaloom.sessions.conversation import (
     EDITED_FROM_MESSAGE_ID as EDITED_FROM_MESSAGE_ID,
@@ -136,6 +136,12 @@ class SessionQueryStore(Protocol):
         limit: int = 50,
     ) -> RunPage:
         """Return one bounded newest-first run page."""
+
+    def latest_runs(
+        self,
+        session_ids: tuple[str, ...],
+    ) -> Mapping[str, HarnessRun | None]:
+        """Return the newest run for each bounded requested session identity."""
 
     def list_events_page(
         self,

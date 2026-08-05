@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 from gigaloom.contracts import (
@@ -14,9 +14,9 @@ from gigaloom.contracts import (
 from gigaloom.contracts.operational_validation import (
     normalize_identities,
     validate_digest,
+    validate_identity,
     validate_optional_digest,
     validate_text,
-    validate_identity,
 )
 from gigaloom.harnesses.agent_profiles.models import AgentProfileV1
 
@@ -30,6 +30,85 @@ class ManagedProbeState(str, Enum):
     INCOMPATIBLE = "incompatible"
     UNSAFE = "unsafe"
     UNAVAILABLE = "unavailable"
+
+
+@dataclass(frozen=True, slots=True)
+class ManagedAcpProviderBridgeProjection:
+    """Persisted content-free provider bridge capability for one probe."""
+
+    status: str
+    strategy: str | None
+    protocols: tuple[str, ...]
+    provider_ids: tuple[str, ...]
+    adapter_id: str | None
+    adapter_revision: str | None
+    model_selection: str | None
+    reason_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.status not in {
+            "ready",
+            "native_only",
+            "blocked",
+            "unknown_until_reprobe",
+        }:
+            raise ValueError("managed ACP provider bridge status is invalid")
+        if self.strategy not in {
+            None,
+            "acp_providers",
+            "openai_env",
+            "ephemeral_config",
+        }:
+            raise ValueError("managed ACP provider bridge strategy is invalid")
+        for field_name in ("protocols", "provider_ids", "reason_ids"):
+            object.__setattr__(
+                self,
+                field_name,
+                normalize_identities(
+                    getattr(self, field_name),
+                    field_name=f"managed ACP provider bridge {field_name}",
+                ),
+            )
+        for value, field_name in (
+            (self.adapter_id, "managed ACP provider bridge adapter id"),
+            (self.adapter_revision, "managed ACP provider bridge adapter revision"),
+            (self.model_selection, "managed ACP provider bridge model selection"),
+        ):
+            if value is not None:
+                validate_identity(value, field_name=field_name)
+        if self.status == "ready" and self.strategy is None:
+            raise ValueError("ready managed ACP provider bridge requires a strategy")
+        if self.status != "ready" and self.strategy is not None:
+            raise ValueError(
+                "unready managed ACP provider bridge cannot select a strategy"
+            )
+
+    def projection(self) -> dict[str, object]:
+        """Return the persisted diagnostic shape without runtime secrets."""
+        return {
+            "status": self.status,
+            "strategy": self.strategy,
+            "protocols": list(self.protocols),
+            "provider_ids": list(self.provider_ids),
+            "adapter_id": self.adapter_id,
+            "adapter_revision": self.adapter_revision,
+            "model_selection": self.model_selection,
+            "reason_ids": list(self.reason_ids),
+        }
+
+
+def unknown_provider_bridge_projection() -> ManagedAcpProviderBridgeProjection:
+    """Return the additive migration state for a record without bridge facts."""
+    return ManagedAcpProviderBridgeProjection(
+        status="unknown_until_reprobe",
+        strategy=None,
+        protocols=(),
+        provider_ids=(),
+        adapter_id=None,
+        adapter_revision=None,
+        model_selection=None,
+        reason_ids=("provider_bridge_reprobe_required",),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +129,9 @@ class ManagedAcpProbeReceipt:
     native_home_isolated: bool
     network_policy: str
     receipt_digest: str
+    provider_bridge: ManagedAcpProviderBridgeProjection = field(
+        default_factory=unknown_provider_bridge_projection
+    )
     session_created: bool = False
     prompt_sent: bool = False
     content_free: bool = True
@@ -80,6 +162,11 @@ class ManagedAcpProbeReceipt:
             validate_digest(value, field_name=label)
         if not isinstance(self.executable_observed, bool):
             raise ValueError("managed ACP executable observation flag is invalid")
+        if not isinstance(
+            self.provider_bridge,
+            ManagedAcpProviderBridgeProjection,
+        ):
+            raise ValueError("managed ACP provider bridge projection is invalid")
         for field_name in ("auth_methods", "capabilities", "losses", "warnings"):
             object.__setattr__(
                 self,

@@ -36,7 +36,7 @@
     "description": "Footer link to /security"
   },
   "link.item.label.Gateway integration": {
-    "message": "Интеграция с gateway",
+    "message": "Интеграция со шлюзом",
     "description": "Footer link to /gateway-integration"
   },
   "link.item.label.Capability matrix": {

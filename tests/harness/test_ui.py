@@ -1,7 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from gigaloom import proxy
 from gigaloom.config import HarnessConfig
 from gigaloom.harnesses.base import BaseHarness
 from gigaloom.registry import HarnessRegistry, create_default_registry
@@ -14,6 +13,7 @@ from gigaloom.types import (
 )
 from gigaloom.ui.app import create_app, validate_ui_bind
 from gigaloom.ui.dependencies import app_services
+from gigaloom.ui.services.gateway_routes import GatewayRouteWebService
 
 
 def test_ui_installs_typed_application_service_container(tmp_path):
@@ -135,10 +135,11 @@ def test_ui_models_rejects_invalid_api_mode_non_fatally():
 
 
 def test_ui_models_handles_discovery_exception_safely(monkeypatch):
-    def fail_discovery(config, mode, **kwargs):
+    def fail_discovery(self, *, api_mode):
+        del self, api_mode
         raise RuntimeError("super-secret discovery failure")
 
-    monkeypatch.setattr(proxy, "discover_models", fail_discovery)
+    monkeypatch.setattr(GatewayRouteWebService, "models", fail_discovery)
     app = create_app(
         HarnessConfig(default_model="ConfiguredModel"),
         registry=create_default_registry(include_entry_points=False),
@@ -163,16 +164,22 @@ def test_ui_models_handles_discovery_exception_safely(monkeypatch):
 def test_ui_models_uses_selected_versioned_endpoint_only(monkeypatch):
     captured = {}
 
-    def fake_discovery(config, mode, **kwargs):
-        captured["mode"] = mode
-        captured["kwargs"] = kwargs
-        return proxy.ModelDiscovery(
-            ok=True,
-            models=("v1-only-model",),
-            source=f"/{mode.value}/models",
-        )
+    def fake_discovery(self, *, api_mode):
+        del self
+        captured["api_mode"] = api_mode
+        return {
+            "schema_version": 1,
+            "ok": True,
+            "api_mode": api_mode,
+            "route_path": f"/{api_mode}/models",
+            "health": "ready",
+            "last_checked_at": "2026-08-05T00:00:00+00:00",
+            "models": ["v1-only-model"],
+            "source": "gateway_route_catalog",
+            "error": None,
+        }
 
-    monkeypatch.setattr(proxy, "discover_models", fake_discovery)
+    monkeypatch.setattr(GatewayRouteWebService, "models", fake_discovery)
     app = create_app(
         HarnessConfig(default_model="ConfiguredModel"),
         registry=create_default_registry(include_entry_points=False),
@@ -188,12 +195,8 @@ def test_ui_models_uses_selected_versioned_endpoint_only(monkeypatch):
     assert body["health"] == "ready"
     assert body["route_path"] == "/v1/models"
     assert body["last_checked_at"]
-    assert body["source"] == "/v1/models"
-    assert captured["mode"].value == "v1"
-    assert captured["kwargs"] == {
-        "include_compat_paths": False,
-        "include_fallback": False,
-    }
+    assert body["source"] == "gateway_route_catalog"
+    assert captured["api_mode"] == "v1"
 
 
 def test_ui_route_recommendation_endpoint_returns_safe_response():

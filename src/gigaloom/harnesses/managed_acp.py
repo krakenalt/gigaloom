@@ -15,6 +15,7 @@ from gigaloom.harnesses.acp import (
     AcpPermissionRequestV1,
     AcpRouteIdentity,
     begin_prompt,
+    configure_provider,
     create_acp_client,
     new_session,
     next_permission,
@@ -28,19 +29,21 @@ from gigaloom.harnesses.acp.errors import (
     AcpRequestTimeout,
 )
 from gigaloom.harnesses.acp.usage import AcpTokenUsageV1, usage_payload
+from gigaloom.harnesses.acp.provider_bridge import (
+    AcpGatewayRouteRequired,
+    AcpProviderBridgeStatus,
+    AcpProviderBridgeStrategy,
+    AcpProviderBridgeUnavailable,
+    build_provider_launch_overlay,
+    decode_resolved_gateway_route,
+    provider_api_type,
+    resolve_provider_bridge,
+)
 from gigaloom.harnesses.agent_profiles.installations import AgentRuntimeService
 from gigaloom.harnesses.agent_profiles.onboarding import ManagedAgentOnboardingResult
 from gigaloom.harnesses.base import BaseHarness
-from gigaloom.harnesses.managed_acp_gateway import (
-    ManagedAcpGatewayRouteRequired,
-    ManagedAcpGatewayUnsupported,
-    gateway_process_environment,
-    gateway_route_selection,
-    managed_acp_gateway_capability,
-    require_managed_acp_gateway_route,
-)
 from gigaloom.harnesses.managed_acp_permissions import (
-    ManagedAcpAuthenticationRequired,
+    ManagedAcpAuthenticationRequired,  # noqa: F401 - public re-export
     answer_permission,
     is_canceled,
     permission_context as build_permission_context,
@@ -49,6 +52,7 @@ from gigaloom.structured_processes import (
     NormalizedStructuredEvent,
     StructuredProcessError,
 )
+from gigaloom.native.api import ResolvedGatewayRoute
 from gigaloom.types import (
     Availability,
     HarnessCapability,
@@ -80,9 +84,7 @@ class ManagedAcpTurnRequest:
     permission_profile_id: str
     network_profile: str
     timeout_seconds: float
-    gateway_route_id: str | None = None
-    gateway_profile_id: str | None = None
-    gateway_base_url: str | None = None
+    gateway_route: ResolvedGatewayRoute | None = None
     session_model_config_id: str | None = None
     gateway_api_key: str | None = field(default=None, repr=False)
 
@@ -119,18 +121,20 @@ def run_managed_acp_turn(
     workspace = Path(request.workspace).expanduser().resolve(strict=True)
     if not workspace.is_dir():
         raise ValueError("managed ACP workspace must be a directory")
-    route = next(
-        (
-            item
-            for item in record.profile.structured_routes
-            if item.route_id == request.route_id
-            and item.transport_kind == "acp_stdio_v1"
-        ),
-        None,
-    )
-    if route is None:
-        raise ManagedAcpStateChanged("managed ACP route is unavailable")
-
+    route = _managed_route(record, route_id=request.route_id)
+    gateway_route = request.gateway_route
+    resolution = None
+    if gateway_route:
+        resolution = resolve_provider_bridge(
+            registry_id=artifact.registry_id,
+            version=artifact.version,
+            providers_advertised=(
+                "provider_configuration" in record.probe.capabilities
+            ),
+            advertised_provider_protocols=(gateway_route.provider_protocol,),
+        )
+        if resolution.status is not AcpProviderBridgeStatus.READY:
+            raise AcpProviderBridgeUnavailable(resolution.reason_ids[0])
     with tempfile.TemporaryDirectory(prefix="gigaloom-managed-acp-") as root:
         native_home = Path(root) / "home"
         native_home.mkdir(mode=0o700)
@@ -141,18 +145,31 @@ def run_managed_acp_turn(
             "TMPDIR": root,
             **dict(artifact.environment),
         }
-        environment.update(
-            gateway_process_environment(
-                request,
-                registry_id=artifact.registry_id,
-                root=Path(root),
+        overlay = (
+            build_provider_launch_overlay(
+                resolution,
+                gateway_route,
+                api_key=request.gateway_api_key,
+                isolated_root=Path(root),
             )
+            if resolution and gateway_route
+            else None
         )
+        overlay_environment = dict(overlay.environment) if overlay else {}
+        environment.update(overlay_environment)
+        codex_home = overlay_environment.get("CODEX_HOME")
+        if codex_home:
+            Path(codex_home).mkdir(mode=0o700)
         process = pin_acp_process(
-            (str(executable), *artifact.arguments),
-            cwd=workspace.as_posix(),
+            (
+                str(executable),
+                *artifact.arguments,
+                *(overlay.arguments if overlay else ()),
+            ),
+            cwd=workspace,
             environment=environment,
             allowed_environment=frozenset(environment),
+            approved_secret_names=overlay_environment.keys() & {"GPT2GIGA_API_KEY"},
         )
         client = create_acp_client(
             process,
@@ -163,7 +180,7 @@ def run_managed_acp_turn(
                 record.profile.profile_digest,
             ),
             limits=AcpLimits(
-                request_timeout_seconds=min(request.timeout_seconds, 30.0),
+                request_timeout_seconds=min(request.timeout_seconds, 30.0)
             ),
         )
         events: list[NormalizedStructuredEvent] = []
@@ -173,13 +190,38 @@ def run_managed_acp_turn(
             snapshot = client.initialize()
             if snapshot.snapshot_digest != record.probe.capability_snapshot_digest:
                 raise ManagedAcpStateChanged("managed ACP capability evidence changed")
+            model_config_id = request.session_model_config_id
+            model_value = request.model_id
+            if gateway_route and resolution:
+                if any(
+                    item.feature == "provider_configuration"
+                    for item in snapshot.negotiated_features
+                ):
+                    configure_provider(
+                        client,
+                        api_type=provider_api_type(gateway_route.provider_protocol),
+                        base_url=gateway_route.credential_free_base_url,
+                        headers={
+                            "Authorization": f"Bearer {request.gateway_api_key or '0'}"
+                        },
+                    )
+                    model_config_id = "model"
+                elif resolution.strategy is AcpProviderBridgeStrategy.ACP_PROVIDERS:
+                    raise AcpProviderBridgeUnavailable(
+                        "acp_provider_contract_regression"
+                    )
+                else:
+                    model_config_id = (
+                        overlay.session_model_config_id if overlay else None
+                    )
+                model_value = gateway_route.public_model_alias
             binding = new_session(client, workspace=workspace)
-            if request.session_model_config_id is not None:
+            if model_config_id is not None:
                 set_session_config(
                     client,
                     binding,
-                    config_id=request.session_model_config_id,
-                    value=request.model_id,
+                    config_id=model_config_id,
+                    value=model_value,
                 )
             prompt = begin_prompt(client, binding, text=request.prompt)
             permission_context = build_permission_context(request, binding)
@@ -192,23 +234,14 @@ def run_managed_acp_turn(
                     prompt.cancel()
                     raise AcpRequestTimeout("managed ACP run timed out")
                 pending = next_permission(
-                    client,
-                    binding,
-                    permission_context,
-                    timeout=0.02,
+                    client, binding, permission_context, timeout=0.02
                 )
                 if pending is not None:
                     if permission_sink is not None:
                         permission_sink(pending)
                     answer_permission(client, binding, permission_context, pending)
                 _consume_event(client, events, text_parts, event_sink, timeout=0.02)
-            while _consume_event(
-                client,
-                events,
-                text_parts,
-                event_sink,
-                timeout=0.01,
-            ):
+            while _consume_event(client, events, text_parts, event_sink, timeout=0.01):
                 pass
             result = prompt.result(timeout=max(0.001, deadline - time.monotonic()))
         finally:
@@ -226,15 +259,13 @@ class ManagedAcpHarness(BaseHarness):
     """Expose one active managed ACP connector as a Workbench harness."""
 
     def __init__(
-        self,
-        runtime: AgentRuntimeService,
-        record: ManagedAgentOnboardingResult,
+        self, runtime: AgentRuntimeService, record: ManagedAgentOnboardingResult
     ) -> None:
         self._runtime = runtime
         self._agent_id = record.profile.agent_id
         self._spec = _managed_spec(record)
 
-    def spec(self) -> HarnessSpec:  # type: ignore[override]
+    def spec(self) -> HarnessSpec:
         """Return metadata for this exact managed agent identity."""
         return self._spec
 
@@ -257,7 +288,11 @@ class ManagedAcpHarness(BaseHarness):
         try:
             record = self._active_record()
             route = _managed_route(record)
-            command = _managed_command(record)
+            artifact = record.artifact
+            command = (
+                str(Path(artifact.managed_root) / artifact.executable_relative_path),
+                *artifact.arguments,
+            )
             if request.extra.get("dry_run"):
                 return HarnessResult(
                     ok=True,
@@ -274,16 +309,23 @@ class ManagedAcpHarness(BaseHarness):
             workspace = str(request.workspace or "").strip()
             if not workspace:
                 raise ValueError("managed ACP run requires a workspace")
-            gateway = gateway_route_selection(
-                request.extra.get("gateway_route_binding"),
-                context,
-                registry_id=record.artifact.registry_id,
+            gateway = decode_resolved_gateway_route(
+                request.extra.get("gateway_route_binding")
             )
-            require_managed_acp_gateway_route(
-                registry_id=record.artifact.registry_id,
-                requested_model=request.model,
-                selection=gateway,
-            )
+            model = (request.model or "").strip()
+            if model and model != "provider-default" and not gateway:
+                bridge = resolve_provider_bridge(
+                    registry_id=record.artifact.registry_id,
+                    version=record.artifact.version,
+                    providers_advertised=(
+                        "provider_configuration" in record.probe.capabilities
+                    ),
+                )
+                if bridge.status is not AcpProviderBridgeStatus.READY:
+                    raise AcpProviderBridgeUnavailable(bridge.reason_ids[0])
+                raise AcpGatewayRouteRequired(
+                    "managed ACP gateway model requires a resolved route binding"
+                )
 
             def forward(event: NormalizedStructuredEvent) -> None:
                 projected = _project_event(event)
@@ -309,7 +351,9 @@ class ManagedAcpHarness(BaseHarness):
                     agent_id=self._agent_id,
                     route_id=route.route_id,
                     model_id=(
-                        gateway.model_id if gateway is not None else "provider-default"
+                        f"{gateway.gateway_id}/{gateway.public_model_alias}"
+                        if gateway is not None
+                        else "provider-default"
                     ),
                     workspace=workspace,
                     prompt=request.prompt,
@@ -321,19 +365,8 @@ class ManagedAcpHarness(BaseHarness):
                         request.extra.get("network_profile") or "interactive"
                     ),
                     timeout_seconds=context.timeout_seconds,
-                    gateway_route_id=(
-                        gateway.route_id if gateway is not None else None
-                    ),
-                    gateway_profile_id=(
-                        gateway.gateway_profile_id if gateway is not None else None
-                    ),
-                    gateway_base_url=(
-                        gateway.base_url if gateway is not None else None
-                    ),
-                    session_model_config_id=(
-                        gateway.session_model_config_id if gateway is not None else None
-                    ),
-                    gateway_api_key=(gateway.api_key if gateway is not None else None),
+                    gateway_route=gateway,
+                    gateway_api_key=context.api_key if gateway else None,
                 ),
                 cancel_event=request.cancel_event,
                 event_sink=forward,
@@ -347,28 +380,26 @@ class ManagedAcpHarness(BaseHarness):
                 )
                 if not emit_event(request, usage):
                     retained_events.append(usage)
+            raw = {
+                "agent_id": self._agent_id,
+                "route_id": route.route_id,
+                "stop_reason": result.stop_reason,
+                "capability_snapshot_digest": result.capability_snapshot_digest,
+            }
+            if gateway:
+                raw.update(
+                    gateway_route_id=gateway.route_id,
+                    gateway_profile_id=gateway.gateway_id,
+                    gateway_model=gateway.public_model_alias,
+                )
             return HarnessResult(
                 ok=True,
                 text=result.text,
-                raw={
-                    "agent_id": self._agent_id,
-                    "route_id": route.route_id,
-                    "stop_reason": result.stop_reason,
-                    "capability_snapshot_digest": (result.capability_snapshot_digest),
-                    **(
-                        {
-                            "gateway_route_id": gateway.route_id,
-                            "gateway_profile_id": gateway.gateway_profile_id,
-                            "gateway_model": gateway.public_model_alias,
-                        }
-                        if gateway is not None
-                        else {}
-                    ),
-                },
+                raw=raw,
                 events=tuple(retained_events),
                 command=command,
             )
-        except ManagedAcpGatewayRouteRequired:
+        except AcpGatewayRouteRequired:
             return _managed_failure(
                 self._agent_id,
                 retained_events,
@@ -377,38 +408,30 @@ class ManagedAcpHarness(BaseHarness):
                 "provider default was not used.",
                 reason_id="managed_acp_gateway_route_required",
             )
-        except ManagedAcpGatewayUnsupported as exc:
+        except AcpProviderBridgeUnavailable as exc:
             return _managed_failure(
                 self._agent_id,
                 retained_events,
-                "gpt2giga routing is unsupported for this ACP connector. ACP v1 "
-                "does not standardize model-provider endpoints, and this agent "
-                "has no reviewed provider overlay. The provider default was not used.",
+                "This ACP connector is native-only because it has no verified "
+                "provider bridge for gpt2giga. Native provider launch remains "
+                "available; the provider default was not used for this request.",
                 reason_id=exc.reason_id,
             )
-        except ManagedAcpStateChanged:
+        except (
+            ManagedAcpStateChanged,
+            AcpPermissionError,
+            AcpRequestCancelled,
+            AcpRequestTimeout,
+        ) as exc:
             return _managed_failure(
                 self._agent_id,
                 retained_events,
-                "Managed ACP evidence changed. Run Probe only and reactivate the revision.",
-            )
-        except AcpPermissionError:
-            return _managed_failure(
-                self._agent_id,
-                retained_events,
-                "Managed ACP permission was denied by the selected permission profile.",
-            )
-        except AcpRequestCancelled:
-            return _managed_failure(
-                self._agent_id,
-                retained_events,
-                "Managed ACP run canceled.",
-            )
-        except AcpRequestTimeout:
-            return _managed_failure(
-                self._agent_id,
-                retained_events,
-                "Managed ACP run timed out.",
+                {
+                    ManagedAcpStateChanged: "Managed ACP evidence changed. Run Probe only and reactivate the revision.",
+                    AcpPermissionError: "Managed ACP permission was denied by the selected permission profile.",
+                    AcpRequestCancelled: "Managed ACP run canceled.",
+                    AcpRequestTimeout: "Managed ACP run timed out.",
+                }[type(exc)],
             )
         except (AcpError, StructuredProcessError, OSError, ValueError):
             return _managed_failure(
@@ -429,9 +452,7 @@ class ManagedAcpHarness(BaseHarness):
         return record
 
 
-def acp_harnesses(
-    runtime: AgentRuntimeService,
-) -> tuple[ManagedAcpHarness, ...]:
+def acp_harnesses(runtime: AgentRuntimeService) -> tuple[ManagedAcpHarness, ...]:
     """Project every currently active managed ACP runtime into Workbench."""
     return tuple(
         ManagedAcpHarness(runtime, runtime.inspect(item.local_agent_id))
@@ -442,7 +463,6 @@ def acp_harnesses(
 
 def _managed_spec(record: ManagedAgentOnboardingResult) -> HarnessSpec:
     profile = record.profile
-    gateway_capability = managed_acp_gateway_capability(record.artifact.registry_id)
     return HarnessSpec(
         id=profile.agent_id,
         title=profile.display_name,
@@ -462,28 +482,24 @@ def _managed_spec(record: ManagedAgentOnboardingResult) -> HarnessSpec:
             "version": record.artifact.version,
             "distribution_kind": record.artifact.distribution_kind.value,
             "profile_digest": profile.profile_digest,
-            "managed_acp_gateway": gateway_capability.projection(),
+            "provider_bridge": record.probe.provider_bridge.projection(),
         },
         headless_continuation=HeadlessContinuationStrategy.ONE_SHOT,
     )
 
 
-def _managed_route(record: ManagedAgentOnboardingResult):  # noqa: ANN202
+def _managed_route(
+    record: ManagedAgentOnboardingResult, *, route_id: str | None = None
+):  # noqa: ANN202
     routes = tuple(
         route
         for route in record.profile.structured_routes
         if route.transport_kind == "acp_stdio_v1"
+        and (route_id is None or route.route_id == route_id)
     )
     if len(routes) != 1:
         raise ManagedAcpStateChanged("managed ACP route is unavailable")
     return routes[0]
-
-
-def _managed_command(record: ManagedAgentOnboardingResult) -> tuple[str, ...]:
-    executable = (
-        Path(record.artifact.managed_root) / record.artifact.executable_relative_path
-    )
-    return (str(executable), *record.artifact.arguments)
 
 
 def _consume_event(
@@ -509,8 +525,7 @@ def _consume_event(
 def _event_text(event: NormalizedStructuredEvent) -> str:
     if event.type != "message.agent.delta":
         return ""
-    update = _mapping(event.payload.get("update"))
-    content = _mapping(update.get("content"))
+    content = _mapping(_mapping(event.payload.get("update")).get("content"))
     text = content.get("text")
     return text if isinstance(text, str) else ""
 
@@ -519,26 +534,22 @@ def _project_event(event: NormalizedStructuredEvent) -> HarnessEvent | None:
     update = _mapping(event.payload.get("update"))
     if event.type == "message.agent.delta":
         delta = _event_text(event)
-        return (
-            HarnessEvent(
-                type=HarnessEventType.MESSAGE_DELTA.value,
-                message=delta,
-                payload={"delta": delta},
-            )
-            if delta
-            else None
+        if not delta:
+            return None
+        return HarnessEvent(
+            type=HarnessEventType.MESSAGE_DELTA.value,
+            message=delta,
+            payload={"delta": delta},
         )
     if event.type == "thought.agent.delta":
         content = _mapping(update.get("content"))
         delta = content.get("text")
-        return (
-            HarnessEvent(
-                type=HarnessEventType.REASONING_DELTA.value,
-                message="Managed ACP reasoning update.",
-                payload={"delta": delta, "kind": "model"},
-            )
-            if isinstance(delta, str) and delta
-            else None
+        if not isinstance(delta, str) or not delta:
+            return None
+        return HarnessEvent(
+            type=HarnessEventType.REASONING_DELTA.value,
+            message="Managed ACP reasoning update.",
+            payload={"delta": delta, "kind": "model"},
         )
     if event.type in {"tool.started", "tool.updated"}:
         status = str(update.get("status") or "running")
@@ -572,10 +583,8 @@ def _managed_failure(
     return HarnessResult(
         ok=False,
         text="",
-        raw={
-            "agent_id": agent_id,
-            **({"reason_id": reason_id} if reason_id is not None else {}),
-        },
+        raw={"agent_id": agent_id}
+        | ({"reason_id": reason_id} if reason_id is not None else {}),
         events=tuple(events),
         error=error,
     )
@@ -585,12 +594,5 @@ def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-__all__ = [
-    "ManagedAcpAuthenticationRequired",
-    "ManagedAcpHarness",
-    "ManagedAcpStateChanged",
-    "ManagedAcpTurnRequest",
-    "ManagedAcpTurnResult",
-    "acp_harnesses",
-    "run_managed_acp_turn",
-]
+__all__ = """ManagedAcpAuthenticationRequired ManagedAcpHarness ManagedAcpStateChanged
+ManagedAcpTurnRequest ManagedAcpTurnResult acp_harnesses run_managed_acp_turn""".split()

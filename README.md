@@ -8,58 +8,31 @@
 [![Python](https://img.shields.io/pypi/pyversions/gigaloom?style=flat-square)](https://pypi.org/project/gigaloom/)
 [![npm](https://img.shields.io/npm/v/%40gigaloom%2Fweb?style=flat-square&label=npm)](https://www.npmjs.com/package/@gigaloom/web)
 [![Лицензия](https://img.shields.io/github/license/krakenalt/gigaloom?style=flat-square)](LICENSE)
-[![Базовое покрытие GigaLoom](./badges/gigaloom-coverage.svg)](./docs/operations.md#quality-baseline)
+[![Покрытие](./badges/gigaloom-coverage.svg)](./docs/operations.md#quality-baseline)
 
-GigaLoom — локальная панель управления для кодинг-агентов, не привязанная к
-одному провайдеру. Она объединяет нативные команды вида `giga <агент>` и
-браузерный интерфейс для сессий, подтверждений, worktree, расписаний, оценок и
-мультиагентных сценариев.
+GigaLoom — локальная панель управления для coding-агентов. Она запускает
+нативные CLI и установленные ACP-агенты, связывает работу с проектами и
+worktree, показывает подтверждения и результаты, а также может направить
+поддержанный агент через локальный шлюз (gateway) `gpt2giga`.
 
-В GigaLoom 0.9 основной рабочий путь выглядит так:
-`Проект → Тред → Запуск → Результаты → Действие`. Также появились ограниченный
-Thread Relay, схемы для редакторов, безопасные для разных кодировок вложения,
-read-only просмотр Effective Instructions, локальные продуктовые отчёты и
-точные маршруты запуска агентов через `gpt2giga`. Состояние пользователя
-хранится локально, чувствительные значения скрываются при сохранении и выводе
-в UI, а при неполных правах или данных о совместимости запуск блокируется.
+## Установка и первый запуск
 
-GigaLoom позволяет:
-
-- запускать Codex, Claude, Gemini, Pi и совместимые агенты из одной локальной
-  точки, не заменяя их нативные CLI;
-- изолировать работу в привязанных к проекту worktree и сохранять подтверждения,
-  результаты проверок, оценки и данные для повторного анализа;
-- подключать проверенные MCP-приложения и ACP-агенты по планам установки,
-  привязанным к digest;
-- просматривать и обрабатывать поддерживаемые треды без копирования приватного
-  состояния провайдера;
-- запускать один явно выбранный маршрут через gateway, не меняя домашние
-  конфиги Codex, Claude или Gemini;
-- автоматизировать headless-запуски через детерминированный JSONL-контракт и
-  опциональные адаптеры без неявной передачи учётных данных или прав на проект.
-
-## Быстрый старт
-
-Нужны Python 3.11–3.14 и установленный CLI хотя бы одного провайдера, например
-Codex CLI. Управляемые терминальные сессии на Linux и macOS также используют
-`tmux`; без него останется обычный нативный запуск провайдерского CLI.
-
-Установите GigaLoom и проверьте окружение:
+Нужны Python 3.11–3.14 и CLI хотя бы одного агента. Для управляемых терминалов
+на macOS и Linux также нужен `tmux`; нативный запуск работает и без него.
 
 ```sh
-uv tool install 'gigaloom==0.9.0'
+uv tool install 'gigaloom==0.9.1'
 giga doctor
-giga --version
-```
-
-Запустите браузерный интерфейс:
-
-```sh
 giga ui
 ```
 
-Откройте <http://127.0.0.1:8091/>. Для обычного запуска нативного CLI достаточно
-добавить префикс `giga`; остальные аргументы передаются без изменений:
+Откройте <http://127.0.0.1:8091/>. Интерфейс по умолчанию доступен только на
+локальном компьютере.
+
+## Нативный агент из терминала
+
+Добавьте `giga` перед обычной командой агента. Аргументы, поток ввода-вывода и
+код завершения остаются нативными:
 
 ```sh
 giga codex exec --json "проверь этот репозиторий"
@@ -68,243 +41,81 @@ giga gemini -p "проверь этот репозиторий"
 giga pi
 ```
 
-Предпросмотр доставки сообщения через Thread Relay без изменения целевого
-треда и без запроса к провайдеру:
+Авторизацией по-прежнему владеет CLI агента. Войдите в него обычным способом
+до запуска через GigaLoom.
+
+## Агент из ACP Registry
+
+Сначала посмотрите план установки, затем подтвердите его:
 
 ```sh
-giga session send THREAD_ID --text "проверь падающие тесты" --dry-run --json
+giga agent search opencode --refresh --json
+giga agent add opencode --dry-run --json
+giga agent add opencode --yes --json
+giga agent inspect opencode --json
 ```
 
-## Codex через gpt2giga в терминале
+GigaLoom устанавливает выбранный артефакт в собственный managed-каталог и не
+меняет глобальный `PATH` или домашний конфиг агента. Если проверка показывает,
+что агент работает только с нативным провайдером модели, его всё равно можно
+запустить без выбора шлюза.
 
-Этот вариант подходит для интерактивного Codex и для `codex exec`. Для
-проверенного маршрута `GigaChat-2-Max` GigaLoom сам запустит локальный
-`gpt2giga 0.3.0`, передаст ему учётные данные GigaChat и остановит принадлежащий
-этому запуску процесс после выхода из Codex.
+## ACP-агент через gpt2giga
 
-### 1. Установите интеграцию
+Установите необязательную интеграцию:
 
 ```sh
 uv tool install --force \
-  --with 'gpt2giga==0.3.0' \
-  'gigaloom[gpt2giga]==0.9.0'
+  --with 'gpt2giga>=0.3.0,<0.4.0' \
+  'gigaloom[gpt2giga]==0.9.1'
 ```
 
-Codex CLI устанавливается отдельно. Для маршрута GigaLoom 0.9 проверялся Codex
-CLI `0.146.0`; другая версия может быть заблокирована до запуска процесса.
-
-### 2. Передайте учётные данные GigaChat
-
-Выберите **один** способ авторизации и экспортируйте переменные в том же
-терминале, из которого будет запущена команда `giga`:
+Если `giga agent inspect opencode --json` подтверждает готовность маршрута,
+выберите модель и запустите агент:
 
 ```sh
-# Вариант 1: OAuth credentials
-export GIGACHAT_CREDENTIALS='<ваши-credentials>'
-export GIGACHAT_SCOPE='GIGACHAT_API_PERS'
-
-# Вариант 2: уже полученный access token
-# export GIGACHAT_ACCESS_TOKEN='<ваш-access-token>'
-
-# Вариант 3: логин и пароль для соответствующего GigaChat endpoint
-# export GIGACHAT_USER='<логин>'
-# export GIGACHAT_PASSWORD='<пароль>'
-# export GIGACHAT_BASE_URL='<адрес-api>'
+giga --with gpt2giga --model GigaChat-2-Max opencode
 ```
 
-Не сохраняйте секреты в README, репозитории или отслеживаемом `.env`-файле.
-Значение `GIGACHAT_SCOPE` должно соответствовать вашим учётным данным.
+Модель должна присутствовать в `/models` шлюза. Если совместимость агента,
+шлюза или модели не подтверждена, GigaLoom останавливает запуск до создания
+процесса. Он не переключается незаметно на другой маршрут и не меняет
+`~/.opencode`, `~/.codex`, `~/.claude` или `~/.gemini`.
 
-### 3. Запустите Codex
-
-Интерактивный режим:
+Для Codex используется тот же способ выбора шлюза:
 
 ```sh
 giga --with gpt2giga --model GigaChat-2-Max codex
 ```
 
-Одноразовая задача без интерактивного интерфейса:
-
-```sh
-giga --with gpt2giga --model GigaChat-2-Max \
-  codex exec --json "проверь падающие тесты"
-```
-
-Однокомандный managed-маршрут релиза 0.9 проверен с `GigaChat-2-Max`. Для
-`GigaChat-3-Ultra` сначала запустите постоянный внешний gateway по инструкции
-ниже, а затем подключите к нему Codex из второго терминала. Модель в любом
-случае должна присутствовать в `/models` вашего GigaChat endpoint.
-
-### Что означает `gateway_upstream_credentials_unavailable`
-
-Сообщение
-
-```json
-{"reason_ids":["gateway_upstream_credentials_unavailable"],"status":"blocked"}
-```
-
-означает, что GigaLoom не увидел ни `GIGACHAT_CREDENTIALS`, ни
-`GIGACHAT_ACCESS_TOKEN`, ни `GIGACHAT_USER`. Gateway и Codex при этом не
-запускаются, запрос к провайдеру не отправляется. Экспортируйте переменные в
-**том же процессе shell** и повторите команду. Быстрая проверка без вывода
-самого секрета:
-
-```sh
-test -n "$GIGACHAT_CREDENTIALS" || \
-test -n "$GIGACHAT_ACCESS_TOKEN" || \
-test -n "$GIGACHAT_USER"
-```
-
-## gpt2giga и Codex в одном терминале
-
-Этот сценарий нужен для `GigaChat-3-Ultra`, браузерного UI и долгоживущих
-запусков через внешний gateway. `gpt2giga` работает в фоне того же терминала,
-а после выхода из Codex или UI автоматически останавливается.
-
-### 1. Подготовьте `.env`
-
-Если команда `gpt2giga` не появилась в `PATH` после установки интеграции,
-установите публичный gateway CLI отдельно:
-
-```sh
-uv tool install 'gpt2giga==0.3.0'
-```
-
-Создайте локальный конфиг и замените в нём значения `REPLACE_WITH_...`:
-
-```sh
-cp .env.example .env
-$EDITOR .env
-```
-
-`gpt2giga` сам читает `.env`, но `giga` этого не делает: GigaLoom читает только
-переменные текущего процесса. Поэтому перед `giga` файл нужно экспортировать
-через `source`. В `.env.example` значение `GIGALOOM_API_KEY` берётся из
-`GPT2GIGA_API_KEY`; не заменяйте его на `0`.
-
-Если gateway уже запущен, исправление для текущего терминала выглядит так:
-
-```sh
-set -a
-source .env
-set +a
-
-test "$GIGALOOM_API_KEY" = "$GPT2GIGA_API_KEY"
-giga --with gpt2giga --model GigaChat-3-Ultra codex
-```
-
-### 2. Запустите gateway и Codex одной вставкой
-
-Следующий блок загружает `.env`, запускает `gpt2giga` в фоне, ждёт
-авторизованный `/models`, запускает Codex и гарантированно останавливает gateway
-при выходе. Перед выполнением остановите ранее запущенный процесс на порту
-`8090`, иначе новый gateway не сможет занять порт:
-
-```zsh
-(
-  set -a
-  source .env
-  set +a
-
-  if [[ -z "$GPT2GIGA_API_KEY" || "$GIGALOOM_API_KEY" != "$GPT2GIGA_API_KEY" ]]; then
-    echo "GIGALOOM_API_KEY должен совпадать с GPT2GIGA_API_KEY и не быть пустым" >&2
-    exit 2
-  fi
-
-  gpt2giga --env-path .env >/tmp/gpt2giga-gigaloom.log 2>&1 &
-  gpt2giga_pid=$!
-  cleanup_gpt2giga() {
-    kill "$gpt2giga_pid" 2>/dev/null || true
-    wait "$gpt2giga_pid" 2>/dev/null || true
-  }
-  trap cleanup_gpt2giga EXIT
-  trap 'exit 130' INT TERM
-
-  gateway_ready=false
-  for gateway_attempt in {1..50}; do
-    if curl -fsS \
-      -H "x-api-key: $GIGALOOM_API_KEY" \
-      "$GIGALOOM_PROXY_URL/models" >/dev/null; then
-      gateway_ready=true
-      break
-    fi
-    kill -0 "$gpt2giga_pid" 2>/dev/null || break
-    sleep 0.2
-  done
-
-  if [[ "$gateway_ready" != true ]]; then
-    tail -n 50 /tmp/gpt2giga-gigaloom.log
-    exit 1
-  fi
-
-  giga --with gpt2giga --model GigaChat-3-Ultra codex
-)
-```
-
-Для одноразовой задачи замените последнюю команду внутри блока на:
-
-```sh
-giga --with gpt2giga --model GigaChat-3-Ultra \
-  codex exec --json "проверь падающие тесты"
-```
-
-### 3. Запустите gateway и UI в одном терминале
-
-Используйте тот же блок, но замените последнюю команду на
-`giga ui --no-start-proxy`. Пока UI открыт, gateway работает в фоне; после
-`Ctrl+C` оба процесса завершаются.
-
-Откройте <http://127.0.0.1:8091/web/work> и выполните следующие шаги:
-
-1. Выберите или зарегистрируйте локальный проект.
-2. Нажмите **«Новая сессия»**.
-3. Для работы с репозиторием выберите **«Тип задачи → Агент разработки»** и
-   **«Harness → Codex CLI»**. Для обычного разговора без агентного цикла
-   выберите **«Прямой чат»** и harness `direct-chat`.
-4. В поле **«Модель»** выберите `GigaChat-3-Ultra` или другую модель из
-   `/models`.
-5. Если показан блок reviewed gateway route, выберите маршрут `gpt2giga` и
-   нажмите **«Preflight exact route»**.
-6. Введите задачу и нажмите **«Запустить задачу»**.
-
-Если список моделей или маршрутов пуст, сначала проверьте `/health`, `/models`,
-совпадение `GPT2GIGA_API_KEY` и `GIGALOOM_API_KEY`, а также то, что UI запущен с
-`--no-start-proxy` и правильным `--proxy-url`/`GIGALOOM_PROXY_URL`. Значение
-`GIGALOOM_API_KEY=0` отключает auth-заголовок и приводит к `401 Unauthorized`,
-который GigaLoom отображает как `models_unavailable`.
-
-## Документация
-
-| Тема | Руководство |
-|---|---|
-| Обзор продукта | [Главная страница документации](./docs/index.md) |
-| Установка, обновление и первый запуск | [Установка](./docs/installation.md) · [Быстрый старт](./docs/quickstart.md) |
-| Работа, Thread Relay, схемы и контекст | [Работа, треды и контекст](./docs/work-threads-and-context.md) |
-| Архитектура и границы безопасности | [Архитектура](./docs/architecture.md) · [Надёжность и производительность](./docs/architecture/reliability-and-performance.md) · [Безопасность](./docs/security.md) |
-| Работа сервиса, резервные копии и диагностика | [Эксплуатация](./docs/operations.md) |
-| Опциональный gateway gpt2giga | [Интеграция с gateway](./docs/gateway-integration.md) |
-| npm-пакет Web UI | [Web-пакет](./web/README.md) |
-| Разработка, теги и восстановление релиза | [Участие в разработке](./docs/contributing.md) · [Релиз](./docs/release.md) |
-| История переноса репозитория | [История исходного кода](./docs/source-history.md) |
-
-Опубликованная документация на английском и русском языках доступна по адресу
-<https://krakenalt.github.io/gigaloom/>.
-
-## Интеграция с gateway
-
-Базовый пакет `gigaloom` устанавливается независимо и не требует checkout
-исходного кода gateway. Direct Chat и старый preset локального gateway являются
-опциональными:
-
-```sh
-uv tool install 'gigaloom[gpt2giga]==0.9.0'
-```
-
-Опциональная зависимость использует опубликованный пакет `gpt2giga`. Контракты
-нормализации протоколов и совместимости принадлежат отдельному проекту
-[gpt2giga](https://github.com/ai-forever/gpt2giga). Точные маршруты,
-проверенные версии клиентов, статус поддержки и канонические ссылки приведены
+Настройка авторизации, внешний шлюз и таблица поддерживаемых маршрутов описаны
 в [руководстве по интеграции](./docs/gateway-integration.md).
+
+## Куда идти дальше
+
+| Задача | Руководство |
+|---|---|
+| Установить или обновить GigaLoom | [Установка](./docs/installation.md) |
+| Пройти два первых сценария | [Быстрый старт](./docs/quickstart.md) |
+| Найти, установить и проверить агента | [Агенты](./docs/agent-runtimes.md) |
+| Подключить `gpt2giga` и выбрать модель | [Интеграция со шлюзом](./docs/gateway-integration.md) |
+| Работать с проектами, тредами и Thread Relay | [Работа, треды и контекст](./docs/work-threads-and-context.md) |
+| Сделать резервную копию и проверить локальный сервис | [Эксплуатация](./docs/operations.md) |
+| Понять границы доступа и хранения данных | [Безопасность](./docs/security.md) |
+
+Полная документация доступна
+[на русском и английском](https://krakenalt.github.io/gigaloom/).
+
+## Поддерживаемые системы
+
+- macOS и Linux: нативные CLI, UI и управляемые терминалы с `tmux`;
+- Windows: нативные CLI и UI; управляемый `tmux`-терминал недоступен;
+- установка ACP-агентов требует поддержанного механизма сетевой изоляции,
+  подробно описанного в [руководстве по агентам](./docs/agent-runtimes.md).
+
+Базовый пакет не требует checkout исходников `gpt2giga`. Состояние GigaLoom
+хранится локально в `~/.gigaloom` и проектных `.giga/`. Не добавляйте токены и
+реальные `.env`-файлы в репозиторий.
 
 ## Разработка
 
@@ -316,23 +127,9 @@ npm --prefix web run build
 ./scripts/ci-base.sh pytest tests/harness -q
 ```
 
-Сборка самостоятельного дистрибутива:
-
-```sh
-uv build --no-sources
-```
-
-Перед отправкой изменений прочитайте [CONTRIBUTING.md](./CONTRIBUTING.md), а
-правила владения кодом и восстановления описаны в
+Перед изменениями прочитайте [CONTRIBUTING.md](./CONTRIBUTING.md) и
 [GOVERNANCE.md](./GOVERNANCE.md). Об ошибках сообщайте через
-[GitHub Issues](https://github.com/krakenalt/gigaloom/issues), а о возможных
-уязвимостях — только по приватному каналу из [SECURITY.md](./SECURITY.md).
+[GitHub Issues](https://github.com/krakenalt/gigaloom/issues), а об уязвимостях
+— только по приватному каналу из [SECURITY.md](./SECURITY.md).
 
-## История исходного кода
-
-GigaLoom был выделен из объединённого репозитория `ai-forever/gpt2giga`.
-Ссылки на него в старых changelog и инструкциях по миграции являются
-историческими. Текущая разработка, issues, документация и релизы находятся в
-`krakenalt/gigaloom`.
-
-Проект распространяется по [лицензии MIT](LICENSE).
+GigaLoom распространяется по [лицензии MIT](LICENSE).

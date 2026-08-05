@@ -11,6 +11,7 @@ import {
 import {
   gatewayRouteAgentForHarness,
   ReviewedRouteControls,
+  useReviewedRouteBinding,
 } from "./ReviewedRouteControls";
 import type {
   BridgeRouteCatalogProjectionV1,
@@ -67,6 +68,8 @@ describe("capability-aware route model picker", () => {
 
     expect(markup).toContain("Start/reconnect gpt2giga");
     expect(markup).toContain("provider default is not used");
+    expect(markup).toContain("<details");
+    expect(markup).not.toContain("<details open");
   });
 
   it("maps every managed ACP harness to the shared ACP gateway catalog", () => {
@@ -76,9 +79,10 @@ describe("capability-aware route model picker", () => {
         metadata: {
           managed_agent: true,
           registry_id: "opencode",
-          managed_acp_gateway: {
-            reason_id: "opencode_config_content_overlay_reviewed",
-            support: "supported",
+          provider_bridge: {
+            protocols: ["openai_chat_completions"],
+            reason_ids: [],
+            status: "ready",
           },
         },
         tags: ["agent", "managed", "acp"],
@@ -88,33 +92,66 @@ describe("capability-aware route model picker", () => {
       id: "acp",
       label: "OpenCode",
       managedAcpGateway: {
-        reasonId: "opencode_config_content_overlay_reviewed",
-        support: "supported",
+        reasonId: "provider_bridge_ready",
+        status: "ready",
       },
     });
   });
 
   it("keeps ACP provider support explicit instead of inferring it from transport", () => {
-    expect(gatewayRouteAgentForHarness({
+    const harness = {
       spec: {
         id: "amp-acp",
         metadata: {
           managed_agent: true,
-          managed_acp_gateway: {
-            reason_id: "amp_acp_provider_configuration_unsupported",
-            support: "unsupported",
+          provider_bridge: {
+            protocols: [],
+            reason_ids: ["amp_acp_provider_configuration_unsupported"],
+            status: "native_only",
           },
         },
         tags: ["agent", "managed", "acp"],
         title: "Amp",
       },
-    })).toMatchObject({
+    };
+    expect(gatewayRouteAgentForHarness(harness)).toMatchObject({
       id: "acp",
       managedAcpGateway: {
         reasonId: "amp_acp_provider_configuration_unsupported",
-        support: "unsupported",
+        status: "native-only",
       },
     });
+    const markup = renderToStaticMarkup(
+      <ManagedRouteHarness harness={harness} />,
+    );
+    expect(markup).toContain("gpt2giga route unavailable for Amp");
+    expect(markup).toContain("native launch remains available");
+    expect(markup).toContain("will not guess a provider or fall back silently");
+    expect(markup).not.toContain("Gateway model");
+  });
+
+  it("keeps native Codex gateway routes available without an ACP projection", () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(
+      gatewayRoutesOptions().queryKey,
+      catalog("current"),
+    );
+
+    const markup = renderToStaticMarkup(
+      <QueryClientProvider client={queryClient}>
+        <ManagedRouteHarness harness={{
+          spec: {
+            id: "codex-cli",
+            tags: ["agent"],
+            title: "Codex",
+          },
+        }} />
+      </QueryClientProvider>,
+    );
+
+    expect(markup).toContain("gpt2giga route for Codex");
+    expect(markup).toContain("Gateway model");
+    expect(markup).not.toContain("gpt2giga route unavailable");
   });
 
   it("groups exact public aliases by gateway and upstream provider", () => {
@@ -165,6 +202,13 @@ describe("capability-aware route model picker", () => {
     expect(markup).not.toContain("checked=\"\"");
   });
 });
+
+function ManagedRouteHarness({ harness }: { harness: Parameters<typeof gatewayRouteAgentForHarness>[0] }) {
+  return useReviewedRouteBinding(
+    gatewayRouteAgentForHarness(harness),
+    "sess-existing-123",
+  ).controls;
+}
 
 function catalog(
   status: BridgeRouteCatalogProjectionV1["status"],

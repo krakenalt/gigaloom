@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+from dataclasses import replace
 import hashlib
 from importlib.metadata import PackageNotFoundError, distribution
 import os
@@ -11,7 +12,12 @@ import shutil
 import sys
 
 from gigaloom.contracts.operational_validation import canonical_digest
-from gigaloom.native.launch.gateway_contracts import GatewayMode, GatewayProfileV1
+from gigaloom.native.launch.gateway_codec import gateway_profile_to_dict
+from gigaloom.native.launch.gateway_contracts import (
+    GatewayMode,
+    GatewayProfileV1,
+    gateway_version_admitted,
+)
 from gigaloom.native.launch.gateway_sidecar import GatewayArtifactEvidenceV1
 
 
@@ -34,6 +40,9 @@ GPT2GIGA_PROVIDER_PROFILE_REVISION = "gpt2giga.provider-profiles.v2"
 GPT2GIGA_LOSS_MATRIX_REVISION = (
     "sha256:3cad19e6f7b531e50a0eb4c88af308aee5be81f3a4c085f89ebc2e06f92ffa69"
 )
+_ARTIFACT_EVIDENCE_CACHE: dict[tuple[object, ...], GatewayArtifactEvidenceV1] = {}
+_StatFingerprint = tuple[int, int, int, int, int]
+_RecordEntry = tuple[Path, str, str, _StatFingerprint]
 
 
 def reviewed_gpt2giga_profile(
@@ -42,29 +51,7 @@ def reviewed_gpt2giga_profile(
     mode: GatewayMode,
 ) -> GatewayProfileV1:
     """Build the exact reviewed 0.3.0 profile from the public handoff."""
-    semantic = {
-        "gateway_id": GPT2GIGA_DISTRIBUTION,
-        "display_name": "gpt2giga 0.3",
-        "mode": mode.value,
-        "distribution": GPT2GIGA_DISTRIBUTION,
-        "executable": GPT2GIGA_EXECUTABLE,
-        "version": GPT2GIGA_VERSION,
-        "version_window": GPT2GIGA_VERSION_WINDOW,
-        "artifact_sha256": GPT2GIGA_WHEEL_SHA256,
-        "base_url": base_url,
-        "startup_config_revision": GPT2GIGA_STARTUP_CONFIG_REVISION,
-        "health_contract_revision": GPT2GIGA_HEALTH_CONTRACT_REVISION,
-        "readiness_contract_revision": GPT2GIGA_READINESS_CONTRACT_REVISION,
-        "models_contract_revision": GPT2GIGA_MODELS_CONTRACT_REVISION,
-        "capabilities_contract_revision": (GPT2GIGA_CAPABILITIES_CONTRACT_REVISION),
-        "auth_ref": "secret-ref:gpt2giga-api-key",
-        "tls_policy_ref": (
-            "tls-policy:loopback"
-            if mode is GatewayMode.MANAGED
-            else "tls-policy:configured"
-        ),
-    }
-    return GatewayProfileV1(
+    profile = GatewayProfileV1(
         gateway_id=GPT2GIGA_DISTRIBUTION,
         display_name="gpt2giga 0.3",
         mode=mode,
@@ -80,9 +67,16 @@ def reviewed_gpt2giga_profile(
         models_contract_revision=GPT2GIGA_MODELS_CONTRACT_REVISION,
         capabilities_contract_revision=GPT2GIGA_CAPABILITIES_CONTRACT_REVISION,
         auth_ref="secret-ref:gpt2giga-api-key",
-        tls_policy_ref=semantic["tls_policy_ref"],
-        profile_digest=canonical_digest(semantic),
+        tls_policy_ref=(
+            "tls-policy:loopback"
+            if mode is GatewayMode.MANAGED
+            else "tls-policy:configured"
+        ),
+        profile_digest="0" * 64,
     )
+    semantic = gateway_profile_to_dict(profile)
+    del semantic["profile_digest"]
+    return replace(profile, profile_digest=canonical_digest(semantic))
 
 
 def resolve_installed_gpt2giga_artifact(
@@ -101,22 +95,54 @@ def resolve_installed_gpt2giga_artifact(
         for entry in installed.entry_points
         if entry.group == "console_scripts"
     }
-    verified = (
-        installed.version == profile.version == GPT2GIGA_VERSION
-        and profile.artifact_sha256 == GPT2GIGA_WHEEL_SHA256
-        and installed.read_text("direct_url.json") is None
-        and scripts == {GPT2GIGA_EXECUTABLE: "gpt2giga:run"}
-        and executable is not None
-        and _record_hashes_match(installed)
+    direct_url = installed.read_text("direct_url.json")
+    record_entries = _record_entries(installed)
+    cache_key = (
+        installed.metadata["Name"] or GPT2GIGA_DISTRIBUTION,
+        installed.version,
+        profile.version_window,
+        (
+            (os.fspath(executable), _stat_fingerprint(executable))
+            if executable is not None
+            else None
+        ),
+        tuple(sorted(scripts.items())),
+        direct_url is None,
+        (
+            tuple(
+                (os.fspath(path), mode, expected, stat)
+                for path, mode, expected, stat in record_entries
+            )
+            if record_entries is not None
+            else None
+        ),
     )
-    return GatewayArtifactEvidenceV1(
+    cached = _ARTIFACT_EVIDENCE_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    observed_digest = _verified_record_digest(record_entries)
+    reason_id: str | None = None
+    if not gateway_version_admitted(installed.version, profile.version_window):
+        reason_id = "gateway_version_outside_supported_window"
+    elif direct_url is not None:
+        reason_id = "gateway_package_provenance_unverified"
+    elif scripts != {GPT2GIGA_EXECUTABLE: "gpt2giga:run"}:
+        reason_id = "gateway_executable_contract_mismatch"
+    elif executable is None:
+        reason_id = "gateway_executable_unavailable"
+    elif observed_digest is None:
+        reason_id = "gateway_package_record_invalid"
+    evidence = GatewayArtifactEvidenceV1(
         distribution=installed.metadata["Name"] or GPT2GIGA_DISTRIBUTION,
         version=installed.version,
-        artifact_sha256=GPT2GIGA_WHEEL_SHA256,
+        artifact_sha256=observed_digest or "0" * 64,
         executable_path=os.fspath(executable) if executable is not None else "",
-        source="locked-registry:pypi/gpt2giga==0.3.0",
-        verified=verified,
+        source=f"registry:pypi/gpt2giga=={installed.version}",
+        verified=reason_id is None,
+        reason_id=reason_id,
     )
+    _ARTIFACT_EVIDENCE_CACHE[cache_key] = evidence
+    return evidence
 
 
 def _installed_executable(name: str) -> Path | None:
@@ -134,26 +160,50 @@ def _installed_executable(name: str) -> Path | None:
     return None
 
 
-def _record_hashes_match(installed: object) -> bool:
+def _record_entries(
+    installed: object,
+) -> tuple[_RecordEntry, ...] | None:
     files = getattr(installed, "files", None)
     locate = getattr(installed, "locate_file", None)
     if not files or not callable(locate):
-        return False
-    checked = 0
+        return None
+    entries: list[_RecordEntry] = []
     for item in files:
         recorded = getattr(item, "hash", None)
         if recorded is None:
             continue
+        path = Path(locate(item))
+        stat = _stat_fingerprint(path)
+        if stat is None:
+            return None
+        entries.append((path, recorded.mode, recorded.value, stat))
+    return tuple(entries) or None
+
+
+def _verified_record_digest(
+    entries: tuple[_RecordEntry, ...] | None,
+) -> str | None:
+    if entries is None:
+        return None
+    records: list[tuple[str, str]] = []
+    for path, mode, expected, _stat in entries:
         try:
-            data = Path(locate(item)).read_bytes()
-            digest = hashlib.new(recorded.mode, data).digest()
+            digest = hashlib.new(mode, path.read_bytes()).digest()
         except (OSError, ValueError):
-            return False
+            return None
         actual = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
-        if actual != recorded.value:
-            return False
-        checked += 1
-    return checked > 0
+        if actual != expected:
+            return None
+        records.append((mode, expected))
+    return canonical_digest(sorted(records))
+
+
+def _stat_fingerprint(path: Path) -> _StatFingerprint | None:
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
 
 
 __all__ = [

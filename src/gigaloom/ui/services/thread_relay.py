@@ -3,20 +3,25 @@
 from __future__ import annotations
 
 from threading import Lock
+from typing import Any, Mapping, cast
 
-from gigaloom.contracts.operational_validation import canonical_digest
 from gigaloom.execution.thread_relay import (
     GigaLoomThreadRelayActions,
+    ThreadSessionStorePort,
     ThreadTurnSubmissionPort,
     build_thread_relay_actions,
 )
 from gigaloom.runtime.policy import PermissionAction
 from gigaloom.runtime.store import RuntimeCoordinationStore
-from gigaloom.sessions import HarnessSessionStore
-from gigaloom.tools.thread_relay import RestrictedThreadRelayTools, ThreadRelayToolScope
-
-
-THREAD_RELAY_APPROVAL_OWNER = "thread_relay.agent_send"
+from gigaloom.sessions import HarnessSessionStore, SessionNotFoundError
+from gigaloom.sessions.api import session_catalog_project_id
+from gigaloom.tools.thread_relay import (
+    THREAD_RELAY_APPROVAL_OWNER,
+    RestrictedThreadRelayTools,
+    ThreadRelayToolScope,
+    thread_relay_approval_binding,
+)
+from gigaloom.types import HarnessRequest
 
 
 class ThreadRelayApprovalVerifier:
@@ -33,12 +38,9 @@ class ThreadRelayApprovalVerifier:
         project_id: str,
         preview_digest: str,
     ) -> bool:
-        binding = canonical_digest(
-            {
-                "actor_scope": actor_scope,
-                "preview_digest": preview_digest,
-                "project_id": project_id,
-            }
+        binding = thread_relay_approval_binding(
+            ThreadRelayToolScope(actor_scope, project_id),
+            preview_digest,
         )
         return bool(
             self.runtime_store is not None
@@ -100,6 +102,25 @@ class ThreadRelayComposition:
                 self._tools[key] = provider
             return provider
 
+    def tools_for_request(
+        self,
+        request: HarnessRequest,
+    ) -> RestrictedThreadRelayTools | None:
+        """Resolve tools only from a server-bound actor/project request scope."""
+        raw_scope = request.extra.get("thread_relay_scope")
+        scope = dict(raw_scope) if isinstance(raw_scope, Mapping) else {}
+        actor_scope = _optional_text(scope.get("actor_scope"))
+        if actor_scope is None or request.session_id is None:
+            return None
+        try:
+            session = self._session_store.get_session(request.session_id)
+        except SessionNotFoundError:
+            return None
+        project_id = session_catalog_project_id(session.metadata)
+        if project_id is None or _optional_text(scope.get("project_id")) != project_id:
+            return None
+        return self.tools(actor_scope, project_id)
+
     def _build_actions(
         self,
         actor_scope: str,
@@ -108,7 +129,7 @@ class ThreadRelayComposition:
         return build_thread_relay_actions(
             actor_scope=actor_scope,
             project_id=project_id,
-            session_store=self._session_store,
+            session_store=cast(ThreadSessionStorePort, self._session_store),
             data_dir=self._data_dir,
             turn_submitter=self._turn_submitter,
             approval_verifier=self._verifier,
@@ -120,3 +141,10 @@ __all__ = [
     "ThreadRelayApprovalVerifier",
     "ThreadRelayComposition",
 ]
+
+
+def _optional_text(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    return text if text and len(text) <= 256 else None

@@ -169,6 +169,41 @@ class SessionRecordIndexMixin:
         )
         return RunPage(items, next_cursor, has_more, generation)
 
+    def latest_runs(
+        self,
+        session_ids: tuple[str, ...],
+    ) -> dict[str, HarnessRun | None]:
+        """Return one newest run per requested session in a single index query."""
+        if len(session_ids) > MAX_RECORD_QUERY_LIMIT:
+            raise ValueError(
+                f"session_ids must contain at most {MAX_RECORD_QUERY_LIMIT} items"
+            )
+        result: dict[str, HarnessRun | None] = dict.fromkeys(session_ids)
+        if not session_ids:
+            return result
+        placeholders = ", ".join("?" for _ in session_ids)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                WITH ranked_runs AS (
+                    SELECT session_id, payload_json,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY session_id
+                               ORDER BY position DESC, id DESC
+                           ) AS rank
+                    FROM read_index_runs
+                    WHERE session_id IN ({placeholders})
+                )
+                SELECT session_id, payload_json
+                FROM ranked_runs
+                WHERE rank = 1
+                """,
+                session_ids,
+            ).fetchall()
+        for session_id, payload_json in rows:
+            result[str(session_id)] = run_from_dict(json.loads(str(payload_json)))
+        return result
+
     def record_message(self, message: HarnessMessage, position: int) -> None:
         """Retain one message and update the active edit projection."""
         with self._connect() as connection:

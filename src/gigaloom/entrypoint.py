@@ -82,6 +82,7 @@ def main(
 
 
 def _default_registry() -> AgentProfileRegistry:
+    from gigaloom.cli_commands.core_commands import CORE_COMMANDS
     from gigaloom.harnesses.agent_profiles import (
         AgentProfileRegistry,
         build_core_command_collision_contract,
@@ -90,23 +91,15 @@ def _default_registry() -> AgentProfileRegistry:
 
     return AgentProfileRegistry.build(
         load_builtin_agent_profiles(),
-        collision_contract=build_core_command_collision_contract(
-            _registered_core_commands()
-        ),
+        collision_contract=build_core_command_collision_contract(CORE_COMMANDS),
     )
 
 
 def _registered_core_commands() -> tuple[str, ...]:
-    from gigaloom.cli_commands.parser import build_parser
+    """Return the import-light canonical command registry."""
+    from gigaloom.cli_commands.core_commands import CORE_COMMANDS
 
-    parser = build_parser()
-    command_action = next(
-        action for action in parser._actions if action.dest == "command"
-    )
-    choices = command_action.choices
-    if choices is None:
-        raise RuntimeError("root CLI parser has no command registry")
-    return tuple(choices)
+    return CORE_COMMANDS
 
 
 def _run_core_command(arguments: list[str]) -> int:

@@ -80,6 +80,13 @@ export function SettingsSurface() {
             </span>
           ) : null}
         </div>
+        <a className="settings-personalization-link" href="#settings-personalization">
+          <span aria-hidden="true">✦</span>
+          <span>
+            <strong>{message(locale, "personalizationShortcut")}</strong>
+            <small>{message(locale, "personalizationShortcutHint")}</small>
+          </span>
+        </a>
       </header>
 
       <div className="settings-layout">

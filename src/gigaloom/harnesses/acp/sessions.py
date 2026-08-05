@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
 
 ResumeMode = Literal["new", "load", "resume", "fresh", "degraded"]
+_RESPONSE_ERROR = "ACP session response failed schema validation"
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,11 +65,12 @@ def new_session(client: AcpClient, *, workspace: Path) -> AcpSessionBindingV1:
     """Create and bind a new ACP session in the admitted workspace."""
     require_feature(client.capability_snapshot, "session_new")
     cwd = _admitted_workspace(client, workspace)
-    request = NewSessionRequest(cwd=cwd.as_posix(), mcp_servers=[])
-    raw = client.supervisor.request(
-        "session/new", _wire(request), timeout=client.limits.request_timeout_seconds
+    response = client.request(
+        "session/new",
+        NewSessionRequest(cwd=cwd.as_posix(), mcp_servers=[]),
+        NewSessionResponse,
+        error=_RESPONSE_ERROR,
     )
-    response = _validate(NewSessionResponse, raw)
     return _register(client, response.session_id, cwd, "new", response)
 
 
@@ -78,16 +80,11 @@ def load_session(
     """Load an advertised ACP session without weakening workspace binding."""
     require_feature(client.capability_snapshot, "session_load")
     cwd = _admitted_workspace(client, workspace)
-    request = LoadSessionRequest(
-        cwd=cwd.as_posix(), session_id=session_id, mcp_servers=[]
-    )
-    response = _validate(
+    response = client.request(
+        "session/load",
+        LoadSessionRequest(cwd=cwd.as_posix(), session_id=session_id, mcp_servers=[]),
         LoadSessionResponse,
-        client.supervisor.request(
-            "session/load",
-            _wire(request),
-            timeout=client.limits.request_timeout_seconds,
-        ),
+        error=_RESPONSE_ERROR,
     )
     return _register(client, session_id, cwd, "load", response)
 
@@ -98,16 +95,11 @@ def resume_session(
     """Resume an advertised ACP session in the admitted workspace."""
     require_feature(client.capability_snapshot, "session_resume")
     cwd = _admitted_workspace(client, workspace)
-    request = ResumeSessionRequest(
-        cwd=cwd.as_posix(), session_id=session_id, mcp_servers=[]
-    )
-    response = _validate(
+    response = client.request(
+        "session/resume",
+        ResumeSessionRequest(cwd=cwd.as_posix(), session_id=session_id, mcp_servers=[]),
         ResumeSessionResponse,
-        client.supervisor.request(
-            "session/resume",
-            _wire(request),
-            timeout=client.limits.request_timeout_seconds,
-        ),
+        error=_RESPONSE_ERROR,
     )
     return _register(client, session_id, cwd, "resume", response)
 
@@ -124,14 +116,11 @@ def list_sessions(
     if isinstance(max_items, bool) or not 1 <= max_items <= 1000:
         raise ValueError("ACP session page bound must be between 1 and 1000")
     cwd = _admitted_workspace(client, workspace).as_posix() if workspace else None
-    request = ListSessionsRequest(cwd=cwd, cursor=cursor)
-    response = _validate(
+    response = client.request(
+        "session/list",
+        ListSessionsRequest(cwd=cwd, cursor=cursor),
         ListSessionsResponse,
-        client.supervisor.request(
-            "session/list",
-            _wire(request),
-            timeout=client.limits.request_timeout_seconds,
-        ),
+        error=_RESPONSE_ERROR,
     )
     identifiers = tuple(item.session_id for item in response.sessions)
     return AcpSessionPageV1(
@@ -143,10 +132,7 @@ def close_session(client: AcpClient, binding: AcpSessionBindingV1) -> None:
     """Close a live bound session when the capability was negotiated."""
     require_feature(client.capability_snapshot, "session_close")
     _require_binding(client, binding)
-    request = CloseSessionRequest(session_id=binding.acp_session_id)
-    client.supervisor.request(
-        "session/close", _wire(request), timeout=client.limits.request_timeout_seconds
-    )
+    client.call("session/close", CloseSessionRequest(session_id=binding.acp_session_id))
     client._drop_session(binding.acp_session_id)
 
 
@@ -154,11 +140,8 @@ def delete_session(client: AcpClient, binding: AcpSessionBindingV1) -> None:
     """Delete a live bound session when the capability was negotiated."""
     require_feature(client.capability_snapshot, "session_delete")
     _require_binding(client, binding)
-    request = DeleteSessionRequest(session_id=binding.acp_session_id)
-    client.supervisor.request(
-        "session/delete",
-        _wire(request),
-        timeout=client.limits.request_timeout_seconds,
+    client.call(
+        "session/delete", DeleteSessionRequest(session_id=binding.acp_session_id)
     )
     client._drop_session(binding.acp_session_id)
 
@@ -188,13 +171,11 @@ def set_session_config(
         request = SetSessionConfigOptionSelectRequest(
             session_id=binding.acp_session_id, config_id=config_id, value=value
         )
-    _validate(
+    client.request(
+        "session/set_config_option",
+        request,
         SetSessionConfigOptionResponse,
-        client.supervisor.request(
-            "session/set_config_option",
-            _wire(request),
-            timeout=client.limits.request_timeout_seconds,
-        ),
+        error=_RESPONSE_ERROR,
     )
 
 
@@ -248,21 +229,9 @@ def _admitted_workspace(client: AcpClient, workspace: Path | None) -> Path:
 
 
 def _config_types(response) -> dict[str, str]:
-    result: dict[str, str] = {}
-    for option in response.config_options or []:
-        payload = option.model_dump(mode="python", by_alias=False)
-        kind = payload.get("type")
-        if kind in {"boolean", "select"}:
-            result[option.id] = kind
-    return result
-
-
-def _wire(value) -> dict:
-    return value.model_dump(mode="json", by_alias=True, exclude_none=True)
-
-
-def _validate(model, raw):
-    try:
-        return model.model_validate(raw)
-    except Exception as exc:
-        raise AcpProtocolError("ACP session response failed schema validation") from exc
+    return {
+        option.id: kind
+        for option in response.config_options or []
+        if (kind := option.model_dump(mode="python", by_alias=False).get("type"))
+        in {"boolean", "select"}
+    }

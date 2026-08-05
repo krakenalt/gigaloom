@@ -4,7 +4,13 @@ import { fetchCockpit, mutateCockpit } from "../../api/core";
 import type { BrowserAccessStatusResponse } from "../../api/settings";
 import { message } from "../../messages";
 import { usePreferences } from "../../preferences-context";
-import { Boundary, Fact, SectionError, SectionPending } from "./shared";
+import {
+  Boundary,
+  Fact,
+  localizedSettingValue,
+  SectionError,
+  SectionPending,
+} from "./shared";
 
 const browserAccessKey = ["cockpit", "settings-sections", "browser-access"] as const;
 
@@ -58,7 +64,7 @@ export default function LocalAccessSection() {
           value={data.expires_at ?? message(locale, "noExpiry")}
         />
       </dl>
-      <p className="muted-copy">{data.recovery}</p>
+      <p className="muted-copy">{localizedSettingValue(locale, data.recovery)}</p>
       <div className="provider-actions">
         <button
           disabled={!data.local || rotateBrowserAccess.isPending}

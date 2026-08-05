@@ -6,7 +6,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from gigaloom.contracts import ACPDistributionV1, ACPRegistryEntryV1
-from gigaloom.harnesses.agent_profiles.installations import AgentRuntimeService
+from gigaloom.harnesses.agent_profiles.installations import (
+    AgentRuntimeReadiness,
+    AgentRuntimeService,
+)
 from gigaloom.harnesses.agent_profiles.registry.models import ACPRegistryCatalog
 
 
@@ -35,6 +38,7 @@ class AgentRegistryEntryWebProjection:
     license: str
     repository: str | None
     website: str | None
+    icon_ref: str | None
     entry_digest: str
     platforms: tuple[str, ...]
     distribution_kinds: tuple[str, ...]
@@ -56,6 +60,7 @@ class InstalledAgentWebProjection:
     probe_state: str
     auth_required: bool
     update_available: bool
+    readiness: AgentRuntimeReadiness
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,6 +171,7 @@ def _entry_projection(entry: ACPRegistryEntryV1) -> AgentRegistryEntryWebProject
         license=entry.license,
         repository=entry.repository,
         website=entry.website,
+        icon_ref=entry.icon_ref,
         entry_digest=entry.entry_digest,
         platforms=tuple(
             sorted(
@@ -230,6 +236,7 @@ def _installed_projections(
                 item.registry_id in current_versions
                 and current_versions[item.registry_id] != item.version
             ),
+            readiness=item.readiness,
         )
         for item in runtime.list()
     )

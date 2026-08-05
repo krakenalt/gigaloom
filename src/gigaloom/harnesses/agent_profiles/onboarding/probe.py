@@ -13,9 +13,13 @@ from gigaloom.contracts import ManagedAgentArtifactV1
 from gigaloom.contracts.operational_validation import canonical_digest
 from gigaloom.harnesses.acp import (
     AcpLimits,
+    AcpProviderBridgeResolution,
+    AcpProviderV1,
     AcpRouteIdentity,
     create_acp_client,
+    list_providers,
     pin_acp_process,
+    resolve_provider_bridge,
 )
 from gigaloom.harnesses.acp.process import AcpTransportFactory
 from gigaloom.harnesses.acp.errors import (
@@ -26,7 +30,9 @@ from gigaloom.harnesses.acp.errors import (
 from gigaloom.harnesses.agent_profiles.models import AgentProfileV1
 from gigaloom.harnesses.agent_profiles.onboarding.models import (
     ManagedAcpProbeReceipt,
+    ManagedAcpProviderBridgeProjection,
     ManagedProbeState,
+    unknown_provider_bridge_projection,
 )
 from gigaloom.harnesses.agent_profiles.onboarding.isolation import (
     ManagedAcpNetworkIsolationPort,
@@ -81,6 +87,8 @@ class ManagedAcpProbeRunner:
             raise ValueError("managed ACP executable escapes the artifact root")
         process_fingerprint = artifact.artifact_digest
         executable_observed = False
+        providers: tuple[AcpProviderV1, ...] = ()
+        provider_list_failed = False
         with tempfile.TemporaryDirectory(prefix="gigaloom-managed-acp-probe-") as root:
             probe_root = Path(root)
             workspace = probe_root / "workspace"
@@ -127,6 +135,13 @@ class ManagedAcpProbeRunner:
                 try:
                     client.start()
                     snapshot = client.initialize()
+                    if "provider_configuration" in {
+                        item.feature for item in snapshot.negotiated_features
+                    }:
+                        try:
+                            providers = list_providers(client)
+                        except (AcpError, StructuredProcessError, ValueError):
+                            provider_list_failed = True
                 finally:
                     client.close()
             except AcpProtocolVersionError:
@@ -176,6 +191,16 @@ class ManagedAcpProbeRunner:
             if losses
             else ManagedProbeState.READY
         )
+        provider_bridge = _provider_bridge_projection(
+            artifact,
+            providers_advertised="provider_configuration" in capabilities,
+            providers=providers,
+            list_failed=provider_list_failed,
+        )
+        if provider_bridge.status == "blocked":
+            if state is ManagedProbeState.READY:
+                state = ManagedProbeState.DEGRADED
+            warnings = tuple(sorted({*warnings, *provider_bridge.reason_ids}))
         handshake_digest = canonical_digest(
             {
                 "protocol_version": snapshot.protocol_version,
@@ -197,6 +222,7 @@ class ManagedAcpProbeRunner:
             "warnings": list(warnings),
             "native_home_isolated": True,
             "network_policy": "enforced_loopback_only",
+            "provider_bridge": provider_bridge.projection(),
             "session_created": False,
             "prompt_sent": False,
             "content_free": True,
@@ -216,6 +242,7 @@ class ManagedAcpProbeRunner:
             native_home_isolated=True,
             network_policy="enforced_loopback_only",
             receipt_digest=canonical_digest(payload),
+            provider_bridge=provider_bridge,
         )
 
 
@@ -236,6 +263,7 @@ def managed_probe_to_dict(value: ManagedAcpProbeReceipt) -> dict[str, object]:
         "native_home_isolated": value.native_home_isolated,
         "network_policy": value.network_policy,
         "receipt_digest": value.receipt_digest,
+        "provider_bridge": value.provider_bridge.projection(),
         "session_created": value.session_created,
         "prompt_sent": value.prompt_sent,
         "content_free": value.content_free,
@@ -244,7 +272,7 @@ def managed_probe_to_dict(value: ManagedAcpProbeReceipt) -> dict[str, object]:
 
 def managed_probe_from_dict(value: Mapping[str, object]) -> ManagedAcpProbeReceipt:
     """Strictly restore one content-free probe receipt from private state."""
-    expected = {
+    legacy_fields = {
         "state",
         "protocol_state",
         "protocol_version",
@@ -263,8 +291,17 @@ def managed_probe_from_dict(value: Mapping[str, object]) -> ManagedAcpProbeRecei
         "prompt_sent",
         "content_free",
     }
-    if set(value) != expected:
+    current_fields = legacy_fields | {"provider_bridge"}
+    if frozenset(value) not in {
+        frozenset(legacy_fields),
+        frozenset(current_fields),
+    }:
         raise ValueError("managed probe state fields are invalid")
+    provider_bridge = (
+        _provider_bridge_from_dict(value["provider_bridge"])
+        if "provider_bridge" in value
+        else unknown_provider_bridge_projection()
+    )
     return ManagedAcpProbeReceipt(
         state=ManagedProbeState(_string(value["state"])),
         protocol_state=_string(value["protocol_state"]),
@@ -282,6 +319,7 @@ def managed_probe_from_dict(value: Mapping[str, object]) -> ManagedAcpProbeRecei
         native_home_isolated=_boolean(value["native_home_isolated"]),
         network_policy=_string(value["network_policy"]),
         receipt_digest=_string(value["receipt_digest"]),
+        provider_bridge=provider_bridge,
         session_created=_boolean(value["session_created"]),
         prompt_sent=_boolean(value["prompt_sent"]),
         content_free=_boolean(value["content_free"]),
@@ -297,6 +335,7 @@ def _failure_receipt(
     executable_observed: bool,
     reason_code: str,
 ) -> ManagedAcpProbeReceipt:
+    provider_bridge = _blocked_provider_bridge(reason_code)
     handshake_digest = canonical_digest(
         {
             "protocol_state": protocol_state,
@@ -319,6 +358,7 @@ def _failure_receipt(
         "warnings": [reason_code],
         "native_home_isolated": True,
         "network_policy": "enforced_loopback_only",
+        "provider_bridge": provider_bridge.projection(),
         "session_created": False,
         "prompt_sent": False,
         "content_free": True,
@@ -338,6 +378,119 @@ def _failure_receipt(
         native_home_isolated=True,
         network_policy="enforced_loopback_only",
         receipt_digest=canonical_digest(payload),
+        provider_bridge=provider_bridge,
+    )
+
+
+def _provider_bridge_projection(
+    artifact: ManagedAgentArtifactV1,
+    *,
+    providers_advertised: bool,
+    providers: tuple[AcpProviderV1, ...],
+    list_failed: bool,
+) -> ManagedAcpProviderBridgeProjection:
+    if list_failed:
+        return _blocked_provider_bridge("acp_provider_contract_regression")
+    provider_ids = tuple(sorted({item.provider_id for item in providers}))
+    protocols = tuple(
+        sorted(
+            {
+                protocol
+                for item in providers
+                for api_type in item.supported_api_types
+                for protocol in _provider_protocols(api_type)
+            }
+        )
+    )
+    if providers_advertised and not providers:
+        return _blocked_provider_bridge("acp_provider_list_empty")
+    if providers_advertised and not protocols:
+        return ManagedAcpProviderBridgeProjection(
+            status="blocked",
+            strategy=None,
+            protocols=(),
+            provider_ids=provider_ids,
+            adapter_id=None,
+            adapter_revision=None,
+            model_selection=None,
+            reason_ids=("acp_provider_protocol_unknown",),
+        )
+    resolution = resolve_provider_bridge(
+        registry_id=artifact.registry_id,
+        version=artifact.version,
+        providers_advertised=providers_advertised,
+        advertised_provider_protocols=protocols,
+    )
+    return _provider_bridge_from_resolution(
+        resolution,
+        provider_ids=provider_ids,
+    )
+
+
+def _provider_bridge_from_resolution(
+    value: AcpProviderBridgeResolution,
+    *,
+    provider_ids: tuple[str, ...],
+) -> ManagedAcpProviderBridgeProjection:
+    return ManagedAcpProviderBridgeProjection(
+        status=value.status.value,
+        strategy=value.strategy.value if value.strategy is not None else None,
+        protocols=value.provider_protocols,
+        provider_ids=provider_ids,
+        adapter_id=value.adapter_id,
+        adapter_revision=value.adapter_revision,
+        model_selection=value.model_selection,
+        reason_ids=value.reason_ids,
+    )
+
+
+def _blocked_provider_bridge(reason_id: str) -> ManagedAcpProviderBridgeProjection:
+    return ManagedAcpProviderBridgeProjection(
+        status="blocked",
+        strategy=None,
+        protocols=(),
+        provider_ids=(),
+        adapter_id=None,
+        adapter_revision=None,
+        model_selection=None,
+        reason_ids=(reason_id,),
+    )
+
+
+def _provider_protocols(api_type: str) -> tuple[str, ...]:
+    return {
+        "openai": ("openai_chat_completions", "openai_responses"),
+        "anthropic": ("anthropic_messages",),
+        "gemini": ("gemini_generate_content",),
+    }.get(api_type, ())
+
+
+def _provider_bridge_from_dict(
+    value: object,
+) -> ManagedAcpProviderBridgeProjection:
+    if not isinstance(value, Mapping):
+        raise ValueError("managed ACP provider bridge state must be an object")
+    expected = {
+        "status",
+        "strategy",
+        "protocols",
+        "provider_ids",
+        "adapter_id",
+        "adapter_revision",
+        "model_selection",
+        "reason_ids",
+    }
+    if set(value) != expected:
+        raise ValueError("managed ACP provider bridge state fields are invalid")
+    return ManagedAcpProviderBridgeProjection(
+        status=_string(value["status"]),
+        strategy=_optional_string(value["strategy"]),
+        protocols=_string_tuple(value["protocols"]),
+        provider_ids=_string_tuple(value["provider_ids"]),
+        adapter_id=_optional_string(value["adapter_id"]),
+        adapter_revision=_optional_string(value["adapter_revision"]),
+        model_selection=_optional_string(value["model_selection"]),
+        reason_ids=_string_tuple(value["reason_ids"]),
     )
 
 

@@ -19,6 +19,7 @@ from gigaloom.native.launch.gateway_contracts import (
     BridgeRouteV1,
     GatewayProfileV1,
     GatewaySupportStatus,
+    ResolvedGatewayRoute,
 )
 
 
@@ -33,9 +34,11 @@ _PROTOCOL_AGENTS = {
     "anthropic_messages": "claude",
 }
 _PROVIDER_ALIASES = {
+    "salutedevices": "gigachat",
     "sber": "gigachat",
     "sberbank": "gigachat",
 }
+_ACP_CONSUMER_KINDS = {"acp", "managed_acp", "managed-acp-agent"}
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
@@ -112,6 +115,92 @@ class GatewayDiscoveryResult:
             raise ValueError("current gateway discovery cannot contain failure reasons")
 
 
+@dataclass(frozen=True, slots=True)
+class GatewayRouteRefusal:
+    """Typed content-free refusal from the single route resolver."""
+
+    status: str
+    reason_ids: tuple[str, ...]
+    candidate_route_ids: tuple[str, ...] = ()
+
+
+class GatewayRouteResolver:
+    """Resolve native and ACP consumers from one current route catalog."""
+
+    def __init__(
+        self,
+        discovery: GatewayDiscoveryResult,
+        *,
+        now: datetime | None = None,
+    ) -> None:
+        self._discovery = discovery
+        self._now = now
+
+    def resolve(
+        self,
+        profile: GatewayProfileV1,
+        *,
+        requested_agent_kind: str,
+        requested_model_alias: str | None,
+        route_id: str | None = None,
+    ) -> ResolvedGatewayRoute | GatewayRouteRefusal:
+        """Return credential-free route facts or an explicit refusal."""
+        if self._discovery.status is not GatewayDiscoveryStatus.CURRENT:
+            return GatewayRouteRefusal(
+                f"capability_{self._discovery.status.value}",
+                tuple(reason.value for reason in self._discovery.reason_ids),
+            )
+        catalog = self._discovery.catalog
+        assert catalog is not None
+        if self._now is not None and self._now >= _parse_time(catalog.expires_at):
+            return GatewayRouteRefusal("capability_stale", ("capability_stale",))
+        if (
+            catalog.gateway_id != profile.gateway_id
+            or catalog.profile_digest != profile.profile_digest
+        ):
+            return GatewayRouteRefusal("blocked", ("gateway_profile_binding_mismatch",))
+        route_agent_id = (
+            "acp"
+            if requested_agent_kind in _ACP_CONSUMER_KINDS
+            else requested_agent_kind
+        )
+        candidates = tuple(
+            route
+            for route in catalog.routes
+            if route.agent_id == route_agent_id
+            and route.gateway_profile_id == profile.gateway_id
+            and (
+                route.route_id == route_id
+                if route_id is not None
+                else route.public_model_alias == requested_model_alias
+            )
+        )
+        candidate_ids = tuple(route.route_id for route in candidates)
+        if not candidates:
+            return GatewayRouteRefusal("not_found", ("route_not_found",))
+        if len(candidates) > 1:
+            return GatewayRouteRefusal(
+                "ambiguous", ("multiple_routes_match",), candidate_ids
+            )
+        route = candidates[0]
+        return ResolvedGatewayRoute(
+            route_id=route.route_id,
+            gateway_id=profile.gateway_id,
+            provider_protocol=route.client_protocol,
+            credential_free_base_url=profile.base_url,
+            public_model_alias=route.public_model_alias,
+            support_status=route.support_status.value,
+            capability_digest=canonical_digest(
+                {
+                    "capability_revision": route.capability_profile_revision,
+                    "models_revision": catalog.models_revision,
+                    "loss_matrix_revision": route.loss_matrix_revision,
+                }
+            ),
+            reason_ids=route.reason_ids,
+        )
+
+
 class UrlLibGatewayMachineTransport:
     """Bounded JSON GET transport with redirects disabled."""
 
@@ -134,12 +223,8 @@ class UrlLibGatewayMachineTransport:
             raise ValueError("gateway discovery path is not admitted")
         headers = {"accept": "application/json"}
         if self._api_key and self._api_key != "0":
-            headers.update(
-                {
-                    "authorization": f"Bearer {self._api_key}",
-                    "x-api-key": self._api_key,
-                }
-            )
+            headers["authorization"] = f"Bearer {self._api_key}"
+            headers["x-api-key"] = self._api_key
         request = Request(
             urljoin(base_url.rstrip("/") + "/", path.lstrip("/")),
             headers=headers,
@@ -148,8 +233,7 @@ class UrlLibGatewayMachineTransport:
         opener = build_opener(_NoRedirectHandler())
         try:
             with opener.open(request, timeout=timeout_seconds) as response:
-                payload = _read_bounded_json(response)
-                return int(response.status), payload
+                return int(response.status), _read_bounded_json(response)
         except HTTPError as error:
             _drain_bounded(error)
             return int(error.code), None
@@ -166,6 +250,8 @@ class GatewayRouteDiscovery:
         self,
         transport: GatewayMachineTransport | None = None,
         *,
+        credential_fingerprint: str = "anonymous",
+        api_mode: str = "bridge",
         clock: Callable[[], datetime] | None = None,
         ttl_seconds: int = DEFAULT_GATEWAY_DISCOVERY_TTL_SECONDS,
         timeout_seconds: float = 3.0,
@@ -174,11 +260,15 @@ class GatewayRouteDiscovery:
             raise ValueError("gateway discovery TTL must be positive")
         if timeout_seconds <= 0:
             raise ValueError("gateway discovery timeout must be positive")
+        if not credential_fingerprint or not api_mode:
+            raise ValueError("gateway discovery cache identity is invalid")
         self._transport = transport or UrlLibGatewayMachineTransport()
+        self._credential_fingerprint = credential_fingerprint
+        self._api_mode = api_mode
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._ttl_seconds = ttl_seconds
         self._timeout_seconds = timeout_seconds
-        self._cache: dict[tuple[str, str], GatewayRouteCatalogV1] = {}
+        self._cache: dict[tuple[str, str, str, str, str], GatewayRouteCatalogV1] = {}
 
     def discover(
         self,
@@ -187,8 +277,16 @@ class GatewayRouteDiscovery:
         force_refresh: bool = False,
     ) -> GatewayDiscoveryResult:
         """Return current facts or an explicitly stale/unknown result."""
-        now = _aware(self._clock())
-        cache_key = (profile.gateway_id, profile.profile_digest)
+        now = self._clock()
+        if now.tzinfo is None:
+            raise ValueError("gateway discovery clock must be timezone-aware")
+        cache_key = (
+            profile.gateway_id,
+            profile.profile_digest,
+            self._credential_fingerprint,
+            self._api_mode,
+            profile.capabilities_contract_revision,
+        )
         cached = self._cache.get(cache_key)
         if (
             not force_refresh
@@ -225,9 +323,6 @@ class GatewayRouteDiscovery:
         *,
         now: datetime,
     ) -> GatewayRouteCatalogV1:
-        health_status, _ = self._get(profile, "/health")
-        if health_status != 200:
-            raise GatewayDiscoveryError(GatewayDiscoveryReason.HEALTH_UNAVAILABLE)
         models_status, models_payload = self._get(profile, "/models")
         if models_status != 200:
             raise GatewayDiscoveryError(GatewayDiscoveryReason.MODELS_UNAVAILABLE)
@@ -249,8 +344,6 @@ class GatewayRouteDiscovery:
                 matrix_revision=matrix_revision,
                 cells=cells,
             )
-        except GatewayDiscoveryError:
-            raise
         except (KeyError, TypeError, ValueError) as error:
             raise GatewayDiscoveryError(
                 GatewayDiscoveryReason.CONTRACT_INVALID
@@ -347,6 +440,12 @@ def _parse_models(payload: object) -> tuple[Mapping[str, str], ...]:
         if not isinstance(raw, Mapping):
             raise ValueError("model entry must be an object")
         model_document = cast(Mapping[str, object], raw)
+        metadata = model_document.get("metadata")
+        model_type = model_document.get("type")
+        if model_type is None and isinstance(metadata, Mapping):
+            model_type = cast(Mapping[str, object], metadata).get("type")
+        if model_type is not None and model_type != "chat":
+            continue
         model_id = _required_text(model_document.get("id"), "model id")
         owner = _optional_text(
             model_document.get("upstream_provider")
@@ -436,9 +535,9 @@ def _build_routes(
                     public_model_alias=alias,
                     upstream_provider=provider,
                     upstream_model=model["upstream_model"],
-                    capability_profile_revision=_capability_revision_for_cell(
-                        cell,
-                        matrix_revision,
+                    capability_profile_revision=(
+                        _optional_text(cell.get("capability_revision"))
+                        or matrix_revision
                     ),
                     loss_matrix_revision=matrix_revision,
                     support_status=support,
@@ -461,19 +560,11 @@ def _build_routes(
 
 
 def _capabilities_revision(payload: object, fallback: str) -> str:
-    if isinstance(payload, Mapping):
-        document = cast(Mapping[str, object], payload)
-        revision = _optional_text(document.get("capability_revision"))
-        if revision is not None:
-            return revision
-    return fallback
-
-
-def _capability_revision_for_cell(
-    cell: Mapping[str, object],
-    fallback: str,
-) -> str:
-    return _optional_text(cell.get("capability_revision")) or fallback
+    return (
+        _optional_text(cast(Mapping[str, object], payload).get("capability_revision"))
+        if isinstance(payload, Mapping)
+        else None
+    ) or fallback
 
 
 def _string_tuple(value: object, field_name: str) -> tuple[str, ...]:
@@ -493,8 +584,7 @@ def _optional_text(value: object) -> str | None:
 
 
 def _normalize_provider(value: str) -> str:
-    lowered = _slug(value)
-    return _PROVIDER_ALIASES.get(lowered, lowered)
+    return _PROVIDER_ALIASES.get(lowered := _slug(value), lowered)
 
 
 def _slug(value: str) -> str:
@@ -502,12 +592,6 @@ def _slug(value: str) -> str:
     if not normalized:
         raise ValueError("gateway identity cannot be slugged")
     return normalized
-
-
-def _aware(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        raise ValueError("gateway discovery clock must be timezone-aware")
-    return value
 
 
 def _parse_time(value: str) -> datetime:

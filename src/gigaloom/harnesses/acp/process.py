@@ -21,22 +21,8 @@ from gigaloom.structured_processes import StdioJsonRpcTransport
 
 
 DEFAULT_ENVIRONMENT_ALLOWLIST = frozenset(
-    {
-        "APPDATA",
-        "HOMEDRIVE",
-        "HOMEPATH",
-        "LANG",
-        "LC_ALL",
-        "LOCALAPPDATA",
-        "PATH",
-        "PATHEXT",
-        "SYSTEMDRIVE",
-        "SYSTEMROOT",
-        "TEMP",
-        "TMP",
-        "TMPDIR",
-        "USERPROFILE",
-    }
+    """APPDATA HOMEDRIVE HOMEPATH LANG LC_ALL LOCALAPPDATA PATH PATHEXT SYSTEMDRIVE
+SYSTEMROOT TEMP TMP TMPDIR USERPROFILE""".split()
 )
 _SECRET_MARKERS = ("KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL")
 
@@ -110,10 +96,7 @@ class AcpStdioTransport(StdioJsonRpcTransport):
 
     def _signal_group(self, requested: signal.Signals, *, force: bool) -> None:
         if os.name != "posix":
-            if force:
-                super().kill()
-            else:
-                super().terminate()
+            (super().kill if force else super().terminate)()
             return
         self._closing.set()
         if not self.alive:

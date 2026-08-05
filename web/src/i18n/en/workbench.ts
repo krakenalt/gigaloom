@@ -19,6 +19,11 @@ export const enWorkbench = {
   attachmentEncodingTruncated: "truncated",
   attachmentPreview: "Attachment preview",
   toolsAndIntegrations: "Tools and integrations",
+  chatContext: "Chat context",
+  compactContext: "Compact context",
+  compactContextHint: "Free context space now, or type /compact in chat",
+  compactCompleted: "Context compacted. You can continue in this chat.",
+  compactUnavailable: "Start a Codex CLI turn before compacting this chat.",
   toolPickerMenuHint: "Search GigaChat, agent, MCP, Skill, and Plugin capabilities",
   toolPickerTitle: "Choose tools and integrations",
   toolPickerHint:

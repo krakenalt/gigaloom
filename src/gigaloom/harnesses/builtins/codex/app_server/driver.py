@@ -37,6 +37,10 @@ from gigaloom.harnesses.builtins.codex.app_server.contracts import (
     _PendingApproval,
     _Runtime,
 )
+from gigaloom.harnesses.builtins.codex.app_server.dynamic_tools import (
+    handle_thread_relay_tool_call,
+    thread_relay_dynamic_tools,
+)
 from gigaloom.harnesses.builtins.codex.app_server.protocol import (
     _approval_response,
     _decline_server_request,
@@ -86,6 +90,7 @@ class CodexAppServerDriver:
         self.thread_id: str | None = None
         self.active_turn_id: str | None = None
         self.result: HarnessResult | None = None
+        self.dynamic_tool_provider = supervisor.dynamic_tool_provider(request)
         self._approval_bridge: Callable[[Mapping[str, Any]], str] | None = None
         self._pending_approvals: dict[str, _PendingApproval] = {}
         self._pending_approval_lock = threading.Lock()
@@ -163,11 +168,17 @@ class CodexAppServerDriver:
                 (self.legacy_link or {}).get("forked_from_thread_id")
             )
             if thread_id is None:
+                dynamic_tools = thread_relay_dynamic_tools(self.dynamic_tool_provider)
                 response = self.runtime.client.request(
                     "thread/start",
                     {
                         **_thread_identity_params(self.request),
                         "ephemeral": False,
+                        **(
+                            {"dynamicTools": list(dynamic_tools)}
+                            if dynamic_tools
+                            else {}
+                        ),
                     },
                     timeout=APP_SERVER_TIMEOUT_SECONDS,
                 )
@@ -471,6 +482,40 @@ class CodexAppServerDriver:
         request_id = message.get("id")
         method = str(message.get("method") or "")
         params = _mapping(message.get("params"))
+        if method == "item/tool/call":
+            pending_key = str(request_id)
+            pending: _PendingApproval | None = None
+            if (
+                params.get("namespace") == "thread"
+                and params.get("tool") == "send"
+                and isinstance(request_id, (str, int))
+            ):
+                pending = _PendingApproval(request_id, method, params)
+                with self._pending_approval_lock:
+                    if pending_key in self._pending_approvals:
+                        _decline_server_request(
+                            self.runtime.client,
+                            message,
+                            collected,
+                            request,
+                        )
+                        return
+                    self._pending_approvals[pending_key] = pending
+            try:
+                handle_thread_relay_tool_call(
+                    self.runtime.client,
+                    message,
+                    provider=self.dynamic_tool_provider,
+                    thread_id=self.thread_id,
+                    turn_id=self.active_turn_id,
+                    approval_bridge=self._approval_bridge,
+                    timeout_seconds=timeout_seconds,
+                )
+            finally:
+                if pending is not None:
+                    with self._pending_approval_lock:
+                        self._pending_approvals.pop(pending_key, None)
+            return
         if (
             method not in _APPROVAL_METHODS
             or not isinstance(request_id, (str, int))

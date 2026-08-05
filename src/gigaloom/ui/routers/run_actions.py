@@ -29,12 +29,7 @@ def steer_run(
     idempotency_key = _required_identity(
         payload.get("idempotency_key"), "idempotency key"
     )
-    harness = request.app.state.harness_registry.get(run.harness_id)
-    config = request.app.state.harness_config
-    supervisors = getattr(harness, "_app_server_supervisors", {})
-    supervisor = getattr(harness, "app_server_supervisor", None) or supervisors.get(
-        config.data_dir
-    )
+    supervisor = _codex_supervisor(request, run)
     if supervisor is None:
         raise HTTPException(
             status_code=409,
@@ -52,6 +47,39 @@ def steer_run(
         "run_id": run.id,
         "generation": _run_generation(run),
         "idempotency_key": idempotency_key,
+    }
+
+
+@router.proc.post("/api/runs/{run_id}/compact")
+def compact_run_context(
+    run_id: str,
+    request: Request,
+    payload: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Compact the exact idle Codex thread behind one retained run."""
+    run = _bound_run(request, run_id, payload)
+    if run.harness_id != "codex-cli":
+        raise HTTPException(
+            status_code=409,
+            detail="Context compaction is available only for Codex CLI chats",
+        )
+    supervisor = _codex_supervisor(request, run)
+    if supervisor is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Codex app-server owner is unavailable; start a turn before compacting",
+        )
+    try:
+        outcome = supervisor.compact_thread(run.session_id)
+    except (RuntimeError, TimeoutError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {
+        "compacted": True,
+        "run_id": run.id,
+        "session_id": run.session_id,
+        "thread_digest": outcome.thread_digest,
+        "upstream_turn_id": outcome.turn_id,
+        "upstream_item_id": outcome.item_id,
     }
 
 
@@ -95,6 +123,15 @@ def _bound_run(request: Request, run_id: str, payload: Mapping[str, Any]) -> Har
         raise HTTPException(status_code=404, detail="Run not found") from exc
     validate_run_action_binding(run, payload)
     return run
+
+
+def _codex_supervisor(request: Request, run: HarnessRun):
+    harness = request.app.state.harness_registry.get(run.harness_id)
+    config = request.app.state.harness_config
+    supervisors = getattr(harness, "_app_server_supervisors", {})
+    return getattr(harness, "app_server_supervisor", None) or supervisors.get(
+        config.data_dir
+    )
 
 
 def _run_generation(run: HarnessRun) -> int:

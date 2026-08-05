@@ -18,7 +18,7 @@ import type { ReviewedRouteBindingV1 } from "./workflow-contract";
 
 type ManagedAcpGatewayProjection = Readonly<{
   reasonId: string;
-  support: "supported" | "unsupported" | "unknown";
+  status: "ready" | "native-only" | "reprobe" | "blocked";
 }>;
 
 type GatewayRouteAgent = Readonly<{
@@ -54,9 +54,10 @@ export function useReviewedRouteBinding(
   useEffect(() => {
     setBinding(null);
     setPending(false);
-  }, [agent?.id, agent?.label, agent?.managedAcpGateway?.support]);
-  const gatewaySupported = agent?.managedAcpGateway?.support !== "unsupported"
-    && agent?.managedAcpGateway?.support !== "unknown";
+  }, [agent?.id, agent?.label, agent?.managedAcpGateway?.status]);
+  const gatewaySupported = agent !== null && (
+    agent.id !== "acp" || agent.managedAcpGateway?.status === "ready"
+  );
   const activeBinding = gatewaySupported && binding?.agent_id === agent?.id
     ? binding
     : null;
@@ -155,8 +156,8 @@ export function ReviewedRouteControls({
   });
 
   return (
-    <section aria-label="Reviewed gateway route" className="reviewed-route-controls">
-      <header className="reviewed-route-heading">
+    <details aria-label="Reviewed gateway route" className="reviewed-route-controls">
+      <summary className="reviewed-route-heading">
         <span className="reviewed-route-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24">
             <path d="M4 12h5m6 0h5M9 7l3-3 3 3v10l-3 3-3-3V7Z" />
@@ -164,67 +165,69 @@ export function ReviewedRouteControls({
         </span>
         <span>
           <strong>gpt2giga route for {agentLabel}</strong>
-          <small>
-            {agentId === "acp"
-              ? "Select and preflight an OpenAI Chat Completions route. Without an exact binding this ACP is blocked; its provider default is not used."
-              : "Select and preflight the exact gateway model used by this agent."}
-          </small>
         </span>
-      </header>
-      {catalog.status !== "current" && catalog.lifecycle.start_available ? (
-        <div className="reviewed-route-lifecycle">
-          <button
-            disabled={sessionId === undefined || start.isPending}
-            onClick={() => start.mutate()}
-            type="button"
-          >
-            {start.isPending ? "Starting gpt2giga…" : "Start/reconnect gpt2giga"}
-          </button>
-          <small>
-            {sessionId === undefined
-              ? "Open a task first so the sidecar has an exact process owner."
-              : "Starts or reuses the verified local sidecar, then refreshes reviewed routes."}
-          </small>
-          {start.isError ? (
-            <p role="alert">{gatewayStartFailureMessage(start.error)}</p>
-          ) : null}
-        </div>
-      ) : null}
-      <RouteModelPicker
-        catalog={catalog}
-        legend="Gateway model"
-        onSelect={(next) => {
-          setSelectedRouteId(next.route_id);
-          setAcknowledged(false);
-          invalidateBinding(true);
-        }}
-        selectedRouteId={selectedRouteId}
-      />
-      {selectedRouteId === null ? null : (
-        <>
-          <RouteSupportNotice
-            acknowledged={acknowledged}
-            catalogReasonIds={catalog.reason_ids}
-            catalogStatus={catalog.status}
-            onAcknowledgementChange={(next) => {
-              setAcknowledged(next);
-              invalidateBinding(true);
-            }}
-            route={route}
-          />
-          {binding === null ? (
+      </summary>
+      <div className="reviewed-route-body">
+        <p className="reviewed-route-description">
+          {agentId === "acp"
+            ? "Select and preflight an OpenAI Chat Completions route. Without an exact binding this ACP is blocked; its provider default is not used."
+            : "Select and preflight the exact gateway model used by this agent."}
+        </p>
+        {catalog.status !== "current" && catalog.lifecycle.start_available ? (
+          <div className="reviewed-route-lifecycle">
             <button
-              disabled={decision.gate !== "ready" || preflight.isPending}
-              onClick={() => preflight.mutate()}
+              disabled={sessionId === undefined || start.isPending}
+              onClick={() => start.mutate()}
               type="button"
             >
-              {preflight.isPending ? "Checking route…" : "Preflight exact route"}
+              {start.isPending ? "Starting gpt2giga…" : "Start/reconnect gpt2giga"}
             </button>
-          ) : <WorkRouteSubmissionHeader binding={binding} />}
-          {preflight.isError ? <p role="alert">{String(preflight.error)}</p> : null}
-        </>
-      )}
-    </section>
+            <small>
+              {sessionId === undefined
+                ? "Open a task first so the sidecar has an exact process owner."
+                : "Starts or reuses the verified local sidecar, then refreshes reviewed routes."}
+            </small>
+            {start.isError ? (
+              <p role="alert">{gatewayStartFailureMessage(start.error)}</p>
+            ) : null}
+          </div>
+        ) : null}
+        <RouteModelPicker
+          catalog={catalog}
+          legend="Gateway model"
+          onSelect={(next) => {
+            setSelectedRouteId(next.route_id);
+            setAcknowledged(false);
+            invalidateBinding(true);
+          }}
+          selectedRouteId={selectedRouteId}
+        />
+        {selectedRouteId === null ? null : (
+          <>
+            <RouteSupportNotice
+              acknowledged={acknowledged}
+              catalogReasonIds={catalog.reason_ids}
+              catalogStatus={catalog.status}
+              onAcknowledgementChange={(next) => {
+                setAcknowledged(next);
+                invalidateBinding(true);
+              }}
+              route={route}
+            />
+            {binding === null ? (
+              <button
+                disabled={decision.gate !== "ready" || preflight.isPending}
+                onClick={() => preflight.mutate()}
+                type="button"
+              >
+                {preflight.isPending ? "Checking route…" : "Preflight exact route"}
+              </button>
+            ) : <WorkRouteSubmissionHeader binding={binding} />}
+            {preflight.isError ? <p role="alert">{String(preflight.error)}</p> : null}
+          </>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -249,10 +252,11 @@ function ManagedAcpGatewayUnsupportedNotice({
   agentLabel: string;
   capability: ManagedAcpGatewayProjection;
 }) {
-  const amp = capability.reasonId === "amp_acp_provider_configuration_unsupported";
+  const reprobe = capability.status === "reprobe";
+  const nativeOnly = capability.status === "native-only";
   return (
-    <section aria-label="Reviewed gateway route" className="reviewed-route-controls">
-      <header className="reviewed-route-heading">
+    <details aria-label="Reviewed gateway route" className="reviewed-route-controls">
+      <summary className="reviewed-route-heading">
         <span className="reviewed-route-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24">
             <path d="M4 12h5m6 0h5M9 7l3-3 3 3v10l-3 3-3-3V7Z" />
@@ -260,35 +264,50 @@ function ManagedAcpGatewayUnsupportedNotice({
         </span>
         <span>
           <strong>gpt2giga route unavailable for {agentLabel}</strong>
-          <small>
-            {amp
-              ? "The installed Amp ACP wrapper supports ACP transport, but it has no reviewed custom model-provider endpoint."
-              : "This ACP has no reviewed custom model-provider endpoint."}
-            {" ACP v1 does not standardize provider configuration, so GigaLoom will not guess or fall back."}
-          </small>
         </span>
-      </header>
-      <code>{capability.reasonId}</code>
-    </section>
+      </summary>
+      <div className="reviewed-route-body">
+        <p className="reviewed-route-description">
+          {reprobe
+            ? "Provider bridge evidence is missing or stale. Reprobe this installed agent before selecting a gateway model."
+            : nativeOnly
+              ? "ACP transport is ready, but this agent has no reviewed custom model-provider endpoint. Its native launch remains available."
+              : "Current provider bridge evidence blocks a gateway launch. Its native launch remains available when the installed runtime is active."}
+          {" GigaLoom will not guess a provider or fall back silently."}
+        </p>
+        <strong>Technical reason</strong>
+        <code>{capability.reasonId}</code>
+      </div>
+    </details>
   );
 }
 
 function managedAcpGatewayProjection(
   metadata: Record<string, unknown> | undefined,
 ): ManagedAcpGatewayProjection {
-  const raw = metadata?.managed_acp_gateway;
+  const raw = metadata?.provider_bridge;
   if (typeof raw === "object" && raw !== null) {
     const value = raw as Record<string, unknown>;
-    const support = value.support;
-    const reasonId = value.reason_id;
+    const status = value.status === "native_only"
+      ? "native-only"
+      : value.status === "unknown_until_reprobe"
+        ? "reprobe"
+        : value.status;
+    const reasonIds = Array.isArray(value.reason_ids)
+      ? value.reason_ids.filter((item): item is string => typeof item === "string")
+      : [];
     if (
-      (support === "supported" || support === "unsupported" || support === "unknown")
-      && typeof reasonId === "string"
-      && reasonId.length > 0
-    ) return { reasonId, support };
+      status === "ready"
+      || status === "native-only"
+      || status === "reprobe"
+      || status === "blocked"
+    ) return {
+      reasonId: reasonIds[0] ?? `provider_bridge_${status.replace("-", "_")}`,
+      status,
+    };
   }
   return {
-    reasonId: "acp_provider_configuration_not_advertised",
-    support: "unknown",
+    reasonId: "provider_bridge_reprobe_required",
+    status: "reprobe",
   };
 }

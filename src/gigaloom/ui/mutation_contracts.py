@@ -1,7 +1,6 @@
-"""Authoritative policy classification for unsafe-method Harness UI routes.
-The route inventory remains the single fail-closed source for mounted mutations.
-Shared enum definitions live in a small dependency-light companion module.
-Route records stay here so policy owners and retained evidence remain adjacent.
+"""Authoritative policy classification for unsafe Harness UI routes.
+The inventory remains the single fail-closed source for mounted mutations.
+Shared enums live in a small companion module; route records stay by evidence.
 The split ratchets this legacy module without changing its public import facade.
 """
 
@@ -698,6 +697,7 @@ MUTATION_ROUTE_CONTRACTS = (
             "/api/workbench/processes/{process_id}/stop",
             "/api/runs/{run_id}/input",
             "/api/runs/{run_id}/steer",
+            "/api/runs/{run_id}/compact",
         ),
         MutationClass.GOVERNED_EXTERNAL_EFFECT,
         EnforcementControl.EXPLICIT_OPERATOR_ACTION,

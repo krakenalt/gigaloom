@@ -82,9 +82,14 @@ from gigaloom.harnesses.builtins.codex.app_server.utils import (
 )
 
 if TYPE_CHECKING:
+    from gigaloom.harnesses.builtins.codex.app_server import compaction
     from gigaloom.harnesses.builtins.codex.app_server.driver import (
         CodexAppServerDriver,
     )
+    from gigaloom.harnesses.builtins.codex.app_server.dynamic_tools import (
+        ThreadRelayToolProviderFactory,
+    )
+    from gigaloom.tools import RestrictedThreadRelayTools
 
 
 class CodexAppServerSupervisor:
@@ -95,6 +100,7 @@ class CodexAppServerSupervisor:
         data_dir: str | Path,
         *,
         client_factory: Callable[..., AppServerClient] | None = None,
+        dynamic_tool_provider_factory: ThreadRelayToolProviderFactory | None = None,
     ) -> None:
         from gigaloom.harnesses.ports import RuntimeCoordinationStore
 
@@ -103,10 +109,48 @@ class CodexAppServerSupervisor:
         self.structured_link_store = StructuredSessionLinkStore(self.data_dir)
         self.runtime_store = RuntimeCoordinationStore(self.data_dir)
         self.client_factory = client_factory or _StdioJsonRpcClient
+        self.dynamic_tool_provider_factory = dynamic_tool_provider_factory
         self._runtimes: dict[str, _Runtime] = {}
         self._runtime_lock = threading.Lock()
         self._active_drivers: dict[str, CodexAppServerDriver] = {}
         self._active_driver_lock = threading.Lock()
+
+    def bind_dynamic_tool_provider(
+        self, provider: ThreadRelayToolProviderFactory
+    ) -> None:
+        """Bind the app-owned request-scoped dynamic tool provider."""
+        if (
+            self.dynamic_tool_provider_factory is not None
+            and self.dynamic_tool_provider_factory != provider
+        ):
+            raise ValueError("Codex dynamic tool provider is already bound")
+        self.dynamic_tool_provider_factory = provider
+
+    def dynamic_tool_provider(
+        self,
+        request: HarnessRequest,
+    ) -> RestrictedThreadRelayTools | None:
+        """Resolve a provider only from server-bound request metadata."""
+        factory = self.dynamic_tool_provider_factory
+        return factory(request) if factory is not None else None
+
+    def compact_thread(self, session_id: str) -> compaction.AppServerCompactionOutcome:
+        """Compact one idle, loaded thread owned by this supervisor."""
+        from gigaloom.harnesses.builtins.codex.app_server.compaction import (
+            AppServerCompactionOwner,
+            compact_supervised_thread,
+        )
+
+        return compact_supervised_thread(
+            AppServerCompactionOwner(
+                link_store=self.link_store,
+                active_driver_lock=self._active_driver_lock,
+                active_drivers=self._active_drivers,
+                runtime_lock=self._runtime_lock,
+                runtimes=self._runtimes,
+            ),
+            session_id,
+        )
 
     def interrupt_turn(self, session_id: str) -> None:
         """Interrupt the exact active provider turn for one Harness session."""

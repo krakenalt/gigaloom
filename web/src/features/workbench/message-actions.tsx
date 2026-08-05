@@ -12,6 +12,7 @@ import {
   fetchCockpit,
   type FullMessageResponse,
 } from "../../api";
+import { displayChatMentionPrompt } from "../../chat-mentions";
 import {
   type MessageActionKind,
   type ResolvedMessageAction,
@@ -42,7 +43,7 @@ export function useMessageActions({
   setPrompt: Dispatch<SetStateAction<string>>;
 }) {
   return useMutation({
-    mutationFn: async ({ kind, messageId }: MessageAction) => {
+    mutationFn: async ({ kind, messageId, role }: MessageAction) => {
       if (sessionId === undefined) throw new Error("Session is not selected");
       return resolveMessageAction(
         kind,
@@ -50,7 +51,9 @@ export function useMessageActions({
           const response = await fetchCockpit<FullMessageResponse>(
             `/api/cockpit/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/content`,
           );
-          return response.content;
+          return role === "user"
+            ? displayChatMentionPrompt(response.content).text
+            : response.content;
         },
         async (content) => {
           if (typeof navigator.clipboard?.writeText !== "function") {

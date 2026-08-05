@@ -28,6 +28,19 @@ SOURCE_LINK_ALLOWLIST = {
     RU_DOC_ROOT / "gateway-integration.md",
     RU_DOC_ROOT / "source-history.md",
 }
+USER_JOURNEY_DOCS = (
+    Path("docs/quickstart.md"),
+    Path("docs/agent-runtimes.md"),
+    Path("docs/gateway-integration.md"),
+    Path("docs/operations.md"),
+    Path("docs/troubleshooting.md"),
+)
+PACKAGE_INSTALL_RE = re.compile(
+    r"gigaloom(?:\[gpt2giga\])?==(?P<version>\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?)"
+)
+CURRENT_RELEASE_RE = re.compile(
+    r"(?:The current|Линия) `(?P<version>\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?)`"
+)
 
 
 @dataclass(frozen=True)
@@ -236,6 +249,70 @@ def check_stale_instructions(root: Path, files: list[Path]) -> list[Issue]:
     return issues
 
 
+def _python_release_version(version: str) -> str:
+    """Return the PEP 440 spelling used in Python install snippets."""
+    return version.replace("-alpha.", "a").replace("-beta.", "b").replace("-rc.", "rc")
+
+
+def check_user_journey(root: Path, files: list[Path]) -> list[Issue]:
+    """Enforce the bounded bilingual onboarding and current install contract."""
+    issues: list[Issue] = []
+    readme = root / "README.md"
+    readme_lines = len(readme.read_text(encoding="utf-8").splitlines())
+    if readme_lines > 300:
+        issues.append(Issue(readme, f"README has {readme_lines} lines; maximum is 300"))
+
+    user_files = [readme]
+    for relative in USER_JOURNEY_DOCS:
+        source = root / relative
+        locale = root / RU_DOC_ROOT / relative.relative_to(PUBLIC_DOC_PREFIX)
+        for path, label in ((source, "English"), (locale, "Russian")):
+            if not path.exists():
+                issues.append(Issue(path, f"missing {label} user-journey page"))
+            else:
+                user_files.append(path)
+
+    forbidden = {
+        "managed_acp_gateway": "retired internal module name",
+        "OPENCODE_CONFIG_CONTENT": "manual OpenCode configuration",
+    }
+    for path in user_files:
+        content = path.read_text(encoding="utf-8")
+        for needle, label in forbidden.items():
+            if needle in content:
+                issues.append(Issue(path, f"user journey contains {label}"))
+
+    release = tomllib.loads((root / "release/version.toml").read_text(encoding="utf-8"))
+    version = release["version"]
+    python_version = _python_release_version(version)
+    for path in files:
+        if "CHANGELOG" in path.name:
+            continue
+        content = path.read_text(encoding="utf-8")
+        for line_number, line in enumerate(content.splitlines(), start=1):
+            if "--prerelease allow" in line:
+                continue
+            for match in PACKAGE_INSTALL_RE.finditer(line):
+                if match.group("version") != python_version:
+                    issues.append(
+                        Issue(
+                            path,
+                            f"line {line_number}: install version "
+                            f"{match.group('version')!r} does not match {python_version!r}",
+                        )
+                    )
+            for match in CURRENT_RELEASE_RE.finditer(line):
+                if match.group("version") != version:
+                    issues.append(
+                        Issue(
+                            path,
+                            f"line {line_number}: current release "
+                            f"{match.group('version')!r} does not match {version!r}",
+                        )
+                    )
+    return issues
+
+
 def validate(root: Path) -> list[Issue]:
     """Run the complete public documentation contract."""
     files = tracked_markdown_files(root)
@@ -245,6 +322,7 @@ def validate(root: Path) -> list[Issue]:
         *check_package_versions(root),
         *check_standalone_identity(root, files),
         *check_stale_instructions(root, files),
+        *check_user_journey(root, files),
     ]
 
 

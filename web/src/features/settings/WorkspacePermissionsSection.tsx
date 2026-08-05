@@ -15,6 +15,7 @@ import { invalidateSettingsSection } from "./invalidation";
 import {
   Boundary,
   Fact,
+  localizedSettingValue,
   SectionError,
   SectionPending,
 } from "./shared";
@@ -73,7 +74,9 @@ export default function WorkspacePermissionsSection({
             value={value.workspace_policy}
           >
             {data.workspace_policies.map((item) => (
-              <option key={item} value={item}>{item}</option>
+              <option key={item} value={item}>
+                {localizedSettingValue(locale, item)}
+              </option>
             ))}
           </select>
         </label>
@@ -89,7 +92,9 @@ export default function WorkspacePermissionsSection({
             value={value.permission_profile}
           >
             {data.permission_profiles.map((item) => (
-              <option key={item} value={item}>{item}</option>
+              <option key={item} value={item}>
+                {localizedSettingValue(locale, item)}
+              </option>
             ))}
           </select>
         </label>

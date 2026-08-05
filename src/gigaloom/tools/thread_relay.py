@@ -6,10 +6,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from gigaloom.contracts.operational_validation import canonical_digest
 from gigaloom.tools.base import ToolDescriptor, ToolRisk
 
 
 THREAD_RELAY_TOOL_PROVIDER_ID = "gigaloom-thread-relay"
+THREAD_RELAY_APPROVAL_OWNER = "thread_relay.agent_send"
 THREAD_RELAY_TOOL_IDS = (
     "thread.list",
     "thread.read",
@@ -64,6 +66,24 @@ class ThreadRelayToolScope:
     def __post_init__(self) -> None:
         if not self.actor_scope.strip() or not self.project_id.strip():
             raise ValueError("thread tool actor and project scope are required")
+
+
+def thread_relay_approval_binding(
+    scope: ThreadRelayToolScope,
+    preview_digest: str,
+) -> str:
+    """Bind one approval grant to the exact actor, project, and safe preview."""
+    if len(preview_digest) != 64 or any(
+        character not in "0123456789abcdef" for character in preview_digest
+    ):
+        raise ValueError("thread tool preview digest is invalid")
+    return canonical_digest(
+        {
+            "actor_scope": scope.actor_scope,
+            "preview_digest": preview_digest,
+            "project_id": scope.project_id,
+        }
+    )
 
 
 class RestrictedThreadRelayTools:
@@ -389,9 +409,11 @@ def _limit(value: object) -> int:
 
 
 __all__ = [
+    "THREAD_RELAY_APPROVAL_OWNER",
     "THREAD_RELAY_TOOL_IDS",
     "THREAD_RELAY_TOOL_PROVIDER_ID",
     "RestrictedThreadRelayTools",
     "ThreadRelayToolActions",
     "ThreadRelayToolScope",
+    "thread_relay_approval_binding",
 ]

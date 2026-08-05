@@ -1,8 +1,8 @@
 {
-  "release": "0.9.0",
-  "git_tag": "v0.9.0",
+  "release": "0.9.1",
+  "git_tag": "v0.9.1",
   "python_distribution": "gigaloom",
-  "python_version": "0.9.0",
+  "python_version": "0.9.1",
   "npm_package": "@gigaloom/web",
-  "npm_version": "0.9.0"
+  "npm_version": "0.9.1"
 }

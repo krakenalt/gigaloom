@@ -5,7 +5,9 @@ import { describe, expect, it } from "vitest";
 
 const featureFiles = [
   "attachment-actions.tsx",
+  "compact-controller.ts",
   "completion-notifications.tsx",
+  "ComposerPlusMenu.tsx",
   "composer-controller.ts",
   "environment-actions.tsx",
   "inspectors.tsx",

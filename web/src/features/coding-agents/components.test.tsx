@@ -24,6 +24,7 @@ const agent: AgentRegistryEntryProjection = {
   ],
   entry_digest: "1".repeat(64),
   integrity: "verified",
+  icon_ref: "https://cdn.agentclientprotocol.com/generic-agent.svg",
   license: "MIT",
   name: "Generic coding agent",
   platforms: ["darwin-aarch64"],
@@ -95,6 +96,8 @@ describe("coding-agent marketplace components", () => {
     expect(markup).toContain("Verified metadata");
     expect(markup).toContain("darwin-aarch64");
     expect(markup).toContain("Review install");
+    expect(markup).toContain("cdn.agentclientprotocol.com/generic-agent.svg");
+    expect(markup).toContain('referrerPolicy="no-referrer"');
     expect(markup).not.toContain("Install now");
   });
 
@@ -242,6 +245,17 @@ describe("coding-agent marketplace components", () => {
       install_id: "install-generic",
       local_agent_id: "generic-agent",
       probe_state: "auth_required",
+      readiness: {
+        acp_transport: "ready",
+        action: "select_gateway_route",
+        gateway_availability: "available",
+        native_launch_available: true,
+        protocols: ["openai_chat_completions"],
+        provider_bridge: "ready",
+        reason_ids: [],
+        schema_version: 1,
+        status: "ready",
+      },
       registry_id: "generic-agent",
       update_available: true,
       version: "1.0.0",
@@ -260,11 +274,14 @@ describe("coding-agent marketplace components", () => {
       />,
     );
 
-    for (const label of ["Probe", "Update", "Rollback", "Remove", "Use in new run"]) {
+    for (const label of ["Reprobe", "Update", "Rollback", "Remove", "Use in new run"]) {
       expect(markup).toContain(label);
     }
     expect(markup).toContain("Authentication");
     expect(markup).toContain("Required");
+    expect(markup).toContain("Provider bridge");
+    expect(markup).toContain("Gateway routes are available");
+    expect(markup).toContain("provider default");
   });
 
   it("explains and exposes safe activation for every inactive managed ACP revision", () => {
@@ -276,6 +293,17 @@ describe("coding-agent marketplace components", () => {
       install_id: "install-future-acp",
       local_agent_id: "future-acp",
       probe_state: "unavailable",
+      readiness: {
+        acp_transport: "ready",
+        action: "activate",
+        gateway_availability: "blocked",
+        native_launch_available: false,
+        protocols: ["openai_chat_completions"],
+        provider_bridge: "ready",
+        reason_ids: ["managed_agent_inactive"],
+        schema_version: 1,
+        status: "blocked",
+      },
       registry_id: "future-acp",
       update_available: false,
       version: "2.0.0",
@@ -301,5 +329,50 @@ describe("coding-agent marketplace components", () => {
     expect(markup).toContain("current active revision unchanged");
     expect(markup).toContain("Check &amp; activate");
     expect(markup).toContain('disabled="" type="button">Use in new run');
+  });
+
+  it("keeps a native-only agent usable without presenting it as an install failure", () => {
+    const installed: InstalledAgentProjection = {
+      activation_status: "ready",
+      active: true,
+      auth_required: false,
+      distribution_kind: "npx",
+      install_id: "install-native-only",
+      local_agent_id: "amp-acp",
+      probe_state: "ready",
+      readiness: {
+        acp_transport: "ready",
+        action: "use_native",
+        gateway_availability: "unsupported",
+        native_launch_available: true,
+        protocols: [],
+        provider_bridge: "native-only",
+        reason_ids: ["amp_acp_provider_configuration_unsupported"],
+        schema_version: 1,
+        status: "native-only",
+      },
+      registry_id: "amp-acp",
+      update_available: false,
+      version: "1.0.0",
+    };
+    const markup = renderToStaticMarkup(
+      <InstalledAgentCard
+        agent={installed}
+        busyAction={null}
+        probe={null}
+        onActivate={vi.fn()}
+        onProbe={vi.fn()}
+        onRemove={vi.fn()}
+        onRollback={vi.fn()}
+        onUpdate={vi.fn()}
+        onUse={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("Native launch only");
+    expect(markup).toContain("The installation is healthy");
+    expect(markup).toContain("native launch remains available");
+    expect(markup).toContain("Use in new run");
+    expect(markup).not.toContain('disabled="" type="button">Use in new run');
   });
 });

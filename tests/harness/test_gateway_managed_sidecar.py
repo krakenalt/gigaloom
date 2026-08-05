@@ -276,7 +276,9 @@ def test_process_loss_is_visible_and_next_ensure_recovers_with_new_lease(
     assert recovered.process_lease_ref == "native-process:proc_2"
 
 
-def test_unverified_or_drifted_artifact_never_spawns(tmp_path: Path) -> None:
+def test_unverified_or_drifted_artifact_never_spawns(
+    tmp_path: Path,
+) -> None:
     owner = FakeProcessOwner()
     service = ManagedGatewaySidecarService(
         owner,
@@ -292,17 +294,47 @@ def test_unverified_or_drifted_artifact_never_spawns(tmp_path: Path) -> None:
         session_id="session",
         run_id="run",
     )
-    drifted = service.ensure_started(
+    wrong_distribution = service.ensure_started(
         _profile(),
-        replace(artifact, artifact_sha256="9" * 64),
+        replace(artifact, distribution="other-gateway"),
         environment={},
         session_id="session",
         run_id="run",
     )
 
     assert unverified.reason is GatewaySidecarReason.ARTIFACT_UNVERIFIED
-    assert drifted.reason is GatewaySidecarReason.ARTIFACT_IDENTITY_MISMATCH
+    assert wrong_distribution.reason is GatewaySidecarReason.ARTIFACT_IDENTITY_MISMATCH
     assert owner.plans == []
+
+
+def test_patch_compatible_artifact_starts_and_is_bound_into_the_lease(
+    tmp_path: Path,
+) -> None:
+    owner = FakeProcessOwner()
+    service = ManagedGatewaySidecarService(
+        owner,
+        FakeReadiness(True),
+        managed_data_root=tmp_path / "data",
+    )
+    observed_digest = "9" * 64
+    artifact = replace(
+        _artifact(_executable(tmp_path)),
+        version="0.3.7",
+        artifact_sha256=observed_digest,
+        source="registry:pypi/gpt2giga==0.3.7",
+    )
+
+    result = service.ensure_started(
+        _profile(),
+        artifact,
+        environment={"PATH": "/usr/bin"},
+        session_id="session",
+        run_id="run",
+    )
+
+    assert result.status is GatewaySidecarStatus.STARTED
+    assert result.observed_artifact_sha256 == observed_digest
+    assert owner.plans[0][0].metadata["artifact_sha256"] == observed_digest
 
 
 def test_startup_timeout_stops_only_new_sidecar_lease(tmp_path: Path) -> None:

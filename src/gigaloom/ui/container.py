@@ -470,6 +470,13 @@ def build_app_services(
         turn_submitter=session_service,
         runtime_store=runtime_store,
     )
+    try:
+        codex_harness = registry.get("codex-cli")
+    except KeyError:
+        codex_harness = None
+    bind_dynamic_tools = getattr(codex_harness, "bind_dynamic_tool_provider", None)
+    if callable(bind_dynamic_tools):
+        bind_dynamic_tools(thread_relay.tools_for_request)
     return AppServices(
         config=config,
         ui_security=HarnessUISecurity(config, oidc_client=remote_oidc_client),

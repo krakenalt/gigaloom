@@ -40,13 +40,14 @@ from gigaloom.native.launch.gateway_profile import (
     resolve_installed_gpt2giga_artifact,
     reviewed_gpt2giga_profile,
 )
-from gigaloom.native.launch.gateway_sidecar import GatewayArtifactEvidenceV1
 from gigaloom.native.launch.gateway_sidecar import (
+    GatewayArtifactEvidenceV1,
     GatewayProcessLeaseOwner,
     GatewaySidecarStatus,
     ManagedGatewayLeaseV1,
     ManagedGatewaySidecarService,
     UrlLibGatewayStartupReadinessProbe,
+    gateway_artifact_admitted,
 )
 
 
@@ -131,7 +132,10 @@ class GatewayRouteWebService:
         )
         return cls(
             profile,
-            GatewayRouteDiscovery(transport),
+            GatewayRouteDiscovery(
+                transport,
+                credential_fingerprint=transport.credential_fingerprint,
+            ),
             sidecar=sidecar,
             sidecar_environment=(
                 lambda: managed_gpt2giga_environment(
@@ -166,6 +170,48 @@ class GatewayRouteWebService:
             },
         }
 
+    def models(self, *, api_mode: str) -> dict[str, Any]:
+        """Project dynamic models from the same cached machine contracts."""
+        protocols = {
+            "v1": "openai_chat_completions",
+            "v2": "openai_responses",
+        }
+        protocol = protocols.get(api_mode)
+        if protocol is None:
+            raise ValueError("invalid api_mode; expected v1 or v2")
+        result = self.discovery.discover(self.profile)
+        catalog = result.catalog
+        models = (
+            sorted(
+                {
+                    route.public_model_alias
+                    for route in catalog.routes
+                    if route.client_protocol == protocol
+                }
+            )
+            if catalog is not None
+            else []
+        )
+        return {
+            "schema_version": 1,
+            "ok": result.status is GatewayDiscoveryStatus.CURRENT,
+            "api_mode": api_mode,
+            "route_path": f"/{api_mode}/models",
+            "health": (
+                "ready"
+                if result.status is GatewayDiscoveryStatus.CURRENT
+                else result.status.value
+            ),
+            "last_checked_at": (catalog.discovered_at if catalog is not None else None),
+            "models": models,
+            "source": "gateway_route_catalog",
+            "error": (
+                None
+                if result.status is GatewayDiscoveryStatus.CURRENT
+                else "model discovery is not current"
+            ),
+        }
+
     def start(self, *, session_id: str) -> dict[str, Any]:
         """Explicitly start or reuse the exact managed sidecar, then rediscover."""
         _validate_session_id(session_id)
@@ -180,7 +226,7 @@ class GatewayRouteWebService:
         ):
             raise GatewayRouteStartError("gateway_managed_start_unavailable")
         artifact = self.artifact_resolver(self.profile)
-        if not _artifact_matches(self.profile, artifact):
+        if not gateway_artifact_admitted(self.profile, artifact):
             raise GatewayRouteStartError("gateway_artifact_unverified")
         assert artifact is not None
         try:
@@ -194,7 +240,10 @@ class GatewayRouteWebService:
             session_id=session_id,
             run_id=f"gateway-route-{self.profile.gateway_id}",
         )
-        if not _lease_ready(lease):
+        if (
+            not _lease_ready(lease)
+            or lease.observed_artifact_sha256 != artifact.artifact_sha256
+        ):
             raise GatewayRouteStartError(
                 lease.reason.value
                 if lease.reason is not None
@@ -223,7 +272,7 @@ class GatewayRouteWebService:
         acknowledgement_id: str | None,
     ) -> dict[str, Any]:
         """Issue one short-lived receipt for the exact current route facts."""
-        result = self.discovery.discover(self.profile, force_refresh=True)
+        result = self.discovery.discover(self.profile)
         if result.status is not GatewayDiscoveryStatus.CURRENT:
             raise ValueError("gateway route capabilities are not current")
         catalog = result.catalog
@@ -234,16 +283,21 @@ class GatewayRouteWebService:
         if route.required_acknowledgement != acknowledgement_id:
             raise ValueError("gateway route acknowledgement does not match")
         artifact = self.artifact_resolver(self.profile)
-        if self.profile.mode is GatewayMode.MANAGED and not _artifact_matches(
+        if self.profile.mode is GatewayMode.MANAGED and not gateway_artifact_admitted(
             self.profile, artifact
         ):
             raise ValueError("managed gateway artifact is not verified")
+        observed_artifact_sha256 = (
+            artifact.artifact_sha256
+            if self.profile.mode is GatewayMode.MANAGED and artifact is not None
+            else self.profile.artifact_sha256
+        )
         now = _aware(self.clock())
         binding = {
             "gateway_id": self.profile.gateway_id,
             "route_id": route.route_id,
             "profile_digest": self.profile.profile_digest,
-            "artifact_sha256": self.profile.artifact_sha256,
+            "artifact_sha256": observed_artifact_sha256,
             "capability_revision": route.capability_profile_revision,
             "models_revision": catalog.models_revision,
             "loss_matrix_revision": route.loss_matrix_revision,
@@ -255,7 +309,7 @@ class GatewayRouteWebService:
             gateway_id=self.profile.gateway_id,
             route_id=route.route_id,
             profile_digest=self.profile.profile_digest,
-            artifact_sha256=self.profile.artifact_sha256,
+            artifact_sha256=observed_artifact_sha256,
             capability_revision=route.capability_profile_revision,
             models_revision=catalog.models_revision,
             loss_matrix_revision=route.loss_matrix_revision,
@@ -287,7 +341,7 @@ class GatewayRouteWebService:
         if _aware(self.clock()) - checked_at > _PREFLIGHT_TTL:
             self._issued.pop(issued.receipt.receipt_id, None)
             raise ValueError("gateway route preflight receipt expired")
-        result = self.discovery.discover(self.profile, force_refresh=True)
+        result = self.discovery.discover(self.profile)
         if result.status is not GatewayDiscoveryStatus.CURRENT:
             raise ValueError("gateway route capabilities are not current")
         catalog = result.catalog
@@ -304,7 +358,7 @@ class GatewayRouteWebService:
             "preflight_receipt_id": issued.receipt.receipt_id,
             "preflight_checked_at": issued.receipt.checked_at,
             "profile_digest": self.profile.profile_digest,
-            "artifact_sha256": self.profile.artifact_sha256,
+            "artifact_sha256": issued.receipt.artifact_sha256,
             "capability_profile_revision": route.capability_profile_revision,
             "models_revision": catalog.models_revision,
             "loss_matrix_revision": route.loss_matrix_revision,
@@ -324,20 +378,6 @@ def _route(catalog: GatewayRouteCatalogV1, route_id: str) -> BridgeRouteV1:
         if route.route_id == route_id:
             return route
     raise ValueError("gateway route is not current")
-
-
-def _artifact_matches(
-    profile: GatewayProfileV1,
-    artifact: GatewayArtifactEvidenceV1 | None,
-) -> bool:
-    return bool(
-        artifact is not None
-        and artifact.verified
-        and artifact.distribution == profile.distribution
-        and artifact.version == profile.version
-        and artifact.artifact_sha256 == profile.artifact_sha256
-        and artifact.executable_path
-    )
 
 
 def _lease_ready(lease: ManagedGatewayLeaseV1) -> bool:

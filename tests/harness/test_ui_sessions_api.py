@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from gigaloom.config import HarnessConfig
+from gigaloom.execution.thread_relay import LOCAL_THREAD_ACTOR_SCOPE
 from gigaloom.harnesses.base import BaseHarness
 from gigaloom.project import project_id_for_root
 from gigaloom.registry import HarnessRegistry, create_default_registry
@@ -232,6 +233,45 @@ def test_sessions_api_create_and_run_echo_then_continue():
     assert len(second.json()["messages"]) == 4
 
 
+def test_session_run_replaces_spoofed_thread_tool_scope_with_server_scope(tmp_path):
+    registry = HarnessRegistry()
+    harness = _ArenaCaptureHarness("scope-capture")
+    registry.register(harness)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    client = _client(
+        config=HarnessConfig(data_dir=str(tmp_path / "data")),
+        registry=registry,
+    )
+    session = client.post(
+        "/api/sessions",
+        json={
+            "harness_id": "scope-capture",
+            "workspace": str(workspace),
+        },
+    ).json()["session"]
+
+    response = client.post(
+        f"/api/sessions/{session['id']}/run",
+        json={
+            "harness_id": "scope-capture",
+            "prompt": "capture server scope",
+            "extra": {
+                "thread_relay_scope": {
+                    "actor_scope": "spoofed-actor",
+                    "project_id": "spoofed-project",
+                }
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert harness.requests[0].extra["thread_relay_scope"] == {
+        "actor_scope": LOCAL_THREAD_ACTOR_SCOPE,
+        "project_id": project_id_for_root(workspace),
+    }
+
+
 def test_sessions_api_events_polling_after_id():
     client = _client()
     first = client.post(
@@ -285,6 +325,67 @@ def test_interactive_run_actions_reject_stale_binding_and_missing_owner():
     assert "owner is unavailable" in owner_lost.json()["detail"]
     assert unsupported_input.status_code == 409
     assert "does not expose" in unsupported_input.json()["detail"]
+
+
+def test_compact_run_binds_exact_snapshot_and_live_codex_owner():
+    class CompactSupervisor:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def bind_dynamic_tool_provider(self, _provider) -> None:
+            return None
+
+        def compact_thread(self, session_id: str):
+            self.calls.append(session_id)
+
+            class Outcome:
+                thread_digest = "a" * 64
+                turn_id = "compact-turn-1"
+                item_id = "compact-item-1"
+
+            return Outcome()
+
+    registry = create_default_registry(include_entry_points=False)
+    supervisor = CompactSupervisor()
+    codex = registry.get("codex-cli")
+    codex.app_server_supervisor = supervisor
+    store = InMemoryHarnessSessionStore()
+    session = store.create_session(default_harness_id="codex-cli")
+    run = store.create_run(
+        session_id=session.id,
+        harness_id="codex-cli",
+        prompt="compact me",
+        model="GigaChat-2-Max",
+        api_mode=GigaChatApiMode.V2,
+        capability=HarnessCapability.CHAT_COMPLETIONS,
+        mode="plan",
+        workspace=None,
+        status="completed",
+    )
+    client = _client(registry=registry, store=store)
+    revision = client.get(f"/api/cockpit/runs/{run.id}").json()["snapshot_revision"]
+
+    stale = client.post(
+        f"/api/runs/{run.id}/compact",
+        json={"run_id": run.id, "session_id": session.id, "revision": "0" * 64},
+    )
+    compacted = client.post(
+        f"/api/runs/{run.id}/compact",
+        json={"run_id": run.id, "session_id": session.id, "revision": revision},
+    )
+
+    assert stale.status_code == 409
+    assert stale.json()["detail"] == "Run revision changed"
+    assert compacted.status_code == 200
+    assert compacted.json() == {
+        "compacted": True,
+        "run_id": run.id,
+        "session_id": session.id,
+        "thread_digest": "a" * 64,
+        "upstream_turn_id": "compact-turn-1",
+        "upstream_item_id": "compact-item-1",
+    }
+    assert supervisor.calls == [session.id]
 
 
 def test_session_update_stream_replays_title_revision_and_closes_on_delete():

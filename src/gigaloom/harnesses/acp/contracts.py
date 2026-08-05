@@ -33,29 +33,20 @@ class AcpLimits:
     shutdown_timeout_seconds: float = 2.0
 
     def __post_init__(self) -> None:
-        for field_name in (
-            "max_message_bytes",
-            "max_inbound_messages",
-            "max_outbound_messages",
-            "max_outstanding_requests",
+        for field_name, minimum in (
+            ("max_message_bytes", 1),
+            ("max_inbound_messages", 1),
+            ("max_outbound_messages", 1),
+            ("max_outstanding_requests", 1),
+            ("max_stderr_bytes", 0),
         ):
             value = getattr(self, field_name)
-            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-                raise ValueError(f"{field_name} must be a positive integer")
-        if (
-            isinstance(self.max_stderr_bytes, bool)
-            or not isinstance(self.max_stderr_bytes, int)
-            or self.max_stderr_bytes < 0
-        ):
-            raise ValueError("max_stderr_bytes cannot be negative")
-        if self.request_timeout_seconds <= 0 or not math.isfinite(
-            self.request_timeout_seconds
-        ):
-            raise ValueError("request_timeout_seconds must be positive")
-        if self.shutdown_timeout_seconds <= 0 or not math.isfinite(
-            self.shutdown_timeout_seconds
-        ):
-            raise ValueError("shutdown_timeout_seconds must be positive")
+            if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+                raise ValueError(f"{field_name} is below its integer minimum")
+        for field_name in ("request_timeout_seconds", "shutdown_timeout_seconds"):
+            value = getattr(self, field_name)
+            if value <= 0 or not math.isfinite(value):
+                raise ValueError(f"{field_name} must be positive")
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,19 +199,15 @@ class AcpCapabilitySnapshotV1:
             self.agent_info, AcpImplementationInfo
         ):
             raise ValueError("ACP agent info is invalid")
-        for field_name in (
-            "compatibility_profile_digest",
-            "process_fingerprint",
-            "snapshot_digest",
-        ):
+        for (
+            field_name
+        ) in "compatibility_profile_digest process_fingerprint snapshot_digest".split():
             _validate_digest(getattr(self, field_name), field_name=field_name)
         if self.connection_generation < 1:
             raise ValueError("ACP connection generation must be positive")
-        for field_name in (
-            "agent_capabilities",
-            "session_capabilities",
-            "auth_capabilities",
-        ):
+        for (
+            field_name
+        ) in "agent_capabilities session_capabilities auth_capabilities".split():
             value = getattr(self, field_name)
             if not isinstance(value, Mapping):
                 raise ValueError(f"{field_name} must be a mapping")
@@ -236,9 +223,7 @@ def _freeze_mapping(value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
 def _freeze_json(value: JsonValue) -> JsonValue:
     if isinstance(value, Mapping):
         return _freeze_mapping(value)
-    if isinstance(value, tuple):
-        return tuple(_freeze_json(item) for item in value)
-    if isinstance(value, list):
+    if isinstance(value, (tuple, list)):
         return tuple(_freeze_json(item) for item in value)
     if value is None or isinstance(value, (str, int, float, bool)):
         return value

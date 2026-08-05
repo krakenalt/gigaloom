@@ -5,6 +5,31 @@ All notable changes to GigaLoom are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - Unreleased
+
+### Added
+
+- The ACP provider bridge verifies how an installed agent configures its model
+  provider, exposes `ready`, `native_only`, `unknown_until_reprobe`, and
+  `blocked` through `inspect`/`probe`, and applies a temporary launch
+  configuration only for a verified route. `native_only` means that native
+  launch still works without a safe provider override; it is not an install
+  failure.
+
+### Changed
+
+- CLI, Web, and ACP now share one resolved gateway route. The optional extra
+  admits public `gpt2giga>=0.3.0,<0.4.0` releases, and the warm managed path
+  reuses a ready sidecar without another process spawn or discovery pass.
+- Thread listing no longer performs an N+1 latest-run projection: one batch
+  read replaces 100 per-session reads. In the matched 20-sample capture, p50
+  fell from `276.327250` to `3.480980` ms and p95 from `298.759850` to
+  `3.728379` ms (`98.752%` faster); single-thread read p95 improved by
+  `17.025%`.
+- Documentation is reorganized around the short install -> agent -> gateway
+  path: the README is down from 338 to 135 lines, with aligned English and
+  Russian quickstarts, support matrices, and troubleshooting.
+
 ## [0.9.0] - Unreleased
 
 ### Added
@@ -378,6 +403,8 @@ considered stable.
 - **Diagnostics and documentation**: added `giga doctor`, inspect/config/session/native commands, an alpha quickstart, a migration guide, and documented first-release limitations.
 
 ---
+
+[0.9.1]: https://github.com/krakenalt/gigaloom/compare/v0.9.0...v0.9.1
 
 [0.9.0]: https://github.com/krakenalt/gigaloom/compare/v0.8.1...v0.9.0
 

@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from dataclasses import replace
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 
+from gigaloom.cli_commands import gateway_application as application_module
+from gigaloom.cli_commands.gateway_application import inspect_gpt2giga_startup
 from gigaloom.cli_commands.gateway_launch import parse_gateway_launch_argv
 from gigaloom.config import HarnessConfig
 from gigaloom.native.api import (
@@ -17,6 +21,7 @@ from gigaloom.native.api import (
     GatewayMode,
     GatewayRouteCatalogV1,
     GatewayRouteDiscovery,
+    GatewaySidecarReason,
     GatewaySidecarStatus,
     GatewaySupportStatus,
     ManagedGatewayLeaseV1,
@@ -60,11 +65,37 @@ class _Sidecar:
         self.profile = profile
         self.environments: list[dict[str, str]] = []
         self.stopped = 0
+        self.ensure_calls = 0
+        self.running = False
+        self.observed_artifact_sha256: str | None = None
+
+    def status(self, profile):
+        if not self.running:
+            return ManagedGatewayLeaseV1(
+                gateway_id=profile.gateway_id,
+                profile_digest=profile.profile_digest,
+                status=GatewaySidecarStatus.BLOCKED,
+                process_lease_ref=None,
+                managed_root=None,
+                startup_config_ref=None,
+                readiness_confirmed=False,
+                reason=GatewaySidecarReason.LEASE_NOT_FOUND,
+            )
+        return ManagedGatewayLeaseV1(
+            gateway_id=profile.gateway_id,
+            profile_digest=profile.profile_digest,
+            status=GatewaySidecarStatus.REUSED,
+            process_lease_ref="native-process:gateway-1",
+            managed_root="/managed/gateway",
+            startup_config_ref="managed-config:startup.json",
+            readiness_confirmed=True,
+            observed_artifact_sha256=self.observed_artifact_sha256,
+        )
 
     def ensure_started(
         self,
         _profile,
-        _artifact,
+        artifact,
         *,
         environment,
         session_id,
@@ -72,6 +103,9 @@ class _Sidecar:
     ):
         assert (session_id, run_id) == ("gateway-launch", "gateway-gpt2giga")
         self.environments.append(dict(environment))
+        self.ensure_calls += 1
+        self.running = True
+        self.observed_artifact_sha256 = artifact.artifact_sha256
         return ManagedGatewayLeaseV1(
             gateway_id=self.profile.gateway_id,
             profile_digest=self.profile.profile_digest,
@@ -80,10 +114,12 @@ class _Sidecar:
             managed_root="/managed/gateway",
             startup_config_ref="managed-config:startup.json",
             readiness_confirmed=True,
+            observed_artifact_sha256=artifact.artifact_sha256,
         )
 
     def stop(self, _profile):
         self.stopped += 1
+        self.running = False
         return ManagedGatewayLeaseV1(
             gateway_id=self.profile.gateway_id,
             profile_digest=self.profile.profile_digest,
@@ -92,6 +128,7 @@ class _Sidecar:
             managed_root="/managed/gateway",
             startup_config_ref="managed-config:startup.json",
             readiness_confirmed=False,
+            observed_artifact_sha256=self.observed_artifact_sha256,
         )
 
 
@@ -199,7 +236,7 @@ def test_managed_launch_composes_artifact_discovery_preflight_overlay_and_native
     )
 
     assert exit_code == 17
-    assert discovery.calls == [True]
+    assert discovery.calls == [False]
     assert sidecar.stopped == 1
     assert sidecar.environments[0]["GIGACHAT_CREDENTIALS"] == "upstream-secret"
     argv, environment = launched[0]
@@ -210,6 +247,155 @@ def test_managed_launch_composes_artifact_discovery_preflight_overlay_and_native
     config = Path(environment["CODEX_HOME"]) / "config.toml"
     assert 'wire_api = "responses"' in config.read_text(encoding="utf-8")
     assert "GigaChat-2-Max" in config.read_text(encoding="utf-8")
+
+
+def test_managed_launch_accepts_a_contract_compatible_patch_artifact(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    application, _discovery_service, _sidecar = _application(tmp_path)
+    monkeypatch.setenv("GIGACHAT_CREDENTIALS", "upstream-secret")
+    executable = tmp_path / "gpt2giga-patch"
+    executable.write_text("#!/bin/sh\n", encoding="utf-8")
+    executable.chmod(0o755)
+    application.artifact_resolver = lambda _profile: replace(
+        _artifact(executable),
+        version="0.3.7",
+        artifact_sha256="9" * 64,
+        source="registry:pypi/gpt2giga==0.3.7",
+    )
+
+    exit_code = application.run(
+        _request(),
+        native_launcher=lambda _argv, _environment: 23,
+    )
+
+    assert exit_code == 23
+
+
+def test_startup_inspection_rejects_an_unknown_machine_contract_revision(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    profile = reviewed_gpt2giga_profile(
+        base_url="http://127.0.0.1:8090",
+        mode=GatewayMode.MANAGED,
+    )
+    executable = tmp_path / "gpt2giga"
+    executable.write_text("#!/bin/sh\n", encoding="utf-8")
+    executable.chmod(0o755)
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(
+        application_module.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "schema_version": "gpt2giga.inspect.v2",
+                    "profile_schema_version": "gpt2giga.provider-profiles.v2",
+                    "valid": True,
+                    "config_revision": profile.startup_config_revision,
+                    "matrix_revision": "sha256:"
+                    + "3cad19e6f7b531e50a0eb4c88af308aee5be81f3a4c085f89ebc2e06f92ffa69",
+                }
+            ),
+        ),
+    )
+
+    reason = inspect_gpt2giga_startup(
+        profile,
+        _artifact(executable),
+        {"HOME": str(home)},
+    )
+
+    assert reason == "startup_contract_mismatch"
+
+
+def test_warm_lease_skips_startup_inspection_and_spawn(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    application, _discovery_service, sidecar = _application(tmp_path)
+    monkeypatch.setenv("GIGACHAT_CREDENTIALS", "upstream-secret")
+    artifact = application.artifact_resolver(application.profile)
+    assert artifact is not None
+    sidecar.running = True
+    sidecar.observed_artifact_sha256 = artifact.artifact_sha256
+    inspections: list[object] = []
+    application.startup_inspector = lambda *_args: inspections.append(object()) or None
+
+    exit_code = application.run(
+        _request(),
+        native_launcher=lambda _argv, _environment: 29,
+    )
+
+    assert exit_code == 29
+    assert inspections == []
+    assert sidecar.ensure_calls == 0
+    assert sidecar.stopped == 0
+
+
+def test_startup_inspection_cache_tracks_artifact_and_config_fingerprints(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    application, _discovery_service, sidecar = _application(tmp_path)
+    artifact = application.artifact_resolver(application.profile)
+    assert artifact is not None
+    current_artifact = [artifact]
+    application.artifact_resolver = lambda _profile: current_artifact[0]
+    inspections: list[tuple[str, str]] = []
+    application.startup_inspector = lambda _profile, evidence, environment: (
+        inspections.append(
+            (evidence.artifact_sha256, environment["GIGACHAT_CREDENTIALS"])
+        )
+        or None
+    )
+    monkeypatch.setenv("GIGACHAT_CREDENTIALS", "credential-a")
+
+    assert (
+        application.run(
+            _request(),
+            native_launcher=lambda _argv, _environment: 31,
+        )
+        == 31
+    )
+    assert len(inspections) == 1
+    assert sidecar.ensure_calls == 1
+    assert (
+        application.run(
+            _request(),
+            native_launcher=lambda _argv, _environment: 32,
+        )
+        == 32
+    )
+    assert len(inspections) == 1
+
+    current_artifact[0] = replace(artifact, artifact_sha256="7" * 64)
+    assert (
+        application.run(
+            _request(),
+            native_launcher=lambda _argv, _environment: 33,
+        )
+        == 33
+    )
+    assert len(inspections) == 2
+
+    application.profile = replace(
+        application.profile,
+        startup_config_revision="sha256:" + "2" * 64,
+    )
+    assert (
+        application.run(
+            _request(),
+            native_launcher=lambda _argv, _environment: 34,
+        )
+        == 34
+    )
+    assert len(inspections) == 3
+    assert sidecar.ensure_calls == 4
 
 
 def test_dry_run_is_content_free_and_does_not_start_or_write(
@@ -236,7 +422,7 @@ def test_dry_run_is_content_free_and_does_not_start_or_write(
     assert payload["status"] == "ready"
     assert payload["artifact_state"] == "verified"
     assert payload["process_spawn"] is False
-    assert discovery.calls == [True]
+    assert discovery.calls == [False]
     assert sidecar.environments == []
     assert sidecar.stopped == 0
     assert not managed_root.exists()
@@ -311,6 +497,6 @@ def test_resolution_refusal_stops_the_sidecar_before_native_handoff(
         == 2
     )
 
-    assert discovery.calls == [True]
+    assert discovery.calls == [False]
     assert sidecar.stopped == 1
     assert launched == []

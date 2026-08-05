@@ -31,6 +31,7 @@ GIGALOOM_THREAD_CAPABILITY_REVISION = "gigaloom-thread-relay-v1"
 LOCAL_THREAD_ACTOR_SCOPE = "local-operator"
 MAX_GIGALOOM_THREAD_LIST = 100
 MAX_GIGALOOM_THREAD_LIST_SCAN = 400
+_UNRESOLVED_LATEST_RUN = object()
 
 
 class ThreadRelayError(RuntimeError):
@@ -73,6 +74,12 @@ class ThreadSessionStorePort(Protocol):
         limit: int = 50,
     ) -> object:
         """Return one bounded newest-first run page."""
+
+    def latest_runs(
+        self,
+        session_ids: tuple[str, ...],
+    ) -> Mapping[str, HarnessRun | None]:
+        """Return the newest run for each bounded requested session identity."""
 
     def list_sessions_page(
         self,
@@ -134,8 +141,14 @@ class GigaLoomThreadProjector:
             len(sessions) == scan_limit and bool(getattr(page, "has_more", False))
         )
         omitted_count = max(len(admitted) - len(selected), int(has_more))
+        latest_runs = self.session_store.latest_runs(
+            tuple(session.id for session in selected)
+        )
         return GigaLoomThreadListPage(
-            tuple(self.projection(session) for session in selected),
+            tuple(
+                self._projection(session, latest_run=latest_runs.get(session.id))
+                for session in selected
+            ),
             has_more,
             omitted_count,
         )
@@ -177,6 +190,24 @@ class GigaLoomThreadProjector:
         omitted_count: int = 0,
     ) -> ThreadReadProjectionV1:
         """Project one session without loading data beyond supplied bounds."""
+        return self._projection(
+            session,
+            messages=messages,
+            next_cursor=next_cursor,
+            omitted_count=omitted_count,
+            latest_run=self.latest_run(session.id),
+        )
+
+    def _projection(
+        self,
+        session: HarnessSession,
+        *,
+        latest_run: HarnessRun | None,
+        messages: tuple[HarnessMessage, ...] = (),
+        next_cursor: str | None = None,
+        omitted_count: int = 0,
+    ) -> ThreadReadProjectionV1:
+        """Project one session from an already-resolved latest run."""
         visible: list[ThreadVisibleMessageV1] = []
         excluded = 0
         for message in messages:
@@ -199,7 +230,6 @@ class GigaLoomThreadProjector:
                     redacted=redacted != message.content or "<redacted>" in redacted,
                 )
             )
-        latest_run = self.latest_run(session.id)
         active_turn = self.active_turn(session, latest_run=latest_run)
         unsupported = {"hidden_reasoning_excluded"}
         if excluded:
@@ -291,10 +321,15 @@ class GigaLoomThreadProjector:
         self,
         session: HarnessSession,
         *,
-        latest_run: HarnessRun | None = None,
+        latest_run: HarnessRun | None | object = _UNRESOLVED_LATEST_RUN,
     ) -> ThreadActiveTurnV1 | None:
         """Return only a proven running external turn identity."""
-        run = latest_run if latest_run is not None else self.latest_run(session.id)
+        if latest_run is _UNRESOLVED_LATEST_RUN:
+            run = self.latest_run(session.id)
+        elif latest_run is None or isinstance(latest_run, HarnessRun):
+            run = latest_run
+        else:
+            raise TypeError("latest_run must be a HarnessRun or None")
         if run is None or run.status.value != "running":
             return None
         turn_id = _active_turn_id(run.metadata)

@@ -152,8 +152,8 @@ Node.js runtime, credentials или provider config. `uv tool` и `pipx` соз�
 изолированное окружение Harness:
 
 ```sh
-uv tool install 'gigaloom==0.9.0'
-pipx install 'gigaloom==0.9.0'
+uv tool install 'gigaloom==0.9.1'
+pipx install 'gigaloom==0.9.1'
 ```
 
 Существующий Textual prerelease обновляйте на месте без исторического extra `[tui]`.
@@ -163,10 +163,10 @@ pipx install 'gigaloom==0.9.0'
 
 ```sh
 giga state backup /safe/path/harness-before-upgrade.zip
-uv tool install --force 'gigaloom==0.9.0'
+uv tool install --force 'gigaloom==0.9.1'
 uv tool install --force 'gpt2giga-harness==0.5.0a1'
 uv tool uninstall gigaloom
-uv tool install 'gigaloom==0.9.0'
+uv tool install 'gigaloom==0.9.1'
 ```
 
 Удаление пакета не удаляет `~/.gigaloom`, проектные `.giga/` или
@@ -220,17 +220,17 @@ giga harness list
 Для опубликованного stable-пакета используйте:
 
 ```bash
-uv tool install 'gigaloom==0.9.0'
+uv tool install 'gigaloom==0.9.1'
 giga doctor
 ```
 
 Для Direct Chat и provider preset `gpt2giga` установите явный extra:
 
 ```bash
-uv tool install 'gigaloom[gpt2giga]==0.9.0'
+uv tool install 'gigaloom[gpt2giga]==0.9.1'
 ```
 
-Текущий дистрибутив `gigaloom==0.9.0` добавляет только команду `giga`; его
+Текущий дистрибутив `gigaloom==0.9.1` добавляет только команду `giga`; его
 явный extra `gpt2giga` допускает стабильные `gpt2giga>=0.3.0,<0.4.0`.
 
 Для Direct Chat понадобятся credentials из [быстрого старта gpt2giga](quickstart.md).
@@ -291,7 +291,7 @@ Help, version, JSON, dry-run, перенаправленные потоки, pip
 `[tui]` из исторических команд установки:
 
 ```bash
-uv tool install --force 'gigaloom==0.9.0'
+uv tool install --force 'gigaloom==0.9.1'
 giga --version
 giga
 ```
@@ -1722,11 +1722,11 @@ project state:
 ```bash
 uv tool uninstall gpt2giga
 uv tool uninstall gpt2giga-harness
-uv tool install 'gigaloom==0.9.0'
+uv tool install 'gigaloom==0.9.1'
 giga doctor
 ```
 
-Текущая metadata `gigaloom==0.9.0` сохраняет
+Текущая metadata `gigaloom==0.9.1` сохраняет
 `gpt2giga>=0.3.0,<0.4.0` в явном optional extra `gpt2giga`. Старый import
 `gpt2giga.harness` больше не является
 публичным; используйте `gigaloom`. Миграция package не переносит и не

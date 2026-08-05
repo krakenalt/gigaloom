@@ -1,0 +1,119 @@
+{
+  "schema_version": "gigaloom.cli-startup-performance.v1",
+  "label": "0.9.1-clean-baseline",
+  "source_revision": "bfd1a936510a0f965a9e23758d1d27b97be42f83",
+  "source_dirty": false,
+  "lock_sha256": "674fff65e4c746f4c7fd86f183240ba1846b61f7f7daf99f9377180d992d64da",
+  "environment": {
+    "implementation": "CPython",
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "python": "3.13.8"
+  },
+  "warmups_per_command": 3,
+  "samples_per_command": 20,
+  "privacy": {
+    "content_free": true,
+    "external_network_accessed": false,
+    "native_homes_accessed": false,
+    "provider_traffic": false,
+    "temporary_state_only": true
+  },
+  "results": [
+    {
+      "id": "cli.version",
+      "fixture": {
+        "argv": [
+          "giga",
+          "--version"
+        ],
+        "isolated_home": true,
+        "external_network_accessed": false
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 47.798021,
+        "p95": 49.347333
+      },
+      "counters": {
+        "output_bytes": {
+          "samples": 20,
+          "p50": 26.0,
+          "p95": 26.0
+        }
+      }
+    },
+    {
+      "id": "cli.root_help",
+      "fixture": {
+        "argv": [
+          "giga",
+          "--help"
+        ],
+        "isolated_home": true,
+        "external_network_accessed": false
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 48.381417,
+        "p95": 49.681273
+      },
+      "counters": {
+        "output_bytes": {
+          "samples": 20,
+          "p50": 1347.0,
+          "p95": 1347.0
+        }
+      }
+    },
+    {
+      "id": "cli.agent_list_json",
+      "fixture": {
+        "argv": [
+          "giga",
+          "agent",
+          "list",
+          "--json"
+        ],
+        "isolated_home": true,
+        "external_network_accessed": false
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 636.916833,
+        "p95": 672.220716
+      },
+      "counters": {
+        "output_bytes": {
+          "samples": 20,
+          "p50": 2242.0,
+          "p95": 2242.0
+        }
+      }
+    },
+    {
+      "id": "cli.builtin_agent_help",
+      "fixture": {
+        "argv": [
+          "giga",
+          "codex",
+          "--help"
+        ],
+        "isolated_home": true,
+        "external_network_accessed": false
+      },
+      "latency_ms": {
+        "samples": 20,
+        "p50": 575.173771,
+        "p95": 589.758055
+      },
+      "counters": {
+        "output_bytes": {
+          "samples": 20,
+          "p50": 5747.0,
+          "p95": 5747.0
+        }
+      }
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 import hashlib
 import json
@@ -109,7 +109,7 @@ def next_permission(
     options = tuple(
         AcpPermissionOptionV1(item.option_id, item.kind) for item in request.options
     )
-    return AcpPermissionRequestV1(
+    projection = AcpPermissionRequestV1(
         provider_request_id=bridge.id,
         generation=bridge.generation,
         session_id=request.session_id,
@@ -117,15 +117,10 @@ def next_permission(
         action_class=action,
         options=options,
         admissible=action in context.allowed_action_classes,
-        binding_digest=_binding_digest(
-            binding,
-            context,
-            bridge,
-            session_id=request.session_id,
-            tool_call_id=request.tool_call.tool_call_id,
-            action_class=action,
-            options=options,
-        ),
+        binding_digest="",
+    )
+    return replace(
+        projection, binding_digest=_binding_digest(binding, context, projection)
     )
 
 
@@ -141,23 +136,7 @@ def respond_permission(
     """Respond once without allowing provider prose to expand authority."""
     require_session(client, binding)
     _validate_context(client, binding, context)
-    bridge_stub = StructuredBridgeRequest(
-        id=request.provider_request_id,
-        kind=StructuredBridgeKind.APPROVAL,
-        method="session/request_permission",
-        params={},
-        generation=request.generation,
-        timeout_seconds=1.0,
-    )
-    if request.binding_digest != _binding_digest(
-        binding,
-        context,
-        bridge_stub,
-        session_id=request.session_id,
-        tool_call_id=request.tool_call_id,
-        action_class=request.action_class,
-        options=request.options,
-    ):
+    if request.binding_digest != _binding_digest(binding, context, request):
         raise AcpPermissionError("ACP permission binding changed")
     selected = _select_option(request, allow=allow, option_id=option_id)
     if allow and (
@@ -213,12 +192,7 @@ def _validate_context(
 def _binding_digest(
     binding: AcpSessionBindingV1,
     context: AcpPermissionContextV1,
-    bridge: StructuredBridgeRequest,
-    *,
-    session_id: str,
-    tool_call_id: str,
-    action_class: ActionClass,
-    options: tuple[AcpPermissionOptionV1, ...],
+    request: AcpPermissionRequestV1,
 ) -> str:
     payload = {
         "agent_id": context.agent_id,
@@ -229,13 +203,13 @@ def _binding_digest(
         "workspace_digest": context.workspace_digest,
         "policy_revision": context.policy_revision,
         "expires_at": context.expires_at.astimezone(UTC).isoformat(),
-        "generation": bridge.generation,
-        "provider_request_id": bridge.id,
-        "provider_session_id": session_id,
-        "tool_call_id": tool_call_id,
-        "action_class": action_class,
+        "generation": request.generation,
+        "provider_request_id": request.provider_request_id,
+        "provider_session_id": request.session_id,
+        "tool_call_id": request.tool_call_id,
+        "action_class": request.action_class,
         "options": [
-            {"option_id": item.option_id, "kind": item.kind} for item in options
+            {"option_id": item.option_id, "kind": item.kind} for item in request.options
         ],
     }
     return hashlib.sha256(

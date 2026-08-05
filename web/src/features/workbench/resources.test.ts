@@ -91,5 +91,9 @@ describe("feature translations and styles", () => {
     );
     expect(catalogs.en.environmentCommit).toBe("Commit");
     expect(catalogs.ru.environmentCommit).toBe("Коммит");
+    expect(catalogs.ru.personalization).toBe("Персонализация агента");
+    expect(catalogs.ru.personalizationHint).not.toMatch(
+      /managed config|backend-owned|async agents|runtime/u,
+    );
   });
 });

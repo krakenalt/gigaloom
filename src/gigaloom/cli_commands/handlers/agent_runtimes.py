@@ -24,6 +24,7 @@ from gigaloom.harnesses.agent_profiles.installations import (
     AgentRuntimeService,
     InstallPlanningResult,
     create_agent_runtime_service,
+    project_agent_runtime_readiness,
 )
 from gigaloom.harnesses.agent_profiles.onboarding import (
     ManagedAgentOnboardingResult,
@@ -103,14 +104,24 @@ def _handle_agent_runtime_list(args: argparse.Namespace, config: HarnessConfig) 
     combined.update(managed)
     from gigaloom.cli_commands.handlers.agent_profiles import _profile_payload
 
-    _emit(
-        {
-            "schema_version": 1,
-            "agents": [_profile_payload(combined[item]) for item in sorted(combined)],
-            "installed_revisions": [asdict(item) for item in installed],
-        },
-        as_json=args.json,
-    )
+    payload = {
+        "schema_version": 1,
+        "agents": [_profile_payload(combined[item]) for item in sorted(combined)],
+        "installed_revisions": [asdict(item) for item in installed],
+    }
+    if args.json:
+        _emit(payload, as_json=True)
+    else:
+        print(f"{'ID':<24}{'Status':<14}{'ACP':<10}{'Gateway':<14}Action")
+        for item in installed:
+            readiness = item.readiness
+            print(
+                f"{item.local_agent_id:<24}{readiness.status:<14}"
+                f"{readiness.acp_transport:<10}"
+                f"{readiness.gateway_availability:<14}{readiness.action}"
+            )
+        if not installed:
+            print("No managed ACP agents installed")
     return 0
 
 
@@ -137,8 +148,14 @@ def _handle_agent_runtime_probe(args: argparse.Namespace, config: HarnessConfig)
         )
 
         return _handle_agent_probe_plan(_profile_args(args), config)
+    record = runtime.inspect(args.local_agent_id)
     result = runtime.probe(args.local_agent_id)
-    _emit(managed_probe_to_dict(result), as_json=args.json)
+    payload = managed_probe_to_dict(result)
+    payload["schema_version"] = 1
+    payload["readiness"] = asdict(
+        project_agent_runtime_readiness(result, active=record.active)
+    )
+    _emit(payload, as_json=args.json)
     return 0
 
 
@@ -383,11 +400,15 @@ def _result_payload(result: ManagedAgentOnboardingResult) -> dict[str, Any]:
         "artifact_digest": result.artifact.artifact_digest,
         "profile_digest": result.profile.profile_digest,
         "probe_state": result.probe.state.value,
+        "provider_bridge": result.probe.provider_bridge.projection(),
         "compatibility_status": result.compatibility.status.value,
         "activation_status": result.activation.status.value,
         "active": result.active,
         "receipt_id": result.receipt.receipt_id,
         "omissions": list(result.receipt.omissions),
+        "readiness": asdict(
+            project_agent_runtime_readiness(result.probe, active=result.active)
+        ),
     }
 
 

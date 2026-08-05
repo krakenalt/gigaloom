@@ -35,11 +35,13 @@ from gigaloom.harnesses.agent_profiles.installations import (
     ManagedAgentActivationStore,
     AgentRuntimeService,
     InstallPlanningResult,
+    project_agent_runtime_readiness,
     read_agent_lock_file,
 )
 from gigaloom.harnesses.agent_profiles.installations.filesystem import atomic_write_json
 from gigaloom.harnesses.agent_profiles.onboarding import (
     ManagedAcpProbeReceipt,
+    ManagedAcpProviderBridgeProjection,
     ManagedAgentOnboardingService,
     ManagedProbeState,
 )
@@ -508,6 +510,38 @@ def test_add_list_inspect_probe_lock_and_remove_share_one_state(tmp_path):
     assert not Path(result.artifact.managed_root).exists()
 
 
+def test_shared_runtime_readiness_has_four_compact_presentation_states(tmp_path):
+    service, _ = _runtime(tmp_path)
+    installed = service.add("generic-runtime", confirmed=True)
+    assert not isinstance(installed, InstallPlanningResult)
+    probe = installed.probe
+
+    def readiness(status: str, *, active: bool = True):
+        strategy = "openai_env" if status == "ready" else None
+        projection = ManagedAcpProviderBridgeProjection(
+            status=status,
+            strategy=strategy,
+            protocols=("openai_chat_completions",) if status == "ready" else (),
+            provider_ids=(),
+            adapter_id="codex-acp" if status == "ready" else None,
+            adapter_revision="codex-acp-v1" if status == "ready" else None,
+            model_selection="config_override" if status == "ready" else None,
+            reason_ids=(() if status == "ready" else (f"provider_bridge_{status}",)),
+        )
+        return project_agent_runtime_readiness(
+            replace(probe, provider_bridge=projection),
+            active=active,
+        )
+
+    assert readiness("ready").status == "ready"
+    assert readiness("native_only").status == "native-only"
+    assert readiness("unknown_until_reprobe").status == "reprobe"
+    blocked = readiness("blocked")
+    assert blocked.status == "blocked" and blocked.native_launch_available is True
+    inactive = readiness("ready", active=False)
+    assert inactive.status == "blocked" and inactive.action == "activate"
+
+
 def test_inactive_revision_reprobes_and_activates_atomically(tmp_path):
     service, coordinator = _runtime(tmp_path)
     installed = service.add("generic-runtime", confirmed=True)
@@ -684,6 +718,54 @@ def test_json_cli_search_and_add_alias_use_injected_shared_service(
 
         installed = service.add("generic-runtime", confirmed=True)
         assert not isinstance(installed, InstallPlanningResult)
+        list_args = argparse.Namespace(json=True)
+        assert runtime_handlers._handle_agent_runtime_list(list_args, config) == 0
+        list_payload = json.loads(capsys.readouterr().out)
+        assert list_payload["schema_version"] == 1
+        assert list_payload["installed_revisions"][0]["readiness"] == {
+            "schema_version": 1,
+            "status": "reprobe",
+            "acp_transport": "ready",
+            "provider_bridge": "reprobe",
+            "protocols": [],
+            "gateway_availability": "reprobe",
+            "native_launch_available": True,
+            "reason_ids": ["provider_bridge_reprobe_required"],
+            "action": "reprobe",
+        }
+        inspect_args = argparse.Namespace(local_agent_id="generic-runtime", json=True)
+        assert runtime_handlers._handle_agent_runtime_inspect(inspect_args, config) == 0
+        inspect_payload = json.loads(capsys.readouterr().out)
+        assert inspect_payload["readiness"]["status"] == "reprobe"
+        assert inspect_payload["provider_bridge"] == {
+            "status": "unknown_until_reprobe",
+            "strategy": None,
+            "protocols": [],
+            "provider_ids": [],
+            "adapter_id": None,
+            "adapter_revision": None,
+            "model_selection": None,
+            "reason_ids": ["provider_bridge_reprobe_required"],
+        }
+        coordinator.probe_result = replace(
+            installed.probe,
+            provider_bridge=ManagedAcpProviderBridgeProjection(
+                status="ready",
+                strategy="openai_env",
+                protocols=("openai_chat_completions",),
+                provider_ids=(),
+                adapter_id="codex-acp",
+                adapter_revision="codex-acp-v1",
+                model_selection="config_override",
+                reason_ids=(),
+            ),
+        )
+        probe_args = argparse.Namespace(local_agent_id="generic-runtime", json=True)
+        assert runtime_handlers._handle_agent_runtime_probe(probe_args, config) == 0
+        probe_payload = json.loads(capsys.readouterr().out)
+        assert probe_payload["schema_version"] == 1
+        assert probe_payload["readiness"]["status"] == "ready"
+        assert probe_payload["provider_bridge"]["status"] == "ready"
         ManagedAgentActivationStore(tmp_path).deactivate("generic-runtime")
         activate_args = argparse.Namespace(
             local_agent_id="generic-runtime",

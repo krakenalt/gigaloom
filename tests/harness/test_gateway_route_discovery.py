@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from gigaloom.native.api import (
+    GatewayDiscoveryResult,
     GatewayDiscoveryReason,
     GatewayDiscoveryStatus,
     GatewayMode,
@@ -15,6 +16,10 @@ from gigaloom.native.api import (
     GatewayRouteDiscovery,
     GatewaySupportStatus,
     UrlLibGatewayMachineTransport,
+)
+from gigaloom.native.launch.gateway_discovery import (
+    GatewayRouteRefusal,
+    GatewayRouteResolver,
 )
 
 
@@ -108,7 +113,6 @@ def test_discovery_uses_only_public_get_contracts_and_builds_exact_route() -> No
     assert result.status is GatewayDiscoveryStatus.CURRENT
     assert result.catalog is not None
     assert transport.calls == [
-        ("http://127.0.0.1:8090", "/health", 3.0),
         ("http://127.0.0.1:8090", "/models", 3.0),
         ("http://127.0.0.1:8090", "/bridge/capabilities", 3.0),
     ]
@@ -129,6 +133,128 @@ def test_discovery_uses_only_public_get_contracts_and_builds_exact_route() -> No
     assert acp_route.support_status is GatewaySupportStatus.STABLE
 
 
+def test_salutedevices_model_owner_builds_gigachat_routes() -> None:
+    class SaluteDevicesTransport(FakeTransport):
+        def get_json(
+            self,
+            base_url: str,
+            path: str,
+            *,
+            timeout_seconds: float,
+        ) -> tuple[int, object]:
+            status, payload = super().get_json(
+                base_url,
+                path,
+                timeout_seconds=timeout_seconds,
+            )
+            if path == "/models":
+                assert isinstance(payload, dict)
+                model = payload["data"][0]
+                assert isinstance(model, dict)
+                payload = {
+                    **payload,
+                    "data": [{**model, "owned_by": "salutedevices"}],
+                }
+            return status, payload
+
+    result = GatewayRouteDiscovery(SaluteDevicesTransport()).discover(_profile())
+
+    assert result.status is GatewayDiscoveryStatus.CURRENT
+    assert result.catalog is not None
+    assert {route.agent_id for route in result.catalog.routes} == {"acp", "codex"}
+    assert {route.upstream_provider for route in result.catalog.routes} == {"gigachat"}
+
+
+def test_discovery_excludes_explicit_non_chat_models() -> None:
+    class MixedModelTransport(FakeTransport):
+        def get_json(
+            self,
+            base_url: str,
+            path: str,
+            *,
+            timeout_seconds: float,
+        ) -> tuple[int, object]:
+            status, payload = super().get_json(
+                base_url,
+                path,
+                timeout_seconds=timeout_seconds,
+            )
+            if path == "/models":
+                assert isinstance(payload, dict)
+                payload = {
+                    **payload,
+                    "data": [
+                        *payload["data"],
+                        {
+                            "id": "Embeddings",
+                            "object": "model",
+                            "owned_by": "salutedevices",
+                            "metadata": {"type": "embedder"},
+                        },
+                        {
+                            "id": "Reranker",
+                            "object": "model",
+                            "owned_by": "salutedevices",
+                            "type": "reranker",
+                        },
+                    ],
+                }
+            return status, payload
+
+    result = GatewayRouteDiscovery(MixedModelTransport()).discover(_profile())
+
+    assert result.status is GatewayDiscoveryStatus.CURRENT
+    assert result.catalog is not None
+    assert {route.public_model_alias for route in result.catalog.routes} == {
+        "GigaChat-2-Max"
+    }
+
+
+def test_one_resolver_projects_the_same_route_facts_for_native_and_acp() -> None:
+    discovery = GatewayRouteDiscovery(FakeTransport()).discover(_profile())
+    resolver = GatewayRouteResolver(discovery)
+
+    native = resolver.resolve(
+        _profile(),
+        requested_agent_kind="codex",
+        requested_model_alias="GigaChat-2-Max",
+    )
+    managed_acp = resolver.resolve(
+        _profile(),
+        requested_agent_kind="managed_acp",
+        requested_model_alias="GigaChat-2-Max",
+    )
+
+    assert not isinstance(native, GatewayRouteRefusal)
+    assert not isinstance(managed_acp, GatewayRouteRefusal)
+    assert native.gateway_id == managed_acp.gateway_id == "gpt2giga"
+    assert native.public_model_alias == managed_acp.public_model_alias
+    assert native.capability_digest == managed_acp.capability_digest
+    assert native.provider_protocol == "openai_responses"
+    assert managed_acp.provider_protocol == "openai_chat_completions"
+
+
+def test_route_resolver_returns_typed_refusal_for_stale_facts() -> None:
+    current = GatewayRouteDiscovery(FakeTransport()).discover(_profile())
+    assert current.catalog is not None
+    stale = GatewayDiscoveryResult(
+        GatewayDiscoveryStatus.STALE,
+        current.catalog,
+        (GatewayDiscoveryReason.MODELS_UNAVAILABLE,),
+    )
+
+    result = GatewayRouteResolver(stale).resolve(
+        _profile(),
+        requested_agent_kind="managed_acp",
+        requested_model_alias="GigaChat-2-Max",
+    )
+
+    assert result == GatewayRouteRefusal(
+        status="capability_stale",
+        reason_ids=("models_unavailable",),
+    )
+
+
 def test_fresh_cache_avoids_network_and_profile_digest_partitions_entries() -> None:
     transport = FakeTransport()
     now = datetime(2026, 8, 4, 10, 0, tzinfo=timezone.utc)
@@ -138,10 +264,10 @@ def test_fresh_cache_avoids_network_and_profile_digest_partitions_entries() -> N
     second = discovery.discover(_profile())
 
     assert second == first
-    assert len(transport.calls) == 3
+    assert len(transport.calls) == 2
     changed = replace(_profile(), profile_digest="b" * 64)
     discovery.discover(changed)
-    assert len(transport.calls) == 6
+    assert len(transport.calls) == 4
 
 
 def test_expired_cache_is_returned_only_as_stale_and_first_failure_is_unknown() -> None:
@@ -164,11 +290,11 @@ def test_expired_cache_is_returned_only_as_stale_and_first_failure_is_unknown() 
     assert stale.reason_ids == (GatewayDiscoveryReason.MODELS_UNAVAILABLE,)
 
     unknown_transport = FakeTransport()
-    unknown_transport.failure_path = "/health"
+    unknown_transport.failure_path = "/models"
     unknown = GatewayRouteDiscovery(unknown_transport).discover(_profile())
     assert unknown.status is GatewayDiscoveryStatus.UNKNOWN
     assert unknown.catalog is None
-    assert unknown.reason_ids == (GatewayDiscoveryReason.HEALTH_UNAVAILABLE,)
+    assert unknown.reason_ids == (GatewayDiscoveryReason.MODELS_UNAVAILABLE,)
 
 
 def test_unknown_capability_schema_fails_closed_without_routes() -> None:
