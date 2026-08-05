@@ -34,6 +34,7 @@ _PROTOCOL_AGENTS = {
     "anthropic_messages": "claude",
 }
 _PROVIDER_ALIASES = {
+    "salutedevices": "gigachat",
     "sber": "gigachat",
     "sberbank": "gigachat",
 }

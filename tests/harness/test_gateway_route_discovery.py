@@ -133,6 +133,38 @@ def test_discovery_uses_only_public_get_contracts_and_builds_exact_route() -> No
     assert acp_route.support_status is GatewaySupportStatus.STABLE
 
 
+def test_salutedevices_model_owner_builds_gigachat_routes() -> None:
+    class SaluteDevicesTransport(FakeTransport):
+        def get_json(
+            self,
+            base_url: str,
+            path: str,
+            *,
+            timeout_seconds: float,
+        ) -> tuple[int, object]:
+            status, payload = super().get_json(
+                base_url,
+                path,
+                timeout_seconds=timeout_seconds,
+            )
+            if path == "/models":
+                assert isinstance(payload, dict)
+                model = payload["data"][0]
+                assert isinstance(model, dict)
+                payload = {
+                    **payload,
+                    "data": [{**model, "owned_by": "salutedevices"}],
+                }
+            return status, payload
+
+    result = GatewayRouteDiscovery(SaluteDevicesTransport()).discover(_profile())
+
+    assert result.status is GatewayDiscoveryStatus.CURRENT
+    assert result.catalog is not None
+    assert {route.agent_id for route in result.catalog.routes} == {"acp", "codex"}
+    assert {route.upstream_provider for route in result.catalog.routes} == {"gigachat"}
+
+
 def test_one_resolver_projects_the_same_route_facts_for_native_and_acp() -> None:
     discovery = GatewayRouteDiscovery(FakeTransport()).discover(_profile())
     resolver = GatewayRouteResolver(discovery)
