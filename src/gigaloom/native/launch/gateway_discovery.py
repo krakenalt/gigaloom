@@ -223,12 +223,8 @@ class UrlLibGatewayMachineTransport:
             raise ValueError("gateway discovery path is not admitted")
         headers = {"accept": "application/json"}
         if self._api_key and self._api_key != "0":
-            headers.update(
-                {
-                    "authorization": f"Bearer {self._api_key}",
-                    "x-api-key": self._api_key,
-                }
-            )
+            headers["authorization"] = f"Bearer {self._api_key}"
+            headers["x-api-key"] = self._api_key
         request = Request(
             urljoin(base_url.rstrip("/") + "/", path.lstrip("/")),
             headers=headers,
@@ -237,8 +233,7 @@ class UrlLibGatewayMachineTransport:
         opener = build_opener(_NoRedirectHandler())
         try:
             with opener.open(request, timeout=timeout_seconds) as response:
-                payload = _read_bounded_json(response)
-                return int(response.status), payload
+                return int(response.status), _read_bounded_json(response)
         except HTTPError as error:
             _drain_bounded(error)
             return int(error.code), None
@@ -349,8 +344,6 @@ class GatewayRouteDiscovery:
                 matrix_revision=matrix_revision,
                 cells=cells,
             )
-        except GatewayDiscoveryError:
-            raise
         except (KeyError, TypeError, ValueError) as error:
             raise GatewayDiscoveryError(
                 GatewayDiscoveryReason.CONTRACT_INVALID
