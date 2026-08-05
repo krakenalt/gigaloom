@@ -6,7 +6,7 @@ GigaLoom is a local control plane for coding agents. Start a native CLI, install
 an ACP agent, or use the browser interface while keeping projects, worktrees,
 approvals, and stored state under local control.
 
-The current `0.9.0` line is the latest stable release.
+The current `0.9.1` line is the latest stable release.
 
 ## Start here
 

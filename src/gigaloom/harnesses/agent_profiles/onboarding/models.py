@@ -98,7 +98,7 @@ class ManagedAcpProviderBridgeProjection:
 
 
 def unknown_provider_bridge_projection() -> ManagedAcpProviderBridgeProjection:
-    """Return the additive migration state for a record created before 0.9.1."""
+    """Return the additive migration state for a record without bridge facts."""
     return ManagedAcpProviderBridgeProjection(
         status="unknown_until_reprobe",
         strategy=None,

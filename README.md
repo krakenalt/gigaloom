@@ -21,7 +21,7 @@ worktree, показывает подтверждения и результат�
 на macOS и Linux также нужен `tmux`; нативный запуск работает и без него.
 
 ```sh
-uv tool install 'gigaloom==0.9.0'
+uv tool install 'gigaloom==0.9.1'
 giga doctor
 giga ui
 ```
@@ -67,7 +67,7 @@ GigaLoom устанавливает выбранный артефакт в со�
 ```sh
 uv tool install --force \
   --with 'gpt2giga>=0.3.0,<0.4.0' \
-  'gigaloom[gpt2giga]==0.9.0'
+  'gigaloom[gpt2giga]==0.9.1'
 ```
 
 Если `giga agent inspect opencode --json` подтверждает готовность маршрута,

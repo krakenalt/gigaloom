@@ -10,10 +10,10 @@ identity такова:
 
 | Поверхность | Identity |
 |---|---|
-| Canonical release | `0.9.0` |
-| Git tag | `v0.9.0` |
-| PyPI | `gigaloom==0.9.0` |
-| npm | `@gigaloom/web@0.9.0` |
+| Canonical release | `0.9.1` |
+| Git tag | `v0.9.1` |
+| PyPI | `gigaloom==0.9.1` |
+| npm | `@gigaloom/web@0.9.1` |
 
 Root Python metadata, npm metadata, generated manifest, skeleton changelog,
 package-documentation snippets и `release/artifact-set.toml` должны точно

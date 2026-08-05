@@ -9,7 +9,7 @@ only for GigaChat routes or Direct Chat.
 ```sh
 uv tool install --force \
   --with 'gpt2giga>=0.3.0,<0.4.0' \
-  'gigaloom[gpt2giga]==0.9.0'
+  'gigaloom[gpt2giga]==0.9.1'
 ```
 
 GigaLoom uses the published package. A sibling `gpt2giga` source checkout is
