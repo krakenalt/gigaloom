@@ -6,10 +6,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from gigaloom.contracts.operational_validation import canonical_digest
-from gigaloom.harnesses.acp import (
-    AcpPermissionContextV1,
-    respond_permission,
-)
+from gigaloom.harnesses.acp import AcpPermissionContextV1, respond_permission
 from gigaloom.harnesses.acp.errors import AcpPermissionError
 from gigaloom.runtime.api import PermissionAction, PolicyDecision, permission_profile
 
@@ -47,12 +44,11 @@ def permission_context(
         "terminal": PermissionAction.PROCESS_SPAWN,
         "network": PermissionAction.NETWORK_CONNECT,
     }
-    allowed = {"reasoning"}
-    allowed.update(
+    allowed = {"reasoning"} | {
         action_class
         for action_class, action in action_map.items()
         if selected.decision_for(action) is PolicyDecision.ALLOW
-    )
+    }
     revision = canonical_digest(
         {
             "permission_profile": selected.id,
@@ -91,9 +87,5 @@ def answer_permission(client, binding, context, pending) -> None:  # noqa: ANN00
     )
 
 
-__all__ = [
-    "ManagedAcpAuthenticationRequired",
-    "answer_permission",
-    "is_canceled",
-    "permission_context",
-]
+__all__ = """ManagedAcpAuthenticationRequired answer_permission is_canceled
+permission_context""".split()

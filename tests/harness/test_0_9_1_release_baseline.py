@@ -93,3 +93,18 @@ def test_production_loc_baseline_covers_the_release_complexity_scope() -> None:
     assert baseline["totals"] == {"files": 34, "lines": 6712}
     assert sum(area["files"] for area in baseline["areas"].values()) == 34
     assert sum(area["lines"] for area in baseline["areas"].values()) == 6712
+
+
+def test_release_complexity_scope_does_not_grow_past_the_baseline() -> None:
+    baseline = _load(EVIDENCE / "production_loc_baseline_0_9_1.json")
+    files = {
+        path
+        for pattern in baseline["scope"]
+        for path in ROOT.glob(pattern)
+        if path.is_file()
+    }
+    lines = sum(len(path.read_text(encoding="utf-8").splitlines()) for path in files)
+
+    assert len(files) <= baseline["totals"]["files"] + 1
+    assert lines <= baseline["totals"]["lines"]
+    assert not (ROOT / "src/gigaloom/harnesses/managed_acp_gateway.py").exists()

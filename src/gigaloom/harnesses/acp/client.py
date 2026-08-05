@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 import threading
-from typing import Any
+from typing import Any, TypeVar
+
+from pydantic import BaseModel
 
 from gigaloom.harnesses.acp.contracts import (
     AcpCapabilitySnapshotV1,
@@ -22,6 +24,9 @@ from gigaloom.structured_processes import (
     StructuredProcessSupervisor,
     StructuredTransport,
 )
+
+
+_Response = TypeVar("_Response", bound=BaseModel)
 
 
 class AcpClient:
@@ -91,6 +96,32 @@ class AcpClient:
             self._snapshot = None
             self._sessions.clear()
             self._session_config_types.clear()
+
+    def call(self, method: str, request: BaseModel) -> Any:
+        """Send one typed request with the connection's reviewed timeout."""
+        return self.supervisor.request(
+            method,
+            request.model_dump(mode="json", by_alias=True, exclude_none=True),
+            timeout=self.limits.request_timeout_seconds,
+        )
+
+    def request(
+        self,
+        method: str,
+        request: BaseModel,
+        response_type: type[_Response],
+        *,
+        error: str,
+        forbid_extra: bool = False,
+    ) -> _Response:
+        """Send and validate one typed request without duplicating wire policy."""
+        try:
+            return response_type.model_validate(
+                self.call(method, request),
+                extra="forbid" if forbid_extra else None,
+            )
+        except (TypeError, ValueError) as exc:
+            raise AcpProtocolError(error) from exc
 
     def _register_session(self, binding: Any, config_types: Mapping[str, str]) -> None:
         with self._lock:

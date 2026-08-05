@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation
 import math
 from typing import Any
@@ -73,25 +73,9 @@ def project_context_usage(value: UsageUpdate) -> AcpContextUsageV1:
 
 def usage_payload(value: AcpContextUsageV1 | AcpTokenUsageV1) -> dict[str, Any]:
     """Return the provider-neutral JSON projection for an ephemeral event."""
-    if isinstance(value, AcpContextUsageV1):
-        return {
-            "used": value.used,
-            "size": value.size,
-            "cost": {
-                "amount": value.cost.amount,
-                "currency": value.cost.currency,
-                "quality": value.cost.quality,
-            },
-        }
-    return {
-        key: item
-        for key, item in {
-            "total_tokens": value.total_tokens,
-            "input_tokens": value.input_tokens,
-            "output_tokens": value.output_tokens,
-            "thought_tokens": value.thought_tokens,
-            "cached_read_tokens": value.cached_read_tokens,
-            "cached_write_tokens": value.cached_write_tokens,
-        }.items()
-        if item is not None
-    }
+    payload = asdict(value)
+    return (
+        payload
+        if isinstance(value, AcpContextUsageV1)
+        else {key: item for key, item in payload.items() if item is not None}
+    )

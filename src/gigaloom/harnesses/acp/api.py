@@ -1,5 +1,7 @@
 """Public facade for the generic ACP gateway."""
 
+# ruff: noqa: F401 - these imports are the facade's public surface.
+
 from gigaloom.harnesses.acp.authentication import (
     AcpAuthenticationReceiptV1,
     authenticate,
@@ -58,47 +60,15 @@ from gigaloom.harnesses.acp.sessions import (
     set_session_config,
 )
 
-__all__ = [
-    "ACP_PROTOCOL_VERSION",
-    "AcpAuthenticationReceiptV1",
-    "AcpCapabilitySnapshotV1",
-    "AcpClient",
-    "AcpClientInfo",
-    "AcpLimits",
-    "AcpProcessSpec",
-    "AcpProviderAdapterSpec",
-    "AcpProviderBridgeResolution",
-    "AcpProviderBridgeStatus",
-    "AcpProviderBridgeStrategy",
-    "AcpProviderLaunchOverlay",
-    "AcpProviderV1",
-    "AcpProbeReceiptV1",
-    "AcpPromptHandle",
-    "AcpPromptResultV1",
-    "AcpRouteIdentity",
-    "AcpSessionBindingV1",
-    "AcpSessionPageV1",
-    "AcpPermissionContextV1",
-    "AcpPermissionRequestV1",
-    "authenticate",
-    "begin_prompt",
-    "build_provider_launch_overlay",
-    "cancel_session",
-    "close_session",
-    "configure_provider",
-    "create_acp_client",
-    "delete_session",
-    "disable_provider",
-    "list_providers",
-    "list_sessions",
-    "logout",
-    "load_session",
-    "new_session",
-    "next_permission",
-    "pin_acp_process",
-    "respond_permission",
-    "resolve_provider_bridge",
-    "resume_session",
-    "run_non_persisting_probe",
-    "set_session_config",
-]
+__all__ = """
+ACP_PROTOCOL_VERSION AcpAuthenticationReceiptV1 AcpCapabilitySnapshotV1 AcpClient
+AcpClientInfo AcpLimits AcpProcessSpec AcpProviderAdapterSpec AcpProviderBridgeResolution
+AcpProviderBridgeStatus AcpProviderBridgeStrategy AcpProviderLaunchOverlay
+AcpProviderV1 AcpProbeReceiptV1 AcpPromptHandle AcpPromptResultV1 AcpRouteIdentity
+AcpSessionBindingV1 AcpSessionPageV1 AcpPermissionContextV1 AcpPermissionRequestV1
+authenticate begin_prompt build_provider_launch_overlay cancel_session close_session
+configure_provider create_acp_client delete_session disable_provider list_providers
+list_sessions logout load_session new_session next_permission pin_acp_process
+respond_permission resolve_provider_bridge resume_session run_non_persisting_probe
+set_session_config
+""".split()
