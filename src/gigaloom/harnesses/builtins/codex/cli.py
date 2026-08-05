@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
-from typing import Mapping
+from typing import TYPE_CHECKING, Mapping
 
 from gigaloom.codex_app_server import CodexAppServerSupervisor
 from gigaloom.cli_capabilities import (
@@ -58,6 +58,11 @@ MODE_TO_SANDBOX = {
 }
 GPT2GIGA_ATTACHMENT_IDS_HEADER = "x-gpt2giga-attachment-ids"
 
+if TYPE_CHECKING:
+    from gigaloom.harnesses.builtins.codex.app_server.dynamic_tools import (
+        ThreadRelayToolProviderFactory,
+    )
+
 
 class CodexCliHarness(BaseHarness):
     """Run Codex CLI in non-interactive mode against gpt2giga."""
@@ -71,6 +76,25 @@ class CodexCliHarness(BaseHarness):
         self.executable_resolver = executable_resolver or ExecutableResolver.path_only()
         self.app_server_supervisor = app_server_supervisor
         self._app_server_supervisors: dict[str, CodexAppServerSupervisor] = {}
+        self._dynamic_tool_provider_factory: ThreadRelayToolProviderFactory | None = (
+            None
+        )
+
+    def bind_dynamic_tool_provider(
+        self,
+        provider: ThreadRelayToolProviderFactory,
+    ) -> None:
+        """Bind request-scoped tools to current and future app-server owners."""
+        if (
+            self._dynamic_tool_provider_factory is not None
+            and self._dynamic_tool_provider_factory != provider
+        ):
+            raise ValueError("Codex dynamic tool provider is already bound")
+        self._dynamic_tool_provider_factory = provider
+        if self.app_server_supervisor is not None:
+            self.app_server_supervisor.bind_dynamic_tool_provider(provider)
+        for supervisor in self._app_server_supervisors.values():
+            supervisor.bind_dynamic_tool_provider(provider)
 
     @classmethod
     def spec(cls) -> HarnessSpec:
@@ -380,7 +404,12 @@ class CodexCliHarness(BaseHarness):
             if supervisor is None:
                 supervisor = self._app_server_supervisors.setdefault(
                     context.data_dir,
-                    CodexAppServerSupervisor(context.data_dir),
+                    CodexAppServerSupervisor(
+                        context.data_dir,
+                        dynamic_tool_provider_factory=(
+                            self._dynamic_tool_provider_factory
+                        ),
+                    ),
                 )
             result = supervisor.run_turn(
                 request,

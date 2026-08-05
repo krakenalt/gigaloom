@@ -7,11 +7,13 @@ from gigaloom.tools.policy import (
     ToolPolicyResolution,
 )
 from gigaloom.tools.thread_relay import (
+    THREAD_RELAY_APPROVAL_OWNER,
     THREAD_RELAY_TOOL_IDS,
     THREAD_RELAY_TOOL_PROVIDER_ID,
     RestrictedThreadRelayTools,
     ThreadRelayToolActions,
     ThreadRelayToolScope,
+    thread_relay_approval_binding,
 )
 from gigaloom.tools.secrets import (
     MAX_SECRET_CACHE_TTL_SECONDS,
@@ -62,9 +64,11 @@ __all__ = [
     "ToolRisk",
     "THREAD_RELAY_TOOL_IDS",
     "THREAD_RELAY_TOOL_PROVIDER_ID",
+    "THREAD_RELAY_APPROVAL_OWNER",
     "RestrictedThreadRelayTools",
     "ThreadRelayToolActions",
     "ThreadRelayToolScope",
+    "thread_relay_approval_binding",
     "secret_reference_from_dict",
     "secret_reference_to_dict",
     "secret_resolution_evidence_to_dict",

@@ -4,6 +4,12 @@
 .settings-header h1 { margin: 3px 0 0; font-size: 25px; }
 .settings-header p { max-width: 760px; margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .settings-header .primary-button { flex: none; margin-top: 8px; }
+.settings-personalization-link { width: min(310px, 42vw); min-height: 64px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 10px; border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border)); border-radius: 10px; background: var(--accent-soft); padding: 10px 12px; color: var(--text); text-decoration: none; }
+.settings-personalization-link > span:first-child { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; background: var(--surface); color: var(--accent); font-size: 18px; }
+.settings-personalization-link > span:last-child { min-width: 0; display: grid; gap: 3px; }
+.settings-personalization-link strong { font-size: 12px; }
+.settings-personalization-link small { color: var(--muted); font-size: 9px; line-height: 1.4; }
+.settings-personalization-link:hover, .settings-personalization-link:focus-visible { border-color: var(--accent); }
 .settings-layout { display: grid; grid-template-columns: 220px minmax(0, 820px); justify-content: center; gap: 28px; padding: 24px 28px 60px; }
 .settings-category-rail { position: sticky; top: 82px; height: fit-content; display: grid; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: var(--surface); }
 .settings-category-rail a { min-height: 40px; display: flex; align-items: center; border-bottom: 1px solid var(--border); color: var(--muted); padding: 0 13px; text-decoration: none; font-size: 11px; font-weight: 700; }
@@ -110,6 +116,7 @@
   .settings-header { min-height: auto; align-items: stretch; flex-direction: column; gap: 12px; padding: 15px 14px; }
   .settings-header h1 { font-size: 21px; }
   .settings-header .primary-button { width: 100%; margin: 0; }
+  .settings-personalization-link { width: 100%; }
   .settings-layout { display: block; padding: 10px 10px 40px; }
   .settings-category-rail { position: static; display: flex; gap: 6px; overflow-x: auto; border: 0; border-radius: 0; background: transparent; padding: 0 0 10px; }
   .settings-category-rail a { min-height: 38px; flex: none; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); padding: 0 11px; }

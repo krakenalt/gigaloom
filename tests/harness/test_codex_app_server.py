@@ -29,6 +29,7 @@ from gigaloom.structured_sessions import (
     StructuredTurnInput,
     structured_session_link_from_dict,
 )
+from gigaloom.tools import RestrictedThreadRelayTools, ThreadRelayToolScope
 from gigaloom.types import (
     GigaChatApiMode,
     HarnessContext,
@@ -163,6 +164,150 @@ class _FakeAppServerClient:
 
     def close(self) -> None:
         self._alive = False
+
+
+class _ThreadRelayActions:
+    def __init__(self, runtime_store: RuntimeCoordinationStore | None = None) -> None:
+        self.calls: list[tuple[str, Any]] = []
+        self.runtime_store = runtime_store
+
+    def list_threads(self, *, source: str, cursor: str | None, limit: int):
+        self.calls.append(("list", (source, cursor, limit)))
+        return {"threads": [{"thread_id": "target-thread"}], "next_cursor": None}
+
+    def read_thread(
+        self,
+        *,
+        source: str,
+        thread_id: str,
+        cursor: str | None,
+        limit: int,
+    ):
+        self.calls.append(("read", (source, thread_id, cursor, limit)))
+        return {"thread": {"thread_id": thread_id}}
+
+    def preview_agent_send(self, payload: Mapping[str, Any]):
+        self.calls.append(("preview", dict(payload)))
+        return {
+            "preview_digest": "a" * 64,
+            "content_digest": "b" * 64,
+            "target_revision": payload["expected_target_revision"],
+        }
+
+    def send_agent_approved(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        preview_digest: str,
+        approval_receipt_ref: str,
+    ):
+        self.calls.append(
+            ("send", (dict(payload), preview_digest, approval_receipt_ref))
+        )
+        if (
+            self.runtime_store is not None
+            and not self.runtime_store.consume_matching_approval_grant(
+                action=PermissionAction.MCP_TOOL_CALL,
+                project_id="project-1",
+                run_id=None,
+                job_id=None,
+                approval_binding=approval_receipt_ref,
+                enforcement_owner="thread_relay.agent_send",
+            )
+        ):
+            raise PermissionError("thread relay approval was not consumable")
+        return {"receipt": {"delivery_id": "delivery-1", "status": "accepted"}}
+
+    def status(self, delivery_id: str):
+        self.calls.append(("status", delivery_id))
+        return {"receipt": {"delivery_id": delivery_id, "status": "accepted"}}
+
+
+def _thread_relay_provider(
+    actions: _ThreadRelayActions,
+) -> RestrictedThreadRelayTools:
+    return RestrictedThreadRelayTools(
+        scope=ThreadRelayToolScope("actor-1", "project-1"),
+        actions=actions,
+    )
+
+
+class _ThreadRelayListAppServerClient(_FakeAppServerClient):
+    def request(
+        self, method: str, params: Mapping[str, Any], *, timeout: float
+    ) -> Mapping[str, Any]:
+        result = super().request(method, params, timeout=timeout)
+        if method == "turn/start":
+            self.messages.appendleft(
+                {
+                    "id": "thread-tool-list-1",
+                    "method": "item/tool/call",
+                    "params": {
+                        "callId": "call-list-1",
+                        "threadId": params["threadId"],
+                        "turnId": result["turn"]["id"],
+                        "namespace": "thread",
+                        "tool": "list",
+                        "arguments": {"limit": 5},
+                    },
+                }
+            )
+        return result
+
+
+class _ThreadRelaySendAppServerClient(_FakeAppServerClient):
+    def request(
+        self, method: str, params: Mapping[str, Any], *, timeout: float
+    ) -> Mapping[str, Any]:
+        result = super().request(method, params, timeout=timeout)
+        if method == "turn/start":
+            self.messages.appendleft(
+                {
+                    "id": "thread-tool-send-1",
+                    "method": "item/tool/call",
+                    "params": {
+                        "callId": "call-send-1",
+                        "threadId": params["threadId"],
+                        "turnId": result["turn"]["id"],
+                        "namespace": "thread",
+                        "tool": "send",
+                        "arguments": {
+                            "source": "gigaloom",
+                            "source_thread_id": "source-thread",
+                            "thread_id": "target-thread",
+                            "text": "Private follow-up text",
+                            "intent": "follow_up",
+                            "expected_target_revision": "revision-1",
+                            "idempotency_key": "relay-1",
+                            "expires_at": "2026-08-05T18:00:00Z",
+                            "attachment_refs": [],
+                        },
+                    },
+                }
+            )
+        return result
+
+
+class _CompactionAppServerClient(_FakeAppServerClient):
+    def request(
+        self, method: str, params: Mapping[str, Any], *, timeout: float
+    ) -> Mapping[str, Any]:
+        if method == "thread/compact/start":
+            payload = dict(params)
+            self.recorder.append((method, payload))
+            lifecycle = {
+                "threadId": payload["threadId"],
+                "turnId": "compact-turn-1",
+                "item": {"id": "compact-item-1", "type": "contextCompaction"},
+            }
+            self.messages.extend(
+                (
+                    {"method": "item/started", "params": lifecycle},
+                    {"method": "item/completed", "params": lifecycle},
+                )
+            )
+            return {}
+        return super().request(method, params, timeout=timeout)
 
 
 def test_turn_plan_update_is_normalized_for_workbench_rendering():
@@ -308,6 +453,32 @@ def test_collab_tool_exposes_subagent_identity_and_prompt():
             }
         ],
     }
+
+
+def test_dynamic_thread_tool_event_persists_only_argument_shape():
+    event, text = _normalize_notification(
+        "item/completed",
+        {
+            "item": {
+                "id": "relay-1",
+                "type": "dynamicToolCall",
+                "tool": "send",
+                "status": "completed",
+                "arguments": {
+                    "thread_id": "target-thread",
+                    "text": "Private follow-up text",
+                },
+            }
+        },
+    )
+
+    assert text is None
+    assert event is not None
+    assert event.payload["arguments"] == {
+        "argument_keys": ["text", "thread_id"],
+        "content_redacted": True,
+    }
+    assert "Private follow-up text" not in repr(event.payload)
 
 
 def test_collab_child_tools_are_nested_under_spawn_call():
@@ -722,6 +893,166 @@ def test_two_prompts_share_one_app_server_thread_and_process(tmp_path):
         "first prompt" not in item.read_text(encoding="utf-8")
         for item in tmp_path.rglob("*.json")
     )
+
+
+def test_new_codex_thread_registers_agent_thread_tools_without_mention(tmp_path):
+    recorder: list[tuple[str, dict[str, Any]]] = []
+    actions = _ThreadRelayActions()
+    provider = _thread_relay_provider(actions)
+    supervisor = CodexAppServerSupervisor(
+        tmp_path,
+        client_factory=lambda **kwargs: _ThreadRelayListAppServerClient(
+            recorder=recorder, **kwargs
+        ),
+        dynamic_tool_provider_factory=lambda _request: provider,
+    )
+    request = _request(tmp_path, session_id="sess-thread-tools")
+    result = supervisor.run_turn(
+        request,
+        HarnessContext(
+            proxy_url="http://127.0.0.1:8090",
+            api_key="test-key",
+            data_dir=str(tmp_path),
+        ),
+        resolution=_resolution(),
+        prompt="Find the target chat",
+        continuation=_continuation(
+            build_execution_snapshot(request, managed_home_id="apphome-test"),
+            prompt_id="msg-thread-list",
+        ),
+    )
+
+    assert result.ok is True
+    thread_start = next(
+        params for method, params in recorder if method == "thread/start"
+    )
+    namespace = thread_start["dynamicTools"][0]
+    assert namespace["type"] == "namespace"
+    assert namespace["name"] == "thread"
+    assert [tool["name"] for tool in namespace["tools"]] == [
+        "list",
+        "read",
+        "send",
+        "status",
+    ]
+    response = next(
+        params
+        for method, params in recorder
+        if method == "response" and params["id"] == "thread-tool-list-1"
+    )
+    assert response["result"]["success"] is True
+    assert json.loads(response["result"]["contentItems"][0]["text"])["threads"] == [
+        {"thread_id": "target-thread"}
+    ]
+    assert actions.calls == [("list", ("gigaloom", None, 5))]
+
+
+def test_agent_thread_send_requires_and_consumes_exact_user_approval(tmp_path):
+    recorder: list[tuple[str, dict[str, Any]]] = []
+    store = RuntimeCoordinationStore(tmp_path)
+    actions = _ThreadRelayActions(store)
+    provider = _thread_relay_provider(actions)
+    supervisor = CodexAppServerSupervisor(
+        tmp_path,
+        client_factory=lambda **kwargs: _ThreadRelaySendAppServerClient(
+            recorder=recorder, **kwargs
+        ),
+        dynamic_tool_provider_factory=lambda _request: provider,
+    )
+    request = _request(tmp_path, session_id="sess-thread-send")
+    context = HarnessContext(
+        proxy_url="http://127.0.0.1:8090",
+        api_key="test-key",
+        data_dir=str(tmp_path),
+        timeout_seconds=2,
+    )
+    outcome: dict[str, Any] = {}
+    worker = threading.Thread(
+        target=lambda: outcome.setdefault(
+            "result",
+            supervisor.run_turn(
+                request,
+                context,
+                resolution=_resolution(),
+                prompt="Send a follow-up to the target chat",
+                continuation=_continuation(
+                    build_execution_snapshot(
+                        request,
+                        managed_home_id="apphome-test",
+                    ),
+                    prompt_id="msg-thread-send",
+                ),
+            ),
+        )
+    )
+    worker.start()
+    deadline = time.monotonic() + 2
+    pending = ()
+    while time.monotonic() < deadline:
+        pending = store.list_approval_requests(status=ApprovalStatus.PENDING)
+        if pending:
+            break
+        time.sleep(0.01)
+    assert len(pending) == 1
+    approval = pending[0]
+    assert approval.action is PermissionAction.MCP_TOOL_CALL
+    assert approval.project_id == "project-1"
+    assert approval.run_id is None
+    assert approval.enforcement_owner == "thread_relay.agent_send"
+    assert "Private follow-up text" not in repr(approval.preview)
+    store.decide_approval_request(approval.id, ApprovalDecision.ALLOW_ONCE)
+    worker.join(timeout=2)
+
+    assert not worker.is_alive()
+    assert outcome["result"].ok is True
+    response = next(
+        params
+        for method, params in recorder
+        if method == "response" and params["id"] == "thread-tool-send-1"
+    )
+    content = json.loads(response["result"]["contentItems"][0]["text"])
+    assert response["result"]["success"] is True
+    assert content["requires_user_approval"] is False
+    assert content["delivery"]["receipt"]["status"] == "accepted"
+    assert [name for name, _value in actions.calls] == [
+        "preview",
+        "preview",
+        "send",
+    ]
+    assert store.list_approval_grants()[0].uses_remaining == 0
+
+
+def test_idle_loaded_codex_thread_compacts_through_exact_lifecycle(tmp_path):
+    recorder: list[tuple[str, dict[str, Any]]] = []
+    supervisor = CodexAppServerSupervisor(
+        tmp_path,
+        client_factory=lambda **kwargs: _CompactionAppServerClient(
+            recorder=recorder, **kwargs
+        ),
+    )
+    request = _request(tmp_path, session_id="sess-compact")
+    result = supervisor.run_turn(
+        request,
+        HarnessContext(
+            proxy_url="http://127.0.0.1:8090",
+            api_key="test-key",
+            data_dir=str(tmp_path),
+        ),
+        resolution=_resolution(),
+        prompt="A completed turn",
+        continuation=_continuation(
+            build_execution_snapshot(request, managed_home_id="apphome-test"),
+            prompt_id="msg-before-compact",
+        ),
+    )
+
+    assert result.ok is True
+    compacted = supervisor.compact_thread("sess-compact")
+
+    assert compacted.turn_id == "compact-turn-1"
+    assert compacted.item_id == "compact-item-1"
+    assert len(compacted.thread_digest) == 64
+    assert ("thread/compact/start", {"threadId": "thread-1"}) in recorder
 
 
 def test_app_server_uses_generic_driver_and_private_structured_link(tmp_path):

@@ -9,8 +9,6 @@ import {
 
 vi.mock("../../api/threadRelay", () => ({
   fetchThreadRead: vi.fn(),
-  previewThreadDelivery: vi.fn(),
-  sendThreadDelivery: vi.fn(),
 }));
 
 describe("chat mention materialization", () => {

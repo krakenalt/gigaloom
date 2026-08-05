@@ -25,6 +25,20 @@ thread and can deliver one user-role message to a supported target. Reads are
 bounded and redacted. It does not copy a whole transcript, request hidden
 reasoning, read provider-private homes, or create an autonomous relay loop.
 
+For a new Codex CLI chat, GigaLoom registers `thread.list`, `thread.read`,
+`thread.send`, and `thread.status` as agent tools when the upstream thread is
+created. The agent can therefore find and address another chat in the same
+project without an `@` mention or a user-facing send control. Existing upstream
+threads do not gain dynamic tools retroactively; start or fork a chat to make
+them available.
+
+`thread.send` always produces a content-free preview first. Delivery happens
+only after the user approves that exact actor, project, target revision, and
+preview in Approval Center. The grant is consumed once, and the retained
+receipt contains digests and status facts rather than message text. The compact
+`@` picker remains only for adding context, capabilities, or repository files
+to the current draft.
+
 List and inspect a local project thread:
 
 ```sh
@@ -56,6 +70,14 @@ adapter capability is available. Steering additionally requires the exact
 active turn id. Actor/project binding, revision, TTL, idempotency, relay depth,
 and attachment availability are revalidated before mutation. Receipts retain
 content digests and bounded status facts, not message text.
+
+## Compact a Codex chat
+
+In Work, enter `/compact` as the entire draft or choose **+ -> Compact
+context**. GigaLoom invokes Codex app-server's native compaction operation for
+the exact idle, already loaded thread; `/compact` is not sent to the model as a
+prompt. A live app-server owner and the current run revision are required, and
+the response retains only content-free upstream identifiers.
 
 ## Editor schemas
 

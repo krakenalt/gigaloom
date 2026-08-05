@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ChatMention } from "../../chat-mentions";
 import type { SkillMention } from "../../skill-mentions";
-import { ChatRelayPicker, MentionPicker } from "./MentionPicker";
+import { compactMentionCandidates, MentionPicker } from "./MentionPicker";
 
 const skill = mention("skill", "review", "Review a code change.");
 const plugin = mention("plugin", "pdf", "Read and create PDF documents.");
@@ -17,72 +17,77 @@ const chat: ChatMention = {
   threadId: "chat-two",
   title: "Release review",
   updatedAt: "2026-08-04T12:00:00Z",
-  visibleMessages: [{
-    content: "Ship after focused checks.",
-    content_digest: "sha256:message",
-    created_at: "2026-08-04T12:00:00Z",
-    message_id: "message-one",
-    redacted: false,
-    role: "assistant",
-    schema_version: 1,
-  }],
+  visibleMessages: [],
 };
 
-describe("unified @ picker", () => {
-  it("explains and visually distinguishes skills, plugins, chats, and files", () => {
+describe("compact @ picker", () => {
+  it("shows one flat, keyboard-selectable result list without relay actions", () => {
     const markup = renderToStaticMarkup(
       <MentionPicker
-        chats={[chat]}
+        candidates={[
+          { kind: "skill", skill },
+          { kind: "plugin", skill: plugin },
+          { kind: "chat", chat },
+          {
+            kind: "file",
+            file: { kind: "text", name: "README.md", path: "README.md", size_bytes: 42 },
+          },
+        ]}
         chatStatus="ready"
-        files={[{ kind: "text", name: "README.md", path: "README.md", size_bytes: 42 }]}
         fileStatus="ready"
-        inspectedChat={chat}
         locale="en"
-        onChooseChat={vi.fn()}
-        onChooseFile={vi.fn()}
-        onChooseSkill={vi.fn()}
-        onReadChat={vi.fn()}
-        onSendChat={vi.fn()}
-        plugins={[plugin]}
+        onChoose={vi.fn()}
         selectedIndex={2}
-        sendEnabled
-        sendPendingChatId={null}
-        skills={[skill]}
       />,
     );
 
-    expect(markup).toContain("Type @ to add context or a capability");
+    expect(markup).toContain("Keep typing to filter");
     expect(markup).toContain("data-kind=\"skill\"");
     expect(markup).toContain("data-kind=\"plugin\"");
     expect(markup).toContain("data-kind=\"chat\"");
     expect(markup).toContain("data-kind=\"file\"");
-    expect(markup).toContain("Read");
-    expect(markup).toContain("Mention");
-    expect(markup).toContain("Send");
-    expect(markup).toContain("Bounded chat preview");
-    expect(markup).toContain("<svg");
+    expect(markup.match(/role="option"/g)).toHaveLength(4);
+    expect(markup).not.toContain("Send to another chat");
+    expect(markup).not.toContain(">Send<");
+    expect(markup).not.toContain("mention-group");
   });
 
-  it("exposes Thread Relay as a dedicated chat delivery picker", () => {
+  it("uses concise localized empty copy while candidates load", () => {
     const markup = renderToStaticMarkup(
-      <ChatRelayPicker
-        chats={[chat]}
-        chatStatus="ready"
-        inspectedChat={chat}
-        locale="en"
-        onClose={vi.fn()}
-        onReadChat={vi.fn()}
-        onSendChat={vi.fn()}
-        sendEnabled
-        sendPendingChatId={null}
+      <MentionPicker
+        candidates={[]}
+        chatStatus="loading"
+        fileStatus="ready"
+        locale="ru"
+        onChoose={vi.fn()}
+        selectedIndex={0}
       />,
     );
 
-    expect(markup).toContain("Send to another chat");
-    expect(markup).toContain("Release review");
-    expect(markup).toContain(">Send<");
-    expect(markup).not.toContain(">Mention<");
-    expect(markup).toContain('id="composer-chat-relay-picker"');
+    expect(markup).toContain("Ищем подходящие варианты…");
+  });
+
+  it("keeps every available kind visible before filling the six-item limit", () => {
+    const candidates = compactMentionCandidates([
+      [skill, mention("skill", "second", "Second skill")].map((item) => ({
+        kind: "skill" as const,
+        skill: item,
+      })),
+      [{ kind: "plugin" as const, skill: plugin }],
+      [{ kind: "chat" as const, chat }],
+      [{
+        kind: "file" as const,
+        file: { kind: "text", name: "README.md", path: "README.md", size_bytes: 42 },
+      }],
+    ]);
+
+    expect(candidates.map((candidate) => candidate.kind)).toEqual([
+      "skill",
+      "plugin",
+      "chat",
+      "file",
+      "skill",
+    ]);
   });
 });
 

@@ -16,6 +16,10 @@ const workbench = readFileSync(
   fileURLToPath(new URL("./surfaces/workbench.tsx", import.meta.url)),
   "utf8",
 );
+const plusMenu = readFileSync(
+  fileURLToPath(new URL("./features/workbench/ComposerPlusMenu.tsx", import.meta.url)),
+  "utf8",
+);
 
 describe("workbench viewport containment", () => {
   it("keeps a resized composer inside the workbench viewport", () => {
@@ -39,8 +43,10 @@ describe("workbench viewport containment", () => {
     expect(workbench).not.toContain('message(locale, "streamResponse")');
     expect(workbench).toContain('className="composer-tool-picker"');
     expect(workbench).toContain("admittedBuiltinToolSelection(");
-    expect(workbench).toContain('message(locale, "toolsAndIntegrations")');
-    expect(workbench).toContain("<ChatRelayToggle");
+    expect(plusMenu).toContain('message(locale, "toolsAndIntegrations")');
+    expect(workbench).toContain('composerCommand(prompt) === "compact"');
+    expect(plusMenu).toContain('message(locale, "compactContext")');
+    expect(workbench).not.toContain("<ChatRelayToggle");
     expect(workbench).toContain("<ChatMentionMessageContent");
   });
 });

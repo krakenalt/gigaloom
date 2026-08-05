@@ -11,6 +11,8 @@ export const enSettings = {
   useChatModel: "Use chat model",
   appearanceHint: "Local language and theme preferences apply immediately in this browser.",
   personalization: "Personalization",
+  personalizationShortcut: "Personalize your agent",
+  personalizationShortcutHint: "Set how Codex should work with you in new chats",
   personalizationHint: "Versioned instructions added to new Codex sessions from an isolated managed config.",
   additionalInstructions: "Additional instructions",
   additionalInstructionsPlaceholder: "How should Codex work with you across new sessions?",

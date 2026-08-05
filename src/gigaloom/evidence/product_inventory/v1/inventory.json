@@ -680,7 +680,7 @@
       }
     ]
   },
-  "content_sha256": "680306ac45082f2b61de731bbb277817e56d24a1aee470b89f699fb0a1e0d235",
+  "content_sha256": "c6e045d10343a7b4adecf0097eba8ecb63bb302c2546abb1b79ac6f2ef620e92",
   "contract_tests": [
     "tests/harness/test_capability_matrix.py",
     "tests/harness/test_cli_capabilities.py",
@@ -1964,6 +1964,11 @@
         "method": "POST",
         "name": "cancel_run",
         "path": "/api/runs/{run_id}/cancel"
+      },
+      {
+        "method": "POST",
+        "name": "compact_run_context",
+        "path": "/api/runs/{run_id}/compact"
       },
       {
         "method": "GET",

@@ -21,9 +21,11 @@ export const ruWorkbench = {
   attachmentEncodingTruncated: "усечено",
   attachmentPreview: "Предпросмотр вложения",
   toolsAndIntegrations: "Инструменты и интеграции",
-  sendToAnotherChat: "Отправить в другой чат",
-  sendToAnotherChatHint: "Проверить preview и доставить черновик через Thread Relay",
   chatContext: "Контекст чата",
+  compactContext: "Сжать контекст",
+  compactContextHint: "Освободить место в контексте; также можно ввести /compact",
+  compactCompleted: "Контекст сжат. Можно продолжать работу в этом чате.",
+  compactUnavailable: "Сначала запустите задачу через Codex CLI в этом чате.",
   toolPickerMenuHint: "Поиск возможностей GigaChat, агента, MCP, Skills и Plugins",
   toolPickerTitle: "Выберите инструменты и интеграции",
   toolPickerHint:

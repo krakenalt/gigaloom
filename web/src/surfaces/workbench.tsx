@@ -18,9 +18,14 @@ import {
   AttachmentGallery,
   useAttachmentActions,
 } from "../features/workbench/attachment-actions";
-import { useComposerController } from "../features/workbench/composer-controller";
+import { composerCommand, useComposerController } from "../features/workbench/composer-controller";
+import { useCompactContext } from "../features/workbench/compact-controller";
+import { ComposerPlusMenu } from "../features/workbench/ComposerPlusMenu";
 import { ComposerTextarea } from "../features/workbench/ComposerTextarea";
-import { ChatRelayFeedback, useChatMentionController } from "../features/workbench/chat-mention-controller";
+import {
+  ChatMentionFeedback,
+  useChatMentionController,
+} from "../features/workbench/chat-mention-controller";
 import {
   gatewayRouteAgentForHarness,
   useReviewedRouteBinding,
@@ -37,8 +42,13 @@ import {
   useEnvironmentActions,
 } from "../features/workbench/environment-actions";
 import { useDeferredWorkbenchProjection } from "../features/workbench/lazy-projections";
-import { ComposerSelectionChips, MentionPicker } from "../features/workbench/MentionPicker";
-import { ChatMentionMessageContent, ChatRelayComposerPicker, ChatRelayToggle } from "../features/workbench/chat-relay-ui";
+import {
+  ComposerSelectionChips,
+  compactMentionCandidates,
+  MentionPicker,
+  type MentionCandidate,
+} from "../features/workbench/MentionPicker";
+import { ChatMentionMessageContent } from "../features/workbench/chat-relay-ui";
 import { useWorkbenchSessionEntry } from "../features/workbench/session-entry";
 import {
   GeneratedFilePreview,
@@ -87,6 +97,7 @@ import {
   requestKeys,
   refreshSessionAfterRunStart,
   refreshSessionRevision,
+  runOverviewOptions,
   harnessesOptions,
   modelsOptions,
   sessionAttachmentsOptions,
@@ -126,10 +137,7 @@ import {
   useRunEventStreamSelector,
   useRunEventStreamStore,
 } from "../stream-store";
-import {
-  projectWorkbenchStream,
-  workbenchRunActive,
-} from "../workbench-model";
+import { projectWorkbenchStream, workbenchRunActive } from "../workbench-model";
 import {
   activeAtQuery,
   admittedExecutionTransport,
@@ -184,7 +192,6 @@ export function WorkbenchSurface() {
   const {
     atSelection,
     builtinTools,
-    chatPickerOpen,
     composerCaret,
     composerRef,
     draggingFiles,
@@ -196,7 +203,6 @@ export function WorkbenchSurface() {
     selectedSkills,
     setAtSelection,
     setBuiltinTools,
-    setChatPickerOpen,
     setComposerCaret,
     setDraggingFiles,
     setModelMenuOpen,
@@ -331,11 +337,9 @@ export function WorkbenchSurface() {
   );
   const chatMentions = useChatMentionController({
     atQuery,
-    browseChats: chatPickerOpen,
     composerRef,
     currentProjectId,
     currentRevision: overview.data?.snapshot_revision ?? null,
-    currentTitle: overview.data?.session.title ?? "Current chat",
     deferredQuery: deferredAtQuery,
     locale,
     prompt,
@@ -408,6 +412,11 @@ export function WorkbenchSurface() {
   const retainedLatestRun = latestRun(runs.data?.runs ?? []);
   const selectedRunId =
     sessionId === undefined ? retainedLatestRun?.id : startedRuns[sessionId] ?? retainedLatestRun?.id;
+  const selectedRun = (runs.data?.runs ?? []).find((run) => run.id === selectedRunId);
+  const selectedRunOverview = useQuery({
+    ...runOverviewOptions(selectedRunId ?? "pending"),
+    enabled: selectedRunId !== undefined && selectedRun?.harness_id === "codex-cli",
+  });
   const locallyStartedRunSelected =
     sessionId !== undefined && startedRuns[sessionId] === selectedRunId;
   const streamStore = useRunEventStreamStore(
@@ -635,6 +644,17 @@ export function WorkbenchSurface() {
     },
   });
 
+  const compactContext = useCompactContext({
+    locale,
+    onCompacted: () => {
+      setPrompt("");
+      setComposerCaret(0);
+    },
+    revision: selectedRunOverview.data?.snapshot_revision,
+    runId: selectedRunId,
+    sessionId,
+  });
+
   const changeSession = useMutation({
     mutationFn: ({ action, id }: { action: SessionAction; id: string }) =>
       action === "archive"
@@ -798,7 +818,6 @@ export function WorkbenchSurface() {
     locallyStartedRunId,
     streamPresentation.terminalEvent,
   );
-  const selectedRun = (runs.data?.runs ?? []).find((run) => run.id === selectedRunId);
   const selectedNativeProcessId =
     selectedRun?.native_process_id ?? undefined;
 
@@ -904,12 +923,12 @@ export function WorkbenchSurface() {
     }
   };
   const workspaceFileCandidates = workspaceFiles.data?.files ?? [];
-  const atCandidates = [
-    ...availableSkills.map((skill) => ({ kind: "skill" as const, skill })),
-    ...availablePlugins.map((skill) => ({ kind: "skill" as const, skill })),
-    ...chatMentions.availableChats.map((chat) => ({ kind: "chat" as const, chat })),
-    ...workspaceFileCandidates.map((file) => ({ kind: "file" as const, file })),
-  ];
+  const atCandidates: MentionCandidate[] = compactMentionCandidates([
+    availableSkills.map((skill) => ({ kind: "skill" as const, skill })),
+    availablePlugins.map((skill) => ({ kind: "plugin" as const, skill })),
+    chatMentions.availableChats.map((chat) => ({ kind: "chat" as const, chat })),
+    workspaceFileCandidates.map((file) => ({ kind: "file" as const, file })),
+  ]);
   const chooseWorkspaceFile = (path: string) => {
     if (atQuery === null || attachmentActions.attachWorkspaceFile.isPending) return;
     attachmentActions.attachWorkspaceFile.mutate({ path, token: atQuery });
@@ -923,12 +942,26 @@ export function WorkbenchSurface() {
     setAtSelection(0);
     requestAnimationFrame(() => composerRef.current?.focus());
   };
-  const chooseAtCandidate = (index: number) => {
-    const candidate = atCandidates[index];
-    if (candidate?.kind === "skill") chooseSkill(candidate.skill);
+  const chooseMentionCandidate = (candidate: MentionCandidate | undefined) => {
+    if (candidate?.kind === "skill" || candidate?.kind === "plugin") {
+      chooseSkill(candidate.skill);
+    }
     if (candidate?.kind === "chat") chatMentions.chooseChat(candidate.chat);
     if (candidate?.kind === "file") chooseWorkspaceFile(candidate.file.path);
   };
+  const submitComposer = () => {
+    if (composerCommand(prompt) === "compact") {
+      if (compactAvailable && !compactContext.isPending) compactContext.mutate();
+      return;
+    }
+    if (prompt.trim() && !startRun.isPending) startRun.mutate();
+  };
+  const compactRequested = composerCommand(prompt) === "compact";
+  const compactAvailable =
+    selectedRunId !== undefined
+    && selectedRun?.harness_id === "codex-cli"
+    && !selectedRunActive
+    && selectedRunOverview.data?.snapshot_revision !== undefined;
   const toggleComposerTool = (option: ComposerToolOption) => {
     if (!option.selectable || option.value === null) return;
     const value = option.value;
@@ -1325,7 +1358,7 @@ export function WorkbenchSurface() {
               className={[
                 "composer",
                 draggingFiles ? "dragging-files" : "",
-                modelMenuOpen || plusMenuOpen || toolPickerOpen || chatPickerOpen
+                modelMenuOpen || plusMenuOpen || toolPickerOpen
                   ? "popover-open"
                   : "",
               ].filter(Boolean).join(" ")}
@@ -1347,7 +1380,7 @@ export function WorkbenchSurface() {
               }}
               onSubmit={(event) => {
                 event.preventDefault();
-                if (prompt.trim() && !startRun.isPending) startRun.mutate();
+                submitComposer();
               }}
             >
               {legacyModeWarning === null ? null : (
@@ -1405,7 +1438,12 @@ export function WorkbenchSurface() {
                 removeLabel={message(locale, "removeTool")}
                 skills={selectedSkills}
               />
-              <ChatRelayFeedback controller={chatMentions} locale={locale} />
+              <ChatMentionFeedback controller={chatMentions} locale={locale} />
+              {compactContext.isSuccess ? (
+                <p className="relay-send-notice" role="status">
+                  {message(locale, "compactCompleted")}
+                </p>
+              ) : null}
               {draftAttachments.length > 0 ? (
                 <AttachmentGallery
                   attachments={draftAttachments}
@@ -1486,52 +1524,33 @@ export function WorkbenchSurface() {
                 atQuery={atQuery}
                 atSelection={atSelection}
                 composerRef={composerRef}
-                disabled={startRun.isPending}
+                disabled={startRun.isPending || compactContext.isPending}
                 locale={locale}
                 onAtSelectionChange={setAtSelection}
-                onChooseAtCandidate={chooseAtCandidate}
+                onChooseAtCandidate={(index) => chooseMentionCandidate(atCandidates[index])}
                 onPasteFiles={(files) => attachmentActions.uploadFiles.mutate({ files, source: "paste" })}
                 onPromptChange={(value, caret) => {
                   setPrompt(value);
                   setComposerCaret(caret);
                   setPreviewReport(null);
-                  if (activeAtQuery(value, caret) !== null) {
-                    setChatPickerOpen(false);
-                  }
+                  compactContext.reset();
                 }}
-                onSubmit={() => startRun.mutate()}
+                onSubmit={submitComposer}
                 prompt={prompt}
                 setComposerCaret={setComposerCaret}
               />
-              {chatPickerOpen ? (
-                <ChatRelayComposerPicker
-                  controller={chatMentions}
-                  locale={locale}
-                  onClose={() => setChatPickerOpen(false)}
-                />
-              ) : null}
               {atQuery === null ? null : (
                 <MentionPicker
-                  chats={chatMentions.availableChats}
+                  candidates={atCandidates}
                   chatStatus={chatMentions.chatStatus}
-                  files={workspaceFileCandidates}
                   fileStatus={workspaceFiles.isPending
                     ? "loading"
                     : workspaceFiles.isError
                       ? "error"
                       : "ready"}
-                  inspectedChat={chatMentions.inspectedChat}
                   locale={locale}
-                  onChooseChat={chatMentions.chooseChat}
-                  onChooseFile={chooseWorkspaceFile}
-                  onChooseSkill={chooseSkill}
-                  onReadChat={chatMentions.setInspectedChat}
-                  onSendChat={chatMentions.prepareRelay}
-                  plugins={availablePlugins}
+                  onChoose={chooseMentionCandidate}
                   selectedIndex={atSelection}
-                  sendEnabled={Boolean(chatMentions.relayDraftText)}
-                  sendPendingChatId={chatMentions.previewPendingChatId}
-                  skills={availableSkills}
                 />
               )}
               {modelMenuOpen && modelSuggestions.length > 0 ? (
@@ -1632,55 +1651,19 @@ export function WorkbenchSurface() {
               <div className="composer-footer">
                 <div className="composer-footer-left">
                   <div className="composer-controls" aria-label={message(locale, "runConfiguration")}>
-                    <input
-                      className="sr-only"
-                      multiple
-                      onChange={(event) => {
-                        const files = Array.from(event.target.files ?? []);
-                        if (files.length > 0) attachmentActions.uploadFiles.mutate({ files, source: "upload" });
-                        event.target.value = "";
-                      }}
-                      ref={fileInputRef}
-                      type="file"
-                    />
-                    <div className="plus-menu-wrapper">
-                      <button
-                        aria-expanded={plusMenuOpen}
-                        aria-label={message(locale, "moreComposerActions")}
-                        className="attach-button"
-                        disabled={attachmentActions.uploadFiles.isPending}
-                        onClick={() => setPlusMenuOpen((open) => !open)}
-                        title={message(locale, "moreComposerActions")}
-                        type="button"
-                      >
-                        <span aria-hidden="true">＋</span>
-                      </button>
-                      {plusMenuOpen ? (
-                        <div className="plus-menu" role="menu">
-                          <button onClick={() => { setPlusMenuOpen(false); fileInputRef.current?.click(); }} role="menuitem" type="button">
-                            <span aria-hidden="true">◇</span>
-                            <span><strong>{message(locale, "attachFiles")}</strong><small>{message(locale, "attachFilesHint")}</small></span>
-                          </button>
-                          <button onClick={() => {
-                            setPlusMenuOpen(false);
-                            setToolPickerOpen(true);
-                            setToolSearch("");
-                          }} role="menuitem" type="button">
-                            <span aria-hidden="true">✦</span>
-                            <span><strong>{message(locale, "toolsAndIntegrations")}</strong><small>{message(locale, "toolPickerMenuHint")}</small></span>
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-                    <ChatRelayToggle
+                    <ComposerPlusMenu
+                      compactDisabled={!compactAvailable || compactContext.isPending}
+                      fileInputRef={fileInputRef}
                       locale={locale}
-                      onToggle={() => {
-                        setChatPickerOpen((open) => !open);
-                        setModelMenuOpen(false);
-                        setPlusMenuOpen(false);
-                        setToolPickerOpen(false);
+                      onCompact={() => compactContext.mutate()}
+                      onFiles={(files) => attachmentActions.uploadFiles.mutate({ files, source: "upload" })}
+                      onOpenChange={setPlusMenuOpen}
+                      onOpenTools={() => {
+                        setToolPickerOpen(true);
+                        setToolSearch("");
                       }}
-                      open={chatPickerOpen}
+                      open={plusMenuOpen}
+                      uploadPending={attachmentActions.uploadFiles.isPending}
                     />
                     <label className="compact-control">
                       <span>{message(locale, "taskType")}</span>
@@ -1805,14 +1788,30 @@ export function WorkbenchSurface() {
                     {message(locale, "cancelRun")}
                   </button>
                 ) : (
-                  <button className="primary-button" disabled={!prompt.trim() || startRun.isPending || reviewedRoute.pending} type="submit">
-                    {message(locale, advancedConfig.dryRun ? "previewExecution" : "runTask")}
+                  <button
+                    className="primary-button"
+                    disabled={
+                      !prompt.trim()
+                      || (compactRequested
+                        ? !compactAvailable || compactContext.isPending
+                        : startRun.isPending || reviewedRoute.pending)
+                    }
+                    type="submit"
+                  >
+                    {message(
+                      locale,
+                      compactRequested
+                        ? "compactContext"
+                        : advancedConfig.dryRun
+                          ? "previewExecution"
+                          : "runTask",
+                    )}
                   </button>
                 )}
               </div>
-              {startRun.isError || attachmentActions.uploadFiles.isError || attachmentActions.attachWorkspaceFile.isError || attachmentActions.removeAttachment.isError || saveRunConfig.isError ? (
+              {startRun.isError || compactContext.isError || attachmentActions.uploadFiles.isError || attachmentActions.attachWorkspaceFile.isError || attachmentActions.removeAttachment.isError || saveRunConfig.isError ? (
                 <div className="error-state" role="alert">
-                  {String(startRun.error ?? attachmentActions.uploadFiles.error ?? attachmentActions.attachWorkspaceFile.error ?? attachmentActions.removeAttachment.error ?? saveRunConfig.error)}
+                  {String(startRun.error ?? compactContext.error ?? attachmentActions.uploadFiles.error ?? attachmentActions.attachWorkspaceFile.error ?? attachmentActions.removeAttachment.error ?? saveRunConfig.error)}
                 </div>
               ) : null}
             </form>

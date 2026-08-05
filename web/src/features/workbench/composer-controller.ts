@@ -8,7 +8,6 @@ export function useComposerController() {
   const [selectedSkills, setSelectedSkills] = useState<SkillMention[]>([]);
   const [selectedChats, setSelectedChats] = useState<ChatMention[]>([]);
   const [builtinTools, setBuiltinTools] = useState<string[]>([]);
-  const [chatPickerOpen, setChatPickerOpen] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [toolPickerOpen, setToolPickerOpen] = useState(false);
@@ -22,7 +21,6 @@ export function useComposerController() {
   return {
     atSelection,
     builtinTools,
-    chatPickerOpen,
     composerCaret,
     composerRef,
     draggingFiles,
@@ -34,7 +32,6 @@ export function useComposerController() {
     selectedSkills,
     setAtSelection,
     setBuiltinTools,
-    setChatPickerOpen,
     setComposerCaret,
     setDraggingFiles,
     setModelMenuOpen,
@@ -47,4 +44,8 @@ export function useComposerController() {
     toolPickerOpen,
     toolSearch,
   };
+}
+
+export function composerCommand(prompt: string): "compact" | null {
+  return prompt.trim().toLowerCase() === "/compact" ? "compact" : null;
 }

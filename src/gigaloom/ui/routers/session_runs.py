@@ -6,13 +6,15 @@ import asyncio
 import threading
 from typing import Any, Mapping
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query, Request
 
+from gigaloom.execution.thread_relay import LOCAL_THREAD_ACTOR_SCOPE
 from gigaloom.provider_account_sessions import ProviderAccountSessionError
 from gigaloom.runtime.models import job_to_dict
 from gigaloom.sessions import (
     SessionNotFoundError,
 )
+from gigaloom.sessions.api import session_catalog_project_id
 from gigaloom.sessions.models import (
     HarnessRun,
     run_to_dict,
@@ -35,8 +37,15 @@ def create_router(services: AppServices) -> APIRouter:
     router = ContractAPIRouter()
 
     async def _start_headless_run(
-        session_id: str, payload: Mapping[str, Any]
+        session_id: str,
+        payload: Mapping[str, Any],
+        request: Request,
     ) -> HarnessRun:
+        session = await run_in_threadpool(
+            services.session_store.get_session,
+            session_id,
+        )
+        payload = _bind_thread_relay_scope(payload, request, session.metadata)
         payload = services.gateway_route_service.bind_submission(payload)
         if services.job_dispatcher is not None:
             idempotency_key = str(
@@ -96,6 +105,7 @@ def create_router(services: AppServices) -> APIRouter:
 
     @router.worker_client_key.post("/api/sessions/run/start")
     async def create_session_and_start_run(
+        request: Request,
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         try:
@@ -105,7 +115,7 @@ def create_router(services: AppServices) -> APIRouter:
                 title_from_turn=False,
                 validate_harness=True,
             )
-            run = await _start_headless_run(session.id, payload)
+            run = await _start_headless_run(session.id, payload, request)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Unknown harness") from exc
         except ProviderAccountSessionError as exc:
@@ -118,11 +128,12 @@ def create_router(services: AppServices) -> APIRouter:
 
     @router.worker_client_key.post("/api/sessions/{session_id}/run/start")
     async def start_run_in_session(
-        session_id: str, payload: dict[str, Any] = Body(...)
+        session_id: str,
+        request: Request,
+        payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         try:
-            await run_in_threadpool(services.session_store.get_session, session_id)
-            run = await _start_headless_run(session_id, payload)
+            run = await _start_headless_run(session_id, payload, request)
         except SessionNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Session not found") from exc
         except KeyError as exc:
@@ -136,8 +147,11 @@ def create_router(services: AppServices) -> APIRouter:
         return await run_in_threadpool(_run_start_response, run)
 
     @router.bounded_job.post("/api/sessions/run")
-    def create_session_and_run(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    def create_session_and_run(
+        payload: dict[str, Any] = Body(...),
+    ) -> dict[str, Any]:
         try:
+            payload = _without_thread_relay_scope(payload)
             result = services.session_service.create_and_run(
                 services.gateway_route_service.bind_submission(payload)
             )
@@ -151,9 +165,13 @@ def create_router(services: AppServices) -> APIRouter:
 
     @router.bounded_job.post("/api/sessions/{session_id}/run")
     def run_in_session(
-        session_id: str, payload: dict[str, Any] = Body(...)
+        session_id: str,
+        request: Request,
+        payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         try:
+            session = services.session_store.get_session(session_id)
+            payload = _bind_thread_relay_scope(payload, request, session.metadata)
             result = services.session_service.run_turn(
                 session_id,
                 services.gateway_route_service.bind_submission(payload),
@@ -199,3 +217,40 @@ def create_router(services: AppServices) -> APIRouter:
         }
 
     return router
+
+
+def _bind_thread_relay_scope(
+    payload: Mapping[str, Any],
+    request: Request,
+    session_metadata: Mapping[str, Any],
+) -> dict[str, Any]:
+    result = dict(payload)
+    extra = _string_mapping(payload.get("extra"))
+    project_id = session_catalog_project_id(session_metadata)
+    actor = getattr(request.state, "ui_actor", None)
+    actor_scope = actor.get("actor_id") if isinstance(actor, Mapping) else None
+    if not isinstance(actor_scope, str) or not actor_scope:
+        actor_scope = LOCAL_THREAD_ACTOR_SCOPE
+    if project_id is None:
+        extra.pop("thread_relay_scope", None)
+    else:
+        extra["thread_relay_scope"] = {
+            "actor_scope": actor_scope,
+            "project_id": project_id,
+        }
+    result["extra"] = extra
+    return result
+
+
+def _without_thread_relay_scope(payload: Mapping[str, Any]) -> dict[str, Any]:
+    result = dict(payload)
+    extra = _string_mapping(payload.get("extra"))
+    extra.pop("thread_relay_scope", None)
+    result["extra"] = extra
+    return result
+
+
+def _string_mapping(value: Any) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        return {}
+    return {str(key): item for key, item in value.items()}

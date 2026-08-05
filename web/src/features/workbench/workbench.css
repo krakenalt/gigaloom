@@ -136,11 +136,6 @@
 .composer.dragging-files { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent), 0 8px 28px #1522380d; }
 .composer-controls { min-width: 0; display: flex; align-items: end; flex-wrap: wrap; gap: 4px; overflow: visible; }
 .attach-button { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; padding: 0; color: var(--accent); font-size: 19px; }
-.relay-picker-button { height: 34px; max-width: 180px; display: flex; align-items: center; gap: 5px; border-color: color-mix(in srgb, var(--success) 34%, var(--border)); padding: 0 8px; color: var(--success); font-size: 9px; font-weight: 700; }
-.relay-picker-button[aria-expanded="true"] { border-color: var(--success); background: color-mix(in srgb, var(--success) 9%, var(--surface)); }
-.relay-picker-button > .mention-kind-icon { width: 20px; height: 20px; flex: none; border: 0; background: transparent; }
-.relay-picker-button > .mention-kind-icon svg { width: 15px; height: 15px; }
-.relay-picker-button > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .compact-control { min-width: 88px; display: grid; flex: 0 1 auto; gap: 2px; color: var(--muted); font-size: 8px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
 .compact-control select, .compact-control input { width: 100%; min-width: 0; height: 25px; border: 0; outline: 0; background: transparent; color: var(--text); padding: 1px 2px; font-size: 11px; font-weight: 650; letter-spacing: 0; text-transform: none; }
 .compact-control select:focus-visible, .compact-control input:focus-visible, .model-select-button:focus-visible { border-radius: 4px; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent); }
@@ -243,27 +238,18 @@
 .preview-execution.blocked { border-color: color-mix(in srgb, var(--danger) 42%, var(--border)); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }.preview-execution small { color: var(--muted); font-size: 9px; }
 .preview-execution .permission-simulation-summary { overflow-wrap: anywhere; color: var(--text-secondary); }
 .composer textarea { width: 100%; min-height: 82px; max-height: min(260px, 40vh); resize: vertical; overflow-y: auto; border: 0; outline: 0; background: transparent; color: var(--text); padding: 14px 16px; font-size: 14px; line-height: 1.5; }
-.mention-picker { min-height: 0; max-height: min(390px, 52vh); display: grid; grid-template-rows: auto minmax(0, 1fr); border-top: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border)); background: var(--surface); }
+.mention-picker { min-height: 0; max-height: min(300px, 42vh); display: grid; grid-template-rows: auto minmax(0, 1fr); border-top: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border)); background: var(--surface); }
 .mention-picker-header { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: 9px; border-bottom: 1px solid var(--border); padding: 9px 11px; }
-.chat-relay-picker .mention-picker-header { grid-template-columns: 32px minmax(0, 1fr) 28px; }
-.chat-relay-picker .mention-picker-header > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
-.chat-relay-picker .mention-picker-header > button { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; }
 .mention-picker-header > span:last-child { min-width: 0; display: grid; gap: 2px; }
 .mention-picker-header strong { font-size: 12px; }
 .mention-picker-header small { color: var(--muted); font-size: 9px; line-height: 1.4; }
 .mention-picker-at { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: var(--accent-soft); color: var(--accent); font-size: 17px; font-weight: 850; }
-.mention-picker-scroll { min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: 7px; padding: 7px; }
-.mention-group { min-width: 0; display: grid; gap: 3px; border: 1px solid color-mix(in srgb, var(--border) 72%, transparent); border-radius: 9px; overflow: hidden; }
-.mention-group > header { min-width: 0; display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 8px; background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface)); padding: 7px 9px; }
-.mention-group > header > span:last-child { min-width: 0; display: grid; gap: 1px; }
-.mention-group > header strong { font-size: 10px; }
-.mention-group > header small { overflow: hidden; color: var(--muted); font-size: 8px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.mention-picker-scroll { min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: 2px; padding: 5px; }
 .mention-kind-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: var(--surface); color: var(--accent); }
 .mention-kind-icon[data-kind="plugin"] { background: color-mix(in srgb, var(--warning) 10%, var(--surface)); color: var(--warning); }
 .mention-kind-icon[data-kind="chat"] { background: color-mix(in srgb, var(--success) 10%, var(--surface)); color: var(--success); }
 .mention-kind-icon[data-kind="file"] { background: color-mix(in srgb, #58a6ff 12%, var(--surface)); color: #58a6ff; }
 .mention-kind-icon svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; }
-.mention-group-options { min-width: 0; display: grid; gap: 1px; padding: 3px; }
 .mention-option { width: 100%; min-width: 0; display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 8px; border: 0; border-radius: 7px; background: transparent; padding: 6px; text-align: left; }
 .mention-option > span:last-child { min-width: 0; display: grid; gap: 2px; }
 .mention-option strong, .mention-option small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -271,25 +257,11 @@
 .mention-option small { color: var(--muted); font-size: 8px; }
 .mention-option:hover, .mention-option.selected { background: var(--accent-soft); color: var(--accent); }
 .mention-option .mention-kind-icon { width: 26px; height: 26px; }
-.mention-chat-row { position: relative; min-width: 0; }
-.mention-chat-row > .mention-option { padding-right: 178px; }
-.mention-chat-row.relay-only > .mention-option { padding-right: 102px; }
-.mention-chat-actions { position: absolute; top: 50%; right: 6px; display: flex; gap: 3px; transform: translateY(-50%); }
-.mention-chat-actions button { min-height: 24px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); padding: 3px 6px; color: var(--muted); font-size: 8px; }
-.mention-chat-actions button:hover { border-color: var(--accent); color: var(--accent); }
-.mention-chat-actions button:last-child { border-color: color-mix(in srgb, var(--success) 45%, var(--border)); color: var(--success); }
-.mention-chat-preview { display: grid; gap: 5px; margin: 3px; border: 1px solid color-mix(in srgb, var(--success) 35%, var(--border)); border-radius: 8px; background: color-mix(in srgb, var(--success) 5%, var(--surface)); padding: 8px; }
-.mention-chat-preview > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.mention-chat-preview > header strong { font-size: 9px; }.mention-chat-preview > header span, .mention-chat-preview > small { color: var(--muted); font-size: 8px; }
-.mention-chat-preview p { min-width: 0; display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 6px; margin: 0; font-size: 8px; line-height: 1.4; }
-.mention-chat-preview p strong { color: var(--muted); text-transform: uppercase; }.mention-chat-preview p span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mention-empty { margin: 0; padding: 7px 9px; color: var(--muted); font-size: 9px; }
 .relay-send-notice { margin: 8px 10px 0; border-left: 2px solid var(--success); background: color-mix(in srgb, var(--success) 6%, var(--surface)); padding: 7px 9px; color: var(--text); font-size: 9px; }
 .relay-send-notice.error-state { border-left-color: var(--danger); }
 .message-context-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 8px; }
 .message-context-chip { max-width: 100%; overflow: hidden; border: 1px solid color-mix(in srgb, var(--success) 38%, var(--border)); border-radius: 999px; background: color-mix(in srgb, var(--success) 7%, var(--surface)); padding: 3px 7px; color: var(--success); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-.composer > .relay-preview { width: auto; margin: 8px 10px 0; gap: 10px; padding: 12px; box-shadow: none; }
-.composer > .relay-preview h2 { font-size: 14px; }
 .composer-footer { position: relative; z-index: 12; display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 8px; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--surface-muted) 45%, var(--surface)); }
 .composer-footer-left { min-width: 0; display: grid; flex: 1 1 auto; gap: 5px; }
 .composer-footer > .primary-button, .composer-footer > .danger-button { flex: none; margin-left: auto; }
@@ -422,8 +394,5 @@
   .advanced-config-grid { grid-template-columns: 1fr; }
   .tool-picker-results { grid-template-columns: 1fr; }
   .developer-options { display: grid; }
-  .mention-picker { max-height: min(430px, 58vh); }
-  .mention-group > header small { white-space: normal; }
-  .mention-chat-row > .mention-option { padding-right: 6px; }
-  .mention-chat-actions { position: static; justify-content: flex-end; padding: 0 6px 5px 44px; transform: none; }
+  .mention-picker { max-height: min(280px, 44vh); }
 }
