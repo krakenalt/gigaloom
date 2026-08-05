@@ -450,7 +450,7 @@ def _parse_models(payload: object) -> tuple[Mapping[str, str], ...]:
         metadata = model_document.get("metadata")
         model_type = model_document.get("type")
         if model_type is None and isinstance(metadata, Mapping):
-            model_type = metadata.get("type")
+            model_type = cast(Mapping[str, object], metadata).get("type")
         if model_type is not None and model_type != "chat":
             continue
         model_id = _required_text(model_document.get("id"), "model id")
