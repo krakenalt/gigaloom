@@ -55,7 +55,9 @@ export function useReviewedRouteBinding(
     setBinding(null);
     setPending(false);
   }, [agent?.id, agent?.label, agent?.managedAcpGateway?.status]);
-  const gatewaySupported = agent?.managedAcpGateway?.status === "ready";
+  const gatewaySupported = agent !== null && (
+    agent.id !== "acp" || agent.managedAcpGateway?.status === "ready"
+  );
   const activeBinding = gatewaySupported && binding?.agent_id === agent?.id
     ? binding
     : null;

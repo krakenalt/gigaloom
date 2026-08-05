@@ -128,6 +128,30 @@ describe("capability-aware route model picker", () => {
     expect(markup).not.toContain("Gateway model");
   });
 
+  it("keeps native Codex gateway routes available without an ACP projection", () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(
+      gatewayRoutesOptions().queryKey,
+      catalog("current"),
+    );
+
+    const markup = renderToStaticMarkup(
+      <QueryClientProvider client={queryClient}>
+        <ManagedRouteHarness harness={{
+          spec: {
+            id: "codex-cli",
+            tags: ["agent"],
+            title: "Codex",
+          },
+        }} />
+      </QueryClientProvider>,
+    );
+
+    expect(markup).toContain("gpt2giga route for Codex");
+    expect(markup).toContain("Gateway model");
+    expect(markup).not.toContain("gpt2giga route unavailable");
+  });
+
   it("groups exact public aliases by gateway and upstream provider", () => {
     const groups = groupBridgeRoutes(routes);
 
