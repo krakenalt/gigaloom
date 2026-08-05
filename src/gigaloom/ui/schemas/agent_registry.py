@@ -27,6 +27,7 @@ class AgentRegistryEntryResponse(BaseModel):
     license: str
     repository: str | None
     website: str | None
+    icon_ref: str | None
     entry_digest: Digest = Field(pattern=r"^[0-9a-f]{64}$")
     platforms: list[str] = Field(max_length=16)
     distribution_kinds: list[Literal["binary", "npx", "uvx"]] = Field(max_length=3)

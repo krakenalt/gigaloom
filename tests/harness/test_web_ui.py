@@ -86,6 +86,13 @@ def test_web_is_only_packaged_shell_and_legacy_routes_are_removed(tmp_path):
     )
     assert "frame-src 'self'" in cockpit.headers["content-security-policy"]
     assert "manifest-src 'self'" in cockpit.headers["content-security-policy"]
+    assert (
+        "img-src 'self' data: blob: https://cdn.agentclientprotocol.com"
+        in cockpit.headers["content-security-policy"]
+    )
+    assert "https:" not in cockpit.headers["content-security-policy"].replace(
+        "https://cdn.agentclientprotocol.com", ""
+    )
     assert cockpit.headers["x-content-type-options"] == "nosniff"
     assert coding_agents.status_code == 200
     assert "<title>GigaLoom</title>" in coding_agents.text

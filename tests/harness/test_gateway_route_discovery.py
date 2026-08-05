@@ -165,6 +165,51 @@ def test_salutedevices_model_owner_builds_gigachat_routes() -> None:
     assert {route.upstream_provider for route in result.catalog.routes} == {"gigachat"}
 
 
+def test_discovery_excludes_explicit_non_chat_models() -> None:
+    class MixedModelTransport(FakeTransport):
+        def get_json(
+            self,
+            base_url: str,
+            path: str,
+            *,
+            timeout_seconds: float,
+        ) -> tuple[int, object]:
+            status, payload = super().get_json(
+                base_url,
+                path,
+                timeout_seconds=timeout_seconds,
+            )
+            if path == "/models":
+                assert isinstance(payload, dict)
+                payload = {
+                    **payload,
+                    "data": [
+                        *payload["data"],
+                        {
+                            "id": "Embeddings",
+                            "object": "model",
+                            "owned_by": "salutedevices",
+                            "metadata": {"type": "embedder"},
+                        },
+                        {
+                            "id": "Reranker",
+                            "object": "model",
+                            "owned_by": "salutedevices",
+                            "type": "reranker",
+                        },
+                    ],
+                }
+            return status, payload
+
+    result = GatewayRouteDiscovery(MixedModelTransport()).discover(_profile())
+
+    assert result.status is GatewayDiscoveryStatus.CURRENT
+    assert result.catalog is not None
+    assert {route.public_model_alias for route in result.catalog.routes} == {
+        "GigaChat-2-Max"
+    }
+
+
 def test_one_resolver_projects_the_same_route_facts_for_native_and_acp() -> None:
     discovery = GatewayRouteDiscovery(FakeTransport()).discover(_profile())
     resolver = GatewayRouteResolver(discovery)

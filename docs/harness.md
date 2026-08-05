@@ -29,10 +29,10 @@ governs that source. Run
 `node web/branding/generate-assets.mjs` to reproduce its
 light, dark, mask, favicon, manifest, packaged-UI, and documentation variants.
 
-Skills, Plugins, and MCP use curated local pictograms. Unknown integrations use
-a deterministic text monogram. GigaLoom does not fetch remote icons, so catalog
-rendering does not grant an external origin network, tracking, SVG, or content
-authority.
+Skills, Plugins, and MCP use curated local pictograms. Official ACP Registry
+cards may load their declared SVG icon from the registry CDN with a no-referrer
+request; a deterministic text monogram remains the fallback. Other external
+image origins stay blocked by the UI content-security policy.
 
 The Harness is not another model and it does not replace the compatibility
 gateway or the agent CLIs. It coordinates them and keeps a normalized local

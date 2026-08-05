@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type {
   AgentProbeResponse,
   AgentRegistryEntryProjection,
@@ -17,7 +19,11 @@ export function RegistryAgentCard({
   return (
     <article className="coding-agent-card registry-card">
       <div className="agent-card-heading">
-        <AgentGlyph label={agent.name} />
+        <AgentGlyph
+          iconRef={agent.icon_ref}
+          key={agent.icon_ref ?? agent.registry_id}
+          label={agent.name}
+        />
         <div>
           <span className="agent-card-id">{agent.registry_id}</span>
           <h3>{agent.name}</h3>
@@ -212,12 +218,31 @@ export function LocalManifestCard({ agent }: { agent: LocalAgentManifestProjecti
   );
 }
 
-function AgentGlyph({ label }: { label: string }) {
+function AgentGlyph({
+  iconRef,
+  label,
+}: {
+  iconRef?: string | null;
+  label: string;
+}) {
+  const [iconFailed, setIconFailed] = useState(false);
   const initials = label
     .split(/[\s._-]+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0]?.toLocaleUpperCase())
     .join("") || "A";
-  return <span aria-hidden="true" className="agent-glyph">{initials}</span>;
+  return (
+    <span aria-hidden="true" className="agent-glyph">
+      {iconRef && !iconFailed ? (
+        <img
+          alt=""
+          loading="lazy"
+          onError={() => setIconFailed(true)}
+          referrerPolicy="no-referrer"
+          src={iconRef}
+        />
+      ) : initials}
+    </span>
+  );
 }

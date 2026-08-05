@@ -34,6 +34,7 @@ type SetChats = Dispatch<SetStateAction<ChatMention[]>>;
 
 export function useChatMentionController({
   atQuery,
+  browseChats,
   composerRef,
   currentProjectId,
   currentRevision,
@@ -49,6 +50,7 @@ export function useChatMentionController({
   setSelectedChats,
 }: {
   atQuery: AtQuery;
+  browseChats: boolean;
   composerRef: RefObject<HTMLTextAreaElement | null>;
   currentProjectId: string | null;
   currentRevision: string | null;
@@ -77,7 +79,7 @@ export function useChatMentionController({
       "gigaloom",
       currentRevision ?? "pending",
     ),
-    enabled: atQuery !== null && currentProjectId !== null,
+    enabled: (atQuery !== null || browseChats) && currentProjectId !== null,
   });
   const inspectedChatRead = useQuery({
     ...threadReadOptions(

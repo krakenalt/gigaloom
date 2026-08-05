@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ChatMention } from "../../chat-mentions";
 import type { SkillMention } from "../../skill-mentions";
-import { MentionPicker } from "./MentionPicker";
+import { ChatRelayPicker, MentionPicker } from "./MentionPicker";
 
 const skill = mention("skill", "review", "Review a code change.");
 const plugin = mention("plugin", "pdf", "Read and create PDF documents.");
@@ -61,6 +61,28 @@ describe("unified @ picker", () => {
     expect(markup).toContain("Send");
     expect(markup).toContain("Bounded chat preview");
     expect(markup).toContain("<svg");
+  });
+
+  it("exposes Thread Relay as a dedicated chat delivery picker", () => {
+    const markup = renderToStaticMarkup(
+      <ChatRelayPicker
+        chats={[chat]}
+        chatStatus="ready"
+        inspectedChat={chat}
+        locale="en"
+        onClose={vi.fn()}
+        onReadChat={vi.fn()}
+        onSendChat={vi.fn()}
+        sendEnabled
+        sendPendingChatId={null}
+      />,
+    );
+
+    expect(markup).toContain("Send to another chat");
+    expect(markup).toContain("Release review");
+    expect(markup).toContain(">Send<");
+    expect(markup).not.toContain(">Mention<");
+    expect(markup).toContain('id="composer-chat-relay-picker"');
   });
 });
 

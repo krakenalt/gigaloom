@@ -39,7 +39,8 @@ _COCKPIT_V2_SHELL_HEADERS = {
     "Cache-Control": "no-cache",
     "Content-Security-Policy": (
         "default-src 'none'; script-src 'self'; style-src 'self'; "
-        "img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; "
+        "img-src 'self' data: blob: https://cdn.agentclientprotocol.com; "
+        "connect-src 'self'; font-src 'self'; "
         "base-uri 'none'; form-action 'self'; frame-ancestors 'none'; "
         "frame-src 'self'; manifest-src 'self'; object-src 'none'; worker-src 'none'"
     ),

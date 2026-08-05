@@ -19,6 +19,9 @@ export const enWorkbench = {
   attachmentEncodingTruncated: "truncated",
   attachmentPreview: "Attachment preview",
   toolsAndIntegrations: "Tools and integrations",
+  sendToAnotherChat: "Send to another chat",
+  sendToAnotherChatHint: "Preview and deliver this draft with Thread Relay",
+  chatContext: "Chat context",
   toolPickerMenuHint: "Search GigaChat, agent, MCP, Skill, and Plugin capabilities",
   toolPickerTitle: "Choose tools and integrations",
   toolPickerHint:

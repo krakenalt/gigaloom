@@ -24,6 +24,7 @@ const agent: AgentRegistryEntryProjection = {
   ],
   entry_digest: "1".repeat(64),
   integrity: "verified",
+  icon_ref: "https://cdn.agentclientprotocol.com/generic-agent.svg",
   license: "MIT",
   name: "Generic coding agent",
   platforms: ["darwin-aarch64"],
@@ -95,6 +96,8 @@ describe("coding-agent marketplace components", () => {
     expect(markup).toContain("Verified metadata");
     expect(markup).toContain("darwin-aarch64");
     expect(markup).toContain("Review install");
+    expect(markup).toContain("cdn.agentclientprotocol.com/generic-agent.svg");
+    expect(markup).toContain('referrerPolicy="no-referrer"');
     expect(markup).not.toContain("Install now");
   });
 

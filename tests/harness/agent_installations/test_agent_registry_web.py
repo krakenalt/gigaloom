@@ -122,6 +122,7 @@ def _catalog(version: str = "1.0.0"):
                     "description": "Generic Web marketplace fixture",
                     "license": "MIT",
                     "repository": "https://example.test/marketplace",
+                    "icon": "https://cdn.agentclientprotocol.com/marketplace.svg",
                     "distribution": {
                         "binary": {
                             "darwin-aarch64": {
@@ -201,6 +202,10 @@ def test_inventory_is_revision_bound_filtered_and_explicitly_refreshed(tmp_path)
     refreshed = inventory.inventory(refresh=True)
 
     assert initial.snapshot_digest == filtered.snapshot_digest
+    assert (
+        initial.registry_entries[0].icon_ref
+        == "https://cdn.agentclientprotocol.com/marketplace.svg"
+    )
     assert [item.registry_id for item in filtered.registry_entries] == [
         "marketplace-agent"
     ]

@@ -102,6 +102,7 @@ function entry(
       platform: "portable",
     })),
     entry_digest: "1".repeat(64),
+    icon_ref: null,
     integrity,
     license,
     name,

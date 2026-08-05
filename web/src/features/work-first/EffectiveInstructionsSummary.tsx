@@ -65,76 +65,78 @@ export function EffectiveInstructionsSummary({
         );
 
   return (
-    <section
+    <details
       aria-label={message(locale, "effectiveInstructions")}
       className="effective-instructions-summary"
       data-state={state}
     >
-      <header>
+      <summary>
         <span>
           <strong>{message(locale, "effectiveInstructions")}</strong>
-          <small>{message(locale, "effectiveInstructionsHint")}</small>
         </span>
         <span className="effective-instructions-state">{stateLabel}</span>
-      </header>
-      {summary === undefined ? (
-        <p
-          className={unavailable ? "error-state" : "muted-copy"}
-          role={unavailable ? "alert" : undefined}
-        >
-          {message(
-            locale,
-            unavailable
-              ? "effectiveInstructionsUnavailable"
-              : "effectiveInstructionsWaiting",
-          )}
-        </p>
-      ) : (
-        <>
-          <dl>
-            <div>
-              <dt>{message(locale, "effectiveInstructionsSources")}</dt>
-              <dd>{summary.source_count}</dd>
-            </div>
-            <div>
-              <dt>{message(locale, "effectiveInstructionsIncluded")}</dt>
-              <dd>{summary.included_count}</dd>
-            </div>
-            <div>
-              <dt>{message(locale, "effectiveInstructionsOmitted")}</dt>
-              <dd>{summary.omitted_count}</dd>
-            </div>
-            <div>
-              <dt>{message(locale, "effectiveInstructionsConflicts")}</dt>
-              <dd>{summary.conflict_count}</dd>
-            </div>
-            <div>
-              <dt>{message(locale, "effectiveInstructionsUncertainties")}</dt>
-              <dd>{summary.uncertainty_count}</dd>
-            </div>
-          </dl>
-          <footer>
-            <span>{summary.read_only ? "read-only" : "invalid"}</span>
-            <span>
-              {summary.auto_materialized
-                ? "auto-materialized"
-                : "not materialized"}
-            </span>
-            <code title={summary.discovery_digest}>
-              {summary.discovery_digest.slice(0, 12)}
-            </code>
-          </footer>
-          {needsReview ? (
-            <p className="effective-instructions-warning" role="alert">
-              {message(locale, "effectiveInstructionsReview")} ·{" "}
-              {summary.conflict_count}{" "}
-              {message(locale, "effectiveInstructionsConflicts").toLowerCase()} ·{" "}
-              {summary.uncertainty_count}{" "}
-              {message(locale, "effectiveInstructionsUncertainties").toLowerCase()}
-            </p>
-          ) : null}
-        </>
-      )}
-    </section>
+      </summary>
+      <div className="effective-instructions-body">
+        <p className="muted-copy">{message(locale, "effectiveInstructionsHint")}</p>
+        {summary === undefined ? (
+          <p
+            className={unavailable ? "error-state" : "muted-copy"}
+            role={unavailable ? "alert" : undefined}
+          >
+            {message(
+              locale,
+              unavailable
+                ? "effectiveInstructionsUnavailable"
+                : "effectiveInstructionsWaiting",
+            )}
+          </p>
+        ) : (
+          <>
+            <dl>
+              <div>
+                <dt>{message(locale, "effectiveInstructionsSources")}</dt>
+                <dd>{summary.source_count}</dd>
+              </div>
+              <div>
+                <dt>{message(locale, "effectiveInstructionsIncluded")}</dt>
+                <dd>{summary.included_count}</dd>
+              </div>
+              <div>
+                <dt>{message(locale, "effectiveInstructionsOmitted")}</dt>
+                <dd>{summary.omitted_count}</dd>
+              </div>
+              <div>
+                <dt>{message(locale, "effectiveInstructionsConflicts")}</dt>
+                <dd>{summary.conflict_count}</dd>
+              </div>
+              <div>
+                <dt>{message(locale, "effectiveInstructionsUncertainties")}</dt>
+                <dd>{summary.uncertainty_count}</dd>
+              </div>
+            </dl>
+            <footer>
+              <span>{summary.read_only ? "read-only" : "invalid"}</span>
+              <span>
+                {summary.auto_materialized
+                  ? "auto-materialized"
+                  : "not materialized"}
+              </span>
+              <code title={summary.discovery_digest}>
+                {summary.discovery_digest.slice(0, 12)}
+              </code>
+            </footer>
+            {needsReview ? (
+              <p className="effective-instructions-warning" role="alert">
+                {message(locale, "effectiveInstructionsReview")} ·{" "}
+                {summary.conflict_count}{" "}
+                {message(locale, "effectiveInstructionsConflicts").toLowerCase()} ·{" "}
+                {summary.uncertainty_count}{" "}
+                {message(locale, "effectiveInstructionsUncertainties").toLowerCase()}
+              </p>
+            ) : null}
+          </>
+        )}
+      </div>
+    </details>
   );
 }

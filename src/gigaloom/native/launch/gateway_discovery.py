@@ -447,6 +447,12 @@ def _parse_models(payload: object) -> tuple[Mapping[str, str], ...]:
         if not isinstance(raw, Mapping):
             raise ValueError("model entry must be an object")
         model_document = cast(Mapping[str, object], raw)
+        metadata = model_document.get("metadata")
+        model_type = model_document.get("type")
+        if model_type is None and isinstance(metadata, Mapping):
+            model_type = metadata.get("type")
+        if model_type is not None and model_type != "chat":
+            continue
         model_id = _required_text(model_document.get("id"), "model id")
         owner = _optional_text(
             model_document.get("upstream_provider")

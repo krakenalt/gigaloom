@@ -40,5 +40,7 @@ describe("workbench viewport containment", () => {
     expect(workbench).toContain('className="composer-tool-picker"');
     expect(workbench).toContain("admittedBuiltinToolSelection(");
     expect(workbench).toContain('message(locale, "toolsAndIntegrations")');
+    expect(workbench).toContain("<ChatRelayToggle");
+    expect(workbench).toContain("<ChatMentionMessageContent");
   });
 });

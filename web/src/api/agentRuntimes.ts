@@ -19,6 +19,7 @@ export interface AgentRegistryEntryProjection {
   license: string;
   repository: string | null;
   website: string | null;
+  icon_ref: string | null;
   entry_digest: string;
   platforms: string[];
   distribution_kinds: AgentDistributionKind[];

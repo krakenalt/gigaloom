@@ -9,6 +9,7 @@ const copy = {
   en: {
     chats: "Chats",
     chatsHint: "Read bounded history, add it as context, or send this draft.",
+    close: "Close",
     files: "Repository files",
     filesHint: "Attach a safe file from the current repository.",
     filesUnavailable: "Repository files are unavailable.",
@@ -22,6 +23,8 @@ const copy = {
     projectRequired: "Bind this session to a project to mention its chats.",
     read: "Read",
     readTitle: "Bounded chat preview",
+    relayHint: "Choose a project chat, review the draft, then confirm delivery.",
+    relayTitle: "Send to another chat",
     send: "Send",
     sendHint: "Preview and send the current draft to this chat.",
     skills: "Skills",
@@ -31,6 +34,7 @@ const copy = {
   ru: {
     chats: "Чаты",
     chatsHint: "Прочитать ограниченную историю, добавить контекст или отправить черновик.",
+    close: "Закрыть",
     files: "Файлы репозитория",
     filesHint: "Прикрепить безопасный файл из текущего репозитория.",
     filesUnavailable: "Файлы репозитория сейчас недоступны.",
@@ -44,6 +48,8 @@ const copy = {
     projectRequired: "Привяжите сессию к проекту, чтобы упоминать его чаты.",
     read: "Читать",
     readTitle: "Ограниченный preview чата",
+    relayHint: "Выберите чат проекта, проверьте черновик и подтвердите доставку.",
+    relayTitle: "Отправить в другой чат",
     send: "Отправить",
     sendHint: "Показать preview и отправить текущий черновик в этот чат.",
     skills: "Скиллы",
@@ -192,68 +198,20 @@ export function MentionPicker({
             />
           ))}
         </MentionGroup>
-        <MentionGroup heading={labels.chats} hint={labels.chatsHint} kind="chat">
-          {chatStatus === "project_required" ? (
-            <p className="mention-empty">{labels.projectRequired}</p>
-          ) : chatStatus === "loading" ? (
-            <p className="mention-empty">…</p>
-          ) : chatStatus === "error" ? (
-            <p className="mention-empty error-state" role="alert">Thread Relay unavailable</p>
-          ) : chats.length === 0 ? (
-            <p className="mention-empty">{labels.noChats}</p>
-          ) : chats.map((chat, index) => {
-            const candidateIndex = chatOffset + index;
-            return (
-              <div className="mention-chat-row" key={chat.id}>
-                <MentionOption
-                  detail={`${chat.status} · ${chat.source}`}
-                  index={candidateIndex}
-                  kind="chat"
-                  label={chat.mention}
-                  onChoose={() => onChooseChat(chat)}
-                  selectedIndex={selectedIndex}
-                />
-                <div className="mention-chat-actions">
-                  <button
-                    onClick={() => onReadChat(chat)}
-                    onMouseDown={keepComposerFocus}
-                    type="button"
-                  >{labels.read}</button>
-                  <button
-                    aria-label={`${labels.mention} ${chat.title}`}
-                    onClick={() => onChooseChat(chat)}
-                    onMouseDown={keepComposerFocus}
-                    type="button"
-                  >{labels.mention}</button>
-                  <button
-                    disabled={!sendEnabled || sendPendingChatId !== null}
-                    onClick={() => onSendChat(chat)}
-                    onMouseDown={keepComposerFocus}
-                    title={labels.sendHint}
-                    type="button"
-                  >{sendPendingChatId === chat.id ? "…" : labels.send}</button>
-                </div>
-              </div>
-            );
-          })}
-          {inspectedChat === null ? null : (
-            <article className="mention-chat-preview">
-              <header>
-                <strong>{labels.readTitle}</strong>
-                <span>{inspectedChat.title}</span>
-              </header>
-              {inspectedChat.visibleMessages.slice(-4).map((item) => (
-                <p key={item.message_id}>
-                  <strong>{item.role}</strong>
-                  <span>{item.content}</span>
-                </p>
-              ))}
-              {inspectedChat.omittedCount > 0 ? (
-                <small>{inspectedChat.omittedCount} {labels.omitted}</small>
-              ) : null}
-            </article>
-          )}
-        </MentionGroup>
+        <ChatMentionGroup
+          chatOffset={chatOffset}
+          chats={chats}
+          chatStatus={chatStatus}
+          inspectedChat={inspectedChat}
+          labels={labels}
+          onChooseChat={onChooseChat}
+          onReadChat={onReadChat}
+          onSendChat={onSendChat}
+          selectedIndex={selectedIndex}
+          sendEnabled={sendEnabled}
+          sendPendingChatId={sendPendingChatId}
+          showMention
+        />
         <MentionGroup heading={labels.files} hint={labels.filesHint} kind="file">
           {fileStatus === "loading" ? (
             <p className="mention-empty">…</p>
@@ -277,6 +235,155 @@ export function MentionPicker({
         </MentionGroup>
       </div>
     </section>
+  );
+}
+
+export function ChatRelayPicker({
+  chats,
+  chatStatus,
+  inspectedChat,
+  locale,
+  onClose,
+  onReadChat,
+  onSendChat,
+  sendEnabled,
+  sendPendingChatId,
+}: {
+  chats: readonly ChatMention[];
+  chatStatus: "error" | "loading" | "project_required" | "ready";
+  inspectedChat: ChatMention | null;
+  locale: "en" | "ru";
+  onClose: () => void;
+  onReadChat: (chat: ChatMention) => void;
+  onSendChat: (chat: ChatMention) => void;
+  sendEnabled: boolean;
+  sendPendingChatId: string | null;
+}) {
+  const labels = copy[locale];
+  return (
+    <section
+      aria-label={labels.relayTitle}
+      className="mention-picker chat-relay-picker"
+      id="composer-chat-relay-picker"
+      role="dialog"
+    >
+      <header className="mention-picker-header">
+        <MentionKindIcon kind="chat" />
+        <span>
+          <strong>{labels.relayTitle}</strong>
+          <small>{labels.relayHint}</small>
+        </span>
+        <button aria-label={labels.close} onClick={onClose} type="button">×</button>
+      </header>
+      <div className="mention-picker-scroll" role="listbox">
+        <ChatMentionGroup
+          chatOffset={0}
+          chats={chats}
+          chatStatus={chatStatus}
+          inspectedChat={inspectedChat}
+          labels={labels}
+          onChooseChat={onReadChat}
+          onReadChat={onReadChat}
+          onSendChat={onSendChat}
+          selectedIndex={-1}
+          sendEnabled={sendEnabled}
+          sendPendingChatId={sendPendingChatId}
+          showMention={false}
+        />
+      </div>
+    </section>
+  );
+}
+
+function ChatMentionGroup({
+  chatOffset,
+  chats,
+  chatStatus,
+  inspectedChat,
+  labels,
+  onChooseChat,
+  onReadChat,
+  onSendChat,
+  selectedIndex,
+  sendEnabled,
+  sendPendingChatId,
+  showMention,
+}: {
+  chatOffset: number;
+  chats: readonly ChatMention[];
+  chatStatus: "error" | "loading" | "project_required" | "ready";
+  inspectedChat: ChatMention | null;
+  labels: typeof copy.en | typeof copy.ru;
+  onChooseChat: (chat: ChatMention) => void;
+  onReadChat: (chat: ChatMention) => void;
+  onSendChat: (chat: ChatMention) => void;
+  selectedIndex: number;
+  sendEnabled: boolean;
+  sendPendingChatId: string | null;
+  showMention: boolean;
+}) {
+  return (
+    <MentionGroup heading={labels.chats} hint={labels.chatsHint} kind="chat">
+      {chatStatus === "project_required" ? (
+        <p className="mention-empty">{labels.projectRequired}</p>
+      ) : chatStatus === "loading" ? (
+        <p className="mention-empty">…</p>
+      ) : chatStatus === "error" ? (
+        <p className="mention-empty error-state" role="alert">Thread Relay unavailable</p>
+      ) : chats.length === 0 ? (
+        <p className="mention-empty">{labels.noChats}</p>
+      ) : chats.map((chat, index) => (
+        <div className={`mention-chat-row${showMention ? "" : " relay-only"}`} key={chat.id}>
+          <MentionOption
+            detail={`${chat.status} · ${chat.source}`}
+            index={chatOffset + index}
+            kind="chat"
+            label={chat.mention}
+            onChoose={() => onChooseChat(chat)}
+            selectedIndex={selectedIndex}
+          />
+          <div className="mention-chat-actions">
+            <button
+              onClick={() => onReadChat(chat)}
+              onMouseDown={keepComposerFocus}
+              type="button"
+            >{labels.read}</button>
+            {showMention ? (
+              <button
+                aria-label={`${labels.mention} ${chat.title}`}
+                onClick={() => onChooseChat(chat)}
+                onMouseDown={keepComposerFocus}
+                type="button"
+              >{labels.mention}</button>
+            ) : null}
+            <button
+              disabled={!sendEnabled || sendPendingChatId !== null}
+              onClick={() => onSendChat(chat)}
+              onMouseDown={keepComposerFocus}
+              title={labels.sendHint}
+              type="button"
+            >{sendPendingChatId === chat.id ? "…" : labels.send}</button>
+          </div>
+        </div>
+      ))}
+      {inspectedChat === null ? null : (
+        <article className="mention-chat-preview">
+          <header>
+            <strong>{labels.readTitle}</strong>
+            <span>{inspectedChat.title}</span>
+          </header>
+          {inspectedChat.visibleMessages.slice(-4).map((item) => (
+            <p key={item.message_id}>
+              <strong>{item.role}</strong>
+              <span>{item.content}</span>
+            </p>
+          ))}
+          {inspectedChat.omittedCount > 0 ? (
+            <small>{inspectedChat.omittedCount} {labels.omitted}</small>
+          ) : null}
+        </article>
+      )}
+    </MentionGroup>
   );
 }
 

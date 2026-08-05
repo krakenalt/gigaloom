@@ -68,6 +68,8 @@ describe("capability-aware route model picker", () => {
 
     expect(markup).toContain("Start/reconnect gpt2giga");
     expect(markup).toContain("provider default is not used");
+    expect(markup).toContain("<details");
+    expect(markup).not.toContain("<details open");
   });
 
   it("maps every managed ACP harness to the shared ACP gateway catalog", () => {

@@ -34,6 +34,8 @@ describe("Effective Instructions summary", () => {
     );
 
     expect(markup).toContain('data-state="ready"');
+    expect(markup).toContain("<details");
+    expect(markup).not.toContain("<details open");
     expect(markup).toContain("read-only");
     expect(markup).toContain("not materialized");
     expect(markup).toContain(">3<");

@@ -19,6 +19,7 @@ import {
   useAttachmentActions,
 } from "../features/workbench/attachment-actions";
 import { useComposerController } from "../features/workbench/composer-controller";
+import { ComposerTextarea } from "../features/workbench/ComposerTextarea";
 import { ChatRelayFeedback, useChatMentionController } from "../features/workbench/chat-mention-controller";
 import {
   gatewayRouteAgentForHarness,
@@ -37,6 +38,7 @@ import {
 } from "../features/workbench/environment-actions";
 import { useDeferredWorkbenchProjection } from "../features/workbench/lazy-projections";
 import { ComposerSelectionChips, MentionPicker } from "../features/workbench/MentionPicker";
+import { ChatMentionMessageContent, ChatRelayComposerPicker, ChatRelayToggle } from "../features/workbench/chat-relay-ui";
 import { useWorkbenchSessionEntry } from "../features/workbench/session-entry";
 import {
   GeneratedFilePreview,
@@ -182,6 +184,7 @@ export function WorkbenchSurface() {
   const {
     atSelection,
     builtinTools,
+    chatPickerOpen,
     composerCaret,
     composerRef,
     draggingFiles,
@@ -193,6 +196,7 @@ export function WorkbenchSurface() {
     selectedSkills,
     setAtSelection,
     setBuiltinTools,
+    setChatPickerOpen,
     setComposerCaret,
     setDraggingFiles,
     setModelMenuOpen,
@@ -327,6 +331,7 @@ export function WorkbenchSurface() {
   );
   const chatMentions = useChatMentionController({
     atQuery,
+    browseChats: chatPickerOpen,
     composerRef,
     currentProjectId,
     currentRevision: overview.data?.snapshot_revision ?? null,
@@ -1245,7 +1250,9 @@ export function WorkbenchSurface() {
                     {item.attachments && item.attachments.length > 0 ? (
                       <AttachmentGallery attachments={item.attachments} locale={locale} />
                     ) : null}
-                    <MessageMarkdown source={item.content.text} />
+                    {item.role === "user" ? (
+                      <ChatMentionMessageContent locale={locale} source={item.content.text} />
+                    ) : <MessageMarkdown source={item.content.text} />}
                     {item.content.truncated ? <span>{message(locale, "boundedPreview")}</span> : null}
                   </article>
                 </Fragment>
@@ -1318,7 +1325,9 @@ export function WorkbenchSurface() {
               className={[
                 "composer",
                 draggingFiles ? "dragging-files" : "",
-                modelMenuOpen || plusMenuOpen || toolPickerOpen ? "popover-open" : "",
+                modelMenuOpen || plusMenuOpen || toolPickerOpen || chatPickerOpen
+                  ? "popover-open"
+                  : "",
               ].filter(Boolean).join(" ")}
               onDragEnter={(event) => {
                 event.preventDefault();
@@ -1472,54 +1481,35 @@ export function WorkbenchSurface() {
                   </div>
                 </section>
               ) : null}
-              <textarea
-                aria-label={message(locale, "composerPlaceholder")}
-                aria-controls={atQuery === null ? undefined : "composer-mention-picker"}
-                aria-expanded={atQuery !== null}
+              <ComposerTextarea
+                atCandidateCount={atCandidates.length}
+                atQuery={atQuery}
+                atSelection={atSelection}
+                composerRef={composerRef}
                 disabled={startRun.isPending}
-                onChange={(event) => {
-                  setPrompt(event.target.value);
-                  setComposerCaret(event.target.selectionStart);
+                locale={locale}
+                onAtSelectionChange={setAtSelection}
+                onChooseAtCandidate={chooseAtCandidate}
+                onPasteFiles={(files) => attachmentActions.uploadFiles.mutate({ files, source: "paste" })}
+                onPromptChange={(value, caret) => {
+                  setPrompt(value);
+                  setComposerCaret(caret);
                   setPreviewReport(null);
-                }}
-                onKeyDown={(event) => {
-                  if (atQuery !== null && atCandidates.length > 0) {
-                    if (event.key === "ArrowDown") {
-                      event.preventDefault();
-                      setAtSelection((current) => (current + 1) % atCandidates.length);
-                      return;
-                    }
-                    if (event.key === "ArrowUp") {
-                      event.preventDefault();
-                      setAtSelection((current) => (current - 1 + atCandidates.length) % atCandidates.length);
-                      return;
-                    }
-                    if (event.key === "Enter" && !event.metaKey && !event.ctrlKey) {
-                      event.preventDefault();
-                      chooseAtCandidate(atSelection);
-                      return;
-                    }
-                  }
-                  if (event.key === "Escape" && atQuery !== null) {
-                    event.preventDefault();
-                    setComposerCaret(atQuery.start);
-                    return;
-                  }
-                  if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && prompt.trim()) {
-                    event.preventDefault();
-                    startRun.mutate();
+                  if (activeAtQuery(value, caret) !== null) {
+                    setChatPickerOpen(false);
                   }
                 }}
-                onPaste={(event) => {
-                  const files = Array.from(event.clipboardData.files);
-                  if (files.length > 0) attachmentActions.uploadFiles.mutate({ files, source: "paste" });
-                }}
-                placeholder={message(locale, "composerPlaceholder")}
-                ref={composerRef}
-                rows={4}
-                onSelect={(event) => setComposerCaret(event.currentTarget.selectionStart)}
-                value={prompt}
+                onSubmit={() => startRun.mutate()}
+                prompt={prompt}
+                setComposerCaret={setComposerCaret}
               />
+              {chatPickerOpen ? (
+                <ChatRelayComposerPicker
+                  controller={chatMentions}
+                  locale={locale}
+                  onClose={() => setChatPickerOpen(false)}
+                />
+              ) : null}
               {atQuery === null ? null : (
                 <MentionPicker
                   chats={chatMentions.availableChats}
@@ -1682,6 +1672,16 @@ export function WorkbenchSurface() {
                         </div>
                       ) : null}
                     </div>
+                    <ChatRelayToggle
+                      locale={locale}
+                      onToggle={() => {
+                        setChatPickerOpen((open) => !open);
+                        setModelMenuOpen(false);
+                        setPlusMenuOpen(false);
+                        setToolPickerOpen(false);
+                      }}
+                      open={chatPickerOpen}
+                    />
                     <label className="compact-control">
                       <span>{message(locale, "taskType")}</span>
                       <select

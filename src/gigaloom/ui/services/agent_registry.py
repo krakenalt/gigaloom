@@ -38,6 +38,7 @@ class AgentRegistryEntryWebProjection:
     license: str
     repository: str | None
     website: str | None
+    icon_ref: str | None
     entry_digest: str
     platforms: tuple[str, ...]
     distribution_kinds: tuple[str, ...]
@@ -170,6 +171,7 @@ def _entry_projection(entry: ACPRegistryEntryV1) -> AgentRegistryEntryWebProject
         license=entry.license,
         repository=entry.repository,
         website=entry.website,
+        icon_ref=entry.icon_ref,
         entry_digest=entry.entry_digest,
         platforms=tuple(
             sorted(
