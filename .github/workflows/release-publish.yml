@@ -72,7 +72,7 @@ jobs:
 
       - name: Resolve manual recovery or completed candidate
         id: candidate
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_CANDIDATE_MANIFEST_SHA256: ${{ inputs.candidate_manifest_sha256 }}
@@ -292,7 +292,7 @@ jobs:
 
       - name: Require a vacant GitHub Release tag before registry mutation
         if: needs.resolve.outputs.recovery_mode != 'release-assets-only'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           RELEASE_TAG: ${{ steps.guard.outputs.tag }}
         with:
@@ -359,7 +359,7 @@ jobs:
 
       - name: Inspect the exact-tag GitHub Release boundary
         id: github_release
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           RELEASE_TAG: ${{ steps.guard.outputs.tag }}
         with:
